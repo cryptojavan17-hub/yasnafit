@@ -14,6 +14,12 @@ const menu = [
   ['ابزارها',null,'⌘',[['محاسبه گر کالری','/tools/calorie-calculator'],['محاسبه گر BMI','/tools/bmi-calculator']]],['اعلان ها و پاپ آپ ها','/notifs','♧'],['تنظیمات پروفایل','/coach/profile','⚙'],['تنظیمات سامانه','/coach/settings','⚙'],
   ['آمار ها',null,'◫',[['آمار فروش','/reports/coach/general'],['بیشترین تمدید شاگرد ها','/reports/coach/duration-sort'],['شاگرد های تمدید نکرده','/reports/coach/not-extended'],['گزارش لایسنس ها','/reports/admin/licence-charts'],['گزارش اعتبارات','/reports/admin/credits'],['گزارش لایسنس مربی‌ها','/reports/admin/coachs-data'],['آمار بازخورد ها','/reports/coach/feedbacks']]]
 ];
+// در نسخه فعلی، سایدبار عمداً فقط ماژول‌های اصلی مربی را نمایش می‌دهد.
+const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'شاگرد های من', 'بانک برنامه ها', 'آمار ها'];
+const sidebarMenu = menu.filter(item => visibleRoots.includes(item[0]));
+const statsIndex = sidebarMenu.findIndex(item => item[0] === 'آمار ها');
+sidebarMenu.splice(statsIndex, 0, ['تنظیمات', null, '⚙', [['پروفایل', '/coach/profile'], ['تنظیمات سامانه', '/coach/settings']]]);
+
 const menuEl=document.querySelector('#menu'), content=document.querySelector('#content'), crumb=document.querySelector('#breadcrumb');
 let current='';
 function go(label, route){ current=route; history.pushState({},'',route); render(label,route); document.querySelector('#sidebar').classList.remove('open'); }
@@ -22,6 +28,6 @@ function render(label,route){
  content.innerHTML=`<div class="page-intro"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>این بخش برای مدیریت <b>${label}</b> آماده شده است. محتوای عملیاتی آن در مرحله بعد به این صفحه افزوده می‌شود.</p></div><div class="page-icon">${route ? '◈' : '▦'}</div></div>
  <div class="placeholder-grid"><article><span>وضعیت صفحه</span><strong>آماده طراحی</strong><small>مسیر: ${route||'—'}</small></article><article><span>دسترسی</span><strong>مدیر / مربی</strong><small>ورود در نسخه فعلی غیرفعال است</small></article><article><span>گام بعدی</span><strong>پیاده‌سازی امکانات</strong><small>فرم‌ها، جدول‌ها و دیتابیس</small></article></div>`;
 }
-menu.forEach(([label,route,icon,children])=>{const wrap=document.createElement('div');wrap.className='menu-group'; if(children){ const button=document.createElement('button'); button.className='menu-link parent'; button.innerHTML=`<span class="menu-icon">${icon}</span><span>${label}</span><i>⌄</i>`; const sub=document.createElement('div');sub.className='submenu';children.forEach(([child,childRoute])=>{const a=document.createElement('button');a.className='menu-link child';a.dataset.route=childRoute;a.textContent=child;a.onclick=()=>go(child,childRoute);sub.append(a)});button.onclick=()=>{wrap.classList.toggle('expanded')};wrap.append(button,sub)} else {const a=document.createElement('button');a.className='menu-link';a.dataset.route=route;a.innerHTML=`<span class="menu-icon">${icon}</span><span>${label}</span>`;a.onclick=()=>go(label,route);wrap.append(a)}menuEl.append(wrap)});
+sidebarMenu.forEach(([label,route,icon,children])=>{const wrap=document.createElement('div');wrap.className='menu-group'; if(children){ const button=document.createElement('button'); button.className='menu-link parent'; button.innerHTML=`<span class="menu-icon">${icon}</span><span>${label}</span><i>⌄</i>`; const sub=document.createElement('div');sub.className='submenu';children.forEach(([child,childRoute])=>{const a=document.createElement('button');a.className='menu-link child';a.dataset.route=childRoute;a.textContent=child;a.onclick=()=>go(child,childRoute);sub.append(a)});button.onclick=()=>{wrap.classList.toggle('expanded')};wrap.append(button,sub)} else {const a=document.createElement('button');a.className='menu-link';a.dataset.route=route;a.innerHTML=`<span class="menu-icon">${icon}</span><span>${label}</span>`;a.onclick=()=>go(label,route);wrap.append(a)}menuEl.append(wrap)});
 document.querySelector('#menuToggle').onclick=()=>document.querySelector('#sidebar').classList.toggle('open');
 window.onpopstate=()=>render('بخش انتخاب‌شده',location.pathname);render('داشبورد','/coach/dashboard');
