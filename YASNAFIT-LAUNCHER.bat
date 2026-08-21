@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-set "PORT=3010"
+set "PORT=3020"
 set "PID_FILE=%~dp0yasnafit.pid"
 
 :MENU
