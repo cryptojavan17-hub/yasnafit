@@ -17,6 +17,8 @@ const menu = [
 // در نسخه فعلی، سایدبار عمداً فقط ماژول‌های اصلی مربی را نمایش می‌دهد.
 const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'شاگرد های من', 'بانک برنامه ها', 'آمار ها'];
 const sidebarMenu = menu.filter(item => visibleRoots.includes(item[0]));
+const landingIndex = sidebarMenu.findIndex(item => item[0] === 'صفحه اختصاصی');
+sidebarMenu.splice(landingIndex + 1, 0, ['مدیریت حساب', null, '⚙', [['مدیریت حرکات تمرینی', '/programs/exercise/movements-list']]]);
 const statsIndex = sidebarMenu.findIndex(item => item[0] === 'آمار ها');
 sidebarMenu.splice(statsIndex, 0, ['تنظیمات', null, '⚙', [['پروفایل', '/coach/profile'], ['تنظیمات سامانه', '/coach/settings']]]);
 
