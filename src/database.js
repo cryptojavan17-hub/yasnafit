@@ -19,6 +19,19 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS movements (
  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, muscle_group TEXT, equipment TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS exercise_categories (
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS exercise_subcategories (
+ id TEXT PRIMARY KEY, category_id TEXT NOT NULL, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0,
+ FOREIGN KEY(category_id) REFERENCES exercise_categories(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS exercises (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, name_fa TEXT NOT NULL, location TEXT NOT NULL DEFAULT 'both' CHECK(location IN ('gym','home','both')),
+ category_id TEXT NOT NULL, subcategory_id TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','archived')),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(category_id) REFERENCES exercise_categories(id), FOREIGN KEY(subcategory_id) REFERENCES exercise_subcategories(id)
+);
 CREATE TABLE IF NOT EXISTS programs (
  id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, title TEXT NOT NULL, type TEXT NOT NULL,
  status TEXT NOT NULL DEFAULT 'پیش‌نویس', start_date TEXT, end_date TEXT, notes TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -38,7 +51,19 @@ CREATE TABLE IF NOT EXISTS activity_log (
 `);
 function scalar(sql, ...params) { return db.prepare(sql).get(...params); }
 function log(title, detail = '') { db.prepare('INSERT INTO activity_log (title, detail) VALUES (?, ?)').run(title, detail); }
+function seedExercises() {
+ const categoryRows = [['upper','بالاتنه',1],['lower','پایین‌تنه',2],['core','میان‌تنه',3],['cardio','هوازی',4]];
+ const category = db.prepare('INSERT OR IGNORE INTO exercise_categories (id,name,sort_order) VALUES (?,?,?)');
+ categoryRows.forEach(row => category.run(...row));
+ const subRows = [['chest','upper','سینه',1],['back','upper','پشت',2],['shoulder','upper','سرشانه',3],['arms','upper','بازو',4],['quads','lower','چهارسر',1],['hamstrings','lower','همسترینگ',2],['glutes','lower','سرینی',3],['abs','core','شکم',1],['plank','core','پلانک',2],['running','cardio','دویدن',1]];
+ const sub = db.prepare('INSERT OR IGNORE INTO exercise_subcategories (id,category_id,name,sort_order) VALUES (?,?,?,?)');
+ subRows.forEach(row => sub.run(...row));
+ if (scalar('SELECT COUNT(*) AS total FROM exercises').total) return;
+ const exercise = db.prepare('INSERT INTO exercises (name_fa,location,category_id,subcategory_id,status) VALUES (?,?,?,?,?)');
+ [['پرس سینه هالتر','gym','upper','chest','active'],['شنا سوئدی','home','upper','chest','active'],['لت سیم‌کش از جلو','gym','upper','back','active'],['بارفیکس دست باز','both','upper','back','active'],['پرس سرشانه دمبل','both','upper','shoulder','active'],['جلو بازو دمبل','both','upper','arms','active'],['اسکوات هالتر','gym','lower','quads','active'],['اسکوات وزن بدن','home','lower','quads','active'],['ددلیفت رومانیایی','gym','lower','hamstrings','active'],['پل باسن','home','lower','glutes','active'],['کرانچ','home','core','abs','active'],['پلانک ساعد','both','core','plank','active'],['دویدن روی تردمیل','gym','cardio','running','active'],['دویدن درجا','home','cardio','running','archived']].forEach(row => exercise.run(...row));
+}
 function seed() {
+ seedExercises();
  const has = scalar('SELECT COUNT(*) AS total FROM students').total;
  if (has) return;
  const add = db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height) VALUES (?,?,?,?,?,?)');
