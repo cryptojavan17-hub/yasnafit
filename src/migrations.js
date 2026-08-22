@@ -491,6 +491,105 @@ const migrations = [
           ON training_programs(start_date, end_date);
       `);
     }
+  },
+  {
+    id: '008_application_releases',
+    description: 'Structured application release history (independent of schema version)',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS releases (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          version TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          release_date TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          changes_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CHECK(json_valid(changes_json))
+        );
+        CREATE INDEX IF NOT EXISTS idx_releases_date ON releases(release_date DESC, id DESC);
+      `);
+
+      const seed=db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `);
+      const releases=[
+        {
+          version:'0.1.0',
+          title:'Initial Development Release',
+          release_date:'2026-08-22',
+          summary:'انتشار توسعه اولیه و معماری محلی Yasnafit',
+          changes:{
+            features:[
+              'مدیریت بانک ۲۷۰۷ حرکت تمرینی و ۱۳ دسته‌بندی',
+              'Program Builder با ساختار روز، سیستم، حرکت و ست',
+              'ذخیره‌سازی محلی SQLite، migrationها، پشتیبان‌گیری و launcher'
+            ],
+            improvements:['یکپارچه‌سازی جداول نرمال‌شده به‌عنوان منبع اصلی برنامه تمرینی'],
+            fixes:[], security:[], breaking_changes:[]
+          }
+        },
+        {
+          version:'0.2.0',
+          title:'Student Portal and Monthly Coaching',
+          release_date:'2026-08-22',
+          summary:'چرخه کامل دعوت شاگرد، ارزیابی، بررسی مربی و برنامه ماهانه',
+          changes:{
+            features:[
+              'پورتال خصوصی شاگرد و لینک دعوت اختصاصی',
+              'ارزیابی بدنی ماهانه و عکس‌های جلو، پشت و کنار',
+              'بررسی و تایید ارزیابی توسط مربی',
+              'اتصال ارزیابی تاییدشده به برنامه ماهانه در Program Builder',
+              'تاریخچه دائمی ارزیابی‌ها و برنامه‌ها و مقایسه ماهانه'
+            ],
+            improvements:['نمایش فقط‌خواندنی برنامه فعال در پورتال شاگرد'],
+            fixes:[],
+            security:['هش‌کردن توکن دعوت و نگهداری خصوصی عکس‌های ارزیابی'],
+            breaking_changes:[]
+          }
+        },
+        {
+          version:'0.2.1',
+          title:'Production Readiness and Security Fixes',
+          release_date:'2026-08-22',
+          summary:'اصلاحات ممیزی نهایی امنیت، اعتبارسنجی و تغییرناپذیری سوابق',
+          changes:{
+            features:[],
+            improvements:['افزایش پوشش تست چرخه کامل دو شاگرد و دو ماه'],
+            fixes:[
+              'جلوگیری از ویرایش ارزیابی ارسال‌شده و برنامه فعال یا تاریخی',
+              'اعتبارسنجی شماره روز، زمان استراحت و شناسه حرکت در Program Builder'
+            ],
+            security:[
+              'تقویت احراز دسترسی مربی و جداسازی کامل پورتال شاگرد',
+              'اعتبارسنجی ساختاری JPEG، PNG و WEBP و جلوگیری از فایل جعلی',
+              'تقویت مجوز دسترسی به عکس خصوصی و جلوگیری از path traversal'
+            ],
+            breaking_changes:[]
+          }
+        },
+        {
+          version:'0.3.0',
+          title:'Application Versioning and Release History',
+          release_date:'2026-08-22',
+          summary:'نسخه‌بندی معنایی متمرکز و تاریخچه ساخت‌یافته انتشارها',
+          changes:{
+            features:[
+              'منبع مرکزی نسخه برنامه با Semantic Versioning',
+              'API نسخه فعلی و تاریخچه انتشارها',
+              'صفحه نسخه و تغییرات در پنل مربی'
+            ],
+            improvements:['نمایش ظریف نسخه فعلی در داشبورد و نوار کناری'],
+            fixes:[], security:[], breaking_changes:[]
+          }
+        }
+      ];
+      for(const release of releases){
+        seed.run(release.version,release.title,release.release_date,release.summary,JSON.stringify(release.changes));
+      }
+    }
   }
 ];
 

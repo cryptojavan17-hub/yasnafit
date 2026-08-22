@@ -170,8 +170,29 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   const traversalResponse=await fetch(BASE+'/%2e%2e/server.js');
   assert.notEqual(traversalResponse.status,200,'encoded path traversal served source');
 
+  const versionInfo=await ok('/api/version');
+  assert.deepEqual(versionInfo,{version:'0.3.0',name:'Yasnafit',environment:'development'});
+  const releases=await ok('/api/releases');
+  assert.deepEqual(releases.map(release=>release.version),['0.3.0','0.2.1','0.2.0','0.1.0']);
+  assert.ok(releases.every(release=>release.changes && Array.isArray(release.changes.features)));
+  assert.equal(releases.filter(release=>release.is_current).length,1);
+  const currentRelease=await ok('/api/releases/0.3.0');
+  assert.equal(currentRelease.title,'Application Versioning and Release History');
+  assert.equal(currentRelease.is_current,true);
+  await expectStatus(404,'/api/releases/9.9.9');
+
+  const coreSource=fs.readFileSync(path.join(__dirname,'..','public','core.js'),'utf8');
+  const releaseSource=fs.readFileSync(path.join(__dirname,'..','public','releases.js'),'utf8');
+  assert.match(coreSource,/api\/version/,'dashboard does not load the central version API');
+  assert.match(coreSource,/dashboard-version/,'dashboard version display is missing');
+  assert.match(releaseSource,/api\/releases/,'release history UI is not connected to the releases API');
+  for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
+    const source=fs.readFileSync(path.join(__dirname,'..','public',file),'utf8');
+    assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(source),false,`frontend hardcodes an application-like version in ${file}`);
+  }
+
   const health=await ok('/api/health');
   assert.equal(health.exercises,2707);
-  assert.equal(health.schema_version,'007_monthly_workflow_integrity');
-  console.log(JSON.stringify({ok:true,student_id:s1.id,assessments:[a1.id,a2.id],programs:[p1.id,p2.id],checks:26},null,2));
+  assert.equal(health.schema_version,'008_application_releases');
+  console.log(JSON.stringify({ok:true,student_id:s1.id,assessments:[a1.id,a2.id],programs:[p1.id,p2.id],application_version:versionInfo.version,releases:releases.length},null,2));
 })().catch(error=>{ console.error(error); process.exitCode=1; });

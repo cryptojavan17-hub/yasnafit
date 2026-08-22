@@ -39,6 +39,7 @@ const validation = require('./src/validation');
 const programService = require('./src/program-service');
 const studentService = require('./src/student-service');
 const uploadService = require('./src/upload-service');
+const releaseService = require('./src/release-service');
 
 // --- MIME Types ---
 const types = {
@@ -178,6 +179,19 @@ async function handleHealth(req,res){
     schema_version: schemaVersion,
     uptime: process.uptime()
   });
+}
+
+async function handleReleaseInfo(req,res,url){
+  if(req.method!=='GET') return sendError(res,405,'متد مجاز نیست');
+  if(url.pathname==='/api/version') return send(res,200,releaseService.getApplicationInfo());
+  if(url.pathname==='/api/releases') return send(res,200,releaseService.listReleases(db));
+  const match=url.pathname.match(/^\/api\/releases\/([^/]+)$/);
+  if(match){
+    const release=releaseService.getRelease(db,match[1]);
+    if(!release) return sendError(res,404,'نسخه پیدا نشد');
+    return send(res,200,release);
+  }
+  return null;
 }
 
 async function handleDashboard(req,res){
@@ -1185,6 +1199,10 @@ async function api(req,res,url){
     const p=url.pathname;
 
     if(p==='/api/health') return await handleHealth(req,res);
+    if(p==='/api/version' || p==='/api/releases' || p.startsWith('/api/releases/')){
+      const releaseResponse=await handleReleaseInfo(req,res,url);
+      if(releaseResponse) return releaseResponse;
+    }
     const studentScoped = p.startsWith('/api/student-portal/') || p.startsWith('/api/student-photos/');
     if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
@@ -1432,5 +1450,6 @@ server.listen(port,'0.0.0.0',()=>{
   const totalEx = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
   const totalProg = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
   console.log(`Yasnafit is running at http://localhost:${port} with ${totalEx} exercises and ${totalProg} training programs`);
-  console.log(`Schema version: ${(() => { try { return db.prepare('SELECT value FROM settings WHERE key=?').get('schema_version')?.value || 'unknown'; } catch(e){ return 'unknown'; } })()}`);
+  console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
+  console.log(`Database schema version: ${(() => { try { return db.prepare('SELECT value FROM settings WHERE key=?').get('schema_version')?.value || 'unknown'; } catch(e){ return 'unknown'; } })()}`);
 });

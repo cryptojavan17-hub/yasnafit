@@ -1,6 +1,7 @@
 {
   "name": "yasnafit",
-  "version": "0.1.0",
+  "displayName": "Yasnafit",
+  "version": "0.3.0",
   "private": true,
   "description": "Yasnafit local fitness coaching dashboard",
   "scripts": {

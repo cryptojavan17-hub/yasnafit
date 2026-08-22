@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `005_sync_metadata` stored in `settings` table and `schema_migrations`
+Current: `008_application_releases` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -11,6 +11,9 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `003_program_builder` - Training program builder tables + unique hash indexes
 - `004_program_integrity` - Program source of truth, cleanup old categories, stable_id, version, deleted_at
 - `005_sync_metadata` - Sync readiness for all tables
+- `006_student_portal_lifecycle` - Invitations, assessments, private photos, monthly program links
+- `007_monthly_workflow_integrity` - Historical and lifecycle integrity hardening
+- `008_application_releases` - Structured application release history
 
 ## Full Schema
 
@@ -342,7 +345,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..005 applied and Imported 2707 exercises
+# Should show migrations 001..008 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -477,3 +480,29 @@ CREATE INDEX idx_training_programs_dates ON training_programs(start_date, end_da
 Stable IDs are cross-device identifiers. Integer IDs remain local foreign keys. Android
 sync should use stable IDs and versions, carry tombstones via `deleted_at`, and treat
 submitted assessments and assigned programs as immutable historical aggregates.
+
+---
+
+# Schema 008: Application Release History
+
+Application release versions are not database schema versions. `package.json.version` is
+the current application-version source; this table is the immutable structured history.
+
+```sql
+CREATE TABLE releases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  version TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  release_date TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  changes_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK(json_valid(changes_json))
+);
+CREATE INDEX idx_releases_date ON releases(release_date DESC, id DESC);
+```
+
+`changes_json` has five arrays: `features`, `improvements`, `fixes`, `security`, and
+`breaking_changes`. Migration `008_application_releases` seeds the actual release history
+from `0.1.0` through `0.3.0` and uses `INSERT OR IGNORE` for idempotency.

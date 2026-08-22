@@ -845,3 +845,34 @@ the assessment/program timeline later, but no AI decision-making is implemented 
 required uploads, pending/review/approval, normalized program activation, timeline
 persistence, cross-student denial, invalid/revoked tokens, invalid SVG/traversal upload,
 private photo serving, immutable history, migration version, and exercise-count regression.
+
+---
+
+# Application Versioning and Releases (Schema 008)
+
+Application releases use Semantic Versioning and are intentionally independent from both
+SQLite migration IDs and Git commit hashes.
+
+- **Application version source of truth:** `package.json.version`
+- **Application metadata/API adapter:** `src/release-service.js`
+- **Database schema version:** latest row in `schema_migrations` / `settings.schema_version`
+- **Git commit:** source-control identity only; it does not automatically change a release
+
+A version changes only for a deliberate release. PATCH is used for compatible fixes,
+MINOR for backward-compatible features, and MAJOR for breaking application/API changes.
+The browser never contains a hardcoded application version; it reads `GET /api/version`.
+
+Structured release notes are stored in `releases.changes_json` with the fixed categories
+`features`, `improvements`, `fixes`, `security`, and `breaking_changes`. The API maps this
+JSON to a structured `changes` object. The dashboard, sidebar footer, and
+`/coach/releases` UI consume the version/release APIs.
+
+Read-only endpoints:
+
+- `GET /api/version`
+- `GET /api/releases`
+- `GET /api/releases/:version`
+
+Release workflow: intentionally update `package.json.version`, add a structured release
+record through a new migration, commit, then create an annotated `vMAJOR.MINOR.PATCH` Git
+tag. Tags are not pushed automatically.

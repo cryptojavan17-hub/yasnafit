@@ -32,16 +32,17 @@ async function render(label,route){
   if(route==='/students/submissions' && window.renderCoachSubmissions) return window.renderCoachSubmissions(label,route);
   if(route.startsWith('/students/') && route.includes('/timeline') && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
+  if(route==='/coach/releases' && window.renderReleaseHistory) return window.renderReleaseHistory(label,route);
   current=route;
   crumb.textContent=label;
   document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active',x.dataset.route===route));
   const head=`<div class="page-head"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>مدیریت اطلاعات محلی با ذخیره‌سازی امن در SQLite.</p></div><button class="primary" id="addBtn">＋ افزودن</button></div>`;
   try{
     if(route==='/coach/dashboard'){
-      const d=await api('/api/dashboard');
+      const [d,versionInfo]=await Promise.all([api('/api/dashboard'),api('/api/version')]);
       const pending = await api('/api/student-submissions').catch(()=>[]);
       content.innerHTML=`
-        <div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p></div></div>
+        <div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p><small class="dashboard-version">${esc(versionInfo.name)} v${esc(versionInfo.version)}</small></div></div>
         <div class="stat-grid">
           <article><span>کل شاگردها</span><strong>${d.stats.total}</strong></article>
           <article><span>برنامه‌های فعال</span><strong>${d.stats.trainingPrograms||d.stats.active||0}</strong></article>
