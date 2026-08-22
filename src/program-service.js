@@ -188,7 +188,7 @@ function saveProgramToDB(db, programId, programInput){
     const targetAssessmentId = normalizedInput.assessment_id != null ? normalizedInput.assessment_id : existing.assessment_id;
     if(targetAssessmentId){
       const assessment = db.prepare('SELECT student_id, status FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(targetAssessmentId);
-      if(!assessment || assessment.student_id !== Number(targetStudentId) || assessment.status !== 'APPROVED') {
+      if(!assessment || assessment.student_id !== Number(targetStudentId) || (assessment.lifecycle_status||assessment.status) !== 'APPROVED') {
         const err = new Error('برنامه فقط به ارزیابی تاییدشده همان شاگرد متصل می‌شود'); err.statusCode=400; throw err;
       }
     }
@@ -319,7 +319,7 @@ function createProgramInDB(db, programInput){
     }
     if(normalizedInput.assessment_id){
       const assessment = db.prepare('SELECT student_id, status FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(normalizedInput.assessment_id);
-      if(!assessment || assessment.student_id !== Number(normalizedInput.student_id) || assessment.status !== 'APPROVED') {
+      if(!assessment || assessment.student_id !== Number(normalizedInput.student_id) || (assessment.lifecycle_status||assessment.status) !== 'APPROVED') {
         const err = new Error('برنامه فقط به ارزیابی تاییدشده همان شاگرد متصل می‌شود'); err.statusCode=400; throw err;
       }
     }
@@ -436,7 +436,7 @@ function activateProgram(db, programId){
   if(program.status !== 'DRAFT') throw new Error('فقط پیش‌نویس قابل اختصاص است');
   if(!program.student_id || !program.assessment_id) throw new Error('شاگرد و ارزیابی مبدا الزامی هستند');
   const assessment = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(program.assessment_id);
-  if(!assessment || assessment.student_id !== program.student_id || assessment.status !== 'APPROVED') throw new Error('ارزیابی تاییدشده همان شاگرد الزامی است');
+  if(!assessment || assessment.student_id !== program.student_id || (assessment.lifecycle_status||assessment.status) !== 'APPROVED') throw new Error('ارزیابی تاییدشده همان شاگرد الزامی است');
   const dayCount = db.prepare('SELECT COUNT(*) AS c FROM program_days WHERE program_id=? AND deleted_at IS NULL').get(programId).c;
   const movementCount = db.prepare(`SELECT COUNT(*) AS c FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=? AND pm.deleted_at IS NULL AND es.deleted_at IS NULL AND pd.deleted_at IS NULL`).get(programId).c;
   if(dayCount < 1 || movementCount < 1) throw new Error('برنامه باید حداقل یک روز و یک حرکت داشته باشد');
@@ -449,7 +449,7 @@ function activateProgram(db, programId){
     // A student has one current plan. Prior plans are completed, never overwritten.
     db.prepare(`UPDATE training_programs SET status='COMPLETED', completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE student_id=? AND status='ACTIVE' AND id<>? AND deleted_at IS NULL`).run(program.student_id, programId);
     db.prepare(`UPDATE training_programs SET status='ACTIVE', assigned_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId);
-    db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId, assessment.id);
+    db.prepare(`UPDATE body_assessments SET program_id=?,lifecycle_status='APPROVED',status='APPROVED',updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(programId, assessment.id);
     db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessment.id, program.student_id);
     db.exec('COMMIT');
   } catch(e){ db.exec('ROLLBACK'); throw e; }

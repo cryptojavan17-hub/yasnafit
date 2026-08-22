@@ -6,6 +6,18 @@
     if(!r.ok) throw new Error(d.error||'خطا');
     return d;
   }
+  const detailLabels={height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:'دور سینه',around_the_belly:'دور شکم',around_the_belly_from_the_navel:'دور ناف',around_the_hips:'دور باسن',around_the_leg:'دور ساق',around_the_thigh:'دور ران',around_the_wrist:'دور مچ',disease_details:'بیماری',medication_details:'دارو',injury_details:'آسیب',surgery_details:'جراحی',last_blood_test_notes:'آزمایش خون',corrective_notes:'ناهنجاری اصلاحی',average_daily_activity:'فعالیت روزانه',practice_history_details:'سابقه تمرین',current_practice_details:'تمرین فعلی',supplement_details:'مکمل',doping_history:'دوپینگ',diet_type:'نوع رژیم',food_allergies:'حساسیت غذایی',weight_changes:'تغییر وزن',appetite_status:'اشتها',defecation_problem:'دفع',breakfast:'صبحانه',lunch:'نهار',dinner:'شام',smoking_details:'دخانیات',alcohol_details:'الکل'};
+  function detailsCard(title,object){
+    if(!object)return `<section class="assessment-detail-group"><h3>${title}</h3><p class="muted">ثبت نشده</p></section>`;
+    const hidden=new Set(['assessment_id','created_at','updated_at']);
+    const entries=Object.entries(object).filter(([key,value])=>!hidden.has(key)&&value!==null&&value!==''&&!key.startsWith('has_')&&![0,1].includes(value));
+    return `<section class="assessment-detail-group"><h3>${title}</h3><div>${entries.map(([key,value])=>`<span><small>${esc(detailLabels[key]||key)}</small><b>${esc(value)}</b></span>`).join('')||'<p class="muted">موردی ثبت نشده</p>'}</div></section>`;
+  }
+  function measurementComparison(current,previous){
+    if(!current||!previous)return '';
+    const keys=['weight','height','around_the_arm','around_the_chest','around_the_belly','around_the_belly_from_the_navel','around_the_hips','around_the_thigh','around_the_leg','around_the_wrist'];
+    return `<div class="measurement-comparison">${keys.filter(key=>current[key]!=null||previous[key]!=null).map(key=>{const change=Number.isFinite(Number(current[key]))&&Number.isFinite(Number(previous[key]))?(Number(current[key])-Number(previous[key])).toFixed(1):'—';return `<span><small>${esc(detailLabels[key]||key)}</small><b>${esc(previous[key]??'—')} ← ${esc(current[key]??'—')}</b><i>${change==='—'?'':`${change>0?'+':''}${change}`}</i></span>`}).join('')}</div>`;
+  }
   function photoPreferenceState(assessment){
     if(assessment.body_photos_preference==='declined')return '<div class="photo-preference-state declined">— این شاگرد ترجیح داده است تصاویر بدنی ارسال نکند.</div>';
     if(assessment.body_photos_preference==='willing')return `<div class="photo-preference-state willing">✓ مایل به ارسال تصاویر • ${(assessment.photos||[]).length} تصویر ارسال شده</div>`;
@@ -77,11 +89,14 @@
       const student=data.student;
       const prev=data.previous_assessment;
       const prevProg=data.previous_program;
+      const details=data.assessment_details||{};
+      const prevDetails=data.previous_assessment_details||{};
+      const lifecycle=ass.lifecycle_status||ass.status;
 
       content.innerHTML=`
         <div class="program-builder">
           <div class="order-header">
-            <div><h2>ارزیابی #${ass.assessment_number} - ${esc(student.full_name)} • ${esc(ass.status)}</h2><small>ارسال: ${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):''} • وزن: ${ass.weight}kg</small></div>
+            <div><h2>ارزیابی #${ass.assessment_number} - ${esc(student.full_name)} • ${esc(lifecycle)}</h2><small>${esc(ass.assessment_type||'INITIAL')} • ایجاد: ${new Date(ass.created_at).toLocaleString('fa-IR')} • ارسال: ${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'—'} • وزن: ${ass.weight}kg</small></div>
             <button class="btn btn-secondary" onclick="history.back()">← بازگشت</button>
           </div>
 
@@ -116,6 +131,18 @@
                     </div>
                   `).join('') || '<span class="muted">تصویری ارسال نشده است؛ این موضوع مانع بررسی نیست.</span>'}
                 </div>`}
+                <h3 style="margin-top:14px">مدارک پزشکی و آنالیز</h3>
+                <div class="document-list">${(ass.documents||[]).map(document=>`<article><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><span>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</span></a></article>`).join('')||'<p class="muted">ارسال نشده • اختیاری</p>'}</div>
+              </section>
+              <section class="sp-card assessment-detail-sections">
+                <h2>جزئیات حرفه‌ای پرونده</h2>
+                <section class="assessment-detail-group"><h3>اطلاعات کلی</h3><div><span><small>اهداف</small><b>${esc((details.goals||[]).join('، ')||'—')}</b></span></div></section>
+                ${detailsCard('اندازه‌ها',details.measurements)}
+                ${detailsCard('سوابق پزشکی',details.medical)}
+                ${detailsCard('سوابق ورزشی',details.sports)}
+                ${detailsCard('تغذیه',details.nutrition)}
+                ${detailsCard('عادات',details.habits)}
+                ${detailsCard('بارداری و زایمان',details.pregnancy)}
               </section>
 
               ${prev?`
@@ -125,6 +152,7 @@
                   وزن قبلی: ${prev.weight}kg → فعلی: ${ass.weight}kg • تفاوت: ${(ass.weight - prev.weight).toFixed(1)}kg<br>
                   کمر قبلی: ${prev.waist||'—'} → فعلی: ${ass.waist||'—'}<br>
                 </p>
+                ${measurementComparison(details.measurements,prevDetails.measurements)}
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                   <div><small>قبلی:</small>${photoPreferenceState(prev)}${prev.body_photos_preference==='declined'?'':(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border);margin:2px">`).join('')}</div>
                   <div><small>فعلی:</small>${photoPreferenceState(ass)}${ass.body_photos_preference==='declined'?'':(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border-strong);margin:2px">`).join('')}</div>
@@ -139,12 +167,11 @@
                 <h2>✅ تصمیم مربی</h2>
                 <textarea id="coachNote" placeholder="یادداشت برای شاگرد..." style="width:100%;min-height:80px;border:1px solid var(--border);border-radius:10px;padding:10px">${esc(ass.coach_note||'')}</textarea>
                 <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-                  <button class="btn btn-secondary" id="btnUnderReview">🔍 در حال بررسی</button>
-                  <button class="btn btn-danger" id="btnRequestChanges">✏️ درخواست اصلاح</button>
-                  <button class="btn btn-primary" id="btnApprove">✅ تایید</button>
+                  ${lifecycle==='SUBMITTED'?'<button class="btn btn-secondary" id="btnUnderReview">🔍 شروع بررسی</button>':''}
+                  ${lifecycle==='PENDING_REVIEW'?'<button class="btn btn-danger" id="btnRequestChanges">✏️ درخواست اصلاح</button><button class="btn btn-danger" id="btnReject">رد پرونده</button><button class="btn btn-primary" id="btnApprove">✅ تایید پرونده</button>':''}
                 </div>
                 <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-                  <button class="btn btn-primary" id="btnCreateProgram">💪 ساخت برنامه یک ماهه</button>
+                  ${lifecycle==='APPROVED'?'<button class="btn btn-primary" id="btnCreateProgram">💪 ساخت برنامه یک ماهه</button>':'<span class="muted">ساخت برنامه پس از تأیید پرونده فعال می‌شود.</span>'}
                   <small style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">از Program Builder موجود استفاده می‌شود و به ارزیابی لینک می‌شود</small>
                 </div>
               </section>
@@ -158,26 +185,24 @@
         </div>
       `;
 
-      document.getElementById('btnUnderReview').onclick=async()=>{
-        await api(`/api/assessments/${id}/under-review`, {method:'POST'});
-        alert('وضعیت به در حال بررسی تغییر کرد');
-        location.reload();
-      };
-      document.getElementById('btnRequestChanges').onclick=async()=>{
+      document.getElementById('btnUnderReview')?.addEventListener('click',async()=>{
+        await api(`/api/assessments/${id}/under-review`, {method:'POST'});location.reload();
+      });
+      document.getElementById('btnRequestChanges')?.addEventListener('click',async()=>{
+        const note=document.getElementById('coachNote').value;if(!note.trim())return alert('یادداشت مربی الزامی است.');
+        await api(`/api/assessments/${id}/request-changes`, {method:'POST', body: JSON.stringify({coach_note: note})});location.reload();
+      });
+      document.getElementById('btnReject')?.addEventListener('click',async()=>{
+        const note=document.getElementById('coachNote').value;if(!note.trim())return alert('برای رد پرونده یادداشت مربی الزامی است.');
+        await api(`/api/assessments/${id}/reject`,{method:'POST',body:JSON.stringify({coach_note:note})});location.reload();
+      });
+      document.getElementById('btnApprove')?.addEventListener('click',async()=>{
         const note=document.getElementById('coachNote').value;
-        await api(`/api/assessments/${id}/request-changes`, {method:'POST', body: JSON.stringify({coach_note: note})});
-        alert('درخواست اصلاح ارسال شد');
-        location.reload();
-      };
-      document.getElementById('btnApprove').onclick=async()=>{
-        const note=document.getElementById('coachNote').value;
-        await api(`/api/assessments/${id}/approve`, {method:'POST', body: JSON.stringify({coach_note: note})});
-        alert('✅ تایید شد - حالا برنامه بسازید');
-        location.reload();
-      };
-      document.getElementById('btnCreateProgram').onclick=()=>{
+        await api(`/api/assessments/${id}/approve`, {method:'POST', body: JSON.stringify({coach_note: note})});location.reload();
+      });
+      document.getElementById('btnCreateProgram')?.addEventListener('click',()=>{
         location.href=`/programs/exercise/form?student_id=${student.id}&assessment_id=${id}`;
-      };
+      });
 
       // Load timeline
       try {
@@ -198,7 +223,7 @@
   };
 
   window.renderStudentTimeline = async (label, route) => {
-    const match=route.match(/\/students\/(\d+)\/timeline/);
+    const match=route.match(/\/students\/(\d+)\/(?:timeline|assessments)/);
     const studentId=match?Number(match[1]):null;
     if(!studentId) return;
     document.querySelector('#breadcrumb').textContent='تایم‌لاین شاگرد';

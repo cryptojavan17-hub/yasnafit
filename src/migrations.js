@@ -758,6 +758,131 @@ const migrations = [
         JSON.stringify(changes)
       );
     }
+  },
+  {
+    id: '014_professional_assessment_profile',
+    description: 'Normalized ten-step student assessment profile and canonical lifecycle',
+    up: (db) => {
+      const ensureColumn=(table,column,definition)=>{
+        const columns=new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(item=>item.name));
+        if(!columns.has(column))db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      };
+      ensureColumn('students','gender',"TEXT CHECK(gender IS NULL OR gender IN ('female','male','unspecified'))");
+      ensureColumn('body_assessments','assessment_type',"TEXT CHECK(assessment_type IS NULL OR assessment_type IN ('INITIAL','MONTHLY'))");
+      ensureColumn('body_assessments','lifecycle_status',"TEXT CHECK(lifecycle_status IS NULL OR lifecycle_status IN ('DRAFT','SUBMITTED','PENDING_REVIEW','CHANGES_REQUESTED','APPROVED','REJECTED','ARCHIVED'))");
+      ensureColumn('body_assessments','approved_at','TEXT');
+      ensureColumn('body_assessments','rejected_at','TEXT');
+      ensureColumn('body_assessments','archived_at','TEXT');
+      ensureColumn('body_assessments','draft_saved_at','TEXT');
+      db.exec(`
+        UPDATE body_assessments SET assessment_type=CASE WHEN assessment_number=1 THEN 'INITIAL' ELSE 'MONTHLY' END WHERE assessment_type IS NULL;
+        UPDATE body_assessments SET lifecycle_status=CASE
+          WHEN status IN ('INVITED','PROFILE_INCOMPLETE','ASSESSMENT_PENDING') THEN 'DRAFT'
+          WHEN status='SUBMITTED' THEN 'SUBMITTED'
+          WHEN status='UNDER_REVIEW' THEN 'PENDING_REVIEW'
+          WHEN status='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'
+          WHEN status IN ('APPROVED','ACTIVE','PROGRAM_ASSIGNED','AWAITING_NEXT_ASSESSMENT') THEN 'APPROVED'
+          WHEN status='ARCHIVED' THEN 'ARCHIVED'
+          ELSE 'DRAFT' END
+        WHERE lifecycle_status IS NULL;
+        UPDATE body_assessments SET approved_at=COALESCE(approved_at,reviewed_at)
+          WHERE lifecycle_status='APPROVED';
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS assessment_goals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          assessment_id INTEGER NOT NULL,goal_code TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE,
+          UNIQUE(assessment_id,goal_code)
+        );
+        CREATE TABLE IF NOT EXISTS assessment_measurements (
+          assessment_id INTEGER PRIMARY KEY,height REAL,weight REAL,around_the_arm REAL,
+          around_the_chest REAL,around_the_belly REAL,around_the_belly_from_the_navel REAL,around_the_hips REAL,
+          around_the_leg REAL,around_the_thigh REAL,around_the_wrist REAL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS assessment_medical_history (
+          assessment_id INTEGER PRIMARY KEY,has_disease INTEGER,disease_details TEXT,
+          has_medication INTEGER,medication_details TEXT,has_injury INTEGER,injury_details TEXT,
+          has_surgery INTEGER,surgery_details TEXT,last_blood_test_notes TEXT,corrective_notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS assessment_medical_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          assessment_id INTEGER NOT NULL,item_kind TEXT NOT NULL CHECK(item_kind IN ('injury','surgery','disease','corrective')),
+          category TEXT NOT NULL,item_name TEXT NOT NULL,notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_assessment_medical_items_assessment ON assessment_medical_items(assessment_id,item_kind);
+        CREATE TABLE IF NOT EXISTS assessment_sports_history (
+          assessment_id INTEGER PRIMARY KEY,average_daily_activity TEXT,practice_history INTEGER,
+          practice_history_details TEXT,practice_duration TEXT,sport_discipline TEXT,
+          practice_now INTEGER,current_practice_details TEXT,practice_place TEXT,
+          home_equipment TEXT,sessions_per_week INTEGER,supplement_history INTEGER,
+          supplement_details TEXT,doping_history TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS assessment_nutrition (
+          assessment_id INTEGER PRIMARY KEY,diet_type TEXT,previous_diet INTEGER,
+          previous_diet_duration TEXT,previous_diet_type TEXT,previous_diet_notes TEXT,
+          food_allergies TEXT,weight_changes TEXT,appetite_status TEXT,appetite_notes TEXT,
+          defecation_problem TEXT,breakfast TEXT,lunch TEXT,dinner TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS assessment_habits (
+          assessment_id INTEGER PRIMARY KEY,smoking INTEGER,smoking_details TEXT,
+          alcohol INTEGER,alcohol_details TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS assessment_pregnancy (
+          assessment_id INTEGER PRIMARY KEY,childbirth_history INTEGER,childbirth_count INTEGER,
+          childbirth_type TEXT,childbirth_notes TEXT,breastfeeding INTEGER,
+          breastfeeding_notes TEXT,child_age_months INTEGER,formula_use INTEGER,
+          formula_type TEXT,formula_amount TEXT,formula_frequency TEXT,child_food_allergy INTEGER,
+          child_food_allergy_notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_assessments_type_status ON body_assessments(assessment_type,lifecycle_status,student_id);
+      `);
+      const changes={
+        features:['فرم حرفه‌ای ده‌مرحله‌ای ارزیابی دانش‌آموز','ذخیره ساخت‌یافته پزشکی، ورزشی، تغذیه، عادات و بارداری','نوع INITIAL/MONTHLY و lifecycle مستقل ارزیابی'],
+        improvements:['ذخیره موقت، autosave و بازبینی کامل قبل از ارسال','مقایسه ماهانه و اتصال صریح برنامه به ارزیابی'],
+        fixes:['جایگزینی کامل placeholder مسیر document/edit-document'],
+        security:['اعتبارسنجی server-side همه بخش‌ها و حفظ session-bound ownership'],breaking_changes:[]
+      };
+      db.prepare(`INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)`).run(
+        '0.7.0','Professional Student Assessment Profile','2026-08-22',
+        'ارزیابی ده‌مرحله‌ای ساخت‌یافته برای چرخه اولیه و ماهانه',JSON.stringify(changes)
+      );
+    }
+  },
+  {
+    id: '015_private_assessment_documents',
+    description: 'Optional private medical documents and assessment gallery files',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS assessment_documents (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          assessment_id INTEGER NOT NULL,student_id INTEGER NOT NULL,
+          document_type TEXT NOT NULL CHECK(document_type IN ('blood_test','body_analysis','additional_image')),
+          storage_path TEXT NOT NULL,original_filename TEXT NOT NULL,mime_type TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_assessment_documents_assessment ON assessment_documents(assessment_id,document_type,deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_assessment_documents_student ON assessment_documents(student_id,deleted_at);
+      `);
+    }
   }
 ];
 

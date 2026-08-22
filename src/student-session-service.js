@@ -107,7 +107,7 @@ function revokeInvitationSessions(db,invitationId){
 }
 function safeStudent(student){
   return {
-    full_name:student.full_name||'',mobile:student.mobile||'',date_of_birth:student.date_of_birth||'',
+    full_name:student.full_name||'',mobile:student.mobile||'',date_of_birth:student.date_of_birth||'',gender:student.gender||'unspecified',
     goal:student.goal||'',height:student.height,weight:student.weight,
     training_experience:student.training_experience||'',training_level:student.training_level||'',
     preferred_location:student.preferred_location||'gym',limitations:student.limitations||'',

@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `013_optional_body_photos_preference` stored in `settings` table and `schema_migrations`
+Current: `015_private_assessment_documents` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -19,6 +19,8 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `011_student_sessions_portal` - Hashed, revocable student sessions and portal release
 - `012_onboarding_body_input_fix` - Release record for localized body-input onboarding fix
 - `013_optional_body_photos_preference` - Explicit optional body-photo preference
+- `014_professional_assessment_profile` - Normalized ten-step profile and canonical assessment lifecycle
+- `015_private_assessment_documents` - Optional private medical documents and gallery files
 
 ## Full Schema
 
@@ -350,7 +352,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..013 applied and Imported 2707 exercises
+# Should show migrations 001..015 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -572,3 +574,37 @@ body_photos_preference TEXT
 
 Migration backfill sets `willing` only when a current photo actually exists. A historical
 record with no photos stays NULL and is never incorrectly inferred as `declined`.
+
+---
+
+# Schema 014: Professional assessment profile
+
+`body_assessments` remains the single assessment aggregate. It now has
+`assessment_type` (`INITIAL`/`MONTHLY`) and canonical `lifecycle_status`
+(`DRAFT`, `SUBMITTED`, `PENDING_REVIEW`, `CHANGES_REQUESTED`, `APPROVED`,
+`REJECTED`, `ARCHIVED`) plus approval/rejection/archive/draft timestamps. Existing legacy
+status values are retained as a compatibility projection while services enforce the
+canonical lifecycle.
+
+Structured one-to-one/one-to-many tables are the source of truth for detailed sections:
+
+- `assessment_goals`
+- `assessment_measurements`
+- `assessment_medical_history`
+- `assessment_medical_items`
+- `assessment_sports_history`
+- `assessment_nutrition`
+- `assessment_habits`
+- `assessment_pregnancy`
+
+These tables use assessment foreign keys and explicit columns; no uncontrolled profile
+JSON blob was introduced. `students.gender` controls whether pregnancy questions are
+required. `training_programs.assessment_id` remains the explicit program-producing
+assessment relationship.
+
+## Schema 015: Optional private assessment documents
+
+`assessment_documents` stores metadata and private filesystem references for optional
+`blood_test`, `body_analysis`, and `additional_image` files. Physical files live under
+`data/assessment-documents`, never under `public/`. Student/coach authorization is checked
+before streaming and storage paths are never serialized.

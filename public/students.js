@@ -12,8 +12,8 @@
     INACTIVE:['غیرفعال','inactive']
   };
   const assessmentLabels={
-    PROFILE_INCOMPLETE:'پروفایل ناقص',ASSESSMENT_PENDING:'در حال تکمیل',SUBMITTED:'ارسال شده',
-    UNDER_REVIEW:'در حال بررسی',CHANGES_REQUESTED:'نیاز به اصلاح',APPROVED:'تایید شده',
+    PROFILE_INCOMPLETE:'پروفایل ناقص',ASSESSMENT_PENDING:'در حال تکمیل',DRAFT:'پیش‌نویس',SUBMITTED:'ارسال شده',
+    PENDING_REVIEW:'در حال بررسی',UNDER_REVIEW:'در حال بررسی',CHANGES_REQUESTED:'نیاز به اصلاح',APPROVED:'تایید شده',REJECTED:'رد شده',
     PROGRAM_ASSIGNED:'برنامه اختصاص داده شد',ACTIVE:'فعال',ARCHIVED:'آرشیو'
   };
   const programLabels={DRAFT:'پیش‌نویس',ACTIVE:'فعال',COMPLETED:'تکمیل‌شده',ARCHIVED:'آرشیو'};

@@ -29,7 +29,7 @@ for(const [file,selectors] of Object.entries(requiredSelectors)) for(const selec
   assert.ok(css[file].includes(selector),`${file} missing redesigned selector ${selector}`);
 }
 
-const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
+const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
 assert.doesNotMatch(inlineSources,/background\s*:\s*#(?:fff(?:fff)?|f[0-9a-f]{5}|e[0-9a-f]{5})/i,'light inline background can override dark theme');
 assert.doesNotMatch(inlineSources,/var\(--[^)]+\)[0-9a-f]+/i,'malformed CSS variable found in inline styles');
 
@@ -44,17 +44,20 @@ const studentHtml=fs.readFileSync(path.join(publicDir,'student.html'),'utf8');
 assert.match(studentHtml,/dir="rtl"/,'student shell is not RTL');
 assert.match(studentHtml,/\/styles\.css/,'student shell misses design tokens');
 assert.match(studentHtml,/\/student-app\.css/,'student shell misses dedicated responsive styles');
+assert.match(studentHtml,/\/assessment-wizard\.js/,'student shell misses professional assessment wizard');
 assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewport');
 assert.match(css['student-app.css'],/@media\(max-width:800px\)/,'student portal misses tablet/mobile layout');
 assert.match(css['student-app.css'],/@media\(max-width:560px\)/,'student onboarding misses narrow mobile layout');
 assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboarding misses persistent validation feedback');
 const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
-assert.match(studentAppSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
-assert.match(studentAppSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
-assert.match(studentAppSource,/requireRange\(height,100,250/,'body range validation is missing');
-assert.match(studentAppSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');
-assert.match(studentAppSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
-assert.match(studentAppSource,/هر پنج تصویر اختیاری هستند/,'optional photo wording is missing');
-assert.doesNotMatch(studentAppSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
+const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
+assert.match(wizardSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
+assert.match(wizardSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
+assert.match(wizardSource,/around_the_belly_from_the_navel/,'normalized measurement fields are missing');
+assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از 10/,'ten-step progress indicator is missing');
+assert.match(wizardSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');
+assert.match(wizardSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
+assert.match(wizardSource,/همه تصاویر اختیاری هستند/,'optional photo wording is missing');
+assert.doesNotMatch(wizardSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
 console.log(JSON.stringify({ok:true,css_files:cssFiles.length,tokens:true,no_light_overrides:true,no_colorful_legacy_palette:true,components:true,stylesheet_order:true,dedicated_student_shell:true}));

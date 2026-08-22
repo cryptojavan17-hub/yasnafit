@@ -1001,6 +1001,8 @@
             <span>🏋️ ${movementsCount} حرکت</span>
             <span>🔁 ${setsCount} ست</span>
             <span>👤 ${esc(p.student_name||'بدون شاگرد')}</span>
+            <span>📋 ${p.assessment_number?`ارزیابی #${p.assessment_number} • ${esc(p.assessment_type||'')}`:'بدون ارزیابی'}</span>
+            <span>🗓 ${p.start_date?new Date(`${p.start_date}T00:00:00`).toLocaleDateString('fa-IR',{month:'long',year:'numeric'}):'—'}</span>
             <span>🔑 ${esc(p.status||'پیش‌نویس')}</span>
           </div>
           <div class="program-actions">

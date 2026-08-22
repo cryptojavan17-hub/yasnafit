@@ -48,6 +48,7 @@ function crc32(buffer){
   for(const byte of buffer) c=CRC_TABLE[(c^byte)&0xff]^(c>>>8);
   return (c^0xffffffff)>>>0;
 }
+function safeDimensions(width,height){return Number.isInteger(width)&&Number.isInteger(height)&&width>0&&height>0&&width<=12000&&height<=12000&&width*height<=40000000;}
 function validPng(data){
   const sig=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
   if(data.length<45 || !data.subarray(0,8).equals(sig)) return false;
@@ -62,7 +63,7 @@ function validPng(data){
     if(first){
       if(type!=='IHDR' || length!==13) return false;
       const width=data.readUInt32BE(offset+8), height=data.readUInt32BE(offset+12);
-      if(!width || !height || width>20000 || height>20000) return false;
+      if(!safeDimensions(width,height)) return false;
       first=false;
     }
     if(type==='IDAT') sawIdat=true;
@@ -87,7 +88,7 @@ function validJpeg(data){
     if(sofMarkers.has(marker)){
       if(length<8) return false;
       const height=data.readUInt16BE(offset+3), width=data.readUInt16BE(offset+5);
-      if(!width || !height || width>20000 || height>20000) return false;
+      if(!safeDimensions(width,height)) return false;
       sawSof=true;
     }
     if(marker===0xda) return sawSof; // scan data is bounded by the already-verified final EOI
@@ -104,14 +105,14 @@ function validWebp(data){
   if(20+size+(size%2)>data.length) return false;
   const body=data.subarray(20,20+size);
   if(type==='VP8X' && body.length>=10){
-    return readUInt24LE(body,4)+1>0 && readUInt24LE(body,7)+1>0;
+    return safeDimensions(readUInt24LE(body,4)+1,readUInt24LE(body,7)+1);
   }
   if(type==='VP8L' && body.length>=5 && body[0]===0x2f){
     const bits=body.readUInt32LE(1);
-    return ((bits&0x3fff)+1)>0 && (((bits>>>14)&0x3fff)+1)>0;
+    return safeDimensions((bits&0x3fff)+1,((bits>>>14)&0x3fff)+1);
   }
   if(type==='VP8 ' && body.length>=10 && body[3]===0x9d && body[4]===0x01 && body[5]===0x2a){
-    return (body.readUInt16LE(6)&0x3fff)>0 && (body.readUInt16LE(8)&0x3fff)>0;
+    return safeDimensions(body.readUInt16LE(6)&0x3fff,body.readUInt16LE(8)&0x3fff);
   }
   return false;
 }
@@ -281,5 +282,5 @@ function deletePhoto(db, photoId, studentId=null){
 module.exports = {
   ALLOWED_MIME, ALLOWED_EXT, PHOTO_TYPES, MAX_FILE_SIZE, MAX_FILES_PER_ASSESSMENT,
   parseMultipart, parseMultipartBuffer, saveAssessmentPhoto, getPhotoFilePath,
-  deletePhoto, getAssessmentDir, validateFile, detectImageMime, genUUID, sanitizeFileName, isWithin
+  deletePhoto, getAssessmentDir, validateFile, detectImageMime, safeDimensions, genUUID, sanitizeFileName, isWithin
 };

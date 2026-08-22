@@ -41,6 +41,8 @@ const studentService = require('./src/student-service');
 const uploadService = require('./src/upload-service');
 const releaseService = require('./src/release-service');
 const studentSessionService = require('./src/student-session-service');
+const assessmentService = require('./src/assessment-service');
+const assessmentDocumentService = require('./src/assessment-document-service');
 
 // --- MIME Types ---
 const types = {
@@ -147,15 +149,18 @@ function requireStudent(req,res){
 function studentAssessmentView(assessment,photos=[]){
   if(!assessment) return null;
   return {
-    assessment_number:assessment.assessment_number,status:assessment.status,
+    assessment_number:assessment.assessment_number,assessment_type:assessment.assessment_type||((assessment.assessment_number||1)===1?'INITIAL':'MONTHLY'),
+    status:assessment.lifecycle_status||assessment.status,
     weight:assessment.weight,height:assessment.height,waist:assessment.waist,chest:assessment.chest,
     hips:assessment.hips,body_fat:assessment.body_fat,muscle_mass:assessment.muscle_mass,
     goal:assessment.goal||'',training_experience:assessment.training_experience||'',
     limitations:assessment.limitations||'',injuries:assessment.injuries||'',
     body_photos_preference:assessment.body_photos_preference||null,
     student_note:assessment.student_note||'',coach_note:assessment.coach_note||'',
-    submitted_at:assessment.submitted_at,reviewed_at:assessment.reviewed_at,created_at:assessment.created_at,
-    photos:photos.map(photo=>({id:photo.id,photo_type:photo.photo_type,mime_type:photo.mime_type,size_bytes:photo.size_bytes,created_at:photo.created_at}))
+    draft_saved_at:assessment.draft_saved_at,submitted_at:assessment.submitted_at,reviewed_at:assessment.reviewed_at,
+    approved_at:assessment.approved_at,rejected_at:assessment.rejected_at,archived_at:assessment.archived_at,created_at:assessment.created_at,
+    photos:photos.map(photo=>({id:photo.id,photo_type:photo.photo_type,mime_type:photo.mime_type,size_bytes:photo.size_bytes,created_at:photo.created_at})),
+    documents:assessmentDocumentService.list(db,assessment.id)
   };
 }
 function studentProgramView(program){
@@ -638,7 +643,7 @@ async function handleTrainingPrograms(req,res,url){
   const p=url.pathname;
 
   if(p==='/api/training-programs' && req.method==='GET'){
-    const list = rows('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC');
+    const list = rows('SELECT tp.*,s.full_name student_name,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC');
     return send(res,200,list.map(r=>{
       try{ r.program_data = JSON.parse(r.program_data||'{}'); }catch(e){ r.program_data={days:[]}; }
       return r;
@@ -685,7 +690,7 @@ async function handleTrainingPrograms(req,res,url){
 
     if(req.method==='GET'){
       try {
-        const prog = one('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.id=? AND tp.deleted_at IS NULL', id);
+        const prog = one('SELECT tp.*,s.full_name student_name,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.id=? AND tp.deleted_at IS NULL', id);
         if(!prog) return sendError(res,404,'برنامه پیدا نشد');
         try{ prog.program_data = JSON.parse(prog.program_data||'{}'); }catch(e){ prog.program_data={days:[]}; }
 
@@ -815,8 +820,9 @@ function assessmentPhotos(assessmentId){
 }
 function studentNextRoute(studentId){
   const latest=latestStudentAssessment(studentId);
-  if(!latest || ['PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED'].includes(latest.status))return '/student/onboarding';
-  if(latest.status==='PROGRAM_ASSIGNED'){
+  const lifecycle=latest?.lifecycle_status||latest?.status;
+  if(!latest || ['DRAFT','CHANGES_REQUESTED','PROFILE_INCOMPLETE','ASSESSMENT_PENDING'].includes(lifecycle))return '/student/onboarding';
+  if(lifecycle==='APPROVED'&&latest.program_id){
     const active=one("SELECT end_date FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY program_number DESC,id DESC LIMIT 1",studentId);
     const endTime=active?.end_date?new Date(String(active.end_date).includes('T')?active.end_date:`${active.end_date}T23:59:59`).getTime():null;
     if(!active || (Number.isFinite(endTime)&&endTime<Date.now()))return '/student/onboarding';
@@ -844,7 +850,7 @@ async function handleStudentJoin(req,res,url){
 }
 
 function updateStudentProfileFromSession(studentId,body){
-  const allowed=['full_name','mobile','date_of_birth','height','weight','goal','training_experience','training_level','preferred_location','limitations','injuries','medical_notes'];
+  const allowed=['full_name','mobile','date_of_birth','gender','height','weight','goal','training_experience','training_level','preferred_location','limitations','injuries','medical_notes'];
   const updates={};
   for(const key of allowed)if(body[key]!==undefined)updates[key]=body[key];
   if(!Object.keys(updates).length){const error=new Error('هیچ فیلدی برای ویرایش نیست');error.statusCode=400;throw error;}
@@ -858,6 +864,7 @@ function updateStudentProfileFromSession(studentId,body){
   }
   if(updates.height!==undefined && updates.height!==null && (!Number.isFinite(Number(updates.height))||Number(updates.height)<100||Number(updates.height)>250)){const error=new Error('قد نامعتبر است');error.statusCode=400;throw error;}
   if(updates.weight!==undefined && updates.weight!==null && (!Number.isFinite(Number(updates.weight))||Number(updates.weight)<20||Number(updates.weight)>300)){const error=new Error('وزن نامعتبر است');error.statusCode=400;throw error;}
+  if(updates.gender&&!['female','male','unspecified'].includes(updates.gender)){const error=new Error('جنسیت نامعتبر است');error.statusCode=400;throw error;}
   if(updates.preferred_location && !['gym','home'].includes(updates.preferred_location)){const error=new Error('محل تمرین نامعتبر است');error.statusCode=400;throw error;}
   for(const key of ['goal','training_experience','training_level','limitations','injuries','medical_notes']){
     if(updates[key]!==undefined && (typeof updates[key]!=='string'||updates[key].length>4000)){const error=new Error('اطلاعات متنی نامعتبر است');error.statusCode=400;throw error;}
@@ -924,6 +931,18 @@ async function handleSessionPhotoUpload(req,res,studentId){
   catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
 }
 
+async function handleSessionDocumentUpload(req,res,studentId){
+  const assessment=one(`SELECT id FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
+  if(!assessment)return sendError(res,404,'ابتدا ارزیابی را ذخیره کنید');
+  const contentType=req.headers['content-type']||'',boundary=contentType.match(/boundary=([^;]+)/)?.[1]?.replace(/"/g,'');
+  if(!boundary)return sendError(res,400,'درخواست فایل نامعتبر است');
+  try{
+    const parts=await uploadService.parseMultipart(req,boundary),files=parts.filter(part=>part.type==='file'),fields=Object.fromEntries(parts.filter(part=>part.type==='field').map(part=>[part.name,part.value]));
+    if(files.length!==1)return sendError(res,400,'در هر درخواست دقیقاً یک فایل ارسال کنید');
+    return send(res,201,{document:assessmentDocumentService.save(db,studentId,assessment.id,files[0],fields.document_type)});
+  }catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
+}
+
 async function handleStudentSessionApi(req,res,url){
   const context=requireStudent(req,res);if(!context)return true;
   const studentId=context.student_id;
@@ -947,7 +966,17 @@ async function handleStudentSessionApi(req,res,url){
   }
   if(p==='/api/student/onboarding' && req.method==='GET'){
     const assessment=one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
-    return send(res,200,{student:studentSessionService.safeStudent(context.student),assessment:studentAssessmentView(assessment,assessmentPhotos(assessment?.id))});
+    return send(res,200,{student:studentSessionService.safeStudent(context.student),assessment:studentAssessmentView(assessment,assessmentPhotos(assessment?.id)),details:assessment?assessmentService.getDetails(db,assessment.id):null});
+  }
+  if(p==='/api/student/assessment/catalogs' && req.method==='GET')return send(res,200,{catalogs:assessmentService.CATALOGS,goals:assessmentService.GOALS});
+  const sectionMatch=p.match(/^\/api\/student\/assessment\/sections\/(general|measurements|medical|sports|nutrition|habits|pregnancy)$/);
+  if(sectionMatch && req.method==='PUT'){
+    try{
+      const assessment=await saveSessionAssessment(studentId,{});
+      const details=assessmentService.saveSection(db,assessment.id,studentId,sectionMatch[1],await readBody(req));
+      const refreshed=one('SELECT * FROM body_assessments WHERE id=?',assessment.id);
+      return send(res,200,{assessment:studentAssessmentView(refreshed,assessmentPhotos(refreshed.id)),details,last_saved_at:refreshed.draft_saved_at||refreshed.updated_at});
+    }catch(error){return sendError(res,error.statusCode||400,error.message);}
   }
   if(p==='/api/student/assessment' && req.method==='POST'){
     try{
@@ -956,6 +985,12 @@ async function handleStudentSessionApi(req,res,url){
     }catch(error){return sendError(res,error.statusCode||400,error.message);}
   }
   if(p==='/api/student/assessment/photos' && req.method==='POST')return handleSessionPhotoUpload(req,res,studentId);
+  if(p==='/api/student/assessment/documents' && req.method==='POST')return handleSessionDocumentUpload(req,res,studentId);
+  const deleteDocumentMatch=p.match(/^\/api\/student\/assessment\/documents\/(\d+)$/);
+  if(deleteDocumentMatch&&req.method==='DELETE'){
+    if(!assessmentDocumentService.remove(db,Number(deleteDocumentMatch[1]),studentId))return sendError(res,404,'مدرک پیدا نشد یا پرونده قفل است');
+    return send(res,200,{success:true});
+  }
   const deletePhotoMatch=p.match(/^\/api\/student\/assessment\/photos\/(\d+)$/);
   if(deletePhotoMatch && req.method==='DELETE'){
     const deleted=uploadService.deletePhoto(db,Number(deletePhotoMatch[1]),studentId);
@@ -965,12 +1000,14 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/assessment/submit' && req.method==='POST'){
     const assessment=one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
     if(!assessment)return sendError(res,409,'ارزیابی قابل ارسال پیدا نشد');
+    const completeness=assessmentService.validateForSubmission(db,assessment,context.student);
+    if(completeness.length)return sendError(res,400,completeness[0],completeness);
     try{return send(res,200,{success:true,assessment:studentAssessmentView(studentService.submitAssessment(db,assessment.id),assessmentPhotos(assessment.id))});}
     catch(error){return sendError(res,400,error.message);}
   }
   if(p==='/api/student/assessment' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId,true);
-    return send(res,200,{assessment:studentAssessmentView(assessment,assessmentPhotos(assessment?.id))});
+    return send(res,200,{assessment:studentAssessmentView(assessment,assessmentPhotos(assessment?.id)),details:assessment?assessmentService.getDetails(db,assessment.id):null});
   }
   if(p==='/api/student/assessments' && req.method==='GET'){
     const list=rows('SELECT * FROM body_assessments WHERE student_id=? AND submitted_at IS NOT NULL AND deleted_at IS NULL ORDER BY assessment_number ASC,id ASC',studentId);
@@ -1327,7 +1364,7 @@ async function handleBodyAssessments(req,res,url){
             } catch(e){}
           }
         }
-        return send(res,200,{assessment: {...ass, photos}, student, previous_assessment: prev ? {...prev, photos: prevPhotos} : null, previous_program: prevProgram});
+        return send(res,200,{assessment: {...ass, photos, documents:assessmentDocumentService.list(db,ass.id)}, assessment_details:assessmentService.getDetails(db,ass.id), student, previous_assessment: prev ? {...prev, photos: prevPhotos} : null, previous_assessment_details:prev?assessmentService.getDetails(db,prev.id):null, previous_program: prevProgram});
       }
     }
   }
@@ -1358,6 +1395,13 @@ async function handleBodyAssessments(req,res,url){
     }
   }
 
+  const rejectMatch=p.match(/^\/api\/assessments\/(\d+)\/reject$/);
+  if(rejectMatch&&req.method==='POST'){
+    const id=Number(rejectMatch[1]),body=await readBody(req);
+    try{return send(res,200,studentService.reviewAssessment(db,id,'reject',body.coach_note||''));}
+    catch(error){return sendError(res,400,error.message);}
+  }
+
   const underReviewMatch = p.match(/^\/api\/assessments\/(\d+)\/under-review$/);
   if(underReviewMatch && req.method==='POST'){
     const id=Number(underReviewMatch[1]);
@@ -1370,6 +1414,15 @@ async function handleBodyAssessments(req,res,url){
   }
 
   return null;
+}
+
+async function handleAssessmentDocuments(req,res,url){
+  const match=url.pathname.match(/^\/api\/student-documents\/(\d+)$/);if(!match||req.method!=='GET')return null;
+  const document=assessmentDocumentService.get(db,Number(match[1]));if(!document)return sendError(res,404,'مدرک پیدا نشد');
+  const coach=isCoachAuthorized(req),student=coach?null:studentSessionService.resolveStudentSession(db,req);
+  if(!coach&&(!student||student.student_id!==document.student_id))return sendError(res,student?403:401,'دسترسی به این مدرک مجاز نیست');
+  res.writeHead(200,{'Content-Type':document.mime_type,'Content-Length':document.size_bytes,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Disposition':`inline; filename="${sanitizeFileName(document.original_filename)}"`,'Content-Security-Policy':"default-src 'none'"});
+  return fs.createReadStream(document.storage_path).pipe(res);
 }
 
 async function handleAssessmentPhotos(req,res,url){
@@ -1493,7 +1546,7 @@ async function api(req,res,url){
       return send(res,410,{error:'این API منسوخ شده است؛ از لینک دعوت برای ساخت نشست امن استفاده کنید.',code:'STUDENT_SESSION_REQUIRED'});
     }
     if(p.startsWith('/api/student/'))return handleStudentSessionApi(req,res,url);
-    const studentScoped = p.startsWith('/api/student-photos/');
+    const studentScoped = p.startsWith('/api/student-photos/')||p.startsWith('/api/student-documents/');
     if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
 
@@ -1534,6 +1587,9 @@ async function api(req,res,url){
       if(r) return r;
     }
 
+    if(p.startsWith('/api/student-documents/')){
+      const documentResponse=await handleAssessmentDocuments(req,res,url);if(documentResponse)return documentResponse;
+    }
     if(p.startsWith('/api/student-photos/') || p.startsWith('/api/assessment-photos/')){
       const r = await handleAssessmentPhotos(req,res,url);
       if(r) return r;
@@ -1635,7 +1691,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
-    const isStudentPage=['/student/onboarding','/student/dashboard','/student/program','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
+    const isStudentPage=['/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
       const authenticated=isJoinPage || Boolean(studentSessionService.resolveStudentSession(db,req));
       res.writeHead(authenticated?200:401,{

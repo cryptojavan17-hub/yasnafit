@@ -996,3 +996,35 @@ private filesystem storage, path containment and session/coach authorization. Su
 photos remain immutable. Medical documents and additional gallery data are not required;
 the current UI reports them as “ارسال نشده • اختیاری” and does not treat absence as an
 error.
+
+---
+
+# Professional ten-step assessment profile (v0.7.0)
+
+`/document/edit-document` and `/student/onboarding` now serve the same authenticated,
+dedicated ten-step wizard from `assessment-wizard.js`. The wizard autosaves normalized
+sections, exposes an explicit “ذخیره موقت”, displays the last save time, and never edits a
+previous submitted assessment. Assessment #1 is `INITIAL`; subsequent records are
+`MONTHLY`.
+
+Canonical transitions are enforced server-side:
+
+```
+DRAFT -> SUBMITTED -> PENDING_REVIEW -> APPROVED
+                              |-> REJECTED
+                              |-> CHANGES_REQUESTED -> SUBMITTED
+```
+
+Reject and change-request transitions require a coach note. Program activation requires
+canonical `APPROVED`, retains that assessment state, links through `assessment_id`, and
+completes the prior ACTIVE program without deleting history. Coach assessment responses
+include structured sections and month-to-month comparison data.
+
+## Optional medical documents
+
+The ten-step wizard accepts optional blood tests and body analysis as PDF/JPEG/PNG/WEBP,
+and optional gallery images as JPEG/PNG/WEBP. `assessment-document-service.js` validates
+extension, declared MIME, image structure or PDF header/EOF, rejects active PDF features,
+uses generated private filenames, and enforces path containment. Draft owners may delete;
+submitted documents are immutable. Downloads require the owning student session or coach
+authorization.

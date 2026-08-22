@@ -178,7 +178,7 @@ function getPendingSubmissions(db){
            (SELECT COUNT(*) FROM body_assessments WHERE student_id=ba.student_id AND deleted_at IS NULL) as total_assessments
     FROM body_assessments ba
     JOIN students s ON s.id=ba.student_id AND s.deleted_at IS NULL
-    WHERE ba.deleted_at IS NULL AND ba.status IN ('SUBMITTED','UNDER_REVIEW')
+    WHERE ba.deleted_at IS NULL AND ba.lifecycle_status IN ('SUBMITTED','PENDING_REVIEW')
     ORDER BY ba.submitted_at DESC, ba.id DESC
   `).all();
 }
@@ -216,16 +216,17 @@ function createAssessment(db, studentId, data={}){
     const last = db.prepare('SELECT MAX(assessment_number) AS max_num FROM body_assessments WHERE student_id=?').get(studentId);
     const nextNumber = (last?.max_num || 0) + 1;
     const stableId = genUUID();
-    const status = 'PROFILE_INCOMPLETE';
+    const status = 'ASSESSMENT_PENDING';
+    const assessmentType=nextNumber===1?'INITIAL':'MONTHLY';
     const value = key => data[key] === undefined || data[key] === '' ? null : data[key];
     const res = db.prepare(`
       INSERT INTO body_assessments
-      (stable_id, student_id, assessment_number, status, weight, height, waist, chest, hips, body_fat, muscle_mass, measurements, goal, training_experience, limitations, injuries, student_note, coach_note, body_photos_preference, version)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-    `).run(stableId, studentId, nextNumber, status, value('weight'), value('height'), value('waist'), value('chest'), value('hips'), value('body_fat'), value('muscle_mass'), JSON.stringify(data.measurements||{}), data.goal||'', data.training_experience||'', data.limitations||'', data.injuries||'', data.student_note||'', '', data.body_photos_preference||null);
+      (stable_id, student_id, assessment_number, assessment_type, lifecycle_status, status, weight, height, waist, chest, hips, body_fat, muscle_mass, measurements, goal, training_experience, limitations, injuries, student_note, coach_note, body_photos_preference, draft_saved_at, version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,1)
+    `).run(stableId, studentId, nextNumber, assessmentType, 'DRAFT', status, value('weight'), value('height'), value('waist'), value('chest'), value('hips'), value('body_fat'), value('muscle_mass'), JSON.stringify(data.measurements||{}), data.goal||'', data.training_experience||'', data.limitations||'', data.injuries||'', data.student_note||'', '', data.body_photos_preference||null);
     db.prepare(`UPDATE students SET last_assessment_id=?, profile_status=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(res.lastInsertRowid, status, studentId);
     db.exec('COMMIT');
-    return {id:res.lastInsertRowid, stable_id:stableId, assessment_number:nextNumber, status};
+    return {id:res.lastInsertRowid, stable_id:stableId, assessment_number:nextNumber, assessment_type:assessmentType, lifecycle_status:'DRAFT', status};
   } catch(e){
     db.exec('ROLLBACK');
     throw e;
@@ -235,7 +236,8 @@ function createAssessment(db, studentId, data={}){
 function updateAssessment(db, assessmentId, data){
   const existing = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(assessmentId);
   if(!existing) throw new Error('Assessment not found');
-  if(!['PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED'].includes(existing.status)) {
+  const lifecycle=existing.lifecycle_status||(['PROFILE_INCOMPLETE','ASSESSMENT_PENDING'].includes(existing.status)?'DRAFT':existing.status);
+  if(!['DRAFT','CHANGES_REQUESTED'].includes(lifecycle)) {
     throw new Error('Assessment is frozen after submission');
   }
   const errors = validateAssessmentFields(data);
@@ -252,7 +254,9 @@ function updateAssessment(db, assessmentId, data){
   }
   if(!fields.length) return existing;
   // Saving a draft does not accept arbitrary client-supplied workflow states.
-  fields.push("status=CASE WHEN status='CHANGES_REQUESTED' THEN status ELSE 'ASSESSMENT_PENDING' END");
+  fields.push("status=CASE WHEN lifecycle_status='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED' ELSE 'ASSESSMENT_PENDING' END");
+  fields.push("lifecycle_status=CASE WHEN lifecycle_status='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED' ELSE 'DRAFT' END");
+  fields.push('draft_saved_at=CURRENT_TIMESTAMP');
   fields.push('updated_at=CURRENT_TIMESTAMP');
   fields.push('version=version+1');
   params.push(assessmentId);
@@ -263,7 +267,8 @@ function updateAssessment(db, assessmentId, data){
 function submitAssessment(db, assessmentId){
   const existing = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(assessmentId);
   if(!existing) throw new Error('Assessment not found');
-  if(!['PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED'].includes(existing.status)) throw new Error('این ارزیابی قبلاً ارسال شده است');
+  const lifecycle=existing.lifecycle_status||(['PROFILE_INCOMPLETE','ASSESSMENT_PENDING'].includes(existing.status)?'DRAFT':existing.status);
+  if(!['DRAFT','CHANGES_REQUESTED'].includes(lifecycle)) throw new Error('این ارزیابی قبلاً ارسال شده است');
   const student = db.prepare('SELECT * FROM students WHERE id=? AND deleted_at IS NULL').get(existing.student_id);
   if(!student) throw new Error('Student not found');
 
@@ -280,7 +285,7 @@ function submitAssessment(db, assessmentId){
 
   db.exec('BEGIN');
   try {
-    db.prepare(`UPDATE body_assessments SET status='SUBMITTED', submitted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessmentId);
+    db.prepare(`UPDATE body_assessments SET status='SUBMITTED',lifecycle_status='SUBMITTED',submitted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(assessmentId);
     db.prepare(`UPDATE students SET profile_status='SUBMITTED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessmentId, existing.student_id);
     db.prepare(`UPDATE student_invites SET status='used', used_at=COALESCE(used_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE student_id=? AND status='active'`).run(existing.student_id);
     db.exec('COMMIT');
@@ -289,22 +294,22 @@ function submitAssessment(db, assessmentId){
 }
 
 function reviewAssessment(db, assessmentId, action, coachNote=''){
-  const existing = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(assessmentId);
-  if(!existing) throw new Error('Assessment not found');
-  if(typeof coachNote !== 'string' || coachNote.length > 4000) throw new Error('یادداشت مربی نامعتبر است');
-  const transitions = {
-    SUBMITTED: {approve:'APPROVED', request_changes:'CHANGES_REQUESTED', under_review:'UNDER_REVIEW'},
-    UNDER_REVIEW: {approve:'APPROVED', request_changes:'CHANGES_REQUESTED'}
-  };
-  const newStatus = transitions[existing.status]?.[action];
-  if(!newStatus) throw new Error('تغییر وضعیت ارزیابی مجاز نیست');
-
+  const existing=db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(assessmentId);
+  if(!existing)throw new Error('Assessment not found');
+  if(typeof coachNote!=='string'||coachNote.length>4000)throw new Error('یادداشت مربی نامعتبر است');
+  const lifecycle=existing.lifecycle_status||({UNDER_REVIEW:'PENDING_REVIEW',PROFILE_INCOMPLETE:'DRAFT',ASSESSMENT_PENDING:'DRAFT'}[existing.status]||existing.status);
+  const transitions={SUBMITTED:{under_review:'PENDING_REVIEW'},PENDING_REVIEW:{approve:'APPROVED',reject:'REJECTED',request_changes:'CHANGES_REQUESTED'}};
+  const next=transitions[lifecycle]?.[action];if(!next)throw new Error('تغییر وضعیت ارزیابی مجاز نیست');
+  if(['REJECTED','CHANGES_REQUESTED'].includes(next)&&!coachNote.trim())throw new Error('یادداشت مربی برای رد یا درخواست اصلاح الزامی است');
+  const legacy={PENDING_REVIEW:'UNDER_REVIEW',APPROVED:'APPROVED',REJECTED:'ARCHIVED',CHANGES_REQUESTED:'CHANGES_REQUESTED'}[next];
+  const approvedAt=next==='APPROVED'?'CURRENT_TIMESTAMP':'approved_at';
+  const rejectedAt=next==='REJECTED'?'CURRENT_TIMESTAMP':'rejected_at';
   db.exec('BEGIN');
-  try {
-    db.prepare(`UPDATE body_assessments SET status=?, coach_note=?, reviewed_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(newStatus, coachNote, assessmentId);
-    db.prepare(`UPDATE students SET profile_status=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(newStatus, existing.student_id);
+  try{
+    db.prepare(`UPDATE body_assessments SET status=?,lifecycle_status=?,coach_note=?,reviewed_at=CURRENT_TIMESTAMP,approved_at=${approvedAt},rejected_at=${rejectedAt},updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(legacy,next,coachNote.trim(),assessmentId);
+    db.prepare('UPDATE students SET profile_status=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?').run(next,existing.student_id);
     db.exec('COMMIT');
-  } catch(e){ db.exec('ROLLBACK'); throw e; }
+  }catch(error){db.exec('ROLLBACK');throw error;}
   return db.prepare('SELECT * FROM body_assessments WHERE id=?').get(assessmentId);
 }
 
@@ -347,7 +352,7 @@ const MANAGEMENT_CTE = `
       s.created_at, s.updated_at,
       la.id AS current_assessment_id,
       la.assessment_number AS current_assessment_number,
-      la.status AS current_assessment_status,
+      COALESCE(la.lifecycle_status,la.status) AS current_assessment_status,
       la.submitted_at AS last_assessment_submitted_at,
       la.created_at AS last_assessment_created_at,
       lp.id AS current_program_id,
@@ -363,22 +368,22 @@ const MANAGEMENT_CTE = `
         WHEN s.status IN ('غیرفعال','inactive','INACTIVE') THEN 'INACTIVE'
         WHEN la.id IS NULL AND COALESCE(ins.invite_count,0)=0 THEN 'NEW'
         WHEN la.id IS NULL THEN 'PROFILE_PENDING'
-        WHEN la.status='SUBMITTED' THEN 'PENDING_REVIEW'
-        WHEN la.status='UNDER_REVIEW' THEN 'UNDER_REVIEW'
-        WHEN la.status='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'
+        WHEN COALESCE(la.lifecycle_status,la.status)='SUBMITTED' THEN 'PENDING_REVIEW'
+        WHEN COALESCE(la.lifecycle_status,la.status)='PENDING_REVIEW' THEN 'UNDER_REVIEW'
+        WHEN COALESCE(la.lifecycle_status,la.status)='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'
         WHEN ap.id IS NOT NULL AND ap.end_date IS NOT NULL AND date(ap.end_date)<date('now') THEN 'NEEDS_ASSESSMENT'
         WHEN ap.id IS NOT NULL THEN 'ACTIVE_PROGRAM'
-        WHEN la.status='APPROVED' THEN 'APPROVED_AWAITING_PROGRAM'
-        WHEN la.status='PROGRAM_ASSIGNED' OR lp.status IN ('COMPLETED','ARCHIVED') THEN 'NEEDS_ASSESSMENT'
+        WHEN (COALESCE(la.lifecycle_status,la.status)='APPROVED' AND la.program_id IS NOT NULL) OR lp.status IN ('COMPLETED','ARCHIVED') THEN 'NEEDS_ASSESSMENT'
+        WHEN COALESCE(la.lifecycle_status,la.status)='APPROVED' THEN 'APPROVED_AWAITING_PROGRAM'
         ELSE 'PROFILE_PENDING'
       END AS management_status,
       CASE
         WHEN la.id IS NULL THEN 'REQUIRED'
-        WHEN la.status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','SUBMITTED','UNDER_REVIEW','CHANGES_REQUESTED') THEN 'IN_PROGRESS'
+        WHEN COALESCE(la.lifecycle_status,la.status) IN ('DRAFT','SUBMITTED','PENDING_REVIEW','CHANGES_REQUESTED') THEN 'IN_PROGRESS'
         WHEN ap.id IS NOT NULL AND ap.end_date IS NOT NULL AND date(ap.end_date)<date('now') THEN 'DUE'
         WHEN ap.id IS NOT NULL THEN 'NOT_DUE'
-        WHEN la.status='APPROVED' THEN 'WAITING_PROGRAM'
-        WHEN lp.status IN ('COMPLETED','ARCHIVED') OR la.status='PROGRAM_ASSIGNED' THEN 'DUE'
+        WHEN lp.status IN ('COMPLETED','ARCHIVED') OR (COALESCE(la.lifecycle_status,la.status)='APPROVED' AND la.program_id IS NOT NULL) THEN 'DUE'
+        WHEN COALESCE(la.lifecycle_status,la.status)='APPROVED' THEN 'WAITING_PROGRAM'
         ELSE 'REQUIRED'
       END AS next_assessment_status
     FROM students s

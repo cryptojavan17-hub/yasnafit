@@ -23,6 +23,16 @@ async function upload(cookie,type,bytes=png,filename=`${type}.png`,mime='image/p
   const form=new FormData();form.append('photo',new Blob([bytes],{type:mime}),filename);form.append('photo_type',type);
   return request('/api/student/assessment/photos',{method:'POST',body:form,cookie});
 }
+async function completeStructuredAssessment(cookie,gender='male'){
+  await ok('/api/student/assessment/sections/general',{method:'PUT',cookie,body:{goals:['fitness'],additional_notes:'structured assessment',gender}});
+  await ok('/api/student/assessment/sections/measurements',{method:'PUT',cookie,body:{height:175,weight:70,around_the_arm:30,around_the_chest:90,around_the_belly:80,around_the_belly_from_the_navel:82,around_the_hips:95,around_the_leg:35,around_the_thigh:55,around_the_wrist:17}});
+  await ok('/api/student/assessment/sections/medical',{method:'PUT',cookie,body:{has_disease:false,has_medication:false,has_injury:false,has_surgery:false,last_blood_test_notes:'',corrective_notes:'',items:[]}});
+  await ok('/api/student/assessment/sections/sports',{method:'PUT',cookie,body:{average_daily_activity:'medium',practice_history:false,practice_now:false,practice_place:'gym',home_equipment:'',sessions_per_week:3,supplement_history:false,doping_history:''}});
+  await ok('/api/student/assessment/sections/nutrition',{method:'PUT',cookie,body:{diet_type:'iranian',previous_diet:false,food_allergies:'',weight_changes:'',appetite_status:'low_eating',appetite_notes:'',defecation_problem:'none',breakfast:'',lunch:'',dinner:''}});
+  await ok('/api/student/assessment/sections/habits',{method:'PUT',cookie,body:{smoking:false,smoking_details:'',alcohol:false,alcohol_details:''}});
+  if(gender==='female')await ok('/api/student/assessment/sections/pregnancy',{method:'PUT',cookie,body:{childbirth_history:false,breastfeeding:false,formula_use:false,child_food_allergy:false}});
+}
+async function uploadDocument(cookie,type,bytes,filename,mime){const form=new FormData();form.append('file',new Blob([bytes],{type:mime}),filename);form.append('document_type',type);return request('/api/student/assessment/documents',{method:'POST',body:form,cookie});}
 async function acceptInvitation(invite){
   const shell=await request(invite.join_url);assert.equal(shell.response.status,200);const html=shell.data.toString('utf8');assert.match(html,/student-app\.js/);assert.doesNotMatch(html,/sidebar|coach-submissions\.js/);
   const inspected=await ok(`/api/student/join/${invite.token}`);assert.equal(inspected.valid,true);
@@ -33,6 +43,7 @@ async function acceptInvitation(invite){
 async function onboard(cookie,{name,mobile,weight,preference='declined',photoTypes=[]}){
   await ok('/api/student/profile',{method:'PUT',cookie,body:{full_name:name,mobile,date_of_birth:'2000-01-01',height:175,weight,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
   await ok('/api/student/assessment',{method:'POST',cookie,body:{weight,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',limitations:'none',injuries:'none',student_note:'monthly assessment',body_photos_preference:preference}});
+  await completeStructuredAssessment(cookie,'male');
   for(const type of photoTypes){const result=await upload(cookie,type);assert.equal(result.response.status,201,JSON.stringify(result.data));assert.equal('storage_path' in result.data.photo,false);}
   return ok('/api/student/assessment/submit',{method:'POST',cookie});
 }
@@ -53,6 +64,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.notEqual((await fetch(BASE+'/join/..%2Fserver.js')).status,200);
 
   const sessionA=await acceptInvitation(inviteA),sessionB=await acceptInvitation(inviteB);
+  const documentRoute=await request('/document/edit-document',{cookie:sessionA.cookie});assert.equal(documentRoute.response.status,200);assert.match(documentRoute.data.toString('utf8'),/assessment-wizard\.js/);
   assert.equal(sessionA.next,'/student/onboarding');assert.equal(sessionB.next,'/student/onboarding');
   await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,`/api/student/join/${inviteA.token}/accept`,{method:'POST'});
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
@@ -60,6 +72,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 
   await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
+  await completeStructuredAssessment(sessionA.cookie,'male');
   await expectStatus(400,'/api/student/assessment/submit',{method:'POST',cookie:sessionA.cookie});
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{body_photos_preference:'willing'}});
@@ -71,23 +84,27 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.equal((await upload(sessionA.cookie,'other',Buffer.alloc(5*1024*1024+1),'large.png','image/png')).response.status,400);
   assert.equal((await upload(sessionA.cookie,'other',png,'../escape.png','image/png')).response.status,400);
   for(const type of ['front','side','back','front_flex','back_flex'])assert.equal((await upload(sessionA.cookie,type)).response.status,201);
+  const pdf=Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF');const medicalUpload=await uploadDocument(sessionA.cookie,'blood_test',pdf,'blood-test.pdf','application/pdf');assert.equal(medicalUpload.response.status,201,JSON.stringify(medicalUpload.data));const medicalDocumentId=medicalUpload.data.document.id;
+  const activePdf=Buffer.from('%PDF-1.4\n1 0 obj<</JavaScript(test)>>endobj\n%%EOF');assert.equal((await uploadDocument(sessionA.cookie,'blood_test',activePdf,'active.pdf','application/pdf')).response.status,400);
   const submittedA1=await ok('/api/student/assessment/submit',{method:'POST',cookie:sessionA.cookie});assert.equal(submittedA1.assessment.status,'SUBMITTED');assert.equal(submittedA1.assessment.photos.length,5);assert.equal(submittedA1.assessment.body_photos_preference,'willing');
   await expectStatus(409,'/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:77,height:175,goal:'فیتنس',training_experience:'متوسط'}});
   await onboard(sessionB.cookie,{name:`Student B ${suffix}`,mobile:mobileB,weight:67});
 
   const detailA1=await ok(`/api/students/${a.id}`,{coach:true}),detailB1=await ok(`/api/students/${b.id}`,{coach:true});
-  const assessmentA1=detailA1.current_assessment.id,assessmentB1=detailB1.current_assessment.id;
+  const assessmentA1=detailA1.current_assessment.id,assessmentB1=detailB1.current_assessment.id;const coachAssessmentA=await ok(`/api/assessments/${assessmentA1}`,{coach:true});assert.equal(coachAssessmentA.assessment.documents.length,1);assert.ok(coachAssessmentA.assessment_details.measurements);
   const snapshotA1=immutableAssessment(detailA1.current_assessment);assert.equal(detailA1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.body_photos_preference,'declined');assert.equal(detailB1.current_assessment.photos.length,0);
   const photoA=detailA1.current_assessment.photos[0].id;
   await expectStatus(401,`/api/student-photos/${photoA}?token=${inviteA.token}`);
   assert.equal((await request(`/api/student-photos/${photoA}`,{cookie:sessionA.cookie})).response.status,200);
   await expectStatus(403,`/api/student-photos/${photoA}`,{cookie:sessionB.cookie});
+  assert.equal((await request(`/api/student-documents/${medicalDocumentId}`,{cookie:sessionA.cookie})).response.status,200);await expectStatus(403,`/api/student-documents/${medicalDocumentId}`,{cookie:sessionB.cookie});await expectStatus(404,`/api/student/assessment/documents/${medicalDocumentId}`,{method:'DELETE',cookie:sessionA.cookie});
   await expectStatus(404,`/api/student/assessment/photos/${photoA}`,{method:'DELETE',cookie:sessionA.cookie});
   await expectStatus(404,'/api/student/assessment',{method:'DELETE',cookie:sessionA.cookie});
   await expectStatus(404,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
 
-  await ok(`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'A approved'}});
-  await ok(`/api/assessments/${assessmentB1}/approve`,{method:'POST',coach:true,body:{coach_note:'B approved'}});
+  await expectStatus(400,`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'too early'}});
+  await ok(`/api/assessments/${assessmentA1}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'A approved'}});
+  await ok(`/api/assessments/${assessmentB1}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentB1}/approve`,{method:'POST',coach:true,body:{coach_note:'B approved'}});
   const draftA=await ok('/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(a.id),assessmentA1,1)});
   const payloadB=programPayload(Number(b.id),assessmentB1,1);payloadB.title='E2E Student B program';
   const draftB=await ok('/api/training-programs',{method:'POST',coach:true,body:payloadB});
@@ -103,12 +120,13 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 
   // Month 2: the authenticated identity creates a new record; browser-supplied IDs are ignored.
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{student_id:b.id,assessment_id:assessmentA1,weight:76,height:175,waist:81,goal:'فیتنس',training_experience:'متوسط',student_note:'month two',body_photos_preference:'willing'}});
+  await completeStructuredAssessment(sessionA.cookie,'male');
   assert.equal((await upload(sessionA.cookie,'front')).response.status,201);
   const declinedDraft=await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{body_photos_preference:'declined'}});assert.equal(declinedDraft.assessment.photos.length,0);
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{body_photos_preference:'willing'}});assert.equal((await upload(sessionA.cookie,'front')).response.status,201);
   const submittedA2=await ok('/api/student/assessment/submit',{method:'POST',cookie:sessionA.cookie});assert.equal(submittedA2.assessment.photos.length,1);
   const detailA2=await ok(`/api/students/${a.id}`,{coach:true});assert.equal(detailA2.assessments.length,2);assert.deepEqual(immutableAssessment(detailA2.assessments[0]),snapshotA1);
-  const assessmentA2=detailA2.current_assessment.id;await ok(`/api/assessments/${assessmentA2}/approve`,{method:'POST',coach:true,body:{coach_note:'A month two approved'}});
+  const assessmentA2=detailA2.current_assessment.id;await ok(`/api/assessments/${assessmentA2}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentA2}/approve`,{method:'POST',coach:true,body:{coach_note:'A month two approved'}});
   const p2=await ok('/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(a.id),assessmentA2,2)});await ok(`/api/training-programs/${p2.id}/activate`,{method:'POST',coach:true});
   const historyA=await ok('/api/student/history',{cookie:sessionA.cookie});assert.equal(historyA.assessments.length,2);assert.equal(historyA.programs.length,2);assert.deepEqual(historyA.programs.map(item=>item.status),['COMPLETED','ACTIVE']);
   const historyB=await ok('/api/student/history',{cookie:sessionB.cookie});assert.equal(historyB.assessments.length,1);assert.equal(historyB.programs.length,1);
@@ -118,6 +136,12 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const zeroInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(zero.id),expires_in_days:30}});const zeroSession=await acceptInvitation(zeroInvite);
   const zeroSubmitted=await onboard(zeroSession.cookie,{name:`Zero photo willing ${suffix}`,mobile:'07111111111',weight:72,preference:'willing',photoTypes:[]});assert.equal(zeroSubmitted.assessment.photos.length,0);assert.equal(zeroSubmitted.assessment.body_photos_preference,'willing');
 
+  // Coach lifecycle: changes requested requires a note and can be resubmitted.
+  const changeStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Changes ${suffix}`,mobile:'07222222222',goal:'test'}});const changeInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(changeStudent.id),expires_in_days:30}});const changeSession=await acceptInvitation(changeInvite);await onboard(changeSession.cookie,{name:`Changes ${suffix}`,mobile:'07222222222',weight:73,preference:'declined'});let changeDetail=await ok(`/api/students/${changeStudent.id}`,{coach:true});const changeAssessment=changeDetail.current_assessment.id;await ok(`/api/assessments/${changeAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:''}});await ok(`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:'لطفاً وزن را بررسی کنید'}});await ok('/api/student/assessment',{method:'POST',cookie:changeSession.cookie,body:{weight:74}});await ok('/api/student/assessment/submit',{method:'POST',cookie:changeSession.cookie});changeDetail=await ok(`/api/students/${changeStudent.id}`,{coach:true});assert.equal(changeDetail.current_assessment.lifecycle_status,'SUBMITTED');
+
+  // Coach lifecycle: rejected assessments cannot produce programs.
+  const rejectStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Rejected ${suffix}`,mobile:'07333333333',goal:'test'}});const rejectInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(rejectStudent.id),expires_in_days:30}});const rejectSession=await acceptInvitation(rejectInvite);await onboard(rejectSession.cookie,{name:`Rejected ${suffix}`,mobile:'07333333333',weight:75,preference:'declined'});const rejectDetail=await ok(`/api/students/${rejectStudent.id}`,{coach:true});const rejectedAssessment=rejectDetail.current_assessment.id;await ok(`/api/assessments/${rejectedAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:''}});const rejected=await ok(`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:'پرونده رد شد'}});assert.equal(rejected.lifecycle_status,'REJECTED');await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(rejectStudent.id),rejectedAssessment,1)});
+
   // Revocation destroys sessions related to an invitation.
   const c=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Session revoke ${suffix}`,mobile:'07000000000',goal:'test'}});
   const inviteC=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(c.id),expires_in_days:30}});const sessionC=await acceptInvitation(inviteC);
@@ -126,9 +150,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const logout=await request('/api/student/logout',{method:'POST',cookie:sessionB.cookie});assert.equal(logout.response.status,200);assert.match(logout.response.headers.get('set-cookie')||'',/Max-Age=0/);
   await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});
 
-  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.6.0',name:'Yasnafit',environment:'development'});
-  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'013_optional_body_photos_preference');
+  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.7.0',name:'Yasnafit',environment:'development'});
+  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'015_private_assessment_documents');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }
