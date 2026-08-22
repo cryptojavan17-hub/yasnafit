@@ -1,0 +1,43 @@
+/* Student Portal - Join via secure token */
+.student-portal{max-width:1200px;margin:0 auto;min-height:100vh;background:#f5f8f7}
+.sp-header{background:#fff;border-bottom:1px solid #e9eef0;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(0,0,0,0.05)}
+.sp-brand{display:flex;gap:12px;align-items:center}
+.sp-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#70d947,#369b18);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px}
+.sp-brand strong{display:block;font-size:18px}
+.sp-brand span{display:block;color:#718096;font-size:11px}
+.sp-status{text-align:left}
+.status-badge{background:#e9f7e4;color:#237d0d;padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid #d1e9cb;font-weight:600}
+.sp-status small{display:block;color:#8a969d;font-size:12px;margin-top:4px}
+.sp-welcome{background:linear-gradient(120deg,#fff,#f6fff3);border:1px solid #e6f0e3;border-radius:16px;padding:24px;margin:20px 24px}
+.sp-welcome h1{margin:0 0 10px;font-size:24px}
+.sp-welcome p{color:#687680;font-size:13px;line-height:1.8;margin:0}
+.sp-alert{margin-top:16px;padding:12px 16px;border-radius:10px;font-size:13px}
+.sp-alert.success{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.sp-alert.warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.sp-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;padding:0 24px 24px}
+.sp-card{background:#fff;border:1px solid #e9eef0;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,0.03)}
+.sp-card h2{margin:0 0 16px;font-size:15px;color:#34424b}
+.sp-form{display:flex;flex-direction:column;gap:12px}
+.sp-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sp-row.full{grid-template-columns:1fr}
+.sp-row label{font-size:12px;color:#52616d;display:flex;flex-direction:column;gap:6px}
+.sp-row input,.sp-row select,.sp-row textarea{border:1px solid #dbe3df;border-radius:10px;padding:10px 12px;font:inherit;background:#fff}
+.sp-row textarea{min-height:70px;resize:vertical}
+.photo-upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.photo-upload-box{border:1px dashed #dbe3df;border-radius:12px;padding:12px;text-align:center;background:#fafafa}
+.photo-preview{width:100%;height:120px;border-radius:8px;background:#f3f6f4;border:1px solid #e5e5e5;display:grid;place-items:center;overflow:hidden;margin-bottom:8px;color:#888;font-size:12px}
+.photo-upload-box label{font-size:11px;color:#666}
+.sp-sidebar{position:sticky;top:80px;height:fit-content}
+.timeline{display:flex;flex-direction:column;gap:10px}
+.tl-item{display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f7f9f8;border-radius:10px;border:1px solid #ecece8}
+.tl-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;flex:0 0 28px}
+.tl-dot.assessment{background:#e0f2fe}
+.tl-dot.program{background:#e9f7e4}
+@media(max-width:900px){
+  .sp-grid{grid-template-columns:1fr;padding:0 16px 16px}
+  .sp-row{grid-template-columns:1fr}
+  .photo-upload-grid{grid-template-columns:1fr}
+  .sp-welcome{margin:16px}
+  .sp-header{padding:12px 16px}
+}
+@keyframes spin{to{transform:rotate(360deg)}}

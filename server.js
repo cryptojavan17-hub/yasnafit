@@ -20,6 +20,8 @@ const { db, dbPath, backup, log } = require('./src/database');
 const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
+const studentService = require('./src/student-service');
+const uploadService = require('./src/upload-service');
 
 // --- MIME Types ---
 const types = {
@@ -606,6 +608,433 @@ async function handleTrainingPrograms(req,res,url){
   return null;
 }
 
+async function handleStudentInvites(req,res,url){
+  const p=url.pathname;
+  if(p==='/api/student-invites' && req.method==='GET'){
+    const list = rows(`
+      SELECT si.id, si.stable_id, si.student_id, si.token_preview, si.status, si.created_at, si.expires_at, si.used_at, si.revoked_at, s.full_name, s.mobile
+      FROM student_invites si
+      JOIN students s ON s.id=si.student_id AND s.deleted_at IS NULL
+      WHERE si.deleted_at IS NULL
+      ORDER BY si.id DESC
+    `);
+    return send(res,200,list);
+  }
+  if(p==='/api/student-invites' && req.method==='POST'){
+    const b=await readBody(req);
+    if(!b.student_id || !Number.isInteger(Number(b.student_id))) return sendError(res,400,'student_id الزامی است');
+    const studentId = Number(b.student_id);
+    const student = one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL', studentId);
+    if(!student) return sendError(res,404,'شاگرد پیدا نشد');
+    const expiresDays = b.expires_in_days!=null ? Number(b.expires_in_days) : 30;
+    const result = studentService.createInvite(db, studentId, expiresDays);
+    log('لینک دعوت شاگرد ساخته شد', `${result.token_preview} برای ${studentId}`);
+    // Return token only once, plus join URL
+    const joinUrl = `/join/${result.token}`;
+    return send(res,201,{id: result.id, stable_id: result.stable_id, student_id: studentId, token: result.token, token_preview: result.token_preview, join_url: joinUrl, expires_at: result.expires_at});
+  }
+
+  const revokeMatch = p.match(/^\/api\/student-invites\/(\d+)\/revoke$/);
+  if(revokeMatch && req.method==='POST'){
+    const id=Number(revokeMatch[1]);
+    const ok = studentService.revokeInvite(db, id);
+    if(!ok) return sendError(res,404,'دعوت پیدا نشد');
+    log('لینک دعوت باطل شد', `id ${id}`);
+    return send(res,200,{id, revoked:true});
+  }
+
+  return null;
+}
+
+async function handleStudentPortal(req,res,url){
+  const p=url.pathname;
+
+  // Resolve token
+  const portalMatch = p.match(/^\/api\/student-portal\/([^\/]+)(\/.*)?$/);
+  if(!portalMatch) return null;
+  const token = portalMatch[1];
+  const subPath = portalMatch[2]||'';
+
+  // Security: token format check
+  if(!token || token.length<20 || token.length>100) return sendError(res,400,'توکن نامعتبر');
+
+  const resolved = studentService.resolveInvite(db, token);
+  if(!resolved || resolved.error){
+    const errMap = {
+      revoked: 'لینک باطل شده است',
+      expired: 'لینک منقضی شده است',
+      student_not_found: 'شاگرد پیدا نشد',
+    };
+    const msg = errMap[resolved?.error] || 'لینک نامعتبر';
+    return sendError(res,404,msg);
+  }
+
+  const {student} = resolved;
+  const studentId = student.id;
+
+  // GET /api/student-portal/:token -> full student data for portal
+  if((subPath==='' || subPath==='/') && req.method==='GET'){
+    const full = studentService.getStudentFullData(db, studentId);
+    // Also get current assessment (latest not archived)
+    const currentAssessment = one('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number DESC LIMIT 1', studentId);
+    let currentPhotos=[];
+    if(currentAssessment){
+      currentPhotos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', currentAssessment.id);
+    }
+    // Get assigned program (latest)
+    const currentProgram = one('SELECT * FROM training_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+    let programFull=null;
+    if(currentProgram){
+      try {
+        const built = programService.buildProgramFromDB(db, currentProgram.id);
+        if(built) programFull = { ...currentProgram, program_data: built.programData };
+        else programFull = currentProgram;
+      } catch(e){ programFull=currentProgram; }
+    }
+
+    return send(res,200,{
+      student,
+      current_assessment: currentAssessment ? {...currentAssessment, photos: currentPhotos} : null,
+      current_program: programFull,
+      timeline: full.timeline,
+      assessments: full.assessments,
+      programs: full.programs
+    });
+  }
+
+  // PUT /api/student-portal/:token/profile
+  if(subPath==='/profile' && req.method==='PUT'){
+    const b=await readBody(req);
+    // Allow updating profile fields
+    const allowed = ['full_name','mobile','date_of_birth','height','weight','goal','training_experience','training_level','occupation','preferred_location','limitations','injuries','medical_notes'];
+    const updates={};
+    for(const key of allowed){
+      if(b[key]!==undefined) updates[key]=b[key];
+    }
+    if(Object.keys(updates).length===0) return sendError(res,400,'هیچ فیلدی برای ویرایش نیست');
+
+    // Validate
+    if(updates.full_name && updates.full_name.length>100) return sendError(res,400,'نام طولانی است');
+    if(updates.mobile && updates.mobile.length>20) return sendError(res,400,'موبایل نامعتبر');
+
+    const fields=[];
+    const params=[];
+    for(const [k,v] of Object.entries(updates)){
+      fields.push(`${k}=?`);
+      params.push(v);
+    }
+    fields.push('updated_at=CURRENT_TIMESTAMP');
+    fields.push('version=version+1');
+    fields.push(`profile_status='PROFILE_INCOMPLETE'`);
+    params.push(studentId);
+    db.prepare(`UPDATE students SET ${fields.join(', ')} WHERE id=? AND deleted_at IS NULL`).run(...params);
+
+    const updated = one('SELECT * FROM students WHERE id=?', studentId);
+    log('پروفایل شاگرد ویرایش شد', updated.full_name);
+    return send(res,200,updated);
+  }
+
+  // POST /api/student-portal/:token/assessment
+  if(subPath==='/assessment' && req.method==='POST'){
+    const b=await readBody(req);
+    // Check if there is already an incomplete assessment
+    let assessment = one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY id DESC LIMIT 1`, studentId);
+
+    if(assessment){
+      // Update existing
+      try {
+        const updated = studentService.updateAssessment(db, assessment.id, {...b, force:true});
+        return send(res,200,updated);
+      } catch(e){
+        return sendError(res,400,e.message);
+      }
+    } else {
+      // Create new
+      try {
+        const created = studentService.createAssessment(db, studentId, b);
+        const full = one('SELECT * FROM body_assessments WHERE id=?', created.id);
+        return send(res,201,full);
+      } catch(e){
+        return sendError(res,400,e.message);
+      }
+    }
+  }
+
+  // POST /api/student-portal/:token/submit
+  if(subPath==='/submit' && req.method==='POST'){
+    // Find latest assessment that is not submitted
+    const assessment = one('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number DESC LIMIT 1', studentId);
+    if(!assessment) return sendError(res,404,'ارزیابی پیدا نشد');
+    try {
+      const submitted = studentService.submitAssessment(db, assessment.id);
+      log('ارزیابی شاگرد ارسال شد', `${student.full_name} - ارزیابی #${submitted.assessment_number}`);
+      return send(res,200,submitted);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  // GET /api/student-portal/:token/assessments
+  if(subPath==='/assessments' && req.method==='GET'){
+    const list = rows('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number ASC', studentId);
+    return send(res,200,list);
+  }
+
+  // GET /api/student-portal/:token/timeline
+  if(subPath==='/timeline' && req.method==='GET'){
+    const full = studentService.getStudentFullData(db, studentId);
+    return send(res,200,full.timeline);
+  }
+
+  // Photo upload via JSON base64 (simpler than multipart for now) - POST /api/student-portal/:token/photos
+  if(subPath==='/photos' && req.method==='POST'){
+    const contentType = req.headers['content-type']||'';
+    if(contentType.includes('multipart/form-data')){
+      // Handle multipart
+      const boundaryMatch = contentType.match(/boundary=([^;]+)/);
+      if(!boundaryMatch) return sendError(res,400,'boundary not found');
+      const boundary = boundaryMatch[1].replace(/"/g,'');
+      try {
+        const parts = await uploadService.parseMultipart(req, boundary);
+        const files = parts.filter(p=>p.type==='file');
+        const fields = {};
+        parts.filter(p=>p.type==='field').forEach(f=> fields[f.name]=f.value);
+
+        const photoType = fields.photo_type || 'front';
+        const assessmentId = fields.assessment_id ? Number(fields.assessment_id) : null;
+        let targetAssessmentId = assessmentId;
+        if(!targetAssessmentId){
+          const latest = one('SELECT id FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+          if(!latest) return sendError(res,404,'ارزیابی پیدا نشد - اول ارزیابی بسازید');
+          targetAssessmentId = latest.id;
+        }
+
+        const results=[];
+        for(const file of files){
+          try {
+            const saved = uploadService.saveAssessmentPhoto(db, studentId, targetAssessmentId, file, photoType);
+            results.push(saved);
+          } catch(e){
+            return sendError(res, e.statusCode||400, e.message, e.validationErrors||null);
+          }
+        }
+        return send(res,201,{photos: results});
+      } catch(e){
+        console.error('Multipart error', e);
+        return sendError(res, e.statusCode||400, e.message||'خطا در آپلود');
+      }
+    } else {
+      // JSON base64 upload
+      const b=await readBody(req);
+      if(!b.data && !b.base64) return sendError(res,400,'دیتای عکس الزامی است');
+      const photoType = b.photo_type || 'front';
+      const assessmentId = b.assessment_id ? Number(b.assessment_id) : null;
+      let targetAssessmentId = assessmentId;
+      if(!targetAssessmentId){
+        const latest = one('SELECT id FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+        if(!latest) return sendError(res,404,'ارزیابی پیدا نشد');
+        targetAssessmentId = latest.id;
+      }
+
+      // Decode base64
+      let buffer;
+      try {
+        const base64Data = (b.data||b.base64).replace(/^data:image\/\w+;base64,/, '');
+        buffer = Buffer.from(base64Data, 'base64');
+      } catch(e){
+        return sendError(res,400,'base64 نامعتبر');
+      }
+
+      const file = {
+        originalFilename: b.filename || `${photoType}.jpg`,
+        mimeType: b.mime_type || 'image/jpeg',
+        size: buffer.length,
+        data: buffer
+      };
+
+      try {
+        const saved = uploadService.saveAssessmentPhoto(db, studentId, targetAssessmentId, file, photoType);
+        return send(res,201,{photo: saved});
+      } catch(e){
+        return sendError(res, e.statusCode||400, e.message, e.validationErrors||null);
+      }
+    }
+  }
+
+  // GET /api/student-portal/:token/photos
+  if(subPath==='/photos' && req.method==='GET'){
+    const photos = rows(`
+      SELECT ap.*, ba.assessment_number
+      FROM assessment_photos ap
+      JOIN body_assessments ba ON ba.id=ap.assessment_id
+      WHERE ap.student_id=? AND ap.deleted_at IS NULL
+      ORDER BY ba.assessment_number DESC, ap.photo_type
+    `, studentId);
+    return send(res,200,photos);
+  }
+
+  // GET /api/student-portal/:token/program
+  if(subPath==='/program' && req.method==='GET'){
+    const prog = one('SELECT * FROM training_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+    if(!prog) return sendError(res,404,'برنامه‌ای اختصاص داده نشده');
+    try {
+      const built = programService.buildProgramFromDB(db, prog.id);
+      if(built) prog.program_data = built.programData;
+      else {
+        try { prog.program_data = JSON.parse(prog.program_data||'{}'); } catch(e){ prog.program_data={}; }
+      }
+    } catch(e){}
+    return send(res,200,prog);
+  }
+
+  return null;
+}
+
+async function handleBodyAssessments(req,res,url){
+  const p=url.pathname;
+
+  if(p==='/api/student-submissions' && req.method==='GET'){
+    const list = studentService.getPendingSubmissions(db);
+    return send(res,200,list);
+  }
+
+  const studentAssessMatch = p.match(/^\/api\/students\/(\d+)\/assessments$/);
+  if(studentAssessMatch && req.method==='GET'){
+    const studentId=Number(studentAssessMatch[1]);
+    const list = rows('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number ASC', studentId);
+    return send(res,200,list);
+  }
+
+  const studentTimelineMatch = p.match(/^\/api\/students\/(\d+)\/timeline$/);
+  if(studentTimelineMatch && req.method==='GET'){
+    const studentId=Number(studentTimelineMatch[1]);
+    const full = studentService.getStudentFullData(db, studentId);
+    if(!full) return sendError(res,404,'شاگرد پیدا نشد');
+    return send(res,200,full);
+  }
+
+  const assessMatch = p.match(/^\/api\/assessments\/(\d+)(\/photos)?$/);
+  if(assessMatch){
+    const id=Number(assessMatch[1]);
+    const isPhotos = !!assessMatch[2];
+    if(req.method==='GET'){
+      if(isPhotos){
+        const photos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL ORDER BY photo_type', id);
+        return send(res,200,photos);
+      } else {
+        const ass = one('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL', id);
+        if(!ass) return sendError(res,404,'ارزیابی پیدا نشد');
+        const photos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', id);
+        const student = one('SELECT * FROM students WHERE id=?', ass.student_id);
+        // Previous assessment for comparison
+        const prev = one('SELECT * FROM body_assessments WHERE student_id=? AND assessment_number < ? AND deleted_at IS NULL ORDER BY assessment_number DESC LIMIT 1', ass.student_id, ass.assessment_number);
+        let prevPhotos=[];
+        if(prev) prevPhotos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', prev.id);
+        let prevProgram=null;
+        if(prev && prev.program_id){
+          prevProgram = one('SELECT * FROM training_programs WHERE id=?', prev.program_id);
+          if(prevProgram){
+            try {
+              const built = programService.buildProgramFromDB(db, prevProgram.id);
+              if(built) prevProgram.program_data = built.programData;
+            } catch(e){}
+          }
+        }
+        return send(res,200,{assessment: {...ass, photos}, student, previous_assessment: prev ? {...prev, photos: prevPhotos} : null, previous_program: prevProgram});
+      }
+    }
+  }
+
+  const requestChangesMatch = p.match(/^\/api\/assessments\/(\d+)\/request-changes$/);
+  if(requestChangesMatch && req.method==='POST'){
+    const id=Number(requestChangesMatch[1]);
+    const b=await readBody(req);
+    try {
+      const updated = studentService.reviewAssessment(db, id, 'request_changes', b.coach_note||'');
+      log('ارزیابی نیاز به اصلاح دارد', `ارزیابی #${updated.assessment_number} - ${updated.student_id}`);
+      return send(res,200,updated);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  const approveMatch = p.match(/^\/api\/assessments\/(\d+)\/approve$/);
+  if(approveMatch && req.method==='POST'){
+    const id=Number(approveMatch[1]);
+    const b=await readBody(req);
+    try {
+      const updated = studentService.reviewAssessment(db, id, 'approve', b.coach_note||'');
+      log('ارزیابی تایید شد', `ارزیابی #${updated.assessment_number}`);
+      return send(res,200,updated);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  const underReviewMatch = p.match(/^\/api\/assessments\/(\d+)\/under-review$/);
+  if(underReviewMatch && req.method==='POST'){
+    const id=Number(underReviewMatch[1]);
+    try {
+      const updated = studentService.reviewAssessment(db, id, 'under_review');
+      return send(res,200,updated);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  return null;
+}
+
+async function handleAssessmentPhotos(req,res,url){
+  const p=url.pathname;
+
+  // GET /api/student-photos/:photoId - protected with token check
+  const photoMatch = p.match(/^\/api\/student-photos\/(\d+)$/);
+  if(photoMatch && req.method==='GET'){
+    const photoId=Number(photoMatch[1]);
+    if(!Number.isInteger(photoId) || photoId<=0) return sendError(res,400,'شناسه نامعتبر');
+
+    const photo = uploadService.getPhotoFilePath(db, photoId);
+    if(!photo) return sendError(res,404,'عکس پیدا نشد');
+
+    // Security: ensure path is inside data/assessments
+    const assessmentsRoot = path.resolve(path.join(__dirname, 'data', 'assessments'));
+    if(!isSafePath(assessmentsRoot, photo.storage_path)){
+      return sendError(res,403,'دسترسی غیرمجاز');
+    }
+
+    const ext = path.extname(photo.storage_path).toLowerCase();
+    if(!['.png','.jpg','.jpeg','.webp','.gif'].includes(ext)){
+      return sendError(res,403,'نوع فایل نامعتبر');
+    }
+
+    // Authorization: check token query param for student portal access
+    const token = url.searchParams.get('token');
+    if(token){
+      const resolved = studentService.resolveInvite(db, token);
+      if(!resolved || resolved.error || resolved.student.id !== photo.student_id){
+        return sendError(res,403,'دسترسی غیرمجاز - توکن نامعتبر برای این عکس');
+      }
+    }
+    // If no token, allow as coach (future will check session). Log access.
+    log('دسترسی به عکس ارزیابی', `photo ${photoId} student ${photo.student_id} ${token?'via student token':'via coach'}`);
+
+    res.writeHead(200,{'Content-Type': photo.mime_type||types[ext]||'image/jpeg','Cache-Control':'private, max-age=3600'});
+    return fs.createReadStream(photo.storage_path).pipe(res);
+  }
+
+  // DELETE /api/assessment-photos/:id
+  const delMatch = p.match(/^\/api\/assessment-photos\/(\d+)$/);
+  if(delMatch && req.method==='DELETE'){
+    const photoId=Number(delMatch[1]);
+    const ok = uploadService.deletePhoto(db, photoId);
+    if(!ok) return sendError(res,404,'عکس پیدا نشد');
+    return send(res,200,{id: photoId, soft_deleted:true});
+  }
+
+  return null;
+}
+
 async function handleLegacyPrograms(req,res,url){
   if(url.pathname==='/api/programs' && req.method==='GET'){
     return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
@@ -664,6 +1093,9 @@ async function api(req,res,url){
     if(p.startsWith('/api/students')){
       const r1 = await handleStudentsDelete(req,res,url);
       if(r1) return r1;
+      // New: student assessments and timeline
+      const rBody = await handleBodyAssessments(req,res,url);
+      if(rBody) return rBody;
       if(p.startsWith('/api/students')){
         const r = await handleStudents(req,res,url);
         if(r) return r;
@@ -680,6 +1112,26 @@ async function api(req,res,url){
       if(r) return r;
     }
 
+    if(p.startsWith('/api/student-invites')){
+      const r = await handleStudentInvites(req,res,url);
+      if(r) return r;
+    }
+
+    if(p.startsWith('/api/student-portal/')){
+      const r = await handleStudentPortal(req,res,url);
+      if(r) return r;
+    }
+
+    if(p==='/api/student-submissions' || p.startsWith('/api/assessments/')){
+      const r = await handleBodyAssessments(req,res,url);
+      if(r) return r;
+    }
+
+    if(p.startsWith('/api/student-photos/') || p.startsWith('/api/assessment-photos/')){
+      const r = await handleAssessmentPhotos(req,res,url);
+      if(r) return r;
+    }
+
     if(p.startsWith('/api/programs')){
       const r = await handleLegacyPrograms(req,res,url);
       if(r) return r;
@@ -692,7 +1144,7 @@ async function api(req,res,url){
 
     // Legacy movements
     if(url.pathname==='/api/movements' && req.method==='GET'){
-      return send(res,200,rows('SELECT * FROM movements ORDER BY id DESC'));
+      return send(res,200,rows('SELECT * FROM movements WHERE deleted_at IS NULL ORDER BY id DESC'));
     }
     if(url.pathname==='/api/movements' && req.method==='POST'){
       const b=await readBody(req);

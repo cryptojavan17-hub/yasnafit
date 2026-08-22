@@ -49,6 +49,9 @@ const menu = [
     ['برنامه های مکمل','/templates/supplement/list'],
     ['برنامه های اصلاحی','/templates/corrective/list']
   ]],
+  ['ارزیابی‌ها',null,'📋',[
+    ['درخواست‌های جدید','/students/submissions']
+  ]],
   ['درآمد زایی',null,'◈',[['تاریخچه درآمد مربی ها','/monetization/log']]],
   ['ویدیو های آموزشی','/video-guides','▶'],
   ['رویداد ها',null,'◉',[
@@ -85,9 +88,9 @@ const menu = [
   ]]
 ];
 
-const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'مدیریت حساب', 'شاگرد های من', 'بانک برنامه ها', 'آمار ها'];
+const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'مدیریت حساب', 'شاگرد های من', 'بانک برنامه ها', 'ارزیابی‌ها', 'آمار ها'];
 let sidebarMenu = menu.filter(item => visibleRoots.includes(item[0]));
-const order = ['داشبورد','صفحه اختصاصی','مدیریت حساب','شاگرد های من','بانک برنامه ها','آمار ها'];
+const order = ['داشبورد','صفحه اختصاصی','مدیریت حساب','شاگرد های من','بانک برنامه ها','ارزیابی‌ها','آمار ها'];
 sidebarMenu.sort((a,b)=> order.indexOf(a[0]) - order.indexOf(b[0]));
 const statsIndex = sidebarMenu.findIndex(item => item[0] === 'آمار ها');
 sidebarMenu.splice(statsIndex, 0, ['تنظیمات', null, '⚙', [['پروفایل', '/coach/profile'], ['تنظیمات سامانه', '/coach/settings']]]);
@@ -97,9 +100,15 @@ let current='';
 function go(label, route){ current=route; history.pushState({},'',route); renderRoute(label,route); document.querySelector('#sidebar').classList.remove('open'); }
 
 function renderRoute(label,route){
+  // Student portal - no sidebar, secure token
+  if(route.startsWith('/join/') && window.renderStudentPortal) return window.renderStudentPortal(route);
+  
   if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);
   if(route==='/programs/exercise/form' && window.renderProgramBuilder) return window.renderProgramBuilder(label,route);
   if(route==='/templates/exercise/list' && window.renderTrainingProgramsList) return window.renderTrainingProgramsList(label,route);
+  if(route==='/students/submissions' && window.renderCoachSubmissions) return window.renderCoachSubmissions(label,route);
+  if(route.startsWith('/students/') && route.includes('/timeline') && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
+  if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
   crumb.textContent=label;
   document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active',x.dataset.route===route));
   content.innerHTML=`<div class="page-intro"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>این بخش برای مدیریت <b>${label}</b> آماده شده است. محتوای عملیاتی آن در مرحله بعد به این صفحه افزوده می‌شود.</p></div><div class="page-icon">${route ? '◈' : '▦'}</div></div>

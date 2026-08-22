@@ -260,7 +260,7 @@ function saveProgramToDB(db, programId, programInput){
 
     db.prepare(`
       UPDATE training_programs
-      SET title=?, coach_note=?, status=?, start_date=?, end_date=?, student_id=?, program_data=?, updated_at=CURRENT_TIMESTAMP, version=version+1
+      SET title=?, coach_note=?, status=?, start_date=?, end_date=?, student_id=?, assessment_id=?, program_data=?, updated_at=CURRENT_TIMESTAMP, version=version+1
       WHERE id=?
     `).run(
       normalizedInput.title||existing.title,
@@ -269,9 +269,22 @@ function saveProgramToDB(db, programId, programInput){
       normalizedInput.start_date||existing.start_date,
       normalizedInput.end_date||existing.end_date,
       normalizedInput.student_id!=null?normalizedInput.student_id:existing.student_id,
+      normalizedInput.assessment_id!=null?normalizedInput.assessment_id:existing.assessment_id,
       jsonToStore,
       programId
     );
+
+    // If program linked to assessment, update assessment's program_id and student status
+    if(normalizedInput.assessment_id || existing.assessment_id){
+      const assId = normalizedInput.assessment_id || existing.assessment_id;
+      try {
+        db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId, assId);
+        const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id=?').get(assId);
+        if(ass){
+          db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assId, ass.student_id);
+        }
+      } catch(e){ console.log('Failed to link program to assessment', e.message); }
+    }
 
     db.exec('COMMIT');
     return buildProgramFromDB(db, programId);
@@ -295,11 +308,18 @@ function createProgramInDB(db, programInput){
   try {
     const stableId = genUUID();
     const initialJson = JSON.stringify({days:[]});
+    // Get next program number for student
+    let programNumber = 1;
+    if(normalizedInput.student_id){
+      const lastProg = db.prepare('SELECT MAX(program_number) as max_num FROM training_programs WHERE student_id=? AND deleted_at IS NULL').get(normalizedInput.student_id);
+      programNumber = (lastProg?.max_num||0) + 1;
+    }
     const progRes = db.prepare(`
-      INSERT INTO training_programs (student_id, title, coach_note, status, start_date, end_date, program_data, stable_id, version)
-      VALUES (?,?,?,?,?,?,?,?,?)
+      INSERT INTO training_programs (student_id, assessment_id, title, coach_note, status, start_date, end_date, program_data, stable_id, version, program_number)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       normalizedInput.student_id||null,
+      normalizedInput.assessment_id||null,
       normalizedInput.title||'برنامه تمرینی جدید',
       normalizedInput.coach_note||'',
       normalizedInput.status||'پیش‌نویس',
@@ -307,7 +327,8 @@ function createProgramInDB(db, programInput){
       normalizedInput.end_date||null,
       initialJson,
       stableId,
-      1
+      1,
+      programNumber
     );
     const programId = progRes.lastInsertRowid;
 
@@ -370,6 +391,19 @@ function createProgramInDB(db, programInput){
           }
         }
       }
+    }
+
+    // Link program to assessment if provided
+    if(normalizedInput.assessment_id){
+      try {
+        db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`)
+          .run(programId, normalizedInput.assessment_id);
+        const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id=?').get(normalizedInput.assessment_id);
+        if(ass){
+          db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`)
+            .run(normalizedInput.assessment_id, ass.student_id);
+        }
+      } catch(e){ console.log('Link assessment on create:', e.message); }
     }
 
     // Build final JSON from DB and update

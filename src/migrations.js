@@ -317,6 +317,135 @@ const migrations = [
         db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)').run('schema_version','005');
       } catch(e){}
     }
+  },
+  {
+    id: '006_student_portal_lifecycle',
+    description: 'Phase 2: Student Portal + Assessment + Monthly Coaching Lifecycle',
+    up: (db) => {
+      const ensureColumn = (table, col, def) => {
+        try {
+          const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c=>c.name);
+          if(!cols.includes(col)){
+            db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+          }
+        } catch(e){}
+      };
+
+      // Enhance students table with full profile fields
+      ensureColumn('students','date_of_birth','TEXT');
+      ensureColumn('students','training_experience','TEXT DEFAULT ""');
+      ensureColumn('students','training_level','TEXT DEFAULT "beginner"');
+      ensureColumn('students','occupation','TEXT DEFAULT ""');
+      ensureColumn('students','preferred_location','TEXT DEFAULT "gym"');
+      ensureColumn('students','limitations','TEXT DEFAULT ""');
+      ensureColumn('students','injuries','TEXT DEFAULT ""');
+      ensureColumn('students','medical_notes','TEXT DEFAULT ""');
+      ensureColumn('students','coach_notes','TEXT DEFAULT ""');
+      ensureColumn('students','profile_status','TEXT DEFAULT "INVITED"');
+      ensureColumn('students','last_assessment_id','INTEGER');
+
+      // Add assessment_id to training_programs for Assessment -> Program link
+      ensureColumn('training_programs','assessment_id','INTEGER');
+      ensureColumn('training_programs','program_number','INTEGER DEFAULT 1');
+
+      // Student Invites - secure token system
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS student_invites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT,
+          student_id INTEGER NOT NULL,
+          token_hash TEXT NOT NULL UNIQUE,
+          token_preview TEXT,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','used','revoked','expired')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          expires_at TEXT,
+          used_at TEXT,
+          revoked_at TEXT,
+          version INTEGER DEFAULT 1,
+          deleted_at TEXT,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_student_invites_student ON student_invites(student_id)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_student_invites_hash ON student_invites(token_hash)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_student_invites_stable ON student_invites(stable_id)'); } catch(e){}
+      try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_student_invites_stable_unique ON student_invites(stable_id)'); } catch(e){}
+
+      // Body Assessments - historical, never overwritten
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS body_assessments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT,
+          student_id INTEGER NOT NULL,
+          assessment_number INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'PROFILE_INCOMPLETE' CHECK(status IN ('INVITED','PROFILE_INCOMPLETE','ASSESSMENT_PENDING','SUBMITTED','UNDER_REVIEW','CHANGES_REQUESTED','APPROVED','ACTIVE','PROGRAM_ASSIGNED','AWAITING_NEXT_ASSESSMENT','ARCHIVED')),
+          weight REAL,
+          height REAL,
+          waist REAL,
+          chest REAL,
+          hips REAL,
+          body_fat REAL,
+          muscle_mass REAL,
+          measurements TEXT DEFAULT '{}',
+          goal TEXT DEFAULT '',
+          training_experience TEXT DEFAULT '',
+          limitations TEXT DEFAULT '',
+          injuries TEXT DEFAULT '',
+          student_note TEXT DEFAULT '',
+          coach_note TEXT DEFAULT '',
+          submitted_at TEXT,
+          reviewed_at TEXT,
+          program_id INTEGER,
+          version INTEGER DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+          FOREIGN KEY(program_id) REFERENCES training_programs(id) ON DELETE SET NULL
+        );
+      `);
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_body_assessments_student ON body_assessments(student_id)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_body_assessments_status ON body_assessments(status)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_body_assessments_number ON body_assessments(student_id, assessment_number)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_body_assessments_stable ON body_assessments(stable_id)'); } catch(e){}
+      try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_body_assessments_stable_unique ON body_assessments(stable_id)'); } catch(e){}
+
+      // Assessment Photos - private, secure
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS assessment_photos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT,
+          assessment_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          photo_type TEXT NOT NULL DEFAULT 'front' CHECK(photo_type IN ('front','back','side','front_flex','back_flex','other')),
+          storage_path TEXT NOT NULL,
+          original_filename TEXT,
+          mime_type TEXT,
+          size_bytes INTEGER,
+          version INTEGER DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+      `);
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_assessment_photos_assessment ON assessment_photos(assessment_id)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_assessment_photos_student ON assessment_photos(student_id)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_assessment_photos_type ON assessment_photos(photo_type)'); } catch(e){}
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_assessment_photos_stable ON assessment_photos(stable_id)'); } catch(e){}
+
+      // Ensure training_programs has assessment_id index
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_training_programs_assessment ON training_programs(assessment_id)'); } catch(e){}
+
+      // Create data directory for private photos
+      try {
+        const path = require('path');
+        const fs = require('fs');
+        const root = path.resolve(__dirname, '..');
+        const assessmentsDir = path.join(root, 'data', 'assessments');
+        fs.mkdirSync(assessmentsDir, {recursive:true});
+      } catch(e){}
+    }
   }
 ];
 
