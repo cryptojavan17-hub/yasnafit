@@ -1,6 +1,6 @@
 (() => {
   const state = {
-    location: 'both',
+    location: 'gym',
     categoryId: null,
     subCategoryId: 'all',
     status: 'active',
@@ -151,22 +151,14 @@
     <div class="exercise-page">
       <div class="page-head">
         <div>
-          <p class="eyebrow">مدیریت حساب • ${state.total} حرکت</p>
           <h1>${label}</h1>
-          <p>حرکت‌ها را بر اساس محل، دسته، زیردسته و وضعیت مدیریت کنید. دیتابیس شامل <b>${state.total || '...'}</b> حرکت است.</p>
-          <div id="imageStatus" class="image-status">در حال بررسی تصاویر...</div>
-        </div>
-        <div class="head-stats">
-          <div class="stat-mini"><b id="totalCount">...</b><span>کل حرکات</span></div>
-          <div class="stat-mini"><b id="imageCount">...</b><span>تصاویر</span></div>
         </div>
       </div>
 
       <section class="exercise-controls">
         <div class="location-row">
-          <button data-location="gym" class="location-btn">🏋️ باشگاه</button>
+          <button data-location="gym" class="location-btn active">🏋️ باشگاه</button>
           <button data-location="home" class="location-btn">🏠 منزل</button>
-          <button data-location="both" class="location-btn active">هر دو</button>
 
           <div class="category-picker">
             <button id="categoryToggle" class="category-toggle">
@@ -485,7 +477,6 @@
           </label>
           <label>محل انجام
             <select name="location">
-              <option value="both" ${item?.location==='both'?'selected':''}>هر دو</option>
               <option value="gym" ${item?.location==='gym'?'selected':''}>باشگاه</option>
               <option value="home" ${item?.location==='home'?'selected':''}>منزل</option>
             </select>
@@ -626,47 +617,8 @@
       const groupedCats = await request('/api/categories/grouped');
       state.categories = groupedCats;
       state.total = groupedCats.reduce((sum,c)=>sum + (c.count||0), 0);
-      const totalEl = $('#totalCount');
-      if(totalEl) totalEl.textContent = state.total;
-
-      // Check images
-      try {
-        const imgStatus = await request('/api/images/status');
-        const imgEl = $('#imageCount');
-        const statusEl = $('#imageStatus');
-        if(imgEl) imgEl.textContent = imgStatus.imported || 0;
-        if(statusEl){
-          const db = imgStatus.db || {};
-          if(imgStatus.imported === 0){
-            statusEl.innerHTML = `
-              ⚠️ هیچ تصویری در <code>public/assets/images/exercises/imported</code> پیدا نشد.<br>
-              از لانچر گزینه 6 را بزنید.<br>
-              <small>دیتابیس: ${db.withImage||0} حرکت دارای عکس، ${db.withoutImage||0} بدون عکس (فعال بدون عکس: ${db.activeWithoutImage||0}، آرشیو: ${db.archived||0})</small>
-            `;
-            statusEl.className = 'image-status warning';
-          } else {
-            statusEl.innerHTML = `
-              ✅ ${imgStatus.imported} فایل تصویر در پوشه imported موجود است<br>
-              <small>دیتابیس: ${db.total||0} کل، ${db.withImage||0} دارای مسیر عکس، ${db.withoutImage||0} بدون مسیر عکس<br>
-              فعال با عکس: ${db.activeWithImage||0}، فعال بدون عکس: ${db.activeWithoutImage||0} (طبیعی است - در دیتای اصلی عکس ندارند)، آرشیو: ${db.archived||0}</small>
-            `;
-            statusEl.className = 'image-status success';
-          }
-        }
-      } catch(e){
-        console.log('Image status check failed', e);
-      }
 
       bindEvents();
-
-      // Auto-select chest if exists (like old Flutter app)
-      if(!state.categoryId){
-        const chest = state.categories.find(c=>c.id==='chest');
-        if(chest){
-          // Don't auto-select immediately, let user choose, but we can show hint
-          // selectCategory(chest.id); // Uncomment to auto-select
-        }
-      }
 
     } catch(e){
       content.innerHTML = `<div class="error-state"><h3>خطا در بارگذاری دسته‌بندی‌ها</h3><p>${esc(e.message)}</p></div>`;
