@@ -1,11 +1,27 @@
+/**
+ * Yasnafit - Hardened Production-Ready Server
+ * Lightweight Node.js HTTP server with SQLite
+ * Architecture: Normalized DB is source of truth, JSON is synchronized representation
+ */
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { db, dbPath, backup, log, importExercisesFromJson } = require('./src/database');
+const crypto = require('crypto');
+
+// --- Configuration ---
 const port = Number(process.env.PORT || 3020);
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
+// --- Database & Services ---
+const { db, dbPath, backup, log } = require('./src/database');
+const { runMigrations } = require('./src/migrations');
+const validation = require('./src/validation');
+const programService = require('./src/program-service');
+
+// --- MIME Types ---
 const types = {
   '.html':'text/html; charset=utf-8',
   '.js':'application/javascript; charset=utf-8',
@@ -20,598 +36,766 @@ const types = {
   '.svg':'image/svg+xml'
 };
 
+// --- Utilities ---
 function send(res, code, data) {
   res.writeHead(code, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
   res.end(JSON.stringify(data));
+  return true; // Return truthy to indicate handled
 }
-function read(req) {
+
+function sendError(res, code, message, details=null){
+  const payload = {error: message};
+  if(details) payload.details = details;
+  return send(res, code, payload);
+}
+
+function readBody(req) {
   return new Promise((resolve,reject)=>{
     let raw='';
-    req.on('data',x=>raw+=x);
+    let size=0;
+    req.on('data',chunk=>{
+      size += chunk.length;
+      if(size > MAX_BODY_SIZE){
+        reject(new Error('Request body too large'));
+        req.destroy();
+        return;
+      }
+      raw+=chunk;
+    });
     req.on('end',()=>{
-      try{resolve(raw?JSON.parse(raw):{})}
-      catch(e){reject(e)}
-    })
-  })
+      if(!raw) return resolve({});
+      try{
+        const parsed = JSON.parse(raw);
+        resolve(parsed);
+      } catch(e){
+        const err = new Error('Invalid JSON');
+        err.statusCode = 400;
+        reject(err);
+      }
+    });
+    req.on('error',reject);
+  });
 }
-function rows(sql, ...args){ return db.prepare(sql).all(...args); }
-function one(sql, ...args){ return db.prepare(sql).get(...args); }
 
+function rows(sql, ...args){
+  // Security: always use parameterized queries, no string concatenation for values
+  return db.prepare(sql).all(...args);
+}
+function one(sql, ...args){
+  return db.prepare(sql).get(...args);
+}
+
+function isSafePath(base, target){
+  const normalizedBase = path.resolve(base);
+  const normalizedTarget = path.resolve(target);
+  return normalizedTarget.startsWith(normalizedBase);
+}
+
+function sanitizeFileName(name){
+  // Remove path traversal, null bytes, etc.
+  return path.basename(String(name)).replace(/[^a-zA-Z0-9._-]/g,'_').substring(0,100);
+}
+
+// --- Validation Middleware ---
+function validateStudentPayload(data){
+  const errs = validation.validateStudent(data);
+  const bodyErrs = validation.validateRequestBody(data);
+  return [...errs, ...bodyErrs];
+}
+function validateExercisePayload(data){
+  const errs = validation.validateExercise(data);
+  const bodyErrs = validation.validateRequestBody(data);
+  return [...errs, ...bodyErrs];
+}
+function validateProgramPayload(data){
+  const errs = validation.validateProgram(data);
+  const bodyErrs = validation.validateRequestBody(data);
+  return [...errs, ...bodyErrs];
+}
+
+// --- API Handlers ---
+
+async function handleHealth(req,res){
+  const totalExercises = one('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL')?.total || 0;
+  const totalStudents = one('SELECT COUNT(*) as total FROM students WHERE deleted_at IS NULL')?.total || 0;
+  const totalPrograms = one('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL')?.total || 0;
+  const schemaVersion = one('SELECT value FROM settings WHERE key=?','schema_version')?.value || 'unknown';
+  return send(res,200,{
+    ok:true,
+    database: fs.existsSync(dbPath),
+    port,
+    exercises: totalExercises,
+    students: totalStudents,
+    programs: totalPrograms,
+    schema_version: schemaVersion,
+    uptime: process.uptime()
+  });
+}
+
+async function handleDashboard(req,res){
+  const total=one('SELECT COUNT(*) as total FROM students WHERE deleted_at IS NULL')?.total||0;
+  const active=one("SELECT COUNT(*) as total FROM programs WHERE status='فعال'")?.total||0;
+  const waiting=one("SELECT COUNT(*) as total FROM orders WHERE status LIKE 'در انتظار%'")?.total||0;
+  const movements = one('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL')?.total||0;
+  const categories = one('SELECT COUNT(*) as total FROM exercise_categories WHERE deleted_at IS NULL')?.total||0;
+  const trainingProgs = one('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL')?.total||0;
+  return send(res,200,{
+    stats:{total,active,waiting,movements,categories, trainingPrograms: trainingProgs},
+    activities: rows('SELECT * FROM activity_log ORDER BY id DESC LIMIT 8'),
+    students: rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5')
+  });
+}
+
+async function handleStudents(req,res,url){
+  if(req.method==='GET'){
+    // Exclude soft deleted
+    return send(res,200,rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC'));
+  }
+  if(req.method==='POST'){
+    const b=await readBody(req);
+    const errors = validateStudentPayload(b);
+    if(errors.length) return sendError(res,400, errors[0], errors);
+
+    const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
+    const r=db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height,stable_id,version) VALUES (?,?,?,?,?,?,?,?)')
+      .run(b.full_name.trim(), b.mobile||'', b.goal||'', b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
+    log('شاگرد جدید ثبت شد', b.full_name);
+    return send(res,201,{id:r.lastInsertRowid, stable_id: stableId});
+  }
+}
+
+async function handleStudentsDelete(req,res,url){
+  const match = url.pathname.match(/^\/api\/students\/(\d+)$/);
+  if(!match) return null;
+  const id=Number(match[1]);
+  if(req.method==='DELETE'){
+    // Soft delete
+    const r=db.prepare('UPDATE students SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
+    if(!r.changes) return sendError(res,404,'شاگرد پیدا نشد');
+    log('شاگرد حذف شد (soft)', `id ${id}`);
+    return send(res,200,{id, soft_deleted:true});
+  }
+  if(req.method==='GET'){
+    const s=one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL', id);
+    if(!s) return sendError(res,404,'شاگرد پیدا نشد');
+    return send(res,200,s);
+  }
+  return null;
+}
+
+async function handleExercises(req,res,url){
+  const p=url.pathname;
+
+  if(p==='/api/categories' && req.method==='GET'){
+    const raw = rows('SELECT c.id,c.name,c.sort_order,c.original_id, s.id subcategory_id,s.name subcategory_name,s.sort_order subcategory_sort_order, s.original_id subcategory_original_id FROM exercise_categories c LEFT JOIN exercise_subcategories s ON s.category_id=c.id WHERE c.deleted_at IS NULL AND (s.deleted_at IS NULL OR s.deleted_at IS NULL) ORDER BY c.sort_order,s.sort_order');
+    const counts = {};
+    try {
+      const countRows = rows('SELECT category_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL GROUP BY category_id');
+      countRows.forEach(r=>counts[r.category_id]=r.cnt);
+    } catch(e){}
+    return send(res,200,raw.map(r=>({...r, count: counts[r.id]||0})));
+  }
+
+  if(p==='/api/categories/grouped' && req.method==='GET'){
+    const cats = rows('SELECT * FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order');
+    const subs = rows('SELECT * FROM exercise_subcategories WHERE deleted_at IS NULL ORDER BY sort_order');
+    const counts = {};
+    rows('SELECT category_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL GROUP BY category_id').forEach(r=>counts[r.category_id]=r.cnt);
+    const subCounts = {};
+    rows('SELECT subcategory_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL AND subcategory_id IS NOT NULL GROUP BY subcategory_id').forEach(r=>subCounts[r.subcategory_id]=r.cnt);
+    const grouped = cats.map(c=>{
+      return {
+        id: c.id,
+        name: c.name,
+        sort_order: c.sort_order,
+        original_id: c.original_id,
+        stable_id: c.stable_id,
+        version: c.version,
+        count: counts[c.id]||0,
+        subs: subs.filter(s=>s.category_id===c.id).map(s=>({
+          id: s.id,
+          name: s.name,
+          sort_order: s.sort_order,
+          original_id: s.original_id,
+          stable_id: s.stable_id,
+          version: s.version,
+          count: subCounts[s.id]||0
+        }))
+      };
+    });
+    return send(res,200,grouped);
+  }
+
+  if(p==='/api/exercises' && req.method==='GET'){
+    const location=url.searchParams.get('location')||'gym';
+    const categoryId=url.searchParams.get('categoryId');
+    const subCategoryId=url.searchParams.get('subCategoryId');
+    const status=url.searchParams.get('status')||'active';
+    const query=(url.searchParams.get('query')||'').trim();
+    const page = parseInt(url.searchParams.get('page')||'0');
+    const pageSize = Math.min(parseInt(url.searchParams.get('pageSize')||'24'), 100); // limit max 100
+    const sortBy = url.searchParams.get('sortBy')||'priority';
+
+    if(!categoryId) {
+      return send(res,200,{items:[], total:0, page, pageSize, totalPages:0});
+    }
+
+    // Validate category exists
+    const catExists = one('SELECT id FROM exercise_categories WHERE id=? AND deleted_at IS NULL', categoryId);
+    if(!catExists) return sendError(res,400,'دسته‌بندی نامعتبر');
+
+    let sql='SELECT * FROM exercises WHERE category_id=? AND status=? AND deleted_at IS NULL';
+    let countSql='SELECT COUNT(*) as total FROM exercises WHERE category_id=? AND status=? AND deleted_at IS NULL';
+    let params=[categoryId,status];
+    let countParams=[categoryId,status];
+
+    if(location!=='both'){
+      sql+=' AND (location=? OR location=\'both\')';
+      countSql+=' AND (location=? OR location=\'both\')';
+      params.push(location);
+      countParams.push(location);
+    }
+    if(subCategoryId&&subCategoryId!=='all'){
+      sql+=' AND subcategory_id=?';
+      countSql+=' AND subcategory_id=?';
+      params.push(subCategoryId);
+      countParams.push(subCategoryId);
+    }
+    if(query){
+      // Prevent % and _ injection in LIKE by escaping? For now use parameterized LIKE
+      sql+=' AND name_fa LIKE ?';
+      countSql+=' AND name_fa LIKE ?';
+      params.push(`%${query}%`);
+      countParams.push(`%${query}%`);
+    }
+
+    const total = one(countSql,...countParams)?.total || 0;
+
+    if(sortBy==='name') sql+=' ORDER BY name_fa ASC';
+    else if(sortBy==='id') sql+=' ORDER BY original_id ASC, id ASC';
+    else sql+=' ORDER BY priority ASC, name_fa ASC';
+
+    sql+=` LIMIT ? OFFSET ?`;
+    params.push(pageSize, page*pageSize);
+
+    const items = rows(sql,...params);
+    const totalPages = Math.ceil(total / pageSize);
+
+    return send(res,200,{items, total, page, pageSize, totalPages});
+  }
+
+  if(p==='/api/exercises/all' && req.method==='GET'){
+    const categoryId=url.searchParams.get('categoryId');
+    let sql='SELECT * FROM exercises WHERE deleted_at IS NULL';
+    let params=[];
+    if(categoryId){
+      sql+=' AND category_id=?';
+      params.push(categoryId);
+    }
+    sql+=' ORDER BY category_id, priority ASC, name_fa ASC LIMIT 500';
+    return send(res,200,rows(sql,...params));
+  }
+
+  if(p==='/api/exercises' && req.method==='POST'){
+    const b=await readBody(req);
+    const errors = validateExercisePayload(b);
+    if(errors.length) return sendError(res,400, errors[0], errors);
+
+    // Validate category exists
+    const catExists = one('SELECT id FROM exercise_categories WHERE id=? AND deleted_at IS NULL', b.category_id);
+    if(!catExists) return sendError(res,400,'دسته‌بندی نامعتبر');
+
+    const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
+    const r=db.prepare('INSERT INTO exercises (original_id, name_fa, location, category_id, subcategory_id, status, image_path, video_path, priority, stable_id, version) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+      .run(b.original_id||null, b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, stableId, 1);
+    log('حرکت جدید ثبت شد', b.name_fa);
+    return send(res,201,{id:Number(r.lastInsertRowid), stable_id: stableId});
+  }
+
+  // Single exercise
+  const exerciseMatch=p.match(/^\/api\/exercises\/(\d+)$/);
+  if(exerciseMatch){
+    const id=Number(exerciseMatch[1]);
+    if(req.method==='GET'){
+      const ex = one('SELECT * FROM exercises WHERE id=? AND deleted_at IS NULL', id);
+      if(!ex) return sendError(res,404,'حرکت پیدا نشد');
+      return send(res,200,ex);
+    }
+    if(req.method==='PUT'){
+      const b=await readBody(req);
+      const errors = validateExercisePayload(b);
+      if(errors.length) return sendError(res,400, errors[0], errors);
+
+      const catExists = one('SELECT id FROM exercise_categories WHERE id=? AND deleted_at IS NULL', b.category_id);
+      if(!catExists) return sendError(res,400,'دسته‌بندی نامعتبر');
+
+      const r=db.prepare('UPDATE exercises SET name_fa=?,location=?,category_id=?,subcategory_id=?,status=?,image_path=?,video_path=?,priority=?,updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL')
+        .run(b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, id);
+      if(!r.changes) return sendError(res,404,'حرکت پیدا نشد');
+      log('حرکت ویرایش شد', b.name_fa);
+      return send(res,200,{id});
+    }
+    if(req.method==='DELETE'){
+      // Soft delete for exercises
+      const r=db.prepare('UPDATE exercises SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
+      if(!r.changes) return sendError(res,404,'حرکت پیدا نشد');
+      log('حرکت حذف شد (soft)', `id ${id}`);
+      return send(res,200,{id, soft_deleted:true});
+    }
+  }
+
+  // Bulk
+  if(p==='/api/exercises/bulk-archive' && req.method==='POST'){
+    const b=await readBody(req);
+    const ids=Array.isArray(b.ids)?b.ids.map(Number).filter(n=>Number.isInteger(n)&&n>0):[];
+    if(!ids.length) return sendError(res,400,'حداقل یک حرکت انتخاب کنید');
+    if(ids.length>100) return sendError(res,400,'حداکثر 100 حرکت در هر درخواست');
+    const marks=ids.map(()=>'?').join(',');
+    db.prepare(`UPDATE exercises SET status=?,updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id IN (${marks}) AND deleted_at IS NULL`).run('archived',...ids);
+    log('حرکات آرشیو شدند', `${ids.length} حرکت`);
+    return send(res,200,{count:ids.length});
+  }
+  if(p==='/api/exercises/bulk-restore' && req.method==='POST'){
+    const b=await readBody(req);
+    const ids=Array.isArray(b.ids)?b.ids.map(Number).filter(n=>Number.isInteger(n)&&n>0):[];
+    if(!ids.length) return sendError(res,400,'حداقل یک حرکت انتخاب کنید');
+    if(ids.length>100) return sendError(res,400,'حداکثر 100 حرکت');
+    const marks=ids.map(()=>'?').join(',');
+    db.prepare(`UPDATE exercises SET status=?,updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id IN (${marks}) AND deleted_at IS NULL`).run('active',...ids);
+    log('حرکات بازیابی شدند', `${ids.length} حرکت`);
+    return send(res,200,{count:ids.length});
+  }
+  if(p==='/api/exercises/bulk-delete' && req.method==='DELETE'){
+    const b=await readBody(req);
+    const ids=Array.isArray(b.ids)?b.ids.map(Number).filter(n=>Number.isInteger(n)&&n>0):[];
+    if(!ids.length) return sendError(res,400,'حداقل یک حرکت انتخاب کنید');
+    if(ids.length>100) return sendError(res,400,'حداکثر 100 حرکت');
+    const marks=ids.map(()=>'?').join(',');
+    // Soft delete bulk
+    db.prepare(`UPDATE exercises SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id IN (${marks}) AND deleted_at IS NULL`).run(...ids);
+    log('حرکات حذف شدند (soft)', `${ids.length} حرکت`);
+    return send(res,200,{count:ids.length, soft_deleted:true});
+  }
+
+  if(p==='/api/exercises/import' && req.method==='POST'){
+    const { importExercisesFromJson } = require('./src/database');
+    const count = importExercisesFromJson();
+    return send(res,200,{imported:count, total: one('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL').total});
+  }
+
+  if(p==='/api/images/status' && req.method==='GET'){
+    const importedDir = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+    let count = 0, sample = [];
+    try {
+      if (fs.existsSync(importedDir)) {
+        const files = fs.readdirSync(importedDir);
+        const images = files.filter(f => ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(f).toLowerCase()));
+        count = images.length;
+        sample = images.slice(0, 20);
+      }
+    } catch(e){}
+    const organizedDir = path.join(dataSourceDir, 'exercises_organized');
+    let organizedCount = 0;
+    try {
+      if (fs.existsSync(organizedDir)) {
+        const stack = [organizedDir];
+        while(stack.length){
+          const cur = stack.pop();
+          const entries = fs.readdirSync(cur, {withFileTypes:true});
+          for(const en of entries){
+            if(en.isDirectory()) stack.push(path.join(cur, en.name));
+            else if(en.isFile() && ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(en.name).toLowerCase())) organizedCount++;
+          }
+        }
+      }
+    } catch(e){}
+    let dbWithImage = 0, dbWithoutImage = 0, dbActiveWithImage = 0, dbActiveWithoutImage = 0, dbArchived = 0;
+    try {
+      dbWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE deleted_at IS NULL AND image_path IS NOT NULL AND image_path != ""').c;
+      dbWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE deleted_at IS NULL AND (image_path IS NULL OR image_path = "")').c;
+      dbActiveWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE deleted_at IS NULL AND status="active" AND image_path IS NOT NULL AND image_path != ""').c;
+      dbActiveWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE deleted_at IS NULL AND status="active" AND (image_path IS NULL OR image_path = "")').c;
+      dbArchived = one('SELECT COUNT(*) as c FROM exercises WHERE deleted_at IS NULL AND status="archived"').c;
+    } catch(e){}
+    return send(res,200,{
+      imported: count,
+      organized: organizedCount,
+      sample,
+      importedDir,
+      organizedDir,
+      db: {
+        total: dbWithImage + dbWithoutImage,
+        withImage: dbWithImage,
+        withoutImage: dbWithoutImage,
+        activeWithImage: dbActiveWithImage,
+        activeWithoutImage: dbActiveWithoutImage,
+        archived: dbArchived
+      }
+    });
+  }
+
+  if(p.startsWith('/api/exercise-image/') && req.method==='GET'){
+    const originalId = p.replace('/api/exercise-image/','').split('?')[0].trim();
+    if(!originalId || originalId.length>50) return sendError(res,400,'ID نامعتبر');
+    const sanitizedId = originalId.replace(/[^a-zA-Z0-9_-]/g,'').substring(0,50);
+    if(!sanitizedId) return sendError(res,400,'ID نامعتبر');
+
+    function findByOriginalId(dir, id) {
+      if(!fs.existsSync(dir)) return null;
+      const stack = [dir];
+      const idStr = String(id);
+      while(stack.length){
+        const current = stack.pop();
+        try {
+          const entries = fs.readdirSync(current, {withFileTypes:true});
+          for(const entry of entries){
+            const full = path.join(current, entry.name);
+            if(!isSafePath(dir, full)) continue; // Security: prevent escaping
+            if(entry.isFile()){
+              const name = entry.name;
+              const ext = path.extname(name).toLowerCase();
+              if(!['.png','.jpg','.jpeg','.gif','.webp'].includes(ext)) continue;
+              if(name.toLowerCase() === idStr.toLowerCase() + ext) return full;
+              if(name.startsWith(idStr + '_') || name.startsWith(idStr + '-') || name.startsWith(idStr + ' ')) return full;
+              const match = name.match(/^(\d+)[^0-9]/);
+              if(match && match[1] === idStr) return full;
+            }
+            if(entry.isDirectory()){
+              if(isSafePath(dir, full)) stack.push(full);
+            }
+          }
+        } catch(e){}
+      }
+      return null;
+    }
+
+    const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+    const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
+    const publicRoot = path.join(publicDir, 'assets', 'images', 'exercises');
+
+    let found = findByOriginalId(importedRoot, sanitizedId)
+             || findByOriginalId(organizedRoot, sanitizedId)
+             || findByOriginalId(publicRoot, sanitizedId);
+
+    if(!found){
+      const directPaths = [
+        path.join(importedRoot, sanitizedId + '.png'),
+        path.join(importedRoot, sanitizedId + '.jpg'),
+        path.join(importedRoot, sanitizedId + '.jpeg'),
+      ];
+      for(const dp of directPaths){
+        if(isSafePath(importedRoot, dp) && fs.existsSync(dp)) { found = dp; break; }
+      }
+    }
+
+    if(found && fs.existsSync(found) && (isSafePath(publicDir, found) || isSafePath(dataSourceDir, found))){
+      const ext = path.extname(found).toLowerCase();
+      res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
+      return fs.createReadStream(found).pipe(res);
+    }
+
+    return sendError(res,404,'تصویر پیدا نشد', {id: sanitizedId});
+  }
+
+  return null; // not handled
+}
+
+async function handleTrainingPrograms(req,res,url){
+  const p=url.pathname;
+
+  if(p==='/api/training-programs' && req.method==='GET'){
+    const list = rows('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC');
+    return send(res,200,list.map(r=>{
+      try{ r.program_data = JSON.parse(r.program_data||'{}'); }catch(e){ r.program_data={days:[]}; }
+      return r;
+    }));
+  }
+
+  if(p==='/api/training-programs' && req.method==='POST'){
+    try {
+      const b=await readBody(req);
+      const errors = validation.validateRequestBody(b);
+      if(errors.length) return sendError(res,400, errors[0], errors);
+
+      // Use service for single source of truth
+      const result = programService.createProgramInDB(db, b);
+      log('برنامه تمرینی جدید ساخته شد', b.title||`id ${result.id}`);
+      return send(res,201,{id: result.id, programData: result.programData});
+    } catch(e){
+      if(e.validationErrors){
+        return sendError(res, e.statusCode||400, e.message, e.validationErrors);
+      }
+      console.error('Create program error:', e);
+      return sendError(res,500,'خطا در ساخت برنامه', e.message);
+    }
+  }
+
+  const tpMatch = p.match(/^\/api\/training-programs\/(\d+)(\/full)?$/);
+  if(tpMatch){
+    const id = Number(tpMatch[1]);
+    if(!Number.isInteger(id) || id<=0) return sendError(res,400,'شناسه نامعتبر');
+    const isFull = !!tpMatch[2];
+
+    if(req.method==='GET'){
+      try {
+        const prog = one('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.id=? AND tp.deleted_at IS NULL', id);
+        if(!prog) return sendError(res,404,'برنامه پیدا نشد');
+        try{ prog.program_data = JSON.parse(prog.program_data||'{}'); }catch(e){ prog.program_data={days:[]}; }
+
+        if(isFull){
+          // Always build from normalized tables - primary source of truth
+          const built = programService.buildProgramFromDB(db, id);
+          if(built){
+            prog.program_data = built.programData;
+            // Sync JSON representation
+            try {
+              db.prepare('UPDATE training_programs SET program_data=? WHERE id=?').run(JSON.stringify(built.programData), id);
+            } catch(e){}
+          }
+        }
+
+        return send(res,200,prog);
+      } catch(e){
+        console.error('Get program error:', e);
+        return sendError(res,500,'خطا در دریافت برنامه');
+      }
+    }
+
+    if(req.method==='PUT'){
+      try {
+        const b=await readBody(req);
+        const bodyErrors = validation.validateRequestBody(b);
+        if(bodyErrors.length) return sendError(res,400, bodyErrors[0], bodyErrors);
+
+        // If program_data present, validate full program
+        if(b.program_data){
+          const progToValidate = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : b.program_data;
+          // Merge with existing title for validation if needed
+          const existing = one('SELECT title FROM training_programs WHERE id=?', id);
+          if(!progToValidate.title) progToValidate.title = b.title || existing?.title || 'برنامه';
+          const valErrors = validation.validateProgram(progToValidate);
+          if(valErrors.length) return sendError(res,400, valErrors[0], valErrors);
+        }
+
+        const result = programService.saveProgramToDB(db, id, b);
+        log('برنامه تمرینی ویرایش شد', b.title||`id ${id}`);
+        return send(res,200,{id, programData: result.programData});
+      } catch(e){
+        if(e.validationErrors){
+          return sendError(res, e.statusCode||400, e.message, e.validationErrors);
+        }
+        console.error('Update program error:', e);
+        return sendError(res, e.statusCode||500, e.message||'خطا در ویرایش');
+      }
+    }
+
+    if(req.method==='DELETE'){
+      try {
+        // Soft delete
+        const r=db.prepare('UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
+        if(!r.changes) return sendError(res,404,'برنامه پیدا نشد');
+        log('برنامه تمرینی حذف شد (soft)', `id ${id}`);
+        return send(res,200,{id, soft_deleted:true});
+      } catch(e){
+        console.error('Delete program error:', e);
+        return sendError(res,500,'خطا در حذف');
+      }
+    }
+  }
+
+  return null;
+}
+
+async function handleLegacyPrograms(req,res,url){
+  if(url.pathname==='/api/programs' && req.method==='GET'){
+    return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
+  }
+  if(url.pathname==='/api/programs' && req.method==='POST'){
+    const b=await readBody(req);
+    if(!b.title?.trim()||!b.type) return sendError(res,400,'عنوان و نوع برنامه الزامی هستند');
+    if(b.title.length>200) return sendError(res,400,'عنوان طولانی است');
+    const r=db.prepare('INSERT INTO programs (student_id,title,type,status,start_date,end_date,notes) VALUES (?,?,?,?,?,?,?)')
+      .run(b.student_id||null,b.title.trim(),b.type,b.status||'پیش‌نویس',b.start_date||null,b.end_date||null,b.notes||'');
+    log('برنامه جدید ثبت شد',b.title);
+    return send(res,201,{id:r.lastInsertRowid});
+  }
+  return null;
+}
+
+async function handleBackup(req,res,url){
+  if(url.pathname==='/api/backup' && req.method==='POST'){
+    try {
+      // Before backup, checkpoint WAL
+      try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch(e){}
+      const file=backup();
+      // Rotation: keep only last 10 backups
+      try {
+        const backupDir = path.join(__dirname, 'backups');
+        const files = fs.readdirSync(backupDir).filter(f=>f.startsWith('yasnafit-') && f.endsWith('.db')).map(f=>{
+          const full = path.join(backupDir,f);
+          return {name:f, full, mtime: fs.statSync(full).mtime.getTime()};
+        }).sort((a,b)=>b.mtime-a.mtime);
+        if(files.length>10){
+          const toDelete = files.slice(10);
+          toDelete.forEach(f=>{
+            try { fs.unlinkSync(f.full); console.log(`[Backup] Deleted old backup ${f.name}`); } catch(e){}
+          });
+        }
+      } catch(e){ console.log('Backup rotation error', e.message); }
+
+      log('نسخه پشتیبان ساخته شد',file);
+      return send(res,201,{file});
+    } catch(e){
+      console.error('Backup error', e);
+      return sendError(res,500,'خطا در پشتیبان‌گیری', e.message);
+    }
+  }
+  return null;
+}
+
+// --- Main API Router ---
 async function api(req,res,url){
- const p=url.pathname;
+  try {
+    const p=url.pathname;
 
- if(req.method==='GET'&&p==='/api/health') {
-   const totalExercises = one('SELECT COUNT(*) total FROM exercises')?.total || 0;
-   return send(res,200,{ok:true,database:fs.existsSync(dbPath),port,exercises:totalExercises});
- }
+    if(p==='/api/health') return await handleHealth(req,res);
+    if(p==='/api/dashboard') return await handleDashboard(req,res);
 
- if(req.method==='GET'&&p==='/api/dashboard') {
-   const total=one('SELECT COUNT(*) total FROM students').total;
-   const active=one("SELECT COUNT(*) total FROM programs WHERE status='فعال'").total;
-   const waiting=one("SELECT COUNT(*) total FROM orders WHERE status LIKE 'در انتظار%'").total;
-   const movements = one('SELECT COUNT(*) total FROM exercises').total;
-   const categories = one('SELECT COUNT(*) total FROM exercise_categories').total;
-   return send(res,200,{
-     stats:{total,active,waiting,movements,categories},
-     activities:rows('SELECT * FROM activity_log ORDER BY id DESC LIMIT 8'),
-     students:rows('SELECT * FROM students ORDER BY id DESC LIMIT 5')
-   });
- }
+    if(p.startsWith('/api/students')){
+      const r1 = await handleStudentsDelete(req,res,url);
+      if(r1) return r1;
+      if(p.startsWith('/api/students')){
+        const r = await handleStudents(req,res,url);
+        if(r) return r;
+      }
+    }
 
- if(req.method==='GET'&&p==='/api/students') return send(res,200,rows('SELECT * FROM students ORDER BY id DESC'));
- if(req.method==='POST'&&p==='/api/students') {
-   const b=await read(req);
-   if(!b.full_name?.trim()) return send(res,400,{error:'نام شاگرد الزامی است.'});
-   const r=db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height) VALUES (?,?,?,?,?,?)')
-     .run(b.full_name.trim(),b.mobile||'',b.goal||'',b.status||'فعال',Number(b.weight)||null,Number(b.height)||null);
-   log('شاگرد جدید ثبت شد',b.full_name);
-   return send(res,201,{id:r.lastInsertRowid});
- }
+    if(p.startsWith('/api/exercises') || p.startsWith('/api/categories') || p.startsWith('/api/images') || p.startsWith('/api/exercise-image/')){
+      const r = await handleExercises(req,res,url);
+      if(r) return r;
+    }
 
- if(req.method==='GET'&&p==='/api/movements') return send(res,200,rows('SELECT * FROM movements ORDER BY id DESC'));
- if(req.method==='POST'&&p==='/api/movements') {
-   const b=await read(req);
-   if(!b.name?.trim()) return send(res,400,{error:'نام حرکت الزامی است.'});
-   const r=db.prepare('INSERT INTO movements (name,muscle_group,equipment) VALUES (?,?,?)')
-     .run(b.name.trim(),b.muscle_group||'',b.equipment||'');
-   log('حرکت جدید ثبت شد',b.name);
-   return send(res,201,{id:r.lastInsertRowid});
- }
+    if(p.startsWith('/api/training-programs')){
+      const r = await handleTrainingPrograms(req,res,url);
+      if(r) return r;
+    }
 
- if(req.method==='GET'&&p==='/api/categories') {
-   // Return grouped categories with subs
-   const raw = rows('SELECT c.id,c.name,c.sort_order,c.original_id, s.id subcategory_id,s.name subcategory_name,s.sort_order subcategory_sort_order, s.original_id subcategory_original_id FROM exercise_categories c LEFT JOIN exercise_subcategories s ON s.category_id=c.id ORDER BY c.sort_order,s.sort_order');
-   // Also get counts per category
-   const counts = {};
-   try {
-     const countRows = rows('SELECT category_id, COUNT(*) as cnt FROM exercises GROUP BY category_id');
-     countRows.forEach(r=>counts[r.category_id]=r.cnt);
-   } catch(e){}
-   // Add counts to response as separate field
-   return send(res,200,raw.map(r=>({...r, count: counts[r.id]||0})));
- }
+    if(p.startsWith('/api/programs')){
+      const r = await handleLegacyPrograms(req,res,url);
+      if(r) return r;
+    }
 
- if(req.method==='GET'&&p==='/api/categories/grouped') {
-   const cats = rows('SELECT * FROM exercise_categories ORDER BY sort_order');
-   const subs = rows('SELECT * FROM exercise_subcategories ORDER BY sort_order');
-   const counts = {};
-   rows('SELECT category_id, COUNT(*) as cnt FROM exercises GROUP BY category_id').forEach(r=>counts[r.category_id]=r.cnt);
-   const subCounts = {};
-   rows('SELECT subcategory_id, COUNT(*) as cnt FROM exercises WHERE subcategory_id IS NOT NULL GROUP BY subcategory_id').forEach(r=>subCounts[r.subcategory_id]=r.cnt);
-   const grouped = cats.map(c=>{
-     return {
-       id: c.id,
-       name: c.name,
-       sort_order: c.sort_order,
-       original_id: c.original_id,
-       count: counts[c.id]||0,
-       subs: subs.filter(s=>s.category_id===c.id).map(s=>({
-         id: s.id,
-         name: s.name,
-         sort_order: s.sort_order,
-         original_id: s.original_id,
-         count: subCounts[s.id]||0
-       }))
-     }
-   });
-   return send(res,200,grouped);
- }
+    if(p==='/api/backup'){
+      const r = await handleBackup(req,res,url);
+      if(r) return r;
+    }
 
- if(req.method==='GET'&&p==='/api/exercises') {
-   const location=url.searchParams.get('location')||'both';
-   const categoryId=url.searchParams.get('categoryId');
-   const subCategoryId=url.searchParams.get('subCategoryId');
-   const status=url.searchParams.get('status')||'active';
-   const query=(url.searchParams.get('query')||'').trim();
-   const page = parseInt(url.searchParams.get('page')||'0');
-   const pageSize = parseInt(url.searchParams.get('pageSize')||'24');
-   const sortBy = url.searchParams.get('sortBy')||'priority'; // priority, name, id
+    // Legacy movements
+    if(url.pathname==='/api/movements' && req.method==='GET'){
+      return send(res,200,rows('SELECT * FROM movements ORDER BY id DESC'));
+    }
+    if(url.pathname==='/api/movements' && req.method==='POST'){
+      const b=await readBody(req);
+      if(!b.name?.trim()) return sendError(res,400,'نام حرکت الزامی است');
+      const r=db.prepare('INSERT INTO movements (name,muscle_group,equipment) VALUES (?,?,?)').run(b.name.trim(),b.muscle_group||'',b.equipment||'');
+      log('حرکت جدید ثبت شد',b.name);
+      return send(res,201,{id:r.lastInsertRowid});
+    }
 
-   if(!categoryId) {
-     // If no category, return empty but with stats
-     return send(res,200,{items:[], total:0, page, pageSize, totalPages:0});
-   }
+    return sendError(res,404,'مسیر API پیدا نشد');
+  } catch(e){
+    console.error('[API Error]', e);
+    if(e.message==='Request body too large'){
+      return sendError(res,413,'بدنه درخواست بزرگ است');
+    }
+    if(e.statusCode===400){
+      return sendError(res,400, e.message, e.validationErrors||null);
+    }
+    return sendError(res,500,'خطای داخلی سرور');
+  }
+}
 
-   let sql='SELECT * FROM exercises WHERE category_id=? AND status=?';
-   let countSql='SELECT COUNT(*) as total FROM exercises WHERE category_id=? AND status=?';
-   let params=[categoryId,status];
-   let countParams=[categoryId,status];
-
-   if(location!=='both'){
-     sql+=' AND (location=? OR location=\'both\')';
-     countSql+=' AND (location=? OR location=\'both\')';
-     params.push(location);
-     countParams.push(location);
-   }
-   if(subCategoryId&&subCategoryId!=='all'){
-     sql+=' AND subcategory_id=?';
-     countSql+=' AND subcategory_id=?';
-     params.push(subCategoryId);
-     countParams.push(subCategoryId);
-   }
-   if(query){
-     sql+=' AND name_fa LIKE ?';
-     countSql+=' AND name_fa LIKE ?';
-     params.push(`%${query}%`);
-     countParams.push(`%${query}%`);
-   }
-
-   const total = one(countSql,...countParams)?.total || 0;
-
-   // Sorting
-   if(sortBy==='name') sql+=' ORDER BY name_fa ASC';
-   else if(sortBy==='id') sql+=' ORDER BY original_id ASC, id ASC';
-   else sql+=' ORDER BY priority ASC, name_fa ASC';
-
-   // Pagination
-   sql+=` LIMIT ${pageSize} OFFSET ${page*pageSize}`;
-
-   const items = rows(sql,...params);
-   const totalPages = Math.ceil(total / pageSize);
-
-   return send(res,200,{items, total, page, pageSize, totalPages});
- }
-
- if(req.method==='GET'&&p==='/api/exercises/all') {
-   // For debugging, get all with filters but without pagination limit
-   const categoryId=url.searchParams.get('categoryId');
-   let sql='SELECT * FROM exercises';
-   let params=[];
-   if(categoryId){
-     sql+=' WHERE category_id=?';
-     params.push(categoryId);
-   }
-   sql+=' ORDER BY category_id, priority ASC, name_fa ASC LIMIT 500';
-   return send(res,200,rows(sql,...params));
- }
-
- if(req.method==='POST'&&p==='/api/exercises') {
-   const b=await read(req);
-   if(!b.name_fa?.trim()||!b.category_id) return send(res,400,{error:'نام و دسته حرکت الزامی است.'});
-   const r=db.prepare('INSERT INTO exercises (name_fa,location,category_id,subcategory_id,status,image_path,video_path,priority) VALUES (?,?,?,?,?,?,?,?)')
-     .run(b.name_fa.trim(),b.location||'both',b.category_id,b.subcategory_id||null,b.status==='archived'?'archived':'active',b.image_path||null,b.video_path||null, Number(b.priority)||5);
-   log('حرکت جدید ثبت شد',b.name_fa);
-   return send(res,201,{id:Number(r.lastInsertRowid)});
- }
-
- const exerciseMatch=p.match(/^\/api\/exercises\/(\d+)$/);
- if(req.method==='GET'&&exerciseMatch) {
-   const id=Number(exerciseMatch[1]);
-   const ex = one('SELECT * FROM exercises WHERE id=?',id);
-   if(!ex) return send(res,404,{error:'حرکت پیدا نشد.'});
-   return send(res,200,ex);
- }
- if(req.method==='PUT'&&exerciseMatch) {
-   const b=await read(req), id=Number(exerciseMatch[1]);
-   if(!b.name_fa?.trim()||!b.category_id) return send(res,400,{error:'نام و دسته حرکت الزامی است.'});
-   const r=db.prepare('UPDATE exercises SET name_fa=?,location=?,category_id=?,subcategory_id=?,status=?,image_path=?,video_path=?,priority=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
-     .run(b.name_fa.trim(),b.location||'both',b.category_id,b.subcategory_id||null,b.status==='archived'?'archived':'active',b.image_path||null,b.video_path||null,Number(b.priority)||5,id);
-   if(!r.changes)return send(res,404,{error:'حرکت پیدا نشد.'});
-   log('حرکت ویرایش شد',b.name_fa);
-   return send(res,200,{id});
- }
- if(req.method==='DELETE'&&exerciseMatch) {
-   const id=Number(exerciseMatch[1]);
-   const r=db.prepare('DELETE FROM exercises WHERE id=?').run(id);
-   if(!r.changes) return send(res,404,{error:'حرکت پیدا نشد.'});
-   log('حرکت حذف شد',`id ${id}`);
-   return send(res,200,{id});
- }
-
- const bulkAction={ '/api/exercises/bulk-archive':'archived','/api/exercises/bulk-restore':'active' }[p];
- if(req.method==='POST'&&bulkAction){
-   const b=await read(req),ids=Array.isArray(b.ids)?b.ids.map(Number).filter(Number.isInteger):[];
-   if(!ids.length)return send(res,400,{error:'حداقل یک حرکت انتخاب کنید.'});
-   const marks=ids.map(()=>'?').join(',');
-   db.prepare(`UPDATE exercises SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id IN (${marks})`).run(bulkAction,...ids);
-   log(bulkAction==='active'?'حرکات بازیابی شدند':'حرکات آرشیو شدند',`${ids.length} حرکت`);
-   return send(res,200,{count:ids.length});
- }
- if(req.method==='DELETE'&&p==='/api/exercises/bulk-delete'){
-   const b=await read(req),ids=Array.isArray(b.ids)?b.ids.map(Number).filter(Number.isInteger):[];
-   if(!ids.length)return send(res,400,{error:'حداقل یک حرکت انتخاب کنید.'});
-   const marks=ids.map(()=>'?').join(',');
-   db.prepare(`DELETE FROM exercises WHERE id IN (${marks})`).run(...ids);
-   log('حرکات حذف شدند',`${ids.length} حرکت`);
-   return send(res,200,{count:ids.length});
- }
-
- if(req.method==='POST'&&p==='/api/exercises/import') {
-   const count = importExercisesFromJson();
-   return send(res,200,{imported:count, total: one('SELECT COUNT(*) total FROM exercises').total});
- }
-
- if(req.method==='GET'&&p==='/api/images/status') {
-   const importedDir = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
-   let count = 0, sample = [];
-   try {
-     if (fs.existsSync(importedDir)) {
-       const files = fs.readdirSync(importedDir);
-       const images = files.filter(f => ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(f).toLowerCase()));
-       count = images.length;
-       sample = images.slice(0, 20);
-     }
-   } catch(e){}
-   const organizedDir = path.join(dataSourceDir, 'exercises_organized');
-   let organizedCount = 0;
-   try {
-     if (fs.existsSync(organizedDir)) {
-       const stack = [organizedDir];
-       while(stack.length){
-         const cur = stack.pop();
-         const entries = fs.readdirSync(cur, {withFileTypes:true});
-         for(const en of entries){
-           if(en.isDirectory()) stack.push(path.join(cur, en.name));
-           else if(en.isFile() && ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(en.name).toLowerCase())) organizedCount++;
-         }
-       }
-     }
-   } catch(e){}
-
-   // DB breakdown
-   let dbWithImage = 0, dbWithoutImage = 0, dbActiveWithImage = 0, dbActiveWithoutImage = 0, dbArchived = 0;
-   try {
-     dbWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE image_path IS NOT NULL AND image_path != ""').c;
-     dbWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE image_path IS NULL OR image_path = ""').c;
-     dbActiveWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE status="active" AND image_path IS NOT NULL AND image_path != ""').c;
-     dbActiveWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE status="active" AND (image_path IS NULL OR image_path = "")').c;
-     dbArchived = one('SELECT COUNT(*) as c FROM exercises WHERE status="archived"').c;
-   } catch(e){}
-
-   return send(res,200,{
-     imported: count,
-     organized: organizedCount,
-     sample,
-     importedDir,
-     organizedDir,
-     db: {
-       total: dbWithImage + dbWithoutImage,
-       withImage: dbWithImage,
-       withoutImage: dbWithoutImage,
-       activeWithImage: dbActiveWithImage,
-       activeWithoutImage: dbActiveWithoutImage,
-       archived: dbArchived
-     }
-   });
- }
-
- // New: Direct image by original_id - most robust way
- if(req.method==='GET' && p.startsWith('/api/exercise-image/')) {
-   const originalId = p.replace('/api/exercise-image/','').split('?')[0].trim();
-   if(!originalId) return send(res,400,{error:'ID required'});
-
-   function findByOriginalId(dir, id) {
-     if(!fs.existsSync(dir)) return null;
-     const stack = [dir];
-     const idStr = String(id);
-     while(stack.length){
-       const current = stack.pop();
-       try {
-         const entries = fs.readdirSync(current, {withFileTypes:true});
-         for(const entry of entries){
-           const full = path.join(current, entry.name);
-           if(entry.isFile()){
-             const name = entry.name;
-             const ext = path.extname(name).toLowerCase();
-             if(!['.png','.jpg','.jpeg','.gif','.webp'].includes(ext)) continue;
-             // Exact match: 4.png, 4.jpg
-             if(name.toLowerCase() === idStr.toLowerCase() + ext) return full;
-             // Starts with id_ : 4_xxx.png, 4-xxx.jpg
-             if(name.startsWith(idStr + '_') || name.startsWith(idStr + '-') || name.startsWith(idStr + ' ')) return full;
-             // Contains _id_ or id in name? More permissive
-             // If filename starts with id and then non-digit
-             const match = name.match(/^(\d+)[^0-9]/);
-             if(match && match[1] === idStr) return full;
-           }
-           if(entry.isDirectory()){
-             stack.push(full);
-           }
-         }
-       } catch(e){}
-     }
-     return null;
-   }
-
-   const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
-   const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
-   const publicRoot = path.join(publicDir, 'assets', 'images', 'exercises');
-
-   let found = findByOriginalId(importedRoot, originalId)
-            || findByOriginalId(organizedRoot, originalId)
-            || findByOriginalId(publicRoot, originalId);
-
-   // Also try to find by checking exercises_data.json image path directly if file exists in organized
-   if(!found){
-     // Try direct file paths from DB: /files/exercise/images/4.png -> basename
-     const directPaths = [
-       path.join(importedRoot, originalId + '.png'),
-       path.join(importedRoot, originalId + '.jpg'),
-       path.join(importedRoot, originalId + '.jpeg'),
-     ];
-     for(const dp of directPaths){
-       if(fs.existsSync(dp)) { found = dp; break; }
-     }
-   }
-
-   if(found && fs.existsSync(found)){
-     const ext = path.extname(found).toLowerCase();
-     res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
-     return fs.createReadStream(found).pipe(res);
-   }
-
-   return send(res,404,{error:'Image not found for id', id: originalId, searchedIn: [importedRoot, organizedRoot]});
- }
-
- // --- Training Programs (Redesigned Exercise Program Page) ---
- function genHash(){ return Math.random().toString(36).substring(2,10) + Date.now().toString(36); }
-
- if(p==='/api/training-programs' && req.method==='GET'){
-   const list = rows('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id ORDER BY tp.id DESC');
-   return send(res,200,list.map(r=>{
-     try{ r.program_data = JSON.parse(r.program_data||'{}'); }catch(e){ r.program_data={}; }
-     return r;
-   }));
- }
- if(p==='/api/training-programs' && req.method==='POST'){
-   const b=await read(req);
-   if(!b.title?.trim()) return send(res,400,{error:'عنوان برنامه الزامی است.'});
-   const programData = b.program_data ? JSON.stringify(b.program_data) : JSON.stringify({days:[]});
-   const r=db.prepare('INSERT INTO training_programs (student_id,title,coach_note,status,start_date,end_date,program_data) VALUES (?,?,?,?,?,?,?)')
-     .run(b.student_id||null, b.title.trim(), b.coach_note||'', b.status||'پیش‌نویس', b.start_date||null, b.end_date||null, programData);
-   const newId = r.lastInsertRowid;
-   try {
-     const data = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : (b.program_data||{days:[]});
-     if(data.days && Array.isArray(data.days)){
-       db.exec('BEGIN');
-       try {
-         for(const day of data.days){
-           const dayHash = day.dayHash || genHash();
-           const dayRes = db.prepare('INSERT INTO program_days (program_id, day_number, day_hash, focus, coach_note, is_rest_day) VALUES (?,?,?,?,?,?)')
-             .run(newId, day.day_number||1, dayHash, day.focus||'', day.coachNote||'', day.isRestDay?1:0);
-           const dayId = dayRes.lastInsertRowid;
-           const systems = day.data || day.systems || [];
-           for(const sys of systems){
-             const sysHash = sys.exerciseSystemHash || sys.systemHash || genHash();
-             const sysRes = db.prepare('INSERT INTO exercise_systems (day_id, exercise_system_id, system_hash, system_type) VALUES (?,?,?,?)')
-               .run(dayId, sys.exercise_system_id||1, sysHash, sys.system_type||'normal');
-             const sysId = sysRes.lastInsertRowid;
-             const movements = sys.movement_list || sys.movements || [];
-             let orderIdx=0;
-             for(const mov of movements){
-               const movHash = mov.movementHash || genHash();
-               let exId = mov.exercise_id || null;
-               if(!exId && mov.exerciseId){
-                 const ex = one('SELECT id FROM exercises WHERE original_id=? OR id=?', Number(mov.exerciseId), Number(mov.exerciseId));
-                 if(ex) exId = ex.id;
-               }
-               const movRes = db.prepare('INSERT INTO program_movements (system_id, exercise_id, movement_hash, description, order_index) VALUES (?,?,?,?,?)')
-                 .run(sysId, exId, movHash, mov.description||'', orderIdx++);
-               const movId = movRes.lastInsertRowid;
-               const sets = mov.sets || [];
-               for(const s of sets){
-                 const setHash = s.setHash || genHash();
-                 db.prepare('INSERT INTO movement_sets (movement_id, set_hash, set_type, count_value, weight, rest_seconds) VALUES (?,?,?,?,?,?)')
-                   .run(movId, setHash, s.type||'reps', s.count||s.count_value||null, s.weight||null, s.restSeconds||s.rest_seconds||60);
-               }
-             }
-           }
-         }
-         db.exec('COMMIT');
-       } catch(e){
-         db.exec('ROLLBACK');
-         console.error('Failed to save normalized on POST:', e);
-       }
-     }
-   } catch(e){ console.error(e); }
-   log('برنامه تمرینی جدید ساخته شد', b.title);
-   return send(res,201,{id:newId});
- }
-
- const tpMatch = p.match(/^\/api\/training-programs\/(\d+)(\/full)?$/);
- if(tpMatch){
-   const id = Number(tpMatch[1]);
-   const isFull = !!tpMatch[2];
-   if(req.method==='GET'){
-     const prog = one('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.id=?', id);
-     if(!prog) return send(res,404,{error:'برنامه پیدا نشد.'});
-     try{ prog.program_data = JSON.parse(prog.program_data||'{}'); }catch(e){ prog.program_data={days:[]}; }
-     if(isFull){
-       if(!prog.program_data.days || prog.program_data.days.length===0){
-         const days = rows('SELECT * FROM program_days WHERE program_id=? ORDER BY day_number', id);
-         const fullDays = days.map(d=>{
-           const systems = rows('SELECT * FROM exercise_systems WHERE day_id=? ORDER BY id', d.id);
-           const fullSystems = systems.map(sys=>{
-             const movements = rows('SELECT pm.*, e.name_fa, e.original_id FROM program_movements pm LEFT JOIN exercises e ON e.id=pm.exercise_id WHERE pm.system_id=? ORDER BY pm.order_index', sys.id);
-             const fullMovements = movements.map(m=>{
-               const sets = rows('SELECT * FROM movement_sets WHERE movement_id=? ORDER BY id', m.id);
-               return {...m, sets};
-             });
-             return {...sys, movement_list: fullMovements};
-           });
-           return {...d, data: fullSystems};
-         });
-         prog.program_data = {days: fullDays};
-       }
-     }
-     return send(res,200,prog);
-   }
-   if(req.method==='PUT'){
-     const b=await read(req);
-     const programData = b.program_data ? JSON.stringify(b.program_data) : null;
-     if(programData){
-       try {
-         const data = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : b.program_data;
-         db.exec('BEGIN');
-         try {
-           db.prepare('DELETE FROM program_days WHERE program_id=?').run(id);
-           if(data.days && Array.isArray(data.days)){
-             for(const day of data.days){
-               const dayHash = day.dayHash || genHash();
-               const dayRes = db.prepare('INSERT INTO program_days (program_id, day_number, day_hash, focus, coach_note, is_rest_day) VALUES (?,?,?,?,?,?)')
-                 .run(id, day.day_number||1, dayHash, day.focus||'', day.coachNote||'', day.isRestDay?1:0);
-               const dayId = dayRes.lastInsertRowid;
-               const systems = day.data || day.systems || [];
-               for(const sys of systems){
-                 const sysHash = sys.exerciseSystemHash || sys.systemHash || genHash();
-                 const sysRes = db.prepare('INSERT INTO exercise_systems (day_id, exercise_system_id, system_hash, system_type) VALUES (?,?,?,?)')
-                   .run(dayId, sys.exercise_system_id||1, sysHash, sys.system_type||'normal');
-                 const sysId = sysRes.lastInsertRowid;
-                 const movements = sys.movement_list || sys.movements || [];
-                 let orderIdx = 0;
-                 for(const mov of movements){
-                   const movHash = mov.movementHash || genHash();
-                   let exId = mov.exercise_id || null;
-                   if(!exId && mov.exerciseId){
-                     const ex = one('SELECT id FROM exercises WHERE original_id=? OR id=?', Number(mov.exerciseId), Number(mov.exerciseId));
-                     if(ex) exId = ex.id;
-                   }
-                   const movRes = db.prepare('INSERT INTO program_movements (system_id, exercise_id, movement_hash, description, order_index) VALUES (?,?,?,?,?)')
-                     .run(sysId, exId, movHash, mov.description||'', orderIdx++);
-                   const movId = movRes.lastInsertRowid;
-                   const sets = mov.sets || [];
-                   for(const s of sets){
-                     const setHash = s.setHash || genHash();
-                     db.prepare('INSERT INTO movement_sets (movement_id, set_hash, set_type, count_value, weight, rest_seconds) VALUES (?,?,?,?,?,?)')
-                       .run(movId, setHash, s.type||'reps', s.count||s.count_value||null, s.weight||null, s.restSeconds||s.rest_seconds||60);
-                   }
-                 }
-               }
-             }
-           }
-           db.exec('COMMIT');
-         } catch(e){
-           db.exec('ROLLBACK');
-           console.error('Failed to save normalized program:', e);
-         }
-       } catch(e){
-         console.error('program_data parse error', e);
-       }
-       const r=db.prepare('UPDATE training_programs SET title=COALESCE(?,title), coach_note=COALESCE(?,coach_note), status=COALESCE(?,status), start_date=COALESCE(?,start_date), end_date=COALESCE(?,end_date), program_data=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-         .run(b.title||null, b.coach_note||null, b.status||null, b.start_date||null, b.end_date||null, programData, id);
-       if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
-       log('برنامه تمرینی ویرایش شد', b.title||`id ${id}`);
-       return send(res,200,{id});
-     } else {
-       const r=db.prepare('UPDATE training_programs SET title=COALESCE(?,title), coach_note=COALESCE(?,coach_note), status=COALESCE(?,status), start_date=COALESCE(?,start_date), end_date=COALESCE(?,end_date), updated_at=CURRENT_TIMESTAMP WHERE id=?')
-         .run(b.title||null, b.coach_note||null, b.status||null, b.start_date||null, b.end_date||null, id);
-       if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
-       return send(res,200,{id});
-     }
-   }
-   if(req.method==='DELETE'){
-     const r=db.prepare('DELETE FROM training_programs WHERE id=?').run(id);
-     if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
-     log('برنامه تمرینی حذف شد', `id ${id}`);
-     return send(res,200,{id});
-   }
- }
-
- if(req.method==='GET'&&p==='/api/programs') return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
- if(req.method==='POST'&&p==='/api/programs') {
-   const b=await read(req);
-   if(!b.title?.trim()||!b.type) return send(res,400,{error:'عنوان و نوع برنامه الزامی هستند.'});
-   const r=db.prepare('INSERT INTO programs (student_id,title,type,status,start_date,end_date,notes) VALUES (?,?,?,?,?,?,?)')
-     .run(b.student_id||null,b.title.trim(),b.type,b.status||'پیش‌نویس',b.start_date||null,b.end_date||null,b.notes||'');
-   log('برنامه جدید ثبت شد',b.title);
-   return send(res,201,{id:r.lastInsertRowid});
- }
-
- if(req.method==='POST'&&p==='/api/backup') {
-   const file=backup();
-   log('نسخه پشتیبان ساخته شد',file);
-   return send(res,201,{file});
- }
-
- return send(res,404,{error:'مسیر API پیدا نشد.'});
+// --- Static File Serving with Security ---
+function findRecursiveSafe(baseDir, fileName){
+  if(!fs.existsSync(baseDir)) return null;
+  const stack=[baseDir];
+  const idPart = fileName.split('.')[0];
+  while(stack.length){
+    const current=stack.pop();
+    try {
+      const entries=fs.readdirSync(current,{withFileTypes:true});
+      for(const entry of entries){
+        const full=path.join(current, entry.name);
+        if(!isSafePath(baseDir, full)) continue;
+        if(entry.isFile()){
+          if(entry.name.toLowerCase()===fileName.toLowerCase()) return full;
+          if(entry.name.startsWith(idPart+'_') || entry.name.startsWith(idPart+'.')) return full;
+        }
+        if(entry.isDirectory() && isSafePath(baseDir, full)){
+          stack.push(full);
+        }
+      }
+    } catch(e){}
+  }
+  return null;
 }
 
 const server=http.createServer(async(req,res)=>{
+  // Security: check raw URL for traversal before normalization
+  const rawUrl = req.url || '';
+  if(rawUrl.includes('..') || rawUrl.includes('\0') || rawUrl.includes('%00')){
+    res.writeHead(400,{'Content-Type':'application/json'});
+    return res.end(JSON.stringify({error:'Bad Request - invalid path'}));
+  }
+
   const url=new URL(req.url,`http://${req.headers.host}`);
   try{
+    // Security: limit URL length
+    if(url.pathname.length>500) {
+      res.writeHead(414); return res.end('URI Too Long');
+    }
+
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
-    // Serve exercise images from data-source if exists, or from public/assets (recursive search)
-    if(url.pathname.startsWith('/files/exercise/') || url.pathname.startsWith('/assets/images/exercises/')) {
-      const relative = url.pathname.replace('/files/exercise/','').replace('/assets/images/exercises/','');
-      const basename = path.basename(relative);
+    // Secure image serving
+    if(url.pathname.startsWith('/files/exercise/') || url.pathname.startsWith('/assets/images/exercises/') || url.pathname.startsWith('/assets/videos/')){
+      const relative = url.pathname.replace('/files/exercise/','').replace('/assets/images/exercises/','').replace('/assets/videos/','');
+      const basename = sanitizeFileName(path.basename(relative));
+
+      if(!basename || basename.length>100) {
+        res.writeHead(400,{'Content-Type':'application/json'});
+        return res.end(JSON.stringify({error:'Invalid filename'}));
+      }
+
       const possiblePaths = [
         path.join(dataSourceDir, 'exercises_organized', relative),
         path.join(publicDir, 'assets', 'images', 'exercises', 'imported', basename),
         path.join(publicDir, 'assets', 'images', 'exercises', basename),
         path.join(publicDir, 'assets', 'images', 'exercises', 'imported', relative),
+        path.join(publicDir, 'assets', 'videos', 'exercises', basename),
       ];
 
-      // Helper to search recursively in imported folder
-      function findRecursive(dir, fileName) {
-        if(!fs.existsSync(dir)) return null;
-        const stack = [dir];
-        while(stack.length){
-          const current = stack.pop();
-          try {
-            const entries = fs.readdirSync(current, {withFileTypes:true});
-            for(const entry of entries){
-              const full = path.join(current, entry.name);
-              if(entry.isFile() && entry.name.toLowerCase() === fileName.toLowerCase()){
-                return full;
-              }
-              // Also match files that start with id_ (like 4_...png) or contain id
-              if(entry.isFile()){
-                // If basename is like 4.png, match files starting with 4_ or 4.
-                const idPart = fileName.split('.')[0];
-                if(entry.name.startsWith(idPart + '_') || entry.name.startsWith(idPart + '.')){
-                  return full;
-                }
-              }
-              if(entry.isDirectory()){
-                stack.push(full);
-              }
-            }
-          } catch(e){}
-        }
-        return null;
-      }
-
       for(const fp of possiblePaths){
+        if(!isSafePath(publicDir, fp) && !isSafePath(dataSourceDir, fp)) continue;
         if(fs.existsSync(fp) && fs.statSync(fp).isFile()){
           const ext = path.extname(fp).toLowerCase();
+          if(!types[ext]) continue; // only allow known types
           res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
           return fs.createReadStream(fp).pipe(res);
         }
       }
 
-      // Recursive search in imported folder
       const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
-      const found = findRecursive(importedRoot, basename);
-      if(found){
+      const found = findRecursiveSafe(importedRoot, basename);
+      if(found && isSafePath(importedRoot, found)){
         const ext = path.extname(found).toLowerCase();
         res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
         return fs.createReadStream(found).pipe(res);
       }
 
-      // Also search in data-source organized folder recursively
       const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
-      const found2 = findRecursive(organizedRoot, basename);
-      if(found2){
+      const found2 = findRecursiveSafe(organizedRoot, basename);
+      if(found2 && isSafePath(organizedRoot, found2)){
         const ext = path.extname(found2).toLowerCase();
         res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
         return fs.createReadStream(found2).pipe(res);
@@ -621,23 +805,54 @@ const server=http.createServer(async(req,res)=>{
       return res.end(JSON.stringify({error:'Image not found', searched: basename}));
     }
 
-    // Serve public files
+    // Serve public files with path traversal protection
     let wanted = url.pathname==='/'?'/index.html':url.pathname;
-    // Remove query
     wanted = wanted.split('?')[0];
+    // Security: prevent null bytes and traversal
+    if(wanted.includes('\0') || wanted.includes('..')) {
+      res.writeHead(400,{'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Bad Request'}));
+    }
     const file=path.normalize(path.join(publicDir,wanted));
-    if(file.startsWith(publicDir)&&fs.existsSync(file)&&fs.statSync(file).isFile()){
+    if(!isSafePath(publicDir, file)){
+      res.writeHead(403,{'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Forbidden'}));
+    }
+    if(fs.existsSync(file)&&fs.statSync(file).isFile()){
       const ext = path.extname(file).toLowerCase();
+      // Only serve known safe types
+      const allowedExts = ['.html','.js','.css','.json','.png','.jpg','.jpeg','.gif','.webp','.svg','.ico','.mp4'];
+      if(!allowedExts.includes(ext)){
+        res.writeHead(403,{'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Forbidden file type'}));
+      }
       res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'});
       return fs.createReadStream(file).pipe(res);
     }
-    // SPA fallback
+
+    // Security: For /assets/ and /files/ paths, return 404 if file not found, not SPA fallback (prevents leaking via fallback)
+    if(wanted.startsWith('/assets/') || wanted.startsWith('/files/')){
+      res.writeHead(404,{'Content-Type':'application/json'});
+      return res.end(JSON.stringify({error:'File not found'}));
+    }
+
+    // SPA fallback only for non-file routes (no extension or known SPA routes)
+    const ext = path.extname(wanted).toLowerCase();
+    if(ext && ext !== '.html'){
+      // If it has extension but file doesn't exist, 404
+      res.writeHead(404,{'Content-Type':'application/json'});
+      return res.end(JSON.stringify({error:'Not found'}));
+    }
     res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
-    console.error(error);
-    send(res,500,{error:'خطای داخلی سرور',detail:error.message});
+    console.error('[Server Error]', error);
+    try {
+      sendError(res,500,'خطای داخلی سرور');
+    } catch(e){}
   }
 });
 
-server.listen(port,'0.0.0.0',()=>console.log(`Yasnafit is running at http://localhost:${port} with ${one('SELECT COUNT(*) total FROM exercises').total} exercises`));
+server.listen(port,'0.0.0.0',()=>{
+  const totalEx = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
+  const totalProg = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
+  console.log(`Yasnafit is running at http://localhost:${port} with ${totalEx} exercises and ${totalProg} training programs`);
+  console.log(`Schema version: ${(() => { try { return db.prepare('SELECT value FROM settings WHERE key=?').get('schema_version')?.value || 'unknown'; } catch(e){ return 'unknown'; } })()}`);
+});

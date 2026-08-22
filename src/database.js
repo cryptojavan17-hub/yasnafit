@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+const { runMigrations } = require('./migrations');
 
 const root = path.resolve(__dirname, '..');
 const dataDir = path.join(root, 'data');
@@ -11,41 +12,22 @@ fs.mkdirSync(backupDir, { recursive: true });
 const dbPath = path.join(dataDir, 'yasnafit.db');
 const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+
+// Run versioned migrations first - ensures schema_migrations table and all tables
+try {
+  runMigrations(db);
+} catch(e){
+  console.error('Migration failed, continuing with fallback init:', e.message);
+  // Fallback minimal init if migrations fail
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, mobile TEXT, goal TEXT, status TEXT NOT NULL DEFAULT 'فعال', weight REAL, height REAL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  `);
+}
+
 db.exec(`
-CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS students (
- id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, mobile TEXT, goal TEXT,
- status TEXT NOT NULL DEFAULT 'فعال', weight REAL, height REAL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 CREATE TABLE IF NOT EXISTS movements (
  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, muscle_group TEXT, equipment TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS exercise_categories (
- id TEXT PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, original_id INTEGER
-);
-CREATE TABLE IF NOT EXISTS exercise_subcategories (
- id TEXT PRIMARY KEY, category_id TEXT NOT NULL, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, original_id INTEGER,
- FOREIGN KEY(category_id) REFERENCES exercise_categories(id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS exercises (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- original_id INTEGER,
- name_fa TEXT NOT NULL,
- name_en TEXT DEFAULT '',
- location TEXT NOT NULL DEFAULT 'both' CHECK(location IN ('gym','home','both')),
- category_id TEXT NOT NULL,
- subcategory_id TEXT,
- status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','archived')),
- image_path TEXT,
- video_path TEXT,
- priority INTEGER DEFAULT 5,
- equipment TEXT DEFAULT '',
- difficulty TEXT DEFAULT 'beginner',
- description TEXT DEFAULT '',
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(category_id) REFERENCES exercise_categories(id),
- FOREIGN KEY(subcategory_id) REFERENCES exercise_subcategories(id)
 );
 CREATE TABLE IF NOT EXISTS programs (
  id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, title TEXT NOT NULL, type TEXT NOT NULL,
@@ -60,94 +42,10 @@ CREATE TABLE IF NOT EXISTS orders (
  id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, service_type TEXT, status TEXT NOT NULL DEFAULT 'در انتظار تکمیل برنامه', amount REAL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
 );
-CREATE TABLE IF NOT EXISTS activity_log (
- id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS training_programs (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- student_id INTEGER,
- title TEXT NOT NULL DEFAULT 'برنامه تمرینی جدید',
- coach_note TEXT DEFAULT '',
- status TEXT NOT NULL DEFAULT 'پیش‌نویس',
- start_date TEXT,
- end_date TEXT,
- program_data TEXT DEFAULT '{}',
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
-);
-CREATE TABLE IF NOT EXISTS program_days (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- program_id INTEGER NOT NULL,
- day_number INTEGER NOT NULL,
- day_hash TEXT NOT NULL UNIQUE,
- focus TEXT DEFAULT '',
- coach_note TEXT DEFAULT '',
- is_rest_day INTEGER DEFAULT 0,
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(program_id) REFERENCES training_programs(id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS exercise_systems (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- day_id INTEGER NOT NULL,
- exercise_system_id INTEGER DEFAULT 1,
- system_hash TEXT NOT NULL UNIQUE,
- system_type TEXT DEFAULT 'normal',
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(day_id) REFERENCES program_days(id) ON DELETE CASCADE
-);
-CREATE TABLE IF NOT EXISTS program_movements (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- system_id INTEGER NOT NULL,
- exercise_id INTEGER,
- movement_hash TEXT NOT NULL UNIQUE,
- description TEXT DEFAULT '',
- order_index INTEGER DEFAULT 0,
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(system_id) REFERENCES exercise_systems(id) ON DELETE CASCADE,
- FOREIGN KEY(exercise_id) REFERENCES exercises(id) ON DELETE SET NULL
-);
-CREATE TABLE IF NOT EXISTS movement_sets (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- movement_id INTEGER NOT NULL,
- set_hash TEXT NOT NULL UNIQUE,
- set_type TEXT NOT NULL DEFAULT 'reps',
- count_value INTEGER,
- weight REAL,
- rest_seconds INTEGER DEFAULT 60,
- created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
- FOREIGN KEY(movement_id) REFERENCES program_movements(id) ON DELETE CASCADE
-);
 `);
 
 function scalar(sql, ...params) { return db.prepare(sql).get(...params); }
-function log(title, detail = '') { db.prepare('INSERT INTO activity_log (title, detail) VALUES (?, ?)').run(title, detail); }
-
-// --- Migration: ensure new columns exist ---
-try {
-  const cols = db.prepare("PRAGMA table_info(exercises)").all().map(c => c.name);
-  const needed = {
-    original_id: 'INTEGER',
-    name_en: "TEXT DEFAULT ''",
-    image_path: 'TEXT',
-    video_path: 'TEXT',
-    priority: 'INTEGER DEFAULT 5',
-    equipment: "TEXT DEFAULT ''",
-    difficulty: "TEXT DEFAULT 'beginner'",
-    description: "TEXT DEFAULT ''"
-  };
-  for (const [col, def] of Object.entries(needed)) {
-    if (!cols.includes(col)) {
-      db.exec(`ALTER TABLE exercises ADD COLUMN ${col} ${def}`);
-    }
-  }
-  const catCols = db.prepare("PRAGMA table_info(exercise_categories)").all().map(c => c.name);
-  if (!catCols.includes('original_id')) db.exec('ALTER TABLE exercise_categories ADD COLUMN original_id INTEGER');
-  const subCols = db.prepare("PRAGMA table_info(exercise_subcategories)").all().map(c => c.name);
-  if (!subCols.includes('original_id')) db.exec('ALTER TABLE exercise_subcategories ADD COLUMN original_id INTEGER');
-} catch (e) {
-  console.warn('Migration warning:', e.message);
-}
+function log(title, detail = '') { try { db.prepare('INSERT INTO activity_log (title, detail) VALUES (?, ?)').run(title, detail); } catch(e){} }
 
 function seedCategories() {
   // 13 دسته اصلی تمیز - بدون قدیمی و سایر
