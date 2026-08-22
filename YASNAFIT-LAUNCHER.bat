@@ -39,10 +39,12 @@ if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
 if not errorlevel 1 (echo Server is already running on port %PORT%.& start "" http://localhost:%PORT%& exit /b)
 if not exist logs mkdir logs
-start "Yasnafit Server" /min cmd /c "node server.js > logs\server.log 2>&1"
+echo Starting Yasnafit server in hidden background (no black window)...
+REM Use PowerShell hidden to avoid extra black cmd window
+powershell -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory '%~dp0' -RedirectStandardOutput 'logs\server.log' -RedirectStandardError 'logs\server.log' -WindowStyle Hidden"
 timeout /t 2 /nobreak >nul
 start "" http://localhost:%PORT%
-echo Yasnafit started at http://localhost:%PORT%
+echo Yasnafit started at http://localhost:%PORT% (hidden background, no extra window)
 exit /b
 
 :STOP
