@@ -3,3 +3,13 @@ backups/
 logs/
 *.pid
 node_modules/
+# Exercise images - 1888 files, 60MB - keep local only, not in Git
+public/assets/images/exercises/imported/
+public/assets/videos/
+assets/
+# OS
+.DS_Store
+Thumbs.db
+# IDE
+.vscode/
+.idea/
