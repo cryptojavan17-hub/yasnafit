@@ -267,7 +267,32 @@ async function api(req,res,url){
        }
      }
    } catch(e){}
-   return send(res,200,{imported: count, organized: organizedCount, sample, importedDir, organizedDir});
+
+   // DB breakdown
+   let dbWithImage = 0, dbWithoutImage = 0, dbActiveWithImage = 0, dbActiveWithoutImage = 0, dbArchived = 0;
+   try {
+     dbWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE image_path IS NOT NULL AND image_path != ""').c;
+     dbWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE image_path IS NULL OR image_path = ""').c;
+     dbActiveWithImage = one('SELECT COUNT(*) as c FROM exercises WHERE status="active" AND image_path IS NOT NULL AND image_path != ""').c;
+     dbActiveWithoutImage = one('SELECT COUNT(*) as c FROM exercises WHERE status="active" AND (image_path IS NULL OR image_path = "")').c;
+     dbArchived = one('SELECT COUNT(*) as c FROM exercises WHERE status="archived"').c;
+   } catch(e){}
+
+   return send(res,200,{
+     imported: count,
+     organized: organizedCount,
+     sample,
+     importedDir,
+     organizedDir,
+     db: {
+       total: dbWithImage + dbWithoutImage,
+       withImage: dbWithImage,
+       withoutImage: dbWithoutImage,
+       activeWithImage: dbActiveWithImage,
+       activeWithoutImage: dbActiveWithoutImage,
+       archived: dbArchived
+     }
+   });
  }
 
  // New: Direct image by original_id - most robust way

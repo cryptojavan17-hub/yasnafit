@@ -636,11 +636,20 @@
         const statusEl = $('#imageStatus');
         if(imgEl) imgEl.textContent = imgStatus.imported || 0;
         if(statusEl){
+          const db = imgStatus.db || {};
           if(imgStatus.imported === 0){
-            statusEl.innerHTML = `⚠️ هیچ تصویری در <code>public/assets/images/exercises/imported</code> پیدا نشد. از لانچر گزینه 6 را بزنید یا پوشه <code>exercises_organized</code> را کپی کنید. <br><small>پوشه مبدا: ${esc(imgStatus.organizedDir)} (${imgStatus.organized} عکس)</small>`;
+            statusEl.innerHTML = `
+              ⚠️ هیچ تصویری در <code>public/assets/images/exercises/imported</code> پیدا نشد.<br>
+              از لانچر گزینه 6 را بزنید.<br>
+              <small>دیتابیس: ${db.withImage||0} حرکت دارای عکس، ${db.withoutImage||0} بدون عکس (فعال بدون عکس: ${db.activeWithoutImage||0}، آرشیو: ${db.archived||0})</small>
+            `;
             statusEl.className = 'image-status warning';
           } else {
-            statusEl.innerHTML = `✅ ${imgStatus.imported} تصویر در دسترس است. ${imgStatus.organized ? `(${imgStatus.organized} در پوشه مبدا)` : ''}`;
+            statusEl.innerHTML = `
+              ✅ ${imgStatus.imported} فایل تصویر در پوشه imported موجود است<br>
+              <small>دیتابیس: ${db.total||0} کل، ${db.withImage||0} دارای مسیر عکس، ${db.withoutImage||0} بدون مسیر عکس<br>
+              فعال با عکس: ${db.activeWithImage||0}، فعال بدون عکس: ${db.activeWithoutImage||0} (طبیعی است - در دیتای اصلی عکس ندارند)، آرشیو: ${db.archived||0}</small>
+            `;
             statusEl.className = 'image-status success';
           }
         }
