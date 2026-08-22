@@ -50,7 +50,7 @@ async function render(label,route){
           <article><span>سفارش‌های در انتظار</span><strong>${d.stats.waiting}</strong></article>
           <article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article>
         </div>
-        ${pending.length>0?`<div class="sp-card" style="border-color:#f59e0b;background:#fffbeb"><h2>📋 ${pending.length} ارزیابی در انتظار بررسی</h2><p style="font-size:12px">شاگردانی که اطلاعات خود را ارسال کرده‌اند و نیاز به بررسی دارند</p><button class="btn btn-primary btn-small" onclick="location.href='/students/submissions'">مشاهده درخواست‌ها</button></div>`:''}
+        ${pending.length>0?`<div class="sp-card" style="border-color:var(--border-strong);background:var(--glass-hover)"><h2>📋 ${pending.length} ارزیابی در انتظار بررسی</h2><p style="font-size:12px">شاگردانی که اطلاعات خود را ارسال کرده‌اند و نیاز به بررسی دارند</p><button class="btn btn-primary btn-small" onclick="location.href='/students/submissions'">مشاهده درخواست‌ها</button></div>`:''}
         <div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام','هدف','وضعیت'],d.students,x=>`<tr><td><b>${esc(x.full_name)}</b></td><td>${esc(x.goal||'—')}</td><td><b class="badge">${esc(x.profile_status||x.status)}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
       return;
     }

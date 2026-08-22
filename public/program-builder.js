@@ -176,7 +176,7 @@
       <div class="bottom-toolbar">
         <button class="btn btn-secondary" id="btnSaveReturn">💾 ذخیره و بازگشت</button>
         <button class="btn btn-primary" id="btnSave">💾 ذخیره پیش‌نویس</button>
-        <button class="btn btn-primary" id="btnAssign" style="background:#16764b">✅ ذخیره و اختصاص به شاگرد</button>
+        <button class="btn btn-primary" id="btnAssign">✅ ذخیره و اختصاص به شاگرد</button>
         <button class="btn btn-secondary" id="btnSaveTemplate">📄 ذخیره به عنوان نمونه</button>
         <button class="btn btn-secondary" id="btnLoadTemplate">📂 بارگزاری از نمونه</button>
         <button class="btn btn-secondary" id="btnLoadPrev">🕘 برنامه قبلی</button>
@@ -208,11 +208,11 @@
           <div class="drawer-list" id="drawerList"></div>
         </div>
         <div id="drawerTabHistory" style="display:none;padding:16px">
-          <p style="color:#888;font-size:13px">سوابق برنامه‌های قبلی کاربر اینجا نمایش داده می‌شود</p>
+          <p style="color:var(--text-muted);font-size:13px">سوابق برنامه‌های قبلی کاربر اینجا نمایش داده می‌شود</p>
           <div id="historyList"></div>
         </div>
         <div id="drawerTabCompare" style="display:none;padding:16px">
-          <p style="color:#888;font-size:13px">مقایسه با اطرافیان و میانگین‌ها</p>
+          <p style="color:var(--text-muted);font-size:13px">مقایسه با اطرافیان و میانگین‌ها</p>
           <div id="compareContent">در دست ساخت</div>
         </div>
       </div>
@@ -241,7 +241,7 @@
           <h3>
             <span class="day-number">${day.day_number}</span>
             روز ${day.day_number} ${isRest ? '🌙 استراحت' : `💪 ${esc(day.focus||'بدون تمرکز')}`}
-            <small style="color:#888;font-size:11px">(${vol.movs} حرکت • ${vol.sets} ست) • Hash: ${esc((day.dayHash||'').substring(0,6))}</small>
+            <small style="color:var(--text-muted);font-size:11px">(${vol.movs} حرکت • ${vol.sets} ست) • Hash: ${esc((day.dayHash||'').substring(0,6))}</small>
           </h3>
           <div class="day-actions">
             <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="تمرکز: بالاتنه، پا، فول بادی...">
@@ -252,7 +252,7 @@
             <button class="btn btn-danger btn-small" data-del-day="${dayIdx}">🗑 حذف روز</button>
           </div>
         </div>
-        ${isRest ? `<div style="padding:20px;text-align:center;color:#888">🌙 روز استراحت - ریکاوری و تغذیه • ${esc(day.coachNote||'')}</div>` : `
+        ${isRest ? `<div style="padding:20px;text-align:center;color:var(--text-muted)">🌙 روز استراحت - ریکاوری و تغذیه • ${esc(day.coachNote||'')}</div>` : `
         <div class="systems-list">
           ${(day.data||[]).map((sys, sysIdx) => `
             <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
@@ -260,7 +260,7 @@
                 <h4>
                   ${systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.icon||'1️⃣'} سیستم ${sysIdx+1}
                   <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')} - ${esc(sys.system_type||'normal')}</span>
-                  <small style="color:#888">Hash: ${(sys.exerciseSystemHash||'').substring(0,6)}</small>
+                  <small style="color:var(--text-muted)">Hash: ${(sys.exerciseSystemHash||'').substring(0,6)}</small>
                 </h4>
                 <div class="system-actions">
                   <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:140px">
@@ -277,12 +277,12 @@
                       ${mov.exercise_id ? `<img src="/api/exercise-image/${mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
                     </div>
                     <div class="movement-info">
-                      <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')} <small style="color:#4aaf29">${mov.exercise_id?`ID:${mov.exercise_id}`:''} • ${esc(mov.movementHash||'').substring(0,6)}</small></b>
+                      <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')} <small style="color:var(--text-secondary)">${mov.exercise_id?`ID:${mov.exercise_id}`:''} • ${esc(mov.movementHash||'').substring(0,6)}</small></b>
                       <div class="movement-desc" style="margin-top:6px">
                         <input data-mov-desc="${dayIdx}-${sysIdx}-${movIdx}" value="${esc(mov.description||'')}" placeholder="توضیح: مثلاً 3 ثانیه مکث در پایین، تمرکز روی انقباض">
                       </div>
                       <div class="sets-list">
-                        <div style="display:flex;gap:6px;font-size:10px;color:#888;padding:4px 0">
+                        <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);padding:4px 0">
                           <span style="min-width:80px">نوع ست (ESetType)</span>
                           <span style="min-width:80px">تعداد (count)</span>
                           <span>وزن</span>
@@ -607,7 +607,7 @@
   let currentDrawerCat='all';
   async function loadDrawerExercises(catId='all'){
     const host=document.getElementById('drawerList');
-    host.innerHTML=`<div style="text-align:center;padding:20px;color:#888">در حال بارگذاری...</div>`;
+    host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">در حال بارگذاری...</div>`;
     currentDrawerCat=catId;
     const searchVal=document.getElementById('drawerSearch').value.trim();
     try {
@@ -633,13 +633,13 @@
         renderDrawerList(res.items||[]);
       }
     } catch(e){
-      host.innerHTML=`<div style="color:#c00;padding:20px">خطا: ${esc(e.message)}</div>`;
+      host.innerHTML=`<div style="color:var(--danger);padding:20px">خطا: ${esc(e.message)}</div>`;
     }
   }
   function renderDrawerList(items){
     const host=document.getElementById('drawerList');
     if(items.length===0){
-      host.innerHTML=`<div style="text-align:center;padding:20px;color:#888">حرکتی پیدا نشد</div>`;
+      host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">حرکتی پیدا نشد</div>`;
       return;
     }
     host.innerHTML = items.map(ex=>`
@@ -649,7 +649,7 @@
           <b>${esc(ex.name_fa)}</b>
           <small>${esc(ex.category_id)} • ${esc(ex.subcategory_id||'')} • اولویت ${ex.priority||5}</small>
         </div>
-        <span style="margin-left:auto;color:#4aaf29">＋</span>
+        <span style="margin-left:auto;color:var(--text-secondary)">＋</span>
       </div>
     `).join('');
     host.querySelectorAll('.drawer-item').forEach(el=>{
@@ -682,13 +682,13 @@
       const host=document.getElementById('historyList');
       if(!host) return;
       if(list.length===0){
-        host.innerHTML=`<div style="color:#888;font-size:12px">هنوز سابقه‌ای نیست</div>`;
+        host.innerHTML=`<div style="color:var(--text-muted);font-size:12px">هنوز سابقه‌ای نیست</div>`;
         return;
       }
       host.innerHTML = list.slice(0,10).map(p=>`
-        <div style="border:1px solid #e9eef0;border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
           <b style="font-size:12px">${esc(p.title)}</b><br>
-          <small style="color:#888">${esc(p.start_date||'')} - ${p.program_data?.days?.length||0} روز</small><br>
+          <small style="color:var(--text-muted)">${esc(p.start_date||'')} - ${p.program_data?.days?.length||0} روز</small><br>
           <button class="btn btn-secondary btn-small" onclick="window.loadProgramToCurrent(${p.id})">بارگزاری</button>
         </div>
       `).join('');
@@ -818,7 +818,7 @@
     document.getElementById('btnPreview').onclick=()=>{
       const preview = JSON.stringify(currentProgram, null, 2);
       const w=window.open();
-      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title></head><body><pre style="font-family:monospace;white-space:pre-wrap">${esc(preview)}</pre></body></html>`);
+      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title></head><body style="margin:0;padding:24px;background:#050505;color:#f5f5f5;font-family:Tahoma,Arial,sans-serif"><pre style="font-family:monospace;white-space:pre-wrap;background:#101010;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:18px">${esc(preview)}</pre></body></html>`);
     };
     document.getElementById('btnStats').onclick=()=>{
       const vol=calculateVolume(currentProgram);
@@ -993,7 +993,7 @@
         const setsCount = (p.program_data?.days||[]).reduce((sum,d)=> sum + (d.data||[]).reduce((s2,sys)=> s2 + (sys.movement_list||[]).reduce((s3,m)=> s3 + (m.sets||[]).length,0),0),0);
         return `
         <div class="program-card">
-          <h3>${esc(p.title)} <small style="color:#888">v${p.program_data?.version||2}</small></h3>
+          <h3>${esc(p.title)} <small style="color:var(--text-muted)">v${p.program_data?.version||2}</small></h3>
           <p>${esc(p.coach_note||'بدون توضیح')}</p>
           <div class="program-meta">
             <span>📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')}</span>
@@ -1026,7 +1026,7 @@
           const id=b.dataset.preview;
           const prog=await api(`/api/training-programs/${id}/full`);
           const w=window.open();
-          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title></head><body><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:#f5f5f5;padding:16px;border-radius:8px">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
+          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title></head><body style="margin:0;padding:24px;background:#050505;color:#f5f5f5;font-family:Tahoma,Arial,sans-serif"><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:#101010;border:1px solid rgba(255,255,255,.1);padding:18px;border-radius:12px;color:#c8c8c8">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
         };
       });
       host.querySelectorAll('[data-pdf]').forEach(b=>{

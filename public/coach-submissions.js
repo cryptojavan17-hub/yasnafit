@@ -29,7 +29,7 @@
       }
       host.innerHTML = list.map(item=>`
         <div class="program-card">
-          <h3>${esc(item.full_name)} <small style="color:#888">#${item.assessment_number}</small></h3>
+          <h3>${esc(item.full_name)} <small style="color:var(--text-muted)">#${item.assessment_number}</small></h3>
           <p>وزن: ${item.weight||'—'}kg • قد: ${item.height||'—'} • ${esc(item.goal||'')}</p>
           <div class="program-meta">
             <span>📅 ${new Date(item.submitted_at||item.created_at).toLocaleDateString('fa-IR')}</span>
@@ -44,7 +44,7 @@
         </div>
       `).join('');
     } catch(e){
-      host.innerHTML=`<div style="color:#c00">خطا: ${esc(e.message)}</div>`;
+      host.innerHTML=`<div style="color:var(--danger)">خطا: ${esc(e.message)}</div>`;
     }
   }
 
@@ -104,7 +104,7 @@
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
                   ${(ass.photos||[]).map(p=>`
-                    <div style="width:120px;height:120px;border-radius:10px;overflow:hidden;border:1px solid #ddd;position:relative">
+                    <div style="width:120px;height:120px;border-radius:10px;overflow:hidden;border:1px solid var(--border);position:relative">
                       <img src="/api/student-photos/${p.id}" style="width:100%;height:100%;object-fit:cover">
                       <small style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;text-align:center;font-size:10px">${esc(p.photo_type)}</small>
                     </div>
@@ -113,15 +113,15 @@
               </section>
 
               ${prev?`
-              <section class="sp-card" style="border-color:#fde68a;background:#fffbeb">
+              <section class="sp-card" style="border-color:var(--border-strong);background:var(--glass-hover)">
                 <h2>📚 مقایسه با ارزیابی قبلی #${prev.assessment_number}</h2>
                 <p style="font-size:12px">
                   وزن قبلی: ${prev.weight}kg → فعلی: ${ass.weight}kg • تفاوت: ${(ass.weight - prev.weight).toFixed(1)}kg<br>
                   کمر قبلی: ${prev.waist||'—'} → فعلی: ${ass.waist||'—'}<br>
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <div><small>قبلی:</small><br>${(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid #ddd;margin:2px">`).join('')}</div>
-                  <div><small>فعلی:</small><br>${(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid #4aaf29;margin:2px">`).join('')}</div>
+                  <div><small>قبلی:</small><br>${(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border);margin:2px">`).join('')}</div>
+                  <div><small>فعلی:</small><br>${(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border-strong);margin:2px">`).join('')}</div>
                 </div>
                 ${prevProg?`<div style="margin-top:10px"><small>برنامه قبلی: ${esc(prevProg.title)}</small></div>`:''}
               </section>
@@ -131,15 +131,15 @@
             <div>
               <section class="sp-card">
                 <h2>✅ تصمیم مربی</h2>
-                <textarea id="coachNote" placeholder="یادداشت برای شاگرد..." style="width:100%;min-height:80px;border:1px solid #dbe3df;border-radius:10px;padding:10px">${esc(ass.coach_note||'')}</textarea>
+                <textarea id="coachNote" placeholder="یادداشت برای شاگرد..." style="width:100%;min-height:80px;border:1px solid var(--border);border-radius:10px;padding:10px">${esc(ass.coach_note||'')}</textarea>
                 <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
                   <button class="btn btn-secondary" id="btnUnderReview">🔍 در حال بررسی</button>
                   <button class="btn btn-danger" id="btnRequestChanges">✏️ درخواست اصلاح</button>
                   <button class="btn btn-primary" id="btnApprove">✅ تایید</button>
                 </div>
-                <div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px">
+                <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
                   <button class="btn btn-primary" id="btnCreateProgram">💪 ساخت برنامه یک ماهه</button>
-                  <small style="display:block;color:#888;font-size:11px;margin-top:6px">از Program Builder موجود استفاده می‌شود و به ارزیابی لینک می‌شود</small>
+                  <small style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">از Program Builder موجود استفاده می‌شود و به ارزیابی لینک می‌شود</small>
                 </div>
               </section>
 
@@ -179,15 +179,15 @@
         const host=document.getElementById('timelineMini');
         host.innerHTML = (full.timeline||[]).map(item=>{
           if(item.type==='assessment'){
-            return `<div style="padding:8px;background:#f7f9f8;border-radius:8px;margin-bottom:6px"><b>ارزیابی #${item.data.assessment_number}</b> - ${esc(item.data.status)}<br><small>${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
+            return `<div style="padding:8px;background:var(--surface-inset);border-radius:8px;margin-bottom:6px"><b>ارزیابی #${item.data.assessment_number}</b> - ${esc(item.data.status)}<br><small>${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
           } else {
-            return `<div style="padding:8px;background:#e9f7e4;border-radius:8px;margin-bottom:6px"><b>${esc(item.data.title)}</b><br><small>${esc(item.data.start_date||'')} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
+            return `<div style="padding:8px;background:var(--glass-hover);border-radius:8px;margin-bottom:6px"><b>${esc(item.data.title)}</b><br><small>${esc(item.data.start_date||'')} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
           }
         }).join('') || 'تاریخچه‌ای نیست';
       } catch(e){}
 
     } catch(e){
-      content.innerHTML=`<div style="color:#c00;padding:20px">خطا: ${esc(e.message)}</div>`;
+      content.innerHTML=`<div style="color:var(--danger);padding:20px">خطا: ${esc(e.message)}</div>`;
     }
   };
 
@@ -210,10 +210,10 @@
                 const a=item.data;
                 return `
                 <div style="display:flex;gap:16px">
-                  <div style="width:40px;height:40px;border-radius:50%;background:#e0f2fe;display:grid;place-items:center;flex:0 0 40px">📋</div>
-                  <div style="flex:1;background:#fff;border:1px solid #e9eef0;border-radius:12px;padding:16px">
+                  <div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">📋</div>
+                  <div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px">
                     <h3 style="margin:0 0 8px">ارزیابی #${a.assessment_number} - ${esc(a.status)}</h3>
-                    <p style="font-size:12px;color:#666">وزن: ${a.weight}kg • ${new Date(a.date).toLocaleDateString('fa-IR')}</p>
+                    <p style="font-size:12px;color:var(--text-secondary)">وزن: ${a.weight}kg • ${new Date(a.date).toLocaleDateString('fa-IR')}</p>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">${(a.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`).join('')}</div>
                     <button class="btn btn-secondary btn-small" onclick="location.href='/assessments/${a.id}'" style="margin-top:8px">بررسی</button>
                   </div>
@@ -223,10 +223,10 @@
                 const p=item.data;
                 return `
                 <div style="display:flex;gap:16px">
-                  <div style="width:40px;height:40px;border-radius:50%;background:#e9f7e4;display:grid;place-items:center;flex:0 0 40px">💪</div>
-                  <div style="flex:1;background:#fff;border:1px solid #e9eef0;border-radius:12px;padding:16px">
+                  <div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">💪</div>
+                  <div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px">
                     <h3 style="margin:0 0 8px">${esc(p.title)}</h3>
-                    <p style="font-size:12px;color:#666">📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')} • ${esc(p.status||'')}</p>
+                    <p style="font-size:12px;color:var(--text-secondary)">📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')} • ${esc(p.status||'')}</p>
                     <button class="btn btn-primary btn-small" onclick="location.href='/programs/exercise/form?id=${p.id}'">ویرایش برنامه</button>
                   </div>
                 </div>
@@ -259,7 +259,7 @@
         </div>
       `;
     } catch(e){
-      content.innerHTML=`<div style="color:#c00">خطا: ${esc(e.message)}</div>`;
+      content.innerHTML=`<div style="color:var(--danger)">خطا: ${esc(e.message)}</div>`;
     }
   };
 })();

@@ -899,3 +899,23 @@ immutability remains enforced in `program-service.js`.
 Creating or requesting a new assessment reuses the secure invitation service and returns
 the raw token only once. The assessment itself is still completed exclusively in the
 Student Portal. No new student or assessment tables were added.
+
+---
+
+# Unified Premium Black / White UI System
+
+The visual layer is centralized in `public/styles.css` and does not affect APIs or
+business services. Its order is: design tokens, reset, typography, application layout,
+navigation, shared components, then responsive rules. `dark-theme.css` remains only as a
+compatibility entry and intentionally contains no overrides or `!important` rules.
+
+Page-specific files (`exercises.css`, `program-builder.css`, `student-portal.css`,
+`students.css`, and `releases.css`) consume the shared tokens instead of defining their
+own palettes. The hierarchy is monochrome and grayscale-first; semantic red is restricted
+to destructive/error states. Inputs, tables, modals, drawers, loading/error/empty states,
+scrollbars, focus indicators, and generated Program Builder preview windows all use the
+same dark visual language.
+
+`tests/ui-design-regression.js` prevents light component backgrounds, legacy green/blue
+palette values, malformed inline token usage, stylesheet-order regressions, and return of
+`!important` override chains.

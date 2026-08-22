@@ -110,7 +110,7 @@
 
           <section class="sp-card">
             <h2>📸 عکس‌های ارزیابی</h2>
-            <p style="font-size:12px;color:#888">هر سه عکس جلو، پشت و کنار الزامی است. فقط JPG/PNG/WEBP تا 5MB</p>
+            <p style="font-size:12px;color:var(--text-muted)">هر سه عکس جلو، پشت و کنار الزامی است. فقط JPG/PNG/WEBP تا 5MB</p>
             <div class="photo-upload-grid">
               ${['front','back','side'].map(type=>{
                 const labelMap = {front:'جلو', back:'پشت', side:'کنار'};
@@ -130,9 +130,9 @@
             </div>
             <div id="allPhotos" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
               ${(currentAss?.photos||[]).map(p=>`
-                <div style="position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid #ddd">
+                <div style="position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
                   <img src="/api/student-photos/${p.id}?token=${token}" style="width:100%;height:100%;object-fit:cover">
-                  <button data-del-photo="${p.id}" style="position:absolute;top:2px;right:2px;background:#ff4444;color:#fff;border:0;border-radius:50%;width:20px;height:20px;cursor:pointer">×</button>
+                  <button data-del-photo="${p.id}" style="position:absolute;top:2px;right:2px;background:var(--danger);color:var(--black);border:0;border-radius:50%;width:20px;height:20px;cursor:pointer">×</button>
                   <small style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;text-align:center">${esc(p.photo_type)}</small>
                 </div>
               `).join('')}
@@ -141,7 +141,7 @@
 
           <section class="sp-card" style="text-align:center">
             <h2>🚀 ارسال نهایی</h2>
-            <p style="font-size:13px;color:#666">اطلاعات خود را بررسی کنید و برای مربی ارسال کنید. بعد از ارسال قابل ویرایش نیست تا مربی بررسی کند.</p>
+            <p style="font-size:13px;color:var(--text-secondary)">اطلاعات خود را بررسی کنید و برای مربی ارسال کنید. بعد از ارسال قابل ویرایش نیست تا مربی بررسی کند.</p>
             <button class="btn btn-primary" id="btnSubmit" style="font-size:16px;padding:14px 28px">📤 ارسال اطلاعات برای مربی</button>
           </section>
         </div>
@@ -150,7 +150,7 @@
           <section class="sp-card">
             <h2>📆 برنامه تمرینی من</h2>
             ${currentProg ? `
-              <div style="background:#f6fff3;border:1px solid #d1e9cb;border-radius:10px;padding:12px">
+              <div style="background:var(--glass-hover);border:1px solid var(--border-strong);border-radius:10px;padding:12px">
                 <b>${esc(currentProg.title)}</b><br>
                 <small>📅 ${esc(currentProg.start_date||'')} تا ${esc(currentProg.end_date||'')}</small><br>
                 <small>📆 ${currentProg.program_data?.days?.length||0} روز • 🏋️ ${(() => { try { return (currentProg.program_data?.days||[]).reduce((s,d)=> s + (d.data||[]).reduce((s2,sys)=> s2 + (sys.movement_list||[]).length,0),0); } catch(e){ return 0; } })()} حرکت</small>
@@ -159,13 +159,13 @@
                 </div>
               </div>
               <div id="programViewer" style="display:none;margin-top:12px"></div>
-            ` : `<p style="color:#888;font-size:13px">هنوز برنامه‌ای اختصاص داده نشده. بعد از تایید ارزیابی، مربی برنامه یک ماهه شما را می‌سازد.</p>`}
+            ` : `<p style="color:var(--text-muted);font-size:13px">هنوز برنامه‌ای اختصاص داده نشده. بعد از تایید ارزیابی، مربی برنامه یک ماهه شما را می‌سازد.</p>`}
           </section>
 
           <section class="sp-card">
             <h2>📜 تاریخچه</h2>
             <div class="timeline">
-              ${timeline.length===0 ? `<p style="color:#888;font-size:12px">تاریخچه‌ای نیست</p>` : timeline.map(item=>{
+              ${timeline.length===0 ? `<p style="color:var(--text-muted);font-size:12px">تاریخچه‌ای نیست</p>` : timeline.map(item=>{
                 if(item.type==='assessment'){
                   return `<div class="tl-item"><span class="tl-dot assessment">📋</span><div><b>ارزیابی #${item.data.assessment_number}</b><br><small>${esc(item.data.status)} • ${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div></div>`;
                 } else {
@@ -303,18 +303,18 @@
         if(viewer.style.display==='block'){
           const days = prog.program_data?.days||[];
           viewer.innerHTML = days.map(day=>`
-            <div style="border:1px solid #e9eef0;border-radius:10px;padding:12px;margin-bottom:10px">
+            <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
               <b>روز ${day.day_number} - ${esc(day.focus||'')}</b> ${day.isRestDay?'🌙 استراحت':''}
-              ${day.coachNote||day.coach_note ? `<div style="font-size:11px;color:#555;margin-top:4px">یادداشت مربی: ${esc(day.coachNote||day.coach_note)}</div>` : ''}
+              ${day.coachNote||day.coach_note ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px">یادداشت مربی: ${esc(day.coachNote||day.coach_note)}</div>` : ''}
               ${(day.data||[]).map(sys=>`
-                <div style="margin-top:8px;background:#fafaf8;padding:8px;border-radius:8px">
+                <div style="margin-top:8px;background:var(--surface-inset);padding:8px;border-radius:8px">
                   <small>سیستم ${sys.exercise_system_id} - ${esc(sys.system_type)}</small>
                   ${(sys.movement_list||[]).map(mov=>`
-                    <div style="background:#fff;border:1px solid #eee;border-radius:6px;padding:6px;margin-top:6px">
+                    <div style="background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:6px;margin-top:6px">
                       <b style="font-size:12px">${esc(mov.nameFa||mov.name||'حرکت')}</b>
-                      <div style="font-size:11px;color:#666">${esc(mov.description||'')}</div>
+                      <div style="font-size:11px;color:var(--text-secondary)">${esc(mov.description||'')}</div>
                       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-                        ${(mov.sets||[]).map(s=>`<span style="background:#e9f7e4;padding:2px 6px;border-radius:10px;font-size:10px">${esc(s.type||s.set_type)}: ${esc(s.count??s.count_value??'—')} • وزن ${esc(s.weight??'—')} • استراحت ${esc(s.restSeconds??s.rest_seconds??'—')} ثانیه</span>`).join('')}
+                        ${(mov.sets||[]).map(s=>`<span style="background:var(--glass-hover);padding:2px 6px;border-radius:10px;font-size:10px">${esc(s.type||s.set_type)}: ${esc(s.count??s.count_value??'—')} • وزن ${esc(s.weight??'—')} • استراحت ${esc(s.restSeconds??s.rest_seconds??'—')} ثانیه</span>`).join('')}
                       </div>
                     </div>
                   `).join('')}
@@ -339,7 +339,7 @@
     document.querySelector('.main').style.marginRight='0';
     document.querySelector('.main').style.width='100%';
 
-    content.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner" style="width:32px;height:32px;border:3px solid #ddd;border-top-color:#4aaf29;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><p>در حال بارگذاری پرتال...</p></div>`;
+    content.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--border-strong);border-top-color:var(--white);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><p>در حال بارگذاری پرتال...</p></div>`;
 
     try {
       const data = await api(`/api/student-portal/${token}`);
@@ -352,8 +352,8 @@
           <div style="text-align:center;padding:60px">
             <div style="font-size:64px">🔒</div>
             <h2>لینک نامعتبر</h2>
-            <p style="color:#888">${esc(e.message)}</p>
-            <p style="font-size:12px;color:#aaa">لینک دعوت باطل یا منقضی شده است. با مربی خود تماس بگیرید.</p>
+            <p style="color:var(--text-muted)">${esc(e.message)}</p>
+            <p style="font-size:12px;color:var(--text-muted)">لینک دعوت باطل یا منقضی شده است. با مربی خود تماس بگیرید.</p>
           </div>
         </div>
       `;
