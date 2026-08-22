@@ -16,15 +16,17 @@ echo 2. Restart Server
 echo 3. Stop Server
 echo 4. View Live Server Logs ^& Diagnostics
 echo 5. Update Yasnafit from GitHub
-echo 6. Exit
+echo 6. Import Exercise Images (1888 pics)
+echo 7. Exit
 echo.
-set /p choice=Select an option (1-6):
+set /p choice=Select an option (1-7):
 if "%choice%"=="1" call :START & goto MENU
 if "%choice%"=="2" call :STOP & call :START & goto MENU
 if "%choice%"=="3" call :STOP & pause & goto MENU
 if "%choice%"=="4" call :LOGS & goto MENU
 if "%choice%"=="5" call :UPDATE & pause & goto MENU
-if "%choice%"=="6" exit /b 0
+if "%choice%"=="6" call :IMPORT_IMAGES & pause & goto MENU
+if "%choice%"=="7" exit /b 0
 goto MENU
 
 :STATUS
@@ -69,4 +71,41 @@ exit /b
 if exist logs\server.log (powershell -NoProfile -Command "Get-Content -Path 'logs\server.log' -Tail 60") else (echo No log file exists yet. Start the server first.)
 echo.
 pause
+exit /b
+
+:IMPORT_IMAGES
+echo.
+echo ====================================================
+echo   Import Exercise Images (2707 movements)
+echo ====================================================
+set "SRC1=C:\Users\MAHDI\Desktop\bodybuilding\exercises_organized"
+set "SRC2=%USERPROFILE%\Desktop\bodybuilding\exercises_organized"
+set "DST=public\assets\images\exercises\imported"
+if not exist "%DST%" mkdir "%DST%"
+if exist "%SRC1%" (
+  echo Found images at %SRC1%
+  echo Copying 1888 images to %DST% ...
+  xcopy /E /I /Y "%SRC1%\*" "%DST%\" >nul
+  echo Done! Copied images.
+  dir "%DST%" | find "File(s)"
+  exit /b
+)
+if exist "%SRC2%" (
+  echo Found images at %SRC2%
+  echo Copying images to %DST% ...
+  xcopy /E /I /Y "%SRC2%\*" "%DST%\" >nul
+  echo Done!
+  dir "%DST%" | find "File(s)"
+  exit /b
+)
+echo.
+echo Image source folder not found.
+echo Please copy your 1888 images manually:
+echo   From: C:\Users\MAHDI\Desktop\bodybuilding\exercises_organized
+echo   To:   %CD%\%DST%
+echo.
+echo Or set SRC folder in this script.
+echo.
+echo Current images in %DST%:
+if exist "%DST%\*" (dir "%DST%" | find "File(s)") else (echo No images yet - placeholder will be shown in app)
 exit /b
