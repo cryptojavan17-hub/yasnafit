@@ -44,21 +44,10 @@ const menu = [
   ['لیست انتظار اصلاحی','/corrective/wait-list','◷'],
   ['لیست انتظار مکمل','/supplement/wait-list','◷'],
   ['بانک برنامه ها',null,'▣',[
-    ['برنامه های تمرینی (جدید)','/templates/exercise/list'],
+    ['ساخت برنامه تمرینی','/templates/exercise/list'],
     ['برنامه های غذایی','/templates/diet/list'],
     ['برنامه های مکمل','/templates/supplement/list'],
-    ['برنامه های اصلاحی','/templates/corrective/list'],
-    ['برنامه های تمرینی (عمومی)','/templates/exercise/list-general'],
-    ['برنامه های غذایی (عمومی)','/templates/diet/list-general'],
-    ['برنامه های اصلاحی (عمومی)','/templates/corrective/list-general']
-  ]],
-  ['برنامه ها',null,'▤',[
-    ['لیست حرکات تمرینی','/programs/exercise/movements-list'],
-    ['ساخت برنامه تمرینی','/programs/exercise/form'],
-    ['لیست غذا های رژیم','/programs/diet/foods-list'],
-    ['لیست برچسب‌های غذا','/programs/diet/tag-list'],
-    ['لیست پکیج های غذایی','/programs/diet/package-list'],
-    ['لیست مکمل‌ها','/programs/supplement/supplement-list']
+    ['برنامه های اصلاحی','/templates/corrective/list']
   ]],
   ['درآمد زایی',null,'◈',[['تاریخچه درآمد مربی ها','/monetization/log']]],
   ['ویدیو های آموزشی','/video-guides','▶'],
@@ -96,9 +85,9 @@ const menu = [
   ]]
 ];
 
-const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'مدیریت حساب', 'شاگرد های من', 'برنامه ها', 'بانک برنامه ها', 'آمار ها'];
+const visibleRoots = ['داشبورد', 'صفحه اختصاصی', 'مدیریت حساب', 'شاگرد های من', 'بانک برنامه ها', 'آمار ها'];
 let sidebarMenu = menu.filter(item => visibleRoots.includes(item[0]));
-const order = ['داشبورد','صفحه اختصاصی','مدیریت حساب','شاگرد های من','برنامه ها','بانک برنامه ها','آمار ها'];
+const order = ['داشبورد','صفحه اختصاصی','مدیریت حساب','شاگرد های من','بانک برنامه ها','آمار ها'];
 sidebarMenu.sort((a,b)=> order.indexOf(a[0]) - order.indexOf(b[0]));
 const statsIndex = sidebarMenu.findIndex(item => item[0] === 'آمار ها');
 sidebarMenu.splice(statsIndex, 0, ['تنظیمات', null, '⚙', [['پروفایل', '/coach/profile'], ['تنظیمات سامانه', '/coach/settings']]]);
