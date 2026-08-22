@@ -232,8 +232,11 @@ async function handleStudents(req,res,url){
     if(b.status && !initialStatuses.includes(b.status)) return sendError(res,400,'وضعیت اولیه نامعتبر است');
 
     const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
-    const r=db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height,stable_id,version) VALUES (?,?,?,?,?,?,?,?)')
-      .run(b.full_name.trim(), String(b.mobile||'').trim(), String(b.goal||'').trim(), b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
+    const r=db.prepare(`
+      INSERT INTO students
+        (full_name,mobile,goal,status,weight,height,stable_id,version,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+    `).run(b.full_name.trim(), String(b.mobile||'').trim(), String(b.goal||'').trim(), b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
     log('شاگرد جدید ثبت شد', b.full_name);
     return send(res,201,{id:r.lastInsertRowid, stable_id: stableId});
   }

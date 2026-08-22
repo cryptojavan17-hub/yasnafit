@@ -919,3 +919,11 @@ same dark visual language.
 `tests/ui-design-regression.js` prevents light component backgrounds, legacy green/blue
 palette values, malformed inline token usage, stylesheet-order regressions, and return of
 `!important` override chains.
+
+## Legacy database compatibility repair (0.4.1)
+
+Migration `010_repair_legacy_student_timestamps` repairs old SQLite installations where
+`students.updated_at` was absent even though older migrations were marked applied. It is
+additive and backfills in place; no student, assessment, photo, or program row is rebuilt
+or deleted. New student inserts explicitly populate both timestamps for compatibility
+with repaired tables.

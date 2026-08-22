@@ -199,13 +199,13 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.notEqual(traversalResponse.status,200,'encoded path traversal served source');
 
   const versionInfo=await ok('/api/version');
-  assert.deepEqual(versionInfo,{version:'0.4.0',name:'Yasnafit',environment:'development'});
+  assert.deepEqual(versionInfo,{version:'0.4.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');
-  assert.deepEqual(releases.map(release=>release.version),['0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
+  assert.deepEqual(releases.map(release=>release.version),['0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
   assert.ok(releases.every(release=>release.changes && Array.isArray(release.changes.features)));
   assert.equal(releases.filter(release=>release.is_current).length,1);
-  const currentRelease=await ok('/api/releases/0.4.0');
-  assert.equal(currentRelease.title,'Complete My Students CRM');
+  const currentRelease=await ok('/api/releases/0.4.1');
+  assert.equal(currentRelease.title,'Legacy Student Database Compatibility');
   assert.equal(currentRelease.is_current,true);
   await expectStatus(404,'/api/releases/9.9.9');
 
@@ -227,6 +227,6 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
 
   const health=await ok('/api/health');
   assert.equal(health.exercises,2707);
-  assert.equal(health.schema_version,'009_my_students_crm_release');
+  assert.equal(health.schema_version,'010_repair_legacy_student_timestamps');
   console.log(JSON.stringify({ok:true,student_id:s1.id,assessments:[a1.id,a2.id],programs:[p1.id,p2.id],application_version:versionInfo.version,releases:releases.length},null,2));
 })().catch(error=>{ console.error(error); process.exitCode=1; });

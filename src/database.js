@@ -268,7 +268,10 @@ function seed() {
   seedExercises();
   const has = scalar('SELECT COUNT(*) AS total FROM students').total;
   if (has) return;
-  const add = db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height) VALUES (?,?,?,?,?,?)');
+  const add = db.prepare(`
+    INSERT INTO students (full_name,mobile,goal,status,weight,height,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+  `);
   add.run('سارا احمدی','09121234567','کاهش وزن','فعال',68,165);
   add.run('امیرحسین رضایی','09129876543','افزایش حجم','فعال',81,179);
   add.run('نگار محمدی','09351234567','اصلاح فرم بدن','در انتظار',59,161);

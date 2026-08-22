@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `009_my_students_crm_release` stored in `settings` table and `schema_migrations`
+Current: `010_repair_legacy_student_timestamps` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -15,6 +15,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `007_monthly_workflow_integrity` - Historical and lifecycle integrity hardening
 - `008_application_releases` - Structured application release history
 - `009_my_students_crm_release` - Release record for the complete My Students CRM
+- `010_repair_legacy_student_timestamps` - Repair missing student timestamps in legacy databases
 
 ## Full Schema
 
@@ -346,7 +347,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..009 applied and Imported 2707 exercises
+# Should show migrations 001..010 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -509,3 +510,13 @@ CREATE INDEX idx_releases_date ON releases(release_date DESC, id DESC);
 from `0.1.0` through `0.3.0` and uses `INSERT OR IGNORE` for idempotency.
 Migration `009_my_students_crm_release` adds the intentional `0.4.0` feature release; it
 does not introduce a competing student table or alter student business data.
+
+## Schema 010: Legacy Student Timestamp Repair
+
+Some pre-migration databases had `001`/`002` recorded while `students.updated_at` was
+missing: SQLite rejects `ALTER TABLE ... ADD COLUMN ... DEFAULT CURRENT_TIMESTAMP` on a
+populated table and the old compatibility helper swallowed that error. Migration
+`010_repair_legacy_student_timestamps` adds missing timestamp columns without a
+non-constant default, backfills every existing student from `created_at`/current time, and
+preserves all rows. Application and seed inserts now explicitly write both timestamps so
+repaired legacy tables remain complete.

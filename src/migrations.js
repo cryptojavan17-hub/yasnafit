@@ -619,6 +619,37 @@ const migrations = [
         JSON.stringify(changes)
       );
     }
+  },
+  {
+    id: '010_repair_legacy_student_timestamps',
+    description: 'Repair missing student timestamps in legacy SQLite databases',
+    up: (db) => {
+      const columns=new Set(db.prepare('PRAGMA table_info(students)').all().map(column=>column.name));
+      // SQLite cannot add a column with CURRENT_TIMESTAMP as a non-constant default
+      // to a populated legacy table. Add nullable columns first, then backfill safely.
+      if(!columns.has('created_at')) db.exec('ALTER TABLE students ADD COLUMN created_at TEXT');
+      if(!columns.has('updated_at')) db.exec('ALTER TABLE students ADD COLUMN updated_at TEXT');
+      db.exec(`
+        UPDATE students
+        SET created_at=COALESCE(created_at,CURRENT_TIMESTAMP),
+            updated_at=COALESCE(updated_at,created_at,CURRENT_TIMESTAMP)
+        WHERE created_at IS NULL OR updated_at IS NULL;
+      `);
+
+      const changes={
+        features:[], improvements:[],
+        fixes:['ترمیم خودکار ستون updated_at برای دیتابیس‌های قدیمی شاگردان'],
+        security:[], breaking_changes:[]
+      };
+      db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `).run(
+        '0.4.1','Legacy Student Database Compatibility','2026-08-22',
+        'رفع خطای صفحه شاگردها در دیتابیس‌های قدیمی بدون حذف اطلاعات',
+        JSON.stringify(changes)
+      );
+    }
   }
 ];
 
