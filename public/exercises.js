@@ -55,17 +55,28 @@
     const fallbacksB64 = btoa(unescape(encodeURIComponent(fallbacksJson)));
 
     return `
-      <div class="image-wrap">
+      <div class="image-wrap loading" id="wrap-${origId}-${ex.id}">
         <img class="exercise-image" src="${esc(primary)}" alt="${esc(ex.name_fa)}"
           data-fallbacks-b64="${fallbacksB64}"
           data-orig-id="${origId}"
+          data-ex-id="${ex.id}"
           onerror="window.handleImageError(this)"
+          onload="window.handleImageLoad(this)"
           loading="lazy"
         >
         <div class="no-image">تصویر<br>موجود نیست<br><small>ID:${origId}</small></div>
       </div>
     `;
   }
+
+  // When image loads successfully - hide placeholder
+  window.handleImageLoad = function(img) {
+    const wrap = img.parentElement;
+    if(wrap){
+      wrap.classList.remove('loading','has-error');
+      wrap.classList.add('has-image');
+    }
+  };
 
   // Global image error handler with fallback chain - robust version
   window.handleImageError = function(img) {
@@ -88,24 +99,31 @@
         } catch(e){}
       }
 
-      // If current src is the primary /api/exercise-image/, and it failed, try candidates
-      if (fallbacks.length === 0) {
-        console.warn('Image failed and no fallbacks:', img.dataset.origId, img.src);
-        img.style.display = 'none';
-        // Show no-image div
-        const noImg = img.parentElement.querySelector('.no-image');
-        if(noImg) noImg.style.display = 'grid';
+      // If we have fallbacks, try next
+      if (fallbacks.length > 0) {
+        const next = fallbacks.shift();
+        const remainingJson = JSON.stringify(fallbacks);
+        img.dataset.fallbacksB64 = btoa(unescape(encodeURIComponent(remainingJson)));
+        // console.log('Trying fallback:', next, 'for', img.dataset.origId);
+        img.src = next;
         return;
       }
 
-      const next = fallbacks.shift();
-      // Update remaining fallbacks
-      const remainingJson = JSON.stringify(fallbacks);
-      img.dataset.fallbacksB64 = btoa(unescape(encodeURIComponent(remainingJson)));
-      // console.log('Trying fallback:', next, 'for', img.dataset.origId);
-      img.src = next;
+      // No more fallbacks - show no-image placeholder
+      console.warn('Image failed for ID:', img.dataset.origId, 'all fallbacks tried');
+      const wrap = img.parentElement;
+      if(wrap){
+        wrap.classList.remove('loading','has-image');
+        wrap.classList.add('has-error');
+      }
+      img.style.display = 'none';
     } catch (e) {
       console.error('handleImageError failed', e);
+      const wrap = img.parentElement;
+      if(wrap){
+        wrap.classList.add('has-error');
+        wrap.classList.remove('loading','has-image');
+      }
       img.style.display = 'none';
     }
   };
