@@ -95,7 +95,7 @@ try {
 }
 
 function seedCategories() {
-  // Comprehensive categories based on Morabiha numeric IDs + Flutter catalog
+  // 13 دسته اصلی تمیز - بدون قدیمی و سایر
   const categoryRows = [
     ['chest', 'سینه', 1, 4],
     ['back', 'پشت', 2, 5],
@@ -110,14 +110,23 @@ function seedCategories() {
     ['neck', 'گردن', 11, 21],
     ['cardio', 'هوازی', 12, 8],
     ['warmup', 'گرم کردن و سرد کردن', 13, 9],
-    ['other', 'سایر', 14, 23],
-    ['upper', 'بالاتنه (قدیمی)', 15, null],
-    ['lower', 'پایین‌تنه (قدیمی)', 16, null],
-    ['core', 'میان‌تنه (قدیمی)', 17, null],
   ];
 
   db.exec('PRAGMA foreign_keys = OFF');
   try {
+    // Cleanup: حذف دسته‌های قدیمی و سایر
+    try {
+      // انتقال حرکت سایر (وای فلای) به سرشانه
+      db.exec(`UPDATE exercises SET category_id='shoulders', subcategory_id='shoulders-fly' WHERE category_id='other'`);
+      // حذف زیردسته‌های قدیمی
+      db.prepare(`DELETE FROM exercise_subcategories WHERE category_id IN ('upper','lower','core','other')`).run();
+      db.prepare(`DELETE FROM exercise_subcategories WHERE id IN ('chest-legacy','back-legacy','shoulder-legacy','arms-legacy','quads','hamstrings','glutes','abs-legacy','plank-legacy','running')`).run();
+      // حذف دسته‌های قدیمی
+      db.prepare(`DELETE FROM exercise_categories WHERE id IN ('upper','lower','core','other')`).run();
+    } catch(e){
+      console.log('Cleanup old categories:', e.message);
+    }
+
     const catStmt = db.prepare('INSERT OR IGNORE INTO exercise_categories (id,name,sort_order,original_id) VALUES (?,?,?,?)');
     const catUpdate = db.prepare('UPDATE exercise_categories SET name=?, sort_order=?, original_id=? WHERE id=?');
     categoryRows.forEach(row => {
@@ -150,16 +159,6 @@ function seedCategories() {
       ['cardio-general', 'cardio', 'هوازی عمومی', 1, null],
       ['neck-general', 'neck', 'گردن عمومی', 1, null],
       ['lower_back-general', 'lower_back', 'فیله عمومی', 1, null],
-      ['chest-legacy', 'upper', 'سینه', 1, null],
-      ['back-legacy', 'upper', 'پشت', 2, null],
-      ['shoulder-legacy', 'upper', 'سرشانه', 3, null],
-      ['arms-legacy', 'upper', 'بازو', 4, null],
-      ['quads', 'lower', 'چهارسر', 1, null],
-      ['hamstrings', 'lower', 'همسترینگ', 2, null],
-      ['glutes', 'lower', 'سرینی', 3, null],
-      ['abs-legacy', 'core', 'شکم', 1, null],
-      ['plank-legacy', 'core', 'پلانک', 2, null],
-      ['running', 'cardio', 'دویدن', 1, null],
     ];
     const subStmt = db.prepare('INSERT OR IGNORE INTO exercise_subcategories (id,category_id,name,sort_order,original_id) VALUES (?,?,?,?,?)');
     const subUpdate = db.prepare('UPDATE exercise_subcategories SET category_id=?, name=?, sort_order=?, original_id=? WHERE id=?');
@@ -191,7 +190,7 @@ function importExercisesFromJson() {
     return 0;
   }
 
-  // Mapping numeric categoryId to string id
+  // Mapping numeric categoryId to string id - سایر حذف شد، وای فلای به سرشانه می‌رود
   const catMap = {
     1: 'biceps',
     2: 'triceps',
@@ -204,7 +203,7 @@ function importExercisesFromJson() {
     9: 'warmup',
     21: 'neck',
     22: 'lower_back',
-    23: 'other',
+    23: 'shoulders', // سایر حذف شد - وای فلای به سرشانه فلای
     26: 'forearms',
     27: 'traps'
   };
