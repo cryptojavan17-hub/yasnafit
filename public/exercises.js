@@ -102,9 +102,11 @@
           <p class="eyebrow">مدیریت حساب • ${state.total} حرکت</p>
           <h1>${label}</h1>
           <p>حرکت‌ها را بر اساس محل، دسته، زیردسته و وضعیت مدیریت کنید. دیتابیس شامل <b>${state.total || '...'}</b> حرکت است.</p>
+          <div id="imageStatus" class="image-status">در حال بررسی تصاویر...</div>
         </div>
         <div class="head-stats">
           <div class="stat-mini"><b id="totalCount">...</b><span>کل حرکات</span></div>
+          <div class="stat-mini"><b id="imageCount">...</b><span>تصاویر</span></div>
         </div>
       </div>
 
@@ -574,6 +576,25 @@
       state.total = groupedCats.reduce((sum,c)=>sum + (c.count||0), 0);
       const totalEl = $('#totalCount');
       if(totalEl) totalEl.textContent = state.total;
+
+      // Check images
+      try {
+        const imgStatus = await request('/api/images/status');
+        const imgEl = $('#imageCount');
+        const statusEl = $('#imageStatus');
+        if(imgEl) imgEl.textContent = imgStatus.imported || 0;
+        if(statusEl){
+          if(imgStatus.imported === 0){
+            statusEl.innerHTML = `⚠️ هیچ تصویری در <code>public/assets/images/exercises/imported</code> پیدا نشد. از لانچر گزینه 6 را بزنید یا پوشه <code>exercises_organized</code> را کپی کنید. <br><small>پوشه مبدا: ${esc(imgStatus.organizedDir)} (${imgStatus.organized} عکس)</small>`;
+            statusEl.className = 'image-status warning';
+          } else {
+            statusEl.innerHTML = `✅ ${imgStatus.imported} تصویر در دسترس است. ${imgStatus.organized ? `(${imgStatus.organized} در پوشه مبدا)` : ''}`;
+            statusEl.className = 'image-status success';
+          }
+        }
+      } catch(e){
+        console.log('Image status check failed', e);
+      }
 
       bindEvents();
 

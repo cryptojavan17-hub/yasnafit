@@ -97,6 +97,11 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 
+.image-status{margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px;line-height:1.6;background:#1a1a1a;border:1px solid #333}
+.image-status.warning{background:#2a1e0f;border-color:#5a3a0f;color:#ffcc66}
+.image-status.success{background:#0f2a0f;border-color:#1a4a1a;color:#66ff99}
+.image-status code{background:#0005;padding:2px 6px;border-radius:4px;font-size:11px}
+
 .exercise-form .form-grid{grid-template-columns:1fr 1fr}
 .exercise-form select,.exercise-form input{width:100%;margin-top:6px;border:1px solid #444;border-radius:10px;padding:11px;background:#171717;color:#fff;font:inherit;transition:.2s}
 .exercise-form select:focus,.exercise-form input:focus{border-color:#22c55e;outline:none}

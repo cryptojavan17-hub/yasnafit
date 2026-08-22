@@ -80,32 +80,64 @@ echo   Import Exercise Images (2707 movements)
 echo ====================================================
 set "SRC1=C:\Users\MAHDI\Desktop\bodybuilding\exercises_organized"
 set "SRC2=%USERPROFILE%\Desktop\bodybuilding\exercises_organized"
+set "SRC3=C:\Users\MAHDI\Desktop\yasnafit-git\exercises_organized"
 set "DST=public\assets\images\exercises\imported"
 if not exist "%DST%" mkdir "%DST%"
-if exist "%SRC1%" (
-  echo Found images at %SRC1%
-  echo Copying 1888 images to %DST% ...
-  xcopy /E /I /Y "%SRC1%\*" "%DST%\" >nul
-  echo Done! Copied images.
-  dir "%DST%" | find "File(s)"
+
+set "SRC="
+if exist "%SRC1%" set "SRC=%SRC1%"
+if not defined SRC if exist "%SRC2%" set "SRC=%SRC2%"
+if not defined SRC if exist "%SRC3%" set "SRC=%SRC3%"
+
+if not defined SRC (
+  echo.
+  echo Image source folder not found.
+  echo Checked:
+  echo   - %SRC1%
+  echo   - %SRC2%
+  echo   - %SRC3%
+  echo.
+  echo Please copy your 1888 images manually:
+  echo   From: C:\Users\MAHDI\Desktop\bodybuilding\exercises_organized
+  echo   To:   %CD%\%DST%
+  echo.
+  echo Current images in %DST%:
+  if exist "%DST%\*" (dir "%DST%" | find "File(s)") else (echo No images yet - placeholder will be shown in app)
   exit /b
 )
-if exist "%SRC2%" (
-  echo Found images at %SRC2%
-  echo Copying images to %DST% ...
-  xcopy /E /I /Y "%SRC2%\*" "%DST%\" >nul
-  echo Done!
-  dir "%DST%" | find "File(s)"
-  exit /b
+
+echo Found images at %SRC%
+echo.
+echo Copying images recursively (flatten)...
+echo Source: %SRC%
+echo Dest:   %CD%\%DST%
+echo.
+
+powershell -NoProfile -Command ^
+  "$src='%SRC%'; $dst='%DST%'; $dstFull=Join-Path (Get-Location) $dst; " ^
+  "if(!(Test-Path $dstFull)){New-Item -ItemType Directory -Path $dstFull -Force | Out-Null}; " ^
+  "$files=Get-ChildItem -Path $src -Recurse -File | Where-Object { $_.Extension -match '\.(png|jpg|jpeg|gif|webp)$' }; " ^
+  "Write-Host \"Found $($files.Count) image files in subfolders\" -ForegroundColor Cyan; " ^
+  "if($files.Count -eq 0){ Write-Host \"No images found! Checking structure:\"; Get-ChildItem $src | Format-Table Name,Mode; Get-ChildItem $src -Recurse -Directory | Select-Object -First 10 FullName | Format-Table; } " ^
+  "$copied=0; $skipped=0; $errors=0; " ^
+  "foreach($f in $files){ try{ $destFile=Join-Path $dstFull $f.Name; if(!(Test-Path $destFile)){ Copy-Item $f.FullName $destFile -Force; $copied++ } else { $skipped++ } } catch { $errors++; Write-Host \"Error copying $($f.Name): $_\" -ForegroundColor Red } }; " ^
+  "Write-Host \"Copied: $copied, Already existed: $skipped, Errors: $errors\"; " ^
+  "$final=(Get-ChildItem $dstFull -File -ErrorAction SilentlyContinue).Count; Write-Host \"Total images in imported folder: $final\" -ForegroundColor Green; " ^
+  "if($final -lt 100){ Write-Host \"Sample files in source:\"; $files | Select-Object -First 5 Name,Directory | Format-Table }"
+
+echo.
+echo Also checking for videos...
+set "SRC_VID=C:\Users\MAHDI\Desktop\bodybuilding\exercises_videos"
+set "DST_VID=public\assets\videos\exercises"
+if exist "%SRC_VID%" (
+  if not exist "%DST_VID%" mkdir "%DST_VID%"
+  echo Found videos at %SRC_VID% - copying...
+  powershell -NoProfile -Command "Get-ChildItem -Path '%SRC_VID%' -Recurse -File -Include *.mp4,*.mov,*.avi | ForEach-Object { Copy-Item $_.FullName (Join-Path '%DST_VID%' $_.Name) -Force }"
 )
+
 echo.
-echo Image source folder not found.
-echo Please copy your 1888 images manually:
-echo   From: C:\Users\MAHDI\Desktop\bodybuilding\exercises_organized
-echo   To:   %CD%\%DST%
+echo Done! Images are now available in %DST%
+dir "%DST%" | find "File(s)"
 echo.
-echo Or set SRC folder in this script.
-echo.
-echo Current images in %DST%:
-if exist "%DST%\*" (dir "%DST%" | find "File(s)") else (echo No images yet - placeholder will be shown in app)
+echo If images still not showing in app, restart server (option 2)
 exit /b

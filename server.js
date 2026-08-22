@@ -241,6 +241,35 @@ async function api(req,res,url){
    return send(res,200,{imported:count, total: one('SELECT COUNT(*) total FROM exercises').total});
  }
 
+ if(req.method==='GET'&&p==='/api/images/status') {
+   const importedDir = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+   let count = 0, sample = [];
+   try {
+     if (fs.existsSync(importedDir)) {
+       const files = fs.readdirSync(importedDir);
+       const images = files.filter(f => ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(f).toLowerCase()));
+       count = images.length;
+       sample = images.slice(0, 20);
+     }
+   } catch(e){}
+   const organizedDir = path.join(dataSourceDir, 'exercises_organized');
+   let organizedCount = 0;
+   try {
+     if (fs.existsSync(organizedDir)) {
+       const stack = [organizedDir];
+       while(stack.length){
+         const cur = stack.pop();
+         const entries = fs.readdirSync(cur, {withFileTypes:true});
+         for(const en of entries){
+           if(en.isDirectory()) stack.push(path.join(cur, en.name));
+           else if(en.isFile() && ['.png','.jpg','.jpeg','.gif','.webp'].includes(path.extname(en.name).toLowerCase())) organizedCount++;
+         }
+       }
+     }
+   } catch(e){}
+   return send(res,200,{imported: count, organized: organizedCount, sample, importedDir, organizedDir});
+ }
+
  if(req.method==='GET'&&p==='/api/programs') return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
  if(req.method==='POST'&&p==='/api/programs') {
    const b=await read(req);
@@ -265,15 +294,47 @@ const server=http.createServer(async(req,res)=>{
   try{
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
-    // Serve exercise images from data-source if exists, or from public/assets
-    if(url.pathname.startsWith('/files/exercise/')) {
-      // Try to find file in data-source or public
-      const relative = url.pathname.replace('/files/exercise/','');
+    // Serve exercise images from data-source if exists, or from public/assets (recursive search)
+    if(url.pathname.startsWith('/files/exercise/') || url.pathname.startsWith('/assets/images/exercises/')) {
+      const relative = url.pathname.replace('/files/exercise/','').replace('/assets/images/exercises/','');
+      const basename = path.basename(relative);
       const possiblePaths = [
         path.join(dataSourceDir, 'exercises_organized', relative),
-        path.join(publicDir, 'assets', 'images', 'exercises', 'imported', path.basename(relative)),
-        path.join(publicDir, 'assets', 'images', 'exercises', path.basename(relative)),
+        path.join(publicDir, 'assets', 'images', 'exercises', 'imported', basename),
+        path.join(publicDir, 'assets', 'images', 'exercises', basename),
+        path.join(publicDir, 'assets', 'images', 'exercises', 'imported', relative),
       ];
+
+      // Helper to search recursively in imported folder
+      function findRecursive(dir, fileName) {
+        if(!fs.existsSync(dir)) return null;
+        const stack = [dir];
+        while(stack.length){
+          const current = stack.pop();
+          try {
+            const entries = fs.readdirSync(current, {withFileTypes:true});
+            for(const entry of entries){
+              const full = path.join(current, entry.name);
+              if(entry.isFile() && entry.name.toLowerCase() === fileName.toLowerCase()){
+                return full;
+              }
+              // Also match files that start with id_ (like 4_...png) or contain id
+              if(entry.isFile()){
+                // If basename is like 4.png, match files starting with 4_ or 4.
+                const idPart = fileName.split('.')[0];
+                if(entry.name.startsWith(idPart + '_') || entry.name.startsWith(idPart + '.')){
+                  return full;
+                }
+              }
+              if(entry.isDirectory()){
+                stack.push(full);
+              }
+            }
+          } catch(e){}
+        }
+        return null;
+      }
+
       for(const fp of possiblePaths){
         if(fs.existsSync(fp) && fs.statSync(fp).isFile()){
           const ext = path.extname(fp).toLowerCase();
@@ -281,9 +342,27 @@ const server=http.createServer(async(req,res)=>{
           return fs.createReadStream(fp).pipe(res);
         }
       }
-      // Return placeholder 1x1 transparent if not found
+
+      // Recursive search in imported folder
+      const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+      const found = findRecursive(importedRoot, basename);
+      if(found){
+        const ext = path.extname(found).toLowerCase();
+        res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
+        return fs.createReadStream(found).pipe(res);
+      }
+
+      // Also search in data-source organized folder recursively
+      const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
+      const found2 = findRecursive(organizedRoot, basename);
+      if(found2){
+        const ext = path.extname(found2).toLowerCase();
+        res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
+        return fs.createReadStream(found2).pipe(res);
+      }
+
       res.writeHead(404,{'Content-Type':'application/json'});
-      return res.end(JSON.stringify({error:'Image not found'}));
+      return res.end(JSON.stringify({error:'Image not found', searched: basename}));
     }
 
     // Serve public files
