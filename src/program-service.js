@@ -176,8 +176,21 @@ function saveProgramToDB(db, programId, programInput){
   db.exec('BEGIN');
   try {
     // Update training_programs base
-    const existing = db.prepare('SELECT * FROM training_programs WHERE id=?').get(programId);
+    const existing = db.prepare('SELECT * FROM training_programs WHERE id=? AND deleted_at IS NULL').get(programId);
     if(!existing) throw new Error('Program not found');
+    if(existing.status !== 'DRAFT') {
+      const err = new Error('برنامه فعال یا تاریخی قابل ویرایش نیست؛ برای ماه جدید برنامه تازه بسازید');
+      err.statusCode = 409;
+      throw err;
+    }
+    const targetStudentId = normalizedInput.student_id != null ? normalizedInput.student_id : existing.student_id;
+    const targetAssessmentId = normalizedInput.assessment_id != null ? normalizedInput.assessment_id : existing.assessment_id;
+    if(targetAssessmentId){
+      const assessment = db.prepare('SELECT student_id, status FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(targetAssessmentId);
+      if(!assessment || assessment.student_id !== Number(targetStudentId) || assessment.status !== 'APPROVED') {
+        const err = new Error('برنامه فقط به ارزیابی تاییدشده همان شاگرد متصل می‌شود'); err.statusCode=400; throw err;
+      }
+    }
 
     // Delete old children (hard delete is okay because we recreate transactionally)
     db.prepare('DELETE FROM program_days WHERE program_id=?').run(programId);
@@ -265,7 +278,7 @@ function saveProgramToDB(db, programId, programInput){
     `).run(
       normalizedInput.title||existing.title,
       normalizedInput.coach_note||existing.coach_note,
-      normalizedInput.status||existing.status,
+      'DRAFT',
       normalizedInput.start_date||existing.start_date,
       normalizedInput.end_date||existing.end_date,
       normalizedInput.student_id!=null?normalizedInput.student_id:existing.student_id,
@@ -274,18 +287,7 @@ function saveProgramToDB(db, programId, programInput){
       programId
     );
 
-    // If program linked to assessment, update assessment's program_id and student status
-    if(normalizedInput.assessment_id || existing.assessment_id){
-      const assId = normalizedInput.assessment_id || existing.assessment_id;
-      try {
-        db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId, assId);
-        const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id=?').get(assId);
-        if(ass){
-          db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assId, ass.student_id);
-        }
-      } catch(e){ console.log('Failed to link program to assessment', e.message); }
-    }
-
+    // Assignment is a separate lifecycle transition. Saving never exposes a draft.
     db.exec('COMMIT');
     return buildProgramFromDB(db, programId);
   } catch(e){
@@ -306,6 +308,15 @@ function createProgramInDB(db, programInput){
 
   db.exec('BEGIN');
   try {
+    if(normalizedInput.status && !['DRAFT','پیش‌نویس'].includes(normalizedInput.status)) {
+      const err = new Error('برنامه جدید ابتدا باید پیش‌نویس باشد'); err.statusCode=400; throw err;
+    }
+    if(normalizedInput.assessment_id){
+      const assessment = db.prepare('SELECT student_id, status FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(normalizedInput.assessment_id);
+      if(!assessment || assessment.student_id !== Number(normalizedInput.student_id) || assessment.status !== 'APPROVED') {
+        const err = new Error('برنامه فقط به ارزیابی تاییدشده همان شاگرد متصل می‌شود'); err.statusCode=400; throw err;
+      }
+    }
     const stableId = genUUID();
     const initialJson = JSON.stringify({days:[]});
     // Get next program number for student
@@ -322,7 +333,7 @@ function createProgramInDB(db, programInput){
       normalizedInput.assessment_id||null,
       normalizedInput.title||'برنامه تمرینی جدید',
       normalizedInput.coach_note||'',
-      normalizedInput.status||'پیش‌نویس',
+      'DRAFT',
       normalizedInput.start_date||null,
       normalizedInput.end_date||null,
       initialJson,
@@ -393,19 +404,7 @@ function createProgramInDB(db, programInput){
       }
     }
 
-    // Link program to assessment if provided
-    if(normalizedInput.assessment_id){
-      try {
-        db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`)
-          .run(programId, normalizedInput.assessment_id);
-        const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id=?').get(normalizedInput.assessment_id);
-        if(ass){
-          db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`)
-            .run(normalizedInput.assessment_id, ass.student_id);
-        }
-      } catch(e){ console.log('Link assessment on create:', e.message); }
-    }
-
+    // Drafts remain private until the explicit activation/assignment endpoint.
     // Build final JSON from DB and update
     const built = buildProgramFromDB(db, programId);
     const finalJson = JSON.stringify(built.programData);
@@ -419,11 +418,50 @@ function createProgramInDB(db, programInput){
   }
 }
 
+function activateProgram(db, programId){
+  const program = db.prepare('SELECT * FROM training_programs WHERE id=? AND deleted_at IS NULL').get(programId);
+  if(!program) throw new Error('Program not found');
+  if(program.status !== 'DRAFT') throw new Error('فقط پیش‌نویس قابل اختصاص است');
+  if(!program.student_id || !program.assessment_id) throw new Error('شاگرد و ارزیابی مبدا الزامی هستند');
+  const assessment = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(program.assessment_id);
+  if(!assessment || assessment.student_id !== program.student_id || assessment.status !== 'APPROVED') throw new Error('ارزیابی تاییدشده همان شاگرد الزامی است');
+  const dayCount = db.prepare('SELECT COUNT(*) AS c FROM program_days WHERE program_id=? AND deleted_at IS NULL').get(programId).c;
+  const movementCount = db.prepare(`SELECT COUNT(*) AS c FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=? AND pm.deleted_at IS NULL AND es.deleted_at IS NULL AND pd.deleted_at IS NULL`).get(programId).c;
+  if(dayCount < 1 || movementCount < 1) throw new Error('برنامه باید حداقل یک روز و یک حرکت داشته باشد');
+  const start = new Date(program.start_date);
+  const end = new Date(program.end_date);
+  if(Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) throw new Error('بازه زمانی برنامه نامعتبر است');
+
+  db.exec('BEGIN');
+  try {
+    // A student has one current plan. Prior plans are completed, never overwritten.
+    db.prepare(`UPDATE training_programs SET status='COMPLETED', completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE student_id=? AND status='ACTIVE' AND id<>? AND deleted_at IS NULL`).run(program.student_id, programId);
+    db.prepare(`UPDATE training_programs SET status='ACTIVE', assigned_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId);
+    db.prepare(`UPDATE body_assessments SET program_id=?, status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId, assessment.id);
+    db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessment.id, program.student_id);
+    db.exec('COMMIT');
+  } catch(e){ db.exec('ROLLBACK'); throw e; }
+  return db.prepare('SELECT * FROM training_programs WHERE id=?').get(programId);
+}
+
+function transitionProgram(db, programId, target){
+  if(!['COMPLETED','ARCHIVED'].includes(target)) throw new Error('Invalid program lifecycle target');
+  const existing = db.prepare('SELECT * FROM training_programs WHERE id=? AND deleted_at IS NULL').get(programId);
+  if(!existing) throw new Error('Program not found');
+  const allowed = target === 'COMPLETED' ? existing.status === 'ACTIVE' : ['DRAFT','ACTIVE','COMPLETED'].includes(existing.status);
+  if(!allowed) throw new Error('تغییر وضعیت برنامه مجاز نیست');
+  const timestampColumn = target === 'COMPLETED' ? 'completed_at' : 'archived_at';
+  db.prepare(`UPDATE training_programs SET status=?, ${timestampColumn}=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(target, programId);
+  return db.prepare('SELECT * FROM training_programs WHERE id=?').get(programId);
+}
+
 module.exports = {
   genHash,
   genUUID,
   normalizeProgramInput,
   buildProgramFromDB,
   saveProgramToDB,
-  createProgramInDB
+  createProgramInDB,
+  activateProgram,
+  transitionProgram
 };

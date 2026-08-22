@@ -54,8 +54,9 @@
       coach_note: '',
       start_date: new Date().toISOString().split('T')[0],
       end_date: new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0],
-      status: 'پیش‌نویس',
+      status: 'DRAFT',
       student_id: null,
+      assessment_id: null,
       version: 2,
       days: [
         {
@@ -174,7 +175,8 @@
 
       <div class="bottom-toolbar">
         <button class="btn btn-secondary" id="btnSaveReturn">💾 ذخیره و بازگشت</button>
-        <button class="btn btn-primary" id="btnSave">💾 ذخیره</button>
+        <button class="btn btn-primary" id="btnSave">💾 ذخیره پیش‌نویس</button>
+        <button class="btn btn-primary" id="btnAssign" style="background:#16764b">✅ ذخیره و اختصاص به شاگرد</button>
         <button class="btn btn-secondary" id="btnSaveTemplate">📄 ذخیره به عنوان نمونه</button>
         <button class="btn btn-secondary" id="btnLoadTemplate">📂 بارگزاری از نمونه</button>
         <button class="btn btn-secondary" id="btnLoadPrev">🕘 برنامه قبلی</button>
@@ -782,6 +784,18 @@
     };
     document.getElementById('btnSave').onclick=()=> saveProgram(false);
     document.getElementById('btnSaveReturn').onclick=()=> saveProgram(true);
+    document.getElementById('btnAssign').onclick=async()=>{
+      if(!currentProgram.assessment_id) return alert('برای اختصاص، برنامه را از صفحه ارزیابی تاییدشده ایجاد کنید.');
+      if(!confirm('برنامه ذخیره و به شاگرد اختصاص داده شود؟ پس از اختصاص قابل ویرایش نیست.')) return;
+      const saved=await saveProgram(false, true);
+      if(!saved) return;
+      try{
+        await api(`/api/training-programs/${currentProgram.id}/activate`, {method:'POST'});
+        dirty=false;
+        alert('✅ برنامه فعال و به شاگرد اختصاص داده شد');
+        location.href=`/students/${currentProgram.student_id}/timeline`;
+      }catch(e){ alert('خطا در اختصاص برنامه: '+e.message); }
+    };
     document.getElementById('btnSaveTemplate').onclick=()=>{
       alert('📄 ذخیره به عنوان نمونه برنامه: در نسخه کامل، برنامه به بانک نمونه‌ها ذخیره می‌شود (EExerciseTemplate)');
     };
@@ -851,7 +865,7 @@
     }, 30000);
   }
 
-  async function saveProgram(returnAfter){
+  async function saveProgram(returnAfter, silent=false){
     const title=document.getElementById('progTitle').value.trim();
     const coachNote=document.getElementById('progNote').value.trim();
     const start=document.getElementById('progStart').value;
@@ -869,25 +883,27 @@
     try {
       let res;
       if(currentProgram.id){
-        res=await api(`/api/training-programs/${currentProgram.id}`, {method:'PUT', body: JSON.stringify({title, coach_note: coachNote, start_date: start, end_date: end, student_id: studentId?Number(studentId):null, program_data: currentProgram})});
+        res=await api(`/api/training-programs/${currentProgram.id}`, {method:'PUT', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
       } else {
-        res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, start_date: start, end_date: end, student_id: studentId?Number(studentId):null, program_data: currentProgram})});
+        res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
         currentProgram.id=res.id;
       }
       dirty=false;
       localStorage.removeItem('yasnafit_program_stash');
-      alert('✅ برنامه با موفقیت ذخیره شد');
-      if(returnAfter){
-        location.href='/templates/exercise/list';
-      }
+      if(!silent) alert('✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
+      if(returnAfter) location.href='/templates/exercise/list';
+      return true;
     } catch(e){
       alert('خطا در ذخیره: '+e.message);
+      return false;
     }
   }
 
   async function loadProgramIfEditing(){
     const params=new URLSearchParams(location.search);
     const id=params.get('id');
+    const sourceStudentId=Number(params.get('student_id'))||null;
+    const sourceAssessmentId=Number(params.get('assessment_id'))||null;
     if(id){
       try {
         const prog=await api(`/api/training-programs/${id}/full`);
@@ -898,7 +914,8 @@
           start_date: prog.start_date||'',
           end_date: prog.end_date||'',
           student_id: prog.student_id||null,
-          status: prog.status||'پیش‌نویس',
+          assessment_id: prog.assessment_id||null,
+          status: prog.status||'DRAFT',
           version: prog.program_data?.version||2,
           days: prog.program_data?.days||[]
         };
@@ -919,17 +936,18 @@
           currentProgram = createEmptyProgram();
         }
       }
+    } else if(sourceStudentId && sourceAssessmentId) {
+      // Starting from an approved assessment must never restore an unrelated stash.
+      currentProgram=createEmptyProgram();
+      currentProgram.student_id=sourceStudentId;
+      currentProgram.assessment_id=sourceAssessmentId;
+      currentProgram.title=`برنامه ماهانه - ارزیابی ${sourceAssessmentId}`;
     } else {
       const stash = localStorage.getItem('yasnafit_program_stash');
       if(stash){
-        if(confirm('یک برنامه ذخیره نشده از قبل وجود دارد (autosave). ادامه می‌دهید؟')){
-          currentProgram = JSON.parse(stash);
-        } else {
-          currentProgram = createEmptyProgram();
-        }
-      } else {
-        currentProgram = createEmptyProgram();
-      }
+        if(confirm('یک برنامه ذخیره نشده از قبل وجود دارد (autosave). ادامه می‌دهید؟')) currentProgram = JSON.parse(stash);
+        else currentProgram = createEmptyProgram();
+      } else currentProgram = createEmptyProgram();
     }
 
     document.getElementById('progTitle').value = currentProgram.title||'';

@@ -110,7 +110,7 @@
 
           <section class="sp-card">
             <h2>📸 عکس‌های ارزیابی</h2>
-            <p style="font-size:12px;color:#888">حداقل یک عکس (جلو، پشت، کنار) آپلود کنید. فقط JPG/PNG/WEBP تا 5MB</p>
+            <p style="font-size:12px;color:#888">هر سه عکس جلو، پشت و کنار الزامی است. فقط JPG/PNG/WEBP تا 5MB</p>
             <div class="photo-upload-grid">
               ${['front','back','side'].map(type=>{
                 const labelMap = {front:'جلو', back:'پشت', side:'کنار'};
@@ -275,7 +275,7 @@
         const id=btn.dataset.delPhoto;
         if(confirm('عکس حذف شود؟')){
           try {
-            await api(`/api/assessment-photos/${id}`, {method:'DELETE'});
+            await api(`/api/student-portal/${token}/photos/${id}`, {method:'DELETE'});
             location.reload();
           } catch(e){ alert(e.message); }
         }
@@ -305,6 +305,7 @@
           viewer.innerHTML = days.map(day=>`
             <div style="border:1px solid #e9eef0;border-radius:10px;padding:12px;margin-bottom:10px">
               <b>روز ${day.day_number} - ${esc(day.focus||'')}</b> ${day.isRestDay?'🌙 استراحت':''}
+              ${day.coachNote||day.coach_note ? `<div style="font-size:11px;color:#555;margin-top:4px">یادداشت مربی: ${esc(day.coachNote||day.coach_note)}</div>` : ''}
               ${(day.data||[]).map(sys=>`
                 <div style="margin-top:8px;background:#fafaf8;padding:8px;border-radius:8px">
                   <small>سیستم ${sys.exercise_system_id} - ${esc(sys.system_type)}</small>
@@ -313,7 +314,7 @@
                       <b style="font-size:12px">${esc(mov.nameFa||mov.name||'حرکت')}</b>
                       <div style="font-size:11px;color:#666">${esc(mov.description||'')}</div>
                       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-                        ${(mov.sets||[]).map(s=>`<span style="background:#e9f7e4;padding:2px 6px;border-radius:10px;font-size:10px">${esc(s.type)}: ${esc(s.count||'')}</span>`).join('')}
+                        ${(mov.sets||[]).map(s=>`<span style="background:#e9f7e4;padding:2px 6px;border-radius:10px;font-size:10px">${esc(s.type||s.set_type)}: ${esc(s.count??s.count_value??'—')} • وزن ${esc(s.weight??'—')} • استراحت ${esc(s.restSeconds??s.rest_seconds??'—')} ثانیه</span>`).join('')}
                       </div>
                     </div>
                   `).join('')}

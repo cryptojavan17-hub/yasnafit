@@ -353,3 +353,127 @@ sqlite3 data/yasnafit.db "SELECT category_id, COUNT(*) FROM exercises GROUP BY c
 sqlite3 data/yasnafit.db "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 # Should include training_programs, program_days, exercise_systems, program_movements, movement_sets, schema_migrations
 ```
+
+---
+
+# Schema 007: Student Portal and Monthly Coaching (Authoritative Addendum)
+
+The following tables/columns extend the normalized program schema. Migration files remain
+the executable authority.
+
+```sql
+CREATE TABLE student_invites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stable_id TEXT UNIQUE,
+  student_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  token_preview TEXT,
+  status TEXT NOT NULL CHECK(status IN ('active','used','revoked','expired')),
+  expires_at TEXT,
+  used_at TEXT,
+  revoked_at TEXT,
+  version INTEGER DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_student_invites_student ON student_invites(student_id);
+CREATE INDEX idx_student_invites_hash ON student_invites(token_hash);
+
+CREATE TABLE body_assessments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stable_id TEXT UNIQUE,
+  student_id INTEGER NOT NULL,
+  assessment_number INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  weight REAL,
+  height REAL,
+  waist REAL,
+  chest REAL,
+  hips REAL,
+  body_fat REAL,
+  muscle_mass REAL,
+  measurements TEXT DEFAULT '{}',
+  goal TEXT DEFAULT '',
+  training_experience TEXT DEFAULT '',
+  limitations TEXT DEFAULT '',
+  injuries TEXT DEFAULT '',
+  student_note TEXT DEFAULT '',
+  coach_note TEXT DEFAULT '',
+  submitted_at TEXT,
+  reviewed_at TEXT,
+  program_id INTEGER,
+  version INTEGER DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TEXT,
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY(program_id) REFERENCES training_programs(id) ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX idx_body_assessments_student_number
+  ON body_assessments(student_id, assessment_number);
+CREATE INDEX idx_body_assessments_status ON body_assessments(status);
+
+CREATE TABLE assessment_photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stable_id TEXT,
+  assessment_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  photo_type TEXT NOT NULL CHECK(photo_type IN
+    ('front','back','side','front_flex','back_flex','other')),
+  storage_path TEXT NOT NULL,
+  original_filename TEXT,
+  mime_type TEXT,
+  size_bytes INTEGER,
+  version INTEGER DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE,
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX idx_assessment_photos_current_type
+  ON assessment_photos(assessment_id, photo_type) WHERE deleted_at IS NULL;
+CREATE INDEX idx_assessment_photos_student ON assessment_photos(student_id);
+```
+
+`students` additionally has profile/training/medical fields, `profile_status`, and
+`last_assessment_id`.
+
+`training_programs` additionally has:
+
+```sql
+assessment_id INTEGER;       -- source body assessment
+program_number INTEGER;      -- monotonic per student
+status TEXT;                 -- DRAFT | ACTIVE | COMPLETED | ARCHIVED
+assigned_at TEXT;
+completed_at TEXT;
+archived_at TEXT;
+```
+
+Indexes:
+
+```sql
+CREATE INDEX idx_training_programs_assessment ON training_programs(assessment_id);
+CREATE INDEX idx_training_programs_student_status
+  ON training_programs(student_id, status, deleted_at);
+CREATE INDEX idx_training_programs_dates ON training_programs(start_date, end_date);
+```
+
+## Historical Invariants
+
+1. `(student_id, assessment_number)` is unique.
+2. Submission freezes an assessment and its photos.
+3. One current photo row exists per `(assessment_id, photo_type)`; replacements are
+   soft-deletes while the assessment is editable.
+4. Program activation, not draft save, creates the assessment-program assignment.
+5. ACTIVE/COMPLETED/ARCHIVED programs are immutable; monthly renewal inserts a new row.
+6. Activating the next program completes (but never deletes or rewrites) the prior plan.
+7. Private filesystem paths are database-internal and are never serialized to clients.
+
+## Sync Metadata
+
+Stable IDs are cross-device identifiers. Integer IDs remain local foreign keys. Android
+sync should use stable IDs and versions, carry tombstones via `deleted_at`, and treat
+submitted assessments and assigned programs as immutable historical aggregates.

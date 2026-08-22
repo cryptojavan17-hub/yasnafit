@@ -150,9 +150,15 @@ function validateProgram(program){
 
   if(program.start_date && !isValidDateString(program.start_date)) errors.push('تاریخ شروع نامعتبر');
   if(program.end_date && !isValidDateString(program.end_date)) errors.push('تاریخ پایان نامعتبر');
+  if(program.start_date && program.end_date && new Date(program.end_date) < new Date(program.start_date)) errors.push('تاریخ پایان باید بعد از تاریخ شروع باشد');
+  if(program.status && !['DRAFT','ACTIVE','COMPLETED','ARCHIVED','پیش‌نویس'].includes(program.status)) errors.push('وضعیت برنامه نامعتبر است');
 
   if(program.student_id !== undefined && program.student_id !== null && program.student_id !== ''){
     if(!isValidId(program.student_id)) errors.push('شناسه شاگرد نامعتبر');
+  }
+
+  if(program.assessment_id !== undefined && program.assessment_id !== null && program.assessment_id !== ''){
+    if(!isValidId(program.assessment_id)) errors.push('شناسه ارزیابی نامعتبر');
   }
 
   if(program.version !== undefined && program.version !== null){

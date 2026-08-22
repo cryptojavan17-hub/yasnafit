@@ -4,7 +4,7 @@
 Yasnafit is a local-first coach dashboard (Node.js >=22.5, SQLite, Vanilla JS) with 2707 exercises, 1888 images, 13 clean categories, Exercise Management, and Redesigned Training Program Builder.
 
 - **Repo:** https://github.com/cryptojavan17-hub/yasnafit
-- **Branch:** arena/01a028ff-yasnafit (do not merge to main)
+- **Branch:** Arena task branches only (this session: `arena/01a029e8-yasnafit`; never work directly on main)
 - **Port:** 3020
 - **DB:** data/yasnafit.db (WAL, foreign_keys ON)
 - **Stack:** Vanilla Node HTTP server (no Express), node:sqlite, Vanilla JS, HTML, CSS, BAT launcher
@@ -259,7 +259,7 @@ public/program-builder/
 
 ## 14. Authentication Readiness
 
-No full cloud auth yet, but prepared:
+Student resources now use token-scoped authorization and coach APIs use a local HttpOnly session or deployment Bearer token. Full cloud multi-account authentication remains future work:
 
 ```
 Request
@@ -277,7 +277,7 @@ Resource
 
 - No hard-coded "coach" in business logic
 - Student_id is optional, not assumed
-- APIs use generic validation, not role checks yet
+- Student APIs resolve a token to one student; coach APIs pass `requireCoach`; future account roles will refine coach-to-student ownership
 - Extension point: add auth middleware before api() in server.js
 
 ## 15. Role Readiness
@@ -470,7 +470,7 @@ curl -X POST /api/backup -> file + rotation
 - No assistants management yet (placeholder)
 - No template save/load yet (placeholder)
 - No drag-drop with SortableJS yet (uses up/down buttons)
-- No full auth/roles yet (prepared extension points)
+- No cloud multi-coach account/role directory yet (student and local/deployment coach authorization is implemented)
 - No server sync yet (prepared stable_id, version, deleted_at)
 
 ## 30. Verification Checklist
@@ -689,3 +689,157 @@ Coach PC (SQLite) <-> Server (PostgreSQL) <-> Student Android (Room)
 - Program_data JSON for transport, normalized tables for local truth
 - Extension point: add sync endpoints /api/sync/push and /api/sync/pull with stable_id
 ```
+
+---
+
+# Core Student & Monthly Coaching Workflow (Schema 007)
+
+## Lifecycle
+
+The implemented product flow is:
+
+```
+Coach creates Student + Invitation
+  -> Student accepts private /join/<256-bit-token> link
+  -> Profile + a new draft BodyAssessment are completed
+  -> front/back/side photos are uploaded to private storage
+  -> submit freezes that assessment (SUBMITTED)
+  -> coach reviews (UNDER_REVIEW / CHANGES_REQUESTED / APPROVED)
+  -> existing Program Builder creates a DRAFT TrainingProgram
+  -> explicit activation assigns it (ACTIVE / PROGRAM_ASSIGNED)
+  -> the next month creates Assessment N+1 and Program N+1
+  -> prior active program becomes COMPLETED; no historical row is overwritten
+```
+
+Assessments and programs are separate monthly records. `assessment_number` and
+`program_number` are monotonic per student. Submitted assessments cannot be edited or
+have photos replaced/deleted. ACTIVE, COMPLETED, and ARCHIVED programs cannot be edited
+or deleted; a coach must create a new DRAFT for a new month.
+
+## Invitation and Student Authorization
+
+`student_invites` stores only `SHA-256(raw_token)`. The 32-byte base64url token is
+returned once when the invitation is created. Sequential IDs never appear in the join
+URL. Invitations can be active, used, revoked, or expired. Expiration applies while an
+invitation is unused; after acceptance the high-entropy token is the student's persistent
+portal credential. Revocation disables it immediately.
+
+Every student portal request resolves the token server-side to exactly one `student_id`.
+Client-supplied student IDs are never trusted. Assessment/photo ownership is checked in
+SQL before mutation. A token for student A cannot access or upload to student B's records.
+
+Coach API access has two modes:
+
+- Local single-user mode: loading a non-student SPA route issues a random, process-local,
+  HttpOnly, SameSite=Strict coach session cookie. `/join/*` never receives this cookie.
+- Hosted mode: set `YASNAFIT_COACH_TOKEN`; coach APIs require a constant-time checked
+  `Authorization: Bearer <token>` (or `X-Coach-Token`) credential.
+
+This is an authorization boundary for the current local product, not a replacement for
+future multi-coach accounts. The service layer remains identity-agnostic so a future
+`coach_id -> student` authorization mapping can be added without moving business rules
+into the UI.
+
+## Assessment Model and Freeze Rules
+
+Assessment states:
+
+```
+PROFILE_INCOMPLETE -> ASSESSMENT_PENDING -> SUBMITTED
+SUBMITTED -> UNDER_REVIEW -> APPROVED
+SUBMITTED/UNDER_REVIEW -> CHANGES_REQUESTED -> SUBMITTED
+APPROVED -> PROGRAM_ASSIGNED
+```
+
+Submission validates profile data, weight, height, goal, training experience, and one
+current photo for each required extensible type: `front`, `back`, and `side`. Optional
+measurements are retained as columns plus a JSON extension object for future analysis.
+Coach and student notes are separate. All mutations increment `version` and update audit
+timestamps.
+
+## Private Photo Security
+
+Photos are written under `data/assessments/<student>/<assessment>/`, never `public/`.
+The upload service enforces:
+
+- 5 MB per-file and 20 MB multipart request limits
+- one file per upload request and ten current photo slots per assessment
+- allowlisted JPEG/PNG/WEBP MIME and extensions; SVG is rejected
+- byte-level image signature/trailer checks and MIME/extension consistency
+- sanitized filenames, generated UUID storage names, and resolved-path containment
+- assessment ownership and editable-state checks
+- replacement by soft-deleting the current photo of the same type
+
+API JSON never returns `storage_path`. Bytes are served only by
+`GET /api/student-photos/:id`: the student's own portal token or an authorized coach is
+required. Responses use `private, no-store`, `nosniff`, restrictive CSP, and a safe
+Content-Disposition filename.
+
+## Program Lifecycle and Existing Builder
+
+There is one builder: `public/program-builder.js`, backed by the normalized source of
+truth (`training_programs -> program_days -> exercise_systems -> program_movements ->
+movement_sets`). The assessment review links to it with `student_id` and `assessment_id`.
+Saving creates/updates only DRAFT. “ذخیره و اختصاص به شاگرد” calls the explicit activation
+endpoint. Activation requires an APPROVED assessment belonging to the same student,
+valid dates, and at least one day and movement. It atomically:
+
+1. marks a prior ACTIVE plan COMPLETED,
+2. marks the draft ACTIVE and records `assigned_at`,
+3. links the source assessment and marks it PROGRAM_ASSIGNED,
+4. updates the student's current lifecycle state.
+
+The read-only student view includes title, dates, days, systems, movements, sets,
+repetitions/time, weight, rest, movement descriptions, and coach/day notes. DRAFT plans
+are never returned to a student.
+
+## API Boundaries
+
+Coach-authorized APIs:
+
+- `POST/GET /api/student-invites`
+- `POST /api/student-invites/:id/revoke`
+- `GET /api/student-submissions`
+- `GET /api/students/:id/assessments`
+- `GET /api/students/:id/timeline`
+- `GET /api/assessments/:id`
+- `POST /api/assessments/:id/under-review`
+- `POST /api/assessments/:id/request-changes`
+- `POST /api/assessments/:id/approve`
+- `POST/PUT/GET /api/training-programs[...]`
+- `POST /api/training-programs/:id/activate|complete|archive`
+
+Student-token-scoped APIs:
+
+- `GET /api/student-portal/:token`
+- `PUT /api/student-portal/:token/profile`
+- `POST /api/student-portal/:token/assessment`
+- `POST /api/student-portal/:token/photos`
+- `DELETE /api/student-portal/:token/photos/:photoId`
+- `POST /api/student-portal/:token/submit`
+- `GET /api/student-portal/:token/program|timeline|assessments|photos`
+
+Business transitions live in `student-service.js`, `program-service.js`, and
+`upload-service.js`, not in browser code.
+
+## Android / Sync Strategy
+
+`students`, invitations, assessments, photos, programs, and normalized program children
+carry stable UUIDs, integer versions, and audit/delete timestamps. Future Android sync
+should exchange stable IDs, not local integer PKs. Server ownership should be:
+
+- student profile and assessment drafts: student-owned until submission,
+- submitted assessments/reviews/programs: server/coach authoritative,
+- exercise catalog: server-owned read-only replica,
+- photo binaries: private object storage, referenced by stable photo ID.
+
+A future push/pull protocol can use `version + updated_at + deleted_at`; submitted
+assessments and non-DRAFT programs must remain immutable conflict domains. AI may consume
+the assessment/program timeline later, but no AI decision-making is implemented now.
+
+## Automated Verification
+
+`tests/e2e-workflow.js` exercises the complete two-student/two-month workflow, three
+required uploads, pending/review/approval, normalized program activation, timeline
+persistence, cross-student denial, invalid/revoked tokens, invalid SVG/traversal upload,
+private photo serving, immutable history, migration version, and exercise-count regression.

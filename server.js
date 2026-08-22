@@ -14,6 +14,10 @@ const port = Number(process.env.PORT || 3020);
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+// Optional deployment boundary. The Windows local app remains zero-config; hosted
+// deployments should set YASNAFIT_COACH_TOKEN and send it as a Bearer token.
+const COACH_ACCESS_TOKEN = process.env.YASNAFIT_COACH_TOKEN || '';
+const LOCAL_COACH_SESSION = crypto.randomBytes(32).toString('base64url');
 
 // --- Database & Services ---
 const { db, dbPath, backup, log } = require('./src/database');
@@ -90,7 +94,36 @@ function one(sql, ...args){
 function isSafePath(base, target){
   const normalizedBase = path.resolve(base);
   const normalizedTarget = path.resolve(target);
-  return normalizedTarget.startsWith(normalizedBase);
+  return normalizedTarget === normalizedBase || normalizedTarget.startsWith(normalizedBase + path.sep);
+}
+
+function constantTimeEqual(expectedValue, suppliedValue){
+  const expected=Buffer.from(String(expectedValue));
+  const actual=Buffer.from(String(suppliedValue||''));
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+function isCoachAuthorized(req){
+  const auth = String(req.headers.authorization || '');
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : String(req.headers['x-coach-token'] || '');
+  if(COACH_ACCESS_TOKEN) return constantTimeEqual(COACH_ACCESS_TOKEN, bearer);
+  const cookies=Object.fromEntries(String(req.headers.cookie||'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{
+    const i=v.indexOf('='); return i<0?[v,'']:[v.slice(0,i),v.slice(i+1)];
+  }));
+  return constantTimeEqual(LOCAL_COACH_SESSION, cookies.yasnafit_coach_session);
+}
+
+function requireCoach(req, res){
+  if(isCoachAuthorized(req)) return false;
+  sendError(res, 401, 'دسترسی مربی احراز نشد');
+  return true;
+}
+
+const PHOTO_METADATA_COLUMNS = `id, stable_id, assessment_id, student_id, photo_type,
+  original_filename, mime_type, size_bytes, version, created_at, updated_at`;
+
+function editableStudentAssessment(studentId, assessmentId){
+  return one(`SELECT id FROM body_assessments WHERE id=? AND student_id=? AND deleted_at IS NULL AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED')`, assessmentId, studentId);
 }
 
 function sanitizeFileName(name){
@@ -503,6 +536,7 @@ async function handleExercises(req,res,url){
 }
 
 async function handleTrainingPrograms(req,res,url){
+  if(requireCoach(req,res)) return true;
   const p=url.pathname;
 
   if(p==='/api/training-programs' && req.method==='GET'){
@@ -528,8 +562,21 @@ async function handleTrainingPrograms(req,res,url){
         return sendError(res, e.statusCode||400, e.message, e.validationErrors);
       }
       console.error('Create program error:', e);
-      return sendError(res,500,'خطا در ساخت برنامه', e.message);
+      return sendError(res,e.statusCode||500,e.statusCode?e.message:'خطا در ساخت برنامه');
     }
+  }
+
+  const lifecycleMatch = p.match(/^\/api\/training-programs\/(\d+)\/(activate|complete|archive)$/);
+  if(lifecycleMatch && req.method==='POST'){
+    const id=Number(lifecycleMatch[1]);
+    try {
+      const action=lifecycleMatch[2];
+      const updated = action==='activate'
+        ? programService.activateProgram(db,id)
+        : programService.transitionProgram(db,id,action==='complete'?'COMPLETED':'ARCHIVED');
+      log(action==='activate'?'برنامه به شاگرد اختصاص یافت':'چرخه برنامه تغییر کرد', `program ${id}: ${updated.status}`);
+      return send(res,200,updated);
+    } catch(e){ return sendError(res,e.statusCode||400,e.message); }
   }
 
   const tpMatch = p.match(/^\/api\/training-programs\/(\d+)(\/full)?$/);
@@ -594,8 +641,8 @@ async function handleTrainingPrograms(req,res,url){
     if(req.method==='DELETE'){
       try {
         // Soft delete
-        const r=db.prepare('UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
-        if(!r.changes) return sendError(res,404,'برنامه پیدا نشد');
+        const r=db.prepare("UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND status='DRAFT' AND deleted_at IS NULL").run(id);
+        if(!r.changes) return sendError(res,409,'فقط پیش‌نویس قابل حذف است؛ برنامه تاریخی باید آرشیو شود');
         log('برنامه تمرینی حذف شد (soft)', `id ${id}`);
         return send(res,200,{id, soft_deleted:true});
       } catch(e){
@@ -609,6 +656,7 @@ async function handleTrainingPrograms(req,res,url){
 }
 
 async function handleStudentInvites(req,res,url){
+  if(requireCoach(req,res)) return true;
   const p=url.pathname;
   if(p==='/api/student-invites' && req.method==='GET'){
     const list = rows(`
@@ -626,8 +674,11 @@ async function handleStudentInvites(req,res,url){
     const studentId = Number(b.student_id);
     const student = one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL', studentId);
     if(!student) return sendError(res,404,'شاگرد پیدا نشد');
-    const expiresDays = b.expires_in_days!=null ? Number(b.expires_in_days) : 30;
-    const result = studentService.createInvite(db, studentId, expiresDays);
+    const expiresDays = b.expires_in_days != null ? Number(b.expires_in_days) : 30;
+    if(!Number.isInteger(expiresDays) || expiresDays < 0 || expiresDays > 3650) return sendError(res,400,'اعتبار دعوت باید بین صفر تا ۳۶۵۰ روز باشد');
+    let result;
+    try { result = studentService.createInvite(db, studentId, expiresDays); }
+    catch(e){ return sendError(res,400,e.message); }
     log('لینک دعوت شاگرد ساخته شد', `${result.token_preview} برای ${studentId}`);
     // Return token only once, plus join URL
     const joinUrl = `/join/${result.token}`;
@@ -674,15 +725,14 @@ async function handleStudentPortal(req,res,url){
 
   // GET /api/student-portal/:token -> full student data for portal
   if((subPath==='' || subPath==='/') && req.method==='GET'){
-    const full = studentService.getStudentFullData(db, studentId);
-    // Also get current assessment (latest not archived)
+    const full = studentService.getStudentFullData(db, studentId, {studentView:true});
     const currentAssessment = one('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number DESC LIMIT 1', studentId);
     let currentPhotos=[];
     if(currentAssessment){
-      currentPhotos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', currentAssessment.id);
+      currentPhotos = rows(`SELECT ${PHOTO_METADATA_COLUMNS} FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL`, currentAssessment.id);
     }
-    // Get assigned program (latest)
-    const currentProgram = one('SELECT * FROM training_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+    // Draft programs are coach-private. Students only see explicitly assigned plans.
+    const currentProgram = one(`SELECT * FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY program_number DESC, id DESC LIMIT 1`, studentId);
     let programFull=null;
     if(currentProgram){
       try {
@@ -714,8 +764,11 @@ async function handleStudentPortal(req,res,url){
     if(Object.keys(updates).length===0) return sendError(res,400,'هیچ فیلدی برای ویرایش نیست');
 
     // Validate
-    if(updates.full_name && updates.full_name.length>100) return sendError(res,400,'نام طولانی است');
-    if(updates.mobile && updates.mobile.length>20) return sendError(res,400,'موبایل نامعتبر');
+    if(updates.full_name !== undefined && (!String(updates.full_name).trim() || updates.full_name.length>100)) return sendError(res,400,'نام نامعتبر است');
+    if(updates.mobile && (typeof updates.mobile !== 'string' || updates.mobile.length>20)) return sendError(res,400,'موبایل نامعتبر');
+    if(updates.height != null && (!Number.isFinite(Number(updates.height)) || Number(updates.height)<100 || Number(updates.height)>250)) return sendError(res,400,'قد نامعتبر است');
+    if(updates.weight != null && (!Number.isFinite(Number(updates.weight)) || Number(updates.weight)<20 || Number(updates.weight)>300)) return sendError(res,400,'وزن نامعتبر است');
+    for(const key of ['goal','training_experience','limitations','injuries','medical_notes']) if(updates[key] != null && (typeof updates[key] !== 'string' || updates[key].length>4000)) return sendError(res,400,'اطلاعات متنی نامعتبر است');
 
     const fields=[];
     const params=[];
@@ -725,7 +778,7 @@ async function handleStudentPortal(req,res,url){
     }
     fields.push('updated_at=CURRENT_TIMESTAMP');
     fields.push('version=version+1');
-    fields.push(`profile_status='PROFILE_INCOMPLETE'`);
+    fields.push(`profile_status=CASE WHEN profile_status='INVITED' THEN 'PROFILE_INCOMPLETE' ELSE profile_status END`);
     params.push(studentId);
     db.prepare(`UPDATE students SET ${fields.join(', ')} WHERE id=? AND deleted_at IS NULL`).run(...params);
 
@@ -743,7 +796,7 @@ async function handleStudentPortal(req,res,url){
     if(assessment){
       // Update existing
       try {
-        const updated = studentService.updateAssessment(db, assessment.id, {...b, force:true});
+        const updated = studentService.updateAssessment(db, assessment.id, b);
         return send(res,200,updated);
       } catch(e){
         return sendError(res,400,e.message);
@@ -751,7 +804,10 @@ async function handleStudentPortal(req,res,url){
     } else {
       // Create new
       try {
-        const created = studentService.createAssessment(db, studentId, b);
+        const created = studentService.createAssessment(db, studentId, {
+          height: student.height, goal: student.goal, training_experience: student.training_experience,
+          limitations: student.limitations, injuries: student.injuries, ...b
+        });
         const full = one('SELECT * FROM body_assessments WHERE id=?', created.id);
         return send(res,201,full);
       } catch(e){
@@ -782,7 +838,7 @@ async function handleStudentPortal(req,res,url){
 
   // GET /api/student-portal/:token/timeline
   if(subPath==='/timeline' && req.method==='GET'){
-    const full = studentService.getStudentFullData(db, studentId);
+    const full = studentService.getStudentFullData(db, studentId, {studentView:true});
     return send(res,200,full.timeline);
   }
 
@@ -809,6 +865,9 @@ async function handleStudentPortal(req,res,url){
           targetAssessmentId = latest.id;
         }
 
+        if(!editableStudentAssessment(studentId, targetAssessmentId)) return sendError(res,403,'ارزیابی متعلق به شما نیست یا پس از ارسال قفل شده است');
+        if(!uploadService.PHOTO_TYPES.includes(photoType)) return sendError(res,400,'نوع عکس نامعتبر است');
+        if(files.length !== 1) return sendError(res,400,'در هر درخواست دقیقاً یک عکس ارسال کنید');
         const results=[];
         for(const file of files){
           try {
@@ -836,10 +895,15 @@ async function handleStudentPortal(req,res,url){
         targetAssessmentId = latest.id;
       }
 
-      // Decode base64
+      if(!editableStudentAssessment(studentId, targetAssessmentId)) return sendError(res,403,'ارزیابی متعلق به شما نیست یا پس از ارسال قفل شده است');
+      if(!uploadService.PHOTO_TYPES.includes(photoType)) return sendError(res,400,'نوع عکس نامعتبر است');
+
+      // Decode strict base64 (reject ignored garbage characters).
       let buffer;
       try {
-        const base64Data = (b.data||b.base64).replace(/^data:image\/\w+;base64,/, '');
+        const rawBase64 = String(b.data||b.base64);
+        const base64Data = rawBase64.replace(/^data:image\/(?:jpeg|jpg|png|webp);base64,/i, '');
+        if(!base64Data || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64Data) || base64Data.length % 4 !== 0) throw new Error('invalid base64');
         buffer = Buffer.from(base64Data, 'base64');
       } catch(e){
         return sendError(res,400,'base64 نامعتبر');
@@ -864,7 +928,9 @@ async function handleStudentPortal(req,res,url){
   // GET /api/student-portal/:token/photos
   if(subPath==='/photos' && req.method==='GET'){
     const photos = rows(`
-      SELECT ap.*, ba.assessment_number
+      SELECT ap.id, ap.stable_id, ap.assessment_id, ap.student_id, ap.photo_type,
+             ap.original_filename, ap.mime_type, ap.size_bytes, ap.version, ap.created_at,
+             ap.updated_at, ba.assessment_number
       FROM assessment_photos ap
       JOIN body_assessments ba ON ba.id=ap.assessment_id
       WHERE ap.student_id=? AND ap.deleted_at IS NULL
@@ -873,9 +939,18 @@ async function handleStudentPortal(req,res,url){
     return send(res,200,photos);
   }
 
+  // DELETE /api/student-portal/:token/photos/:id - ownership scoped and draft-only.
+  const ownPhotoDelete = subPath.match(/^\/photos\/(\d+)$/);
+  if(ownPhotoDelete && req.method==='DELETE'){
+    const photoId=Number(ownPhotoDelete[1]);
+    const ok=uploadService.deletePhoto(db, photoId, studentId);
+    if(!ok) return sendError(res,404,'عکس پیدا نشد یا ارزیابی قفل شده است');
+    return send(res,200,{id:photoId, soft_deleted:true});
+  }
+
   // GET /api/student-portal/:token/program
   if(subPath==='/program' && req.method==='GET'){
-    const prog = one('SELECT * FROM training_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', studentId);
+    const prog = one(`SELECT * FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY program_number DESC, id DESC LIMIT 1`, studentId);
     if(!prog) return sendError(res,404,'برنامه‌ای اختصاص داده نشده');
     try {
       const built = programService.buildProgramFromDB(db, prog.id);
@@ -891,6 +966,7 @@ async function handleStudentPortal(req,res,url){
 }
 
 async function handleBodyAssessments(req,res,url){
+  if(requireCoach(req,res)) return true;
   const p=url.pathname;
 
   if(p==='/api/student-submissions' && req.method==='GET'){
@@ -919,17 +995,17 @@ async function handleBodyAssessments(req,res,url){
     const isPhotos = !!assessMatch[2];
     if(req.method==='GET'){
       if(isPhotos){
-        const photos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL ORDER BY photo_type', id);
+        const photos = rows(`SELECT ${PHOTO_METADATA_COLUMNS} FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL ORDER BY photo_type`, id);
         return send(res,200,photos);
       } else {
         const ass = one('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL', id);
         if(!ass) return sendError(res,404,'ارزیابی پیدا نشد');
-        const photos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', id);
+        const photos = rows(`SELECT ${PHOTO_METADATA_COLUMNS} FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL`, id);
         const student = one('SELECT * FROM students WHERE id=?', ass.student_id);
         // Previous assessment for comparison
         const prev = one('SELECT * FROM body_assessments WHERE student_id=? AND assessment_number < ? AND deleted_at IS NULL ORDER BY assessment_number DESC LIMIT 1', ass.student_id, ass.assessment_number);
         let prevPhotos=[];
-        if(prev) prevPhotos = rows('SELECT * FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL', prev.id);
+        if(prev) prevPhotos = rows(`SELECT ${PHOTO_METADATA_COLUMNS} FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL`, prev.id);
         let prevProgram=null;
         if(prev && prev.program_id){
           prevProgram = one('SELECT * FROM training_programs WHERE id=?', prev.program_id);
@@ -1004,7 +1080,7 @@ async function handleAssessmentPhotos(req,res,url){
     }
 
     const ext = path.extname(photo.storage_path).toLowerCase();
-    if(!['.png','.jpg','.jpeg','.webp','.gif'].includes(ext)){
+    if(!['.png','.jpg','.jpeg','.webp'].includes(ext)){
       return sendError(res,403,'نوع فایل نامعتبر');
     }
 
@@ -1015,17 +1091,25 @@ async function handleAssessmentPhotos(req,res,url){
       if(!resolved || resolved.error || resolved.student.id !== photo.student_id){
         return sendError(res,403,'دسترسی غیرمجاز - توکن نامعتبر برای این عکس');
       }
+    } else if(!isCoachAuthorized(req)) {
+      return sendError(res,401,'دسترسی مربی احراز نشد');
     }
-    // If no token, allow as coach (future will check session). Log access.
     log('دسترسی به عکس ارزیابی', `photo ${photoId} student ${photo.student_id} ${token?'via student token':'via coach'}`);
 
-    res.writeHead(200,{'Content-Type': photo.mime_type||types[ext]||'image/jpeg','Cache-Control':'private, max-age=3600'});
+    res.writeHead(200,{
+      'Content-Type': photo.mime_type||types[ext]||'image/jpeg',
+      'Cache-Control':'private, no-store',
+      'X-Content-Type-Options':'nosniff',
+      'Content-Security-Policy':"default-src 'none'",
+      'Content-Disposition':'inline; filename="assessment-image' + ext + '"'
+    });
     return fs.createReadStream(photo.storage_path).pipe(res);
   }
 
   // DELETE /api/assessment-photos/:id
   const delMatch = p.match(/^\/api\/assessment-photos\/(\d+)$/);
   if(delMatch && req.method==='DELETE'){
+    if(requireCoach(req,res)) return true;
     const photoId=Number(delMatch[1]);
     const ok = uploadService.deletePhoto(db, photoId);
     if(!ok) return sendError(res,404,'عکس پیدا نشد');
@@ -1088,6 +1172,8 @@ async function api(req,res,url){
     const p=url.pathname;
 
     if(p==='/api/health') return await handleHealth(req,res);
+    const studentScoped = p.startsWith('/api/student-portal/') || p.startsWith('/api/student-photos/');
+    if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
 
     if(p.startsWith('/api/students')){
@@ -1275,7 +1361,11 @@ const server=http.createServer(async(req,res)=>{
       if(!allowedExts.includes(ext)){
         res.writeHead(403,{'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Forbidden file type'}));
       }
-      res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'});
+      const headers={'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'};
+      if(ext==='.html' && !url.pathname.startsWith('/join/') && !COACH_ACCESS_TOKEN){
+        headers['Set-Cookie']=`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/`;
+      }
+      res.writeHead(200,headers);
       return fs.createReadStream(file).pipe(res);
     }
 
@@ -1292,7 +1382,11 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(404,{'Content-Type':'application/json'});
       return res.end(JSON.stringify({error:'Not found'}));
     }
-    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+    const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
+    if(!url.pathname.startsWith('/join/') && !COACH_ACCESS_TOKEN){
+      spaHeaders['Set-Cookie']=`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/`;
+    }
+    res.writeHead(200,spaHeaders);
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
     console.error('[Server Error]', error);

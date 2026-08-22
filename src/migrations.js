@@ -446,6 +446,51 @@ const migrations = [
         fs.mkdirSync(assessmentsDir, {recursive:true});
       } catch(e){}
     }
+  },
+  {
+    id: '007_monthly_workflow_integrity',
+    description: 'Harden assessment history, private photos, invitations, and program lifecycle',
+    up: (db) => {
+      const ensureColumn = (table, col, def) => {
+        const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+        if(!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+      };
+
+      // Sync/audit metadata omitted by the first lifecycle migration.
+      ensureColumn('student_invites', 'updated_at', 'TEXT');
+      ensureColumn('assessment_photos', 'updated_at', 'TEXT');
+      ensureColumn('training_programs', 'assigned_at', 'TEXT');
+      ensureColumn('training_programs', 'completed_at', 'TEXT');
+      ensureColumn('training_programs', 'archived_at', 'TEXT');
+      db.exec(`
+        UPDATE student_invites SET updated_at=COALESCE(updated_at, created_at);
+        UPDATE assessment_photos SET updated_at=COALESCE(updated_at, created_at);
+        UPDATE training_programs SET status='DRAFT' WHERE status IN ('پیش‌نویس', 'draft', 'Draft');
+      `);
+
+      // Older Phase 2 builds allowed duplicate current slots. Preserve every row but
+      // soft-delete superseded copies before enforcing one current photo per type.
+      db.exec(`
+        UPDATE assessment_photos
+        SET deleted_at=COALESCE(deleted_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1
+        WHERE deleted_at IS NULL AND id NOT IN (
+          SELECT MAX(id) FROM assessment_photos WHERE deleted_at IS NULL GROUP BY assessment_id, photo_type
+        );
+      `);
+
+      // Historical numbering is immutable and unique per student. A photo type may
+      // have one current file per assessment; replacements soft-delete the prior file.
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_body_assessments_student_number
+          ON body_assessments(student_id, assessment_number);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_assessment_photos_current_type
+          ON assessment_photos(assessment_id, photo_type) WHERE deleted_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_training_programs_student_status
+          ON training_programs(student_id, status, deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_training_programs_dates
+          ON training_programs(start_date, end_date);
+      `);
+    }
   }
 ];
 
