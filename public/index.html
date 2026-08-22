@@ -33,16 +33,13 @@
   <script src="/core.js"></script>
   <script src="/exercises.js"></script>
   <script src="/program-builder.js"></script>
-  <script src="/student-portal.js"></script>
   <script src="/coach-submissions.js"></script>
   <script src="/students.js"></script>
   <script src="/releases.js"></script>
   <script>
     // Feature modules load after the shell. Re-dispatch the real deep link only
     // after student portal, submissions, and Program Builder renderers exist.
-    if (location.pathname.startsWith('/join/') && window.renderStudentPortal) {
-      window.renderStudentPortal(location.pathname);
-    } else if (location.pathname !== '/' && window.onpopstate) {
+    if (location.pathname !== '/' && window.onpopstate) {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
   </script>

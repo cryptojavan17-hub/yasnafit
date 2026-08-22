@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `010_repair_legacy_student_timestamps` stored in `settings` table and `schema_migrations`
+Current: `011_student_sessions_portal` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -16,6 +16,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `008_application_releases` - Structured application release history
 - `009_my_students_crm_release` - Release record for the complete My Students CRM
 - `010_repair_legacy_student_timestamps` - Repair missing student timestamps in legacy databases
+- `011_student_sessions_portal` - Hashed, revocable student sessions and portal release
 
 ## Full Schema
 
@@ -347,7 +348,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..010 applied and Imported 2707 exercises
+# Should show migrations 001..011 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -520,3 +521,32 @@ populated table and the old compatibility helper swallowed that error. Migration
 non-constant default, backfills every existing student from `created_at`/current time, and
 preserves all rows. Application and seed inserts now explicitly write both timestamps so
 repaired legacy tables remain complete.
+
+---
+
+# Schema 011: Dedicated Student Sessions
+
+Invitation tokens remain one-time bootstrap credentials and only their SHA-256 hashes are
+stored in `student_invites`. Accepting an active invitation atomically marks it `used` and
+creates a separate student session. Only the new session's SHA-256 hash is persisted.
+
+```sql
+CREATE TABLE student_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stable_id TEXT NOT NULL UNIQUE,
+  invitation_id INTEGER,
+  student_id INTEGER NOT NULL,
+  session_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(invitation_id) REFERENCES student_invites(id) ON DELETE SET NULL,
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+```
+
+Sessions expire after 30 days, are revoked on logout, and are also revoked when the coach
+revokes the invitation that created them. Raw invitation/session values never appear in
+SQLite or student JSON responses.

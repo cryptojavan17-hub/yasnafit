@@ -84,10 +84,9 @@ function resolveInvite(db, token){
   // Check status
   if(invite.status === 'revoked') return {error: 'revoked', invite};
   if(invite.status === 'expired') return {error: 'expired', invite};
-  if(invite.status === 'used') {
-    // Allow used tokens to still work for existing student? For now, allow but mark
-    // We will allow used tokens to continue working for student portal access
-  }
+  // Invitation links are one-time bootstrap credentials. A used invitation can never
+  // authorize portal APIs; the student session cookie is the permanent boundary.
+  if(invite.status === 'used') return {error: 'used', invite};
 
   // Expiration limits accepting an unused invitation. Once accepted, the same
   // high-entropy credential is the student's persistent private-portal key.

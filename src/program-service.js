@@ -81,7 +81,7 @@ function buildProgramFromDB(db, programId){
     const systems = db.prepare('SELECT * FROM exercise_systems WHERE day_id=? AND deleted_at IS NULL ORDER BY id').all(d.id);
     const fullSystems = systems.map(sys=>{
       const movements = db.prepare(`
-        SELECT pm.*, e.name_fa, e.original_id, e.category_id, e.subcategory_id
+        SELECT pm.*, e.name_fa, e.original_id, e.category_id, e.subcategory_id, e.image_path
         FROM program_movements pm
         LEFT JOIN exercises e ON e.id=pm.exercise_id
         WHERE pm.system_id=? AND pm.deleted_at IS NULL
@@ -100,6 +100,7 @@ function buildProgramFromDB(db, programId){
           movementHash: m.movement_hash,
           movement_hash: m.movement_hash,
           description: m.description||'',
+          image_path: m.image_path||null,
           order_index: m.order_index,
           stable_id: m.stable_id,
           version: m.version,

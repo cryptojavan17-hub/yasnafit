@@ -720,13 +720,14 @@ or deleted; a coach must create a new DRAFT for a new month.
 
 `student_invites` stores only `SHA-256(raw_token)`. The 32-byte base64url token is
 returned once when the invitation is created. Sequential IDs never appear in the join
-URL. Invitations can be active, used, revoked, or expired. Expiration applies while an
-invitation is unused; after acceptance the high-entropy token is the student's persistent
-portal credential. Revocation disables it immediately.
+URL. Invitations can be active, used, revoked, or expired. The invitation is accepted
+once and exchanged for a separate hashed, expiring student session; a used invitation is
+never a permanent portal credential. Revocation disables related sessions immediately.
 
-Every student portal request resolves the token server-side to exactly one `student_id`.
-Client-supplied student IDs are never trusted. Assessment/photo ownership is checked in
-SQL before mutation. A token for student A cannot access or upload to student B's records.
+Every student portal request resolves the HttpOnly session server-side to exactly one
+`student_id`. Client-supplied student IDs are never trusted. Assessment/photo ownership
+is checked in SQL before mutation. A session for student A cannot access or upload to
+student B's records.
 
 Coach API access has two modes:
 
@@ -811,15 +812,18 @@ Coach-authorized APIs:
 - `POST/PUT/GET /api/training-programs[...]`
 - `POST /api/training-programs/:id/activate|complete|archive`
 
-Student-token-scoped APIs:
+Student-session-scoped APIs:
 
-- `GET /api/student-portal/:token`
-- `PUT /api/student-portal/:token/profile`
-- `POST /api/student-portal/:token/assessment`
-- `POST /api/student-portal/:token/photos`
-- `DELETE /api/student-portal/:token/photos/:photoId`
-- `POST /api/student-portal/:token/submit`
-- `GET /api/student-portal/:token/program|timeline|assessments|photos`
+- `GET /api/student/me|dashboard|profile|onboarding`
+- `PUT /api/student/profile`
+- `GET/POST /api/student/assessment`
+- `POST/DELETE /api/student/assessment/photos[...]`
+- `POST /api/student/assessment/submit`
+- `GET /api/student/program|programs|assessments|history`
+- `POST /api/student/logout`
+
+Public one-time bootstrap APIs are `GET /api/student/join/:token` and
+`POST /api/student/join/:token/accept`. The legacy token-scoped API returns HTTP 410.
 
 Business transitions live in `student-service.js`, `program-service.js`, and
 `upload-service.js`, not in browser code.
@@ -927,3 +931,41 @@ Migration `010_repair_legacy_student_timestamps` repairs old SQLite installation
 additive and backfills in place; no student, assessment, photo, or program row is rebuilt
 or deleted. New student inserts explicitly populate both timestamps for compatibility
 with repaired tables.
+
+---
+
+# Dedicated Student Portal and Join Flow (v0.5.0)
+
+## Authentication boundary
+
+`/join/:token` is served by `public/student.html`, a dedicated shell that contains no
+coach sidebar, coach scripts, or admin navigation. The browser first inspects the
+one-time invitation and explicitly accepts it. `student-session-service.js` then:
+
+1. validates the SHA-256 invitation hash, active status, expiry, and student,
+2. atomically changes the invitation to `used`,
+3. creates 32 random bytes for a student session,
+4. stores only SHA-256(session), student/invitation references and expiry,
+5. sends `yasnafit_student_session` as HttpOnly + SameSite=Strict (+ Secure on HTTPS).
+
+All `/api/student/*` resource routes pass `requireStudent`; browser-supplied student IDs
+are ignored. Coach and student cookies are distinct. `/api/student-portal/:token` is now
+retired with HTTP 410, and invitation tokens cannot authorize photos.
+
+## Student UI and workflow
+
+`public/student-app.js` and `student-app.css` implement a separate RTL/mobile portal:
+
+- `/student/onboarding`: six-step personal/body/fitness/limitations/photos/review wizard
+- `/student/dashboard`: current assessment/program and coach notes
+- `/student/program`: read-only normalized Day -> System -> Movement -> Set program
+- `/student/assessment`: latest immutable submitted assessment and private photos
+- `/student/history`: submitted assessment and ACTIVE/COMPLETED/ARCHIVED program history
+- `/student/profile`: live profile edits that never mutate historical assessments
+- `/student/logout`: server-side revocation and cookie clearing
+
+Photo writes reuse `upload-service.js`; photo reads require the matching student session
+or an authorized coach. DRAFT programs are excluded from every student response. When an
+assigned program ends (or no active program remains), the existing session routes the
+student back to onboarding to create the next assessment record rather than overwrite the
+previous month.

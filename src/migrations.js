@@ -650,6 +650,53 @@ const migrations = [
         JSON.stringify(changes)
       );
     }
+  },
+  {
+    id: '011_student_sessions_portal',
+    description: 'Dedicated hashed student sessions and production student portal release',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS student_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          invitation_id INTEGER,
+          student_id INTEGER NOT NULL,
+          session_hash TEXT NOT NULL UNIQUE,
+          expires_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(invitation_id) REFERENCES student_invites(id) ON DELETE SET NULL,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_student_sessions_student
+          ON student_sessions(student_id, revoked_at, expires_at);
+        CREATE INDEX IF NOT EXISTS idx_student_sessions_invitation
+          ON student_sessions(invitation_id);
+        CREATE INDEX IF NOT EXISTS idx_student_sessions_hash
+          ON student_sessions(session_hash);
+      `);
+      const changes={
+        features:[
+          'نشست مستقل و امن دانش‌آموز با cookie از نوع HttpOnly',
+          'صفحه اختصاصی join و onboarding چندمرحله‌ای',
+          'داشبورد، برنامه، ارزیابی، پروفایل و تاریخچه دانش‌آموز'
+        ],
+        improvements:['جداسازی کامل پوسته دانش‌آموز از داشبورد مربی','تجربه موبایل RTL برای عکس و ارزیابی'],
+        fixes:['حذف استفاده دائمی از توکن دعوت به‌عنوان credential دانش‌آموز'],
+        security:['ذخیره فقط hash نشست، انقضا، logout و کنترل دسترسی عکس بر اساس نشست'],
+        breaking_changes:[]
+      };
+      db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `).run(
+        '0.5.0','Dedicated Student Portal and Session Authentication','2026-08-22',
+        'پورتال واقعی دانش‌آموز با نشست مستقل، onboarding و تاریخچه ماهانه',
+        JSON.stringify(changes)
+      );
+    }
   }
 ];
 
