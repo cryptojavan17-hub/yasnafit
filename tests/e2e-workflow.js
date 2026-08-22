@@ -150,9 +150,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const logout=await request('/api/student/logout',{method:'POST',cookie:sessionB.cookie});assert.equal(logout.response.status,200);assert.match(logout.response.headers.get('set-cookie')||'',/Max-Age=0/);
   await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});
 
-  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.7.1',name:'Yasnafit',environment:'development'});
-  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'016_measurement_input_compatibility');
+  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.7.2',name:'Yasnafit',environment:'development'});
+  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'017_onboarding_next_button_recovery');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

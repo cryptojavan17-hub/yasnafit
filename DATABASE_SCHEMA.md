@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `016_measurement_input_compatibility` stored in `settings` table and `schema_migrations`
+Current: `017_onboarding_next_button_recovery` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -22,6 +22,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `014_professional_assessment_profile` - Normalized ten-step profile and canonical assessment lifecycle
 - `015_private_assessment_documents` - Optional private medical documents and gallery files
 - `016_measurement_input_compatibility` - Localized numeric input compatibility patch
+- `017_onboarding_next_button_recovery` - Async next-button recovery patch
 
 ## Full Schema
 
@@ -353,7 +354,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..016 applied and Imported 2707 exercises
+# Should show migrations 001..017 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -614,3 +615,8 @@ before streaming and storage paths are never serialized.
 
 Migration `016_measurement_input_compatibility` records the `0.7.1` PATCH release only;
 it does not alter assessment or measurement tables.
+
+## Schema 017: Onboarding button recovery release
+
+Migration `017_onboarding_next_button_recovery` records the `0.7.2` PATCH release only and
+does not alter application data tables.

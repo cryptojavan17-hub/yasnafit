@@ -8,10 +8,14 @@
 
   async function api(url,options={}){
     const headers={Accept:'application/json',...(options.body && !(options.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(options.headers||{})};
-    const response=await fetch(url,{...options,headers,credentials:'same-origin'});
-    let data={};try{data=await response.json();}catch(error){}
-    if(!response.ok){const err=new Error(data.error||'خطا در ارتباط با سرور');err.status=response.status;err.code=data.code;throw err;}
-    return data;
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const response=await fetch(url,{...options,headers,credentials:'same-origin',signal:options.signal||controller.signal});
+      let data={};try{data=await response.json();}catch(error){}
+      if(!response.ok){const err=new Error(data.error||'خطا در ارتباط با سرور');err.status=response.status;err.code=data.code;throw err;}
+      return data;
+    }catch(error){if(error.name==='AbortError')throw new Error('ارتباط با سرور طول کشید. دوباره تلاش کنید.');throw error;}
+    finally{clearTimeout(timeout);}
   }
   const jsonBody=value=>JSON.stringify(value);
   function dateFa(value){if(!value)return '—';const date=new Date(String(value).includes('T')?value:`${String(value).replace(' ','T')}Z`);return Number.isNaN(date.getTime())?'—':date.toLocaleDateString('fa-IR');}

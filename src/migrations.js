@@ -891,6 +891,14 @@ const migrations = [
       const changes={features:[],improvements:['اعتبارسنجی عددی دوطرفه در مرورگر و سرور'],fixes:['رفع توقف مرحله اندازه‌های بدنی برای ارقام فارسی، عربی و ممیز /'],security:[],breaking_changes:[]};
       db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.7.1','Localized Measurement Step Compatibility','2026-08-22','رفع قطعی توقف مرحله اندازه‌های بدنی و نمایش خطای ثابت در بالای فرم',JSON.stringify(changes));
     }
+  },
+  {
+    id: '017_onboarding_next_button_recovery',
+    description: 'Release record for async onboarding next-button recovery',
+    up: (db) => {
+      const changes={features:[],improvements:['مهلت ۱۵ ثانیه‌ای برای درخواست‌های پورتال دانش‌آموز'],fixes:['رفع باقی‌ماندن دکمه مرحله بعد در حالت disabled پس از await یا خطای API'],security:[],breaking_changes:[]};
+      db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.7.2','Onboarding Next Button Recovery','2026-08-22','رفع قطعی خاموش ماندن دکمه مرحله بعد در wizard ارزیابی',JSON.stringify(changes));
+    }
   }
 ];
 

@@ -1036,3 +1036,11 @@ English, Persian and Arabic digits plus `.`, `,`, `٫`, and `/` decimal separato
 persistent error banner is rendered above and below the wizard card, so validation or API
 failures cannot appear as a silent stuck step. This patch changes no measurement ranges or
 historical records.
+
+## Onboarding next-button recovery (v0.7.2)
+
+The wizard now captures the clicked button reference before the first `await`. Browser
+event `currentTarget` is transient and becomes null after asynchronous dispatch; using it
+inside `finally` could leave the button disabled after a validation/API error. The stable
+reference is always re-enabled, duplicate clicks are guarded with a busy flag, and portal
+API calls abort with a readable error after 15 seconds.
