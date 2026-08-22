@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 set "PORT=3020"
-set "BRANCH=arena/01a02562-yasnafit"
+set "BRANCH=arena/01a028ff-yasnafit"
 
 :MENU
 cls
@@ -54,12 +54,15 @@ if errorlevel 1 (echo Git was not found. Install Git for Windows first.& exit /b
 echo.
 echo Checking for updates from GitHub...
 call :STOP
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "BRANCH=%%b"
+if not defined BRANCH set "BRANCH=arena/01a028ff-yasnafit"
+echo Pulling latest changes from branch %BRANCH%...
 git pull origin %BRANCH%
 if errorlevel 1 (echo. & echo Update failed. Check your internet connection and Git status.& exit /b 1)
 echo.
 echo Yasnafit is now up to date.
-set /p restart=Start the updated server now? (Y/N):
-if /I "%restart%"=="Y" call :START
+echo Starting updated server automatically...
+call :START
 exit /b
 
 :LOGS
