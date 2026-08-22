@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `015_private_assessment_documents` stored in `settings` table and `schema_migrations`
+Current: `016_measurement_input_compatibility` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -21,6 +21,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `013_optional_body_photos_preference` - Explicit optional body-photo preference
 - `014_professional_assessment_profile` - Normalized ten-step profile and canonical assessment lifecycle
 - `015_private_assessment_documents` - Optional private medical documents and gallery files
+- `016_measurement_input_compatibility` - Localized numeric input compatibility patch
 
 ## Full Schema
 
@@ -352,7 +353,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..015 applied and Imported 2707 exercises
+# Should show migrations 001..016 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -608,3 +609,8 @@ assessment relationship.
 `blood_test`, `body_analysis`, and `additional_image` files. Physical files live under
 `data/assessment-documents`, never under `public/`. Student/coach authorization is checked
 before streaming and storage paths are never serialized.
+
+## Schema 016: Measurement-input compatibility release
+
+Migration `016_measurement_input_compatibility` records the `0.7.1` PATCH release only;
+it does not alter assessment or measurement tables.

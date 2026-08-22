@@ -883,6 +883,14 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_assessment_documents_student ON assessment_documents(student_id,deleted_at);
       `);
     }
+  },
+  {
+    id: '016_measurement_input_compatibility',
+    description: 'Release record for localized measurement step compatibility',
+    up: (db) => {
+      const changes={features:[],improvements:['اعتبارسنجی عددی دوطرفه در مرورگر و سرور'],fixes:['رفع توقف مرحله اندازه‌های بدنی برای ارقام فارسی، عربی و ممیز /'],security:[],breaking_changes:[]};
+      db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.7.1','Localized Measurement Step Compatibility','2026-08-22','رفع قطعی توقف مرحله اندازه‌های بدنی و نمایش خطای ثابت در بالای فرم',JSON.stringify(changes));
+    }
   }
 ];
 

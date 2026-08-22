@@ -7,7 +7,7 @@ const students=require('../src/student-service');const assessments=require('../s
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-assessment-'));
 function complete(db,id,studentId,gender='male'){
   assessments.saveSection(db,id,studentId,'general',{goals:['fitness','fat_loss'],additional_notes:'test',gender});
-  assessments.saveSection(db,id,studentId,'measurements',{height:175,weight:75,around_the_arm:31,around_the_chest:95,around_the_belly:82,around_the_belly_from_the_navel:84,around_the_hips:98,around_the_leg:36,around_the_thigh:56,around_the_wrist:17});
+  assessments.saveSection(db,id,studentId,'measurements',{height:'۱۷۵',weight:'۷۵/۵',around_the_arm:'۳۱',around_the_chest:95,around_the_belly:82,around_the_belly_from_the_navel:84,around_the_hips:98,around_the_leg:36,around_the_thigh:56,around_the_wrist:17});
   assessments.saveSection(db,id,studentId,'medical',{has_disease:false,has_medication:false,has_injury:false,has_surgery:false,last_blood_test_notes:'normal',corrective_notes:'',items:[{kind:'corrective',category:'ناهنجاری اصلاحی',name:'سر به جلو',notes:''}]});
   assessments.saveSection(db,id,studentId,'sports',{average_daily_activity:'medium',practice_history:false,practice_now:false,practice_place:'gym',home_equipment:'',sessions_per_week:3,supplement_history:false,doping_history:''});
   assessments.saveSection(db,id,studentId,'nutrition',{diet_type:'iranian',previous_diet:false,food_allergies:'',weight_changes:'',appetite_status:'grazing',appetite_notes:'',defecation_problem:'none',breakfast:'',lunch:'',dinner:''});
@@ -15,6 +15,7 @@ function complete(db,id,studentId,gender='male'){
   if(gender==='female')assessments.saveSection(db,id,studentId,'pregnancy',{childbirth_history:false,breastfeeding:false,formula_use:false,child_food_allergy:false});
 }
 try{
+  assert.equal(assessments.normalizeLocalizedNumber('۱۷۵'),'175');assert.equal(assessments.normalizeLocalizedNumber('۷۸/۵'),'78.5');assert.equal(assessments.normalizeLocalizedNumber('٧٨٫٥'),'78.5');
   const db=new DatabaseSync(path.join(dir,'assessment.db'));db.exec('PRAGMA foreign_keys=ON');runMigrations(db);
   const studentId=Number(db.prepare("INSERT INTO students(stable_id,full_name,status,gender,version,created_at,updated_at) VALUES('profile-student','Student','فعال','male',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").run().lastInsertRowid);
   const initial=students.createAssessment(db,studentId,{body_photos_preference:'declined'});assert.equal(initial.assessment_type,'INITIAL');assert.equal(initial.lifecycle_status,'DRAFT');complete(db,Number(initial.id),studentId);

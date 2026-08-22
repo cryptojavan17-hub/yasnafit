@@ -1028,3 +1028,11 @@ extension, declared MIME, image structure or PDF header/EOF, rejects active PDF 
 uses generated private filenames, and enforces path containment. Draft owners may delete;
 submitted documents are immutable. Downloads require the owning student session or coach
 authorization.
+
+## Measurement-step compatibility patch (v0.7.1)
+
+Measurement normalization now runs independently on both client and server and supports
+English, Persian and Arabic digits plus `.`, `,`, `٫`, and `/` decimal separators. A
+persistent error banner is rendered above and below the wizard card, so validation or API
+failures cannot appear as a silent stuck step. This patch changes no measurement ranges or
+historical records.

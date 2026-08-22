@@ -53,6 +53,8 @@ const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'ut
 const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
 assert.match(wizardSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
 assert.match(wizardSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
+assert.match(wizardSource,/\[٫,\\\/\]/,'slash/Persian decimal normalization is missing');
+assert.match(wizardSource,/wizard-top-error/,'measurement errors are not visible at the top of the wizard');
 assert.match(wizardSource,/around_the_belly_from_the_navel/,'normalized measurement fields are missing');
 assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از 10/,'ten-step progress indicator is missing');
 assert.match(wizardSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');

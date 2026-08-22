@@ -16,7 +16,8 @@ const CATALOGS={
 function uuid(){return crypto.randomUUID?crypto.randomUUID():crypto.randomBytes(16).toString('hex');}
 function bool(value,name,required=false){if(value===undefined||value===null||value===''){if(required)throw new Error(`${name} الزامی است`);return null;}if(value===true||value===1||value==='1'||value==='yes')return 1;if(value===false||value===0||value==='0'||value==='no')return 0;throw new Error(`${name} نامعتبر است`);}
 function text(value,name,max=4000,required=false){const output=String(value??'').trim();if(required&&!output)throw new Error(`${name} الزامی است`);if(output.length>max)throw new Error(`${name} طولانی است`);return output;}
-function number(value,name,min,max,required=false){if(value===undefined||value===null||value===''){if(required)throw new Error(`${name} الزامی است`);return null;}const output=Number(value);if(!Number.isFinite(output)||output<min||output>max)throw new Error(`${name} نامعتبر است`);return output;}
+function normalizeLocalizedNumber(value){return String(value??'').trim().replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'');}
+function number(value,name,min,max,required=false){if(value===undefined||value===null||value===''){if(required)throw new Error(`${name} الزامی است`);return null;}const output=Number(normalizeLocalizedNumber(value));if(!Number.isFinite(output)||output<min||output>max)throw new Error(`${name} باید عددی بین ${min} و ${max} باشد`);return output;}
 function editableAssessment(db,id,studentId){const row=db.prepare('SELECT * FROM body_assessments WHERE id=? AND student_id=? AND deleted_at IS NULL').get(id,studentId);if(!row)throw new Error('ارزیابی پیدا نشد');const lifecycle=row.lifecycle_status||(['PROFILE_INCOMPLETE','ASSESSMENT_PENDING'].includes(row.status)?'DRAFT':row.status);if(!EDITABLE.includes(lifecycle))throw new Error('ارزیابی پس از ارسال قابل ویرایش نیست');return row;}
 function upsert(db,table,assessmentId,values){const columns=Object.keys(values),marks=columns.map(()=>'?').join(',');const updates=columns.map(column=>`${column}=excluded.${column}`).join(',');db.prepare(`INSERT INTO ${table}(assessment_id,${columns.join(',')},updated_at) VALUES(?,${marks},CURRENT_TIMESTAMP) ON CONFLICT(assessment_id) DO UPDATE SET ${updates},updated_at=CURRENT_TIMESTAMP`).run(assessmentId,...columns.map(column=>values[column]));}
 function saveSection(db,assessmentId,studentId,section,data={}){
@@ -61,4 +62,4 @@ function validateForSubmission(db,assessment,student){
   if(student?.gender==='female'&&!details.pregnancy)errors.push('بخش بارداری و زایمان تکمیل نشده است');
   return errors;
 }
-module.exports={GOALS,CATALOGS,saveSection,getDetails,editableAssessment,validateForSubmission};
+module.exports={GOALS,CATALOGS,normalizeLocalizedNumber,saveSection,getDetails,editableAssessment,validateForSubmission};
