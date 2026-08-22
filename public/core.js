@@ -1,13 +1,75 @@
-async function api(url, options={}) { const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'خطا در ارتباط با سرور'); return d; }
+async function api(url, options={}) {
+  const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});
+  const d=await r.json();
+  if(!r.ok) throw new Error(d.error||'خطا در ارتباط با سرور');
+  return d;
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function table(h,rows,row){return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row).join(''):`<tr><td colspan="${h.length}" class="empty">اطلاعاتی برای نمایش وجود ندارد.</td></tr>`}</tbody></table></div>`}
-function modal(title,fields,submit){const m=document.createElement('div');m.className='modal-backdrop';m.innerHTML=`<form class="modal"><div class="modal-head"><h2>${title}</h2><button type="button" class="close">×</button></div><div class="form-grid">${fields.map(x=>`<label>${x.label}<input name="${x.name}" type="${x.type||'text'}" ${x.required?'required':''} placeholder="${x.placeholder||''}"></label>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary close">انصراف</button><button class="primary">ذخیره</button></div></form>`;document.body.append(m);m.querySelectorAll('.close').forEach(x=>x.onclick=()=>m.remove());m.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await submit(Object.fromEntries(new FormData(e.currentTarget)));m.remove();render(crumb.textContent,current)}catch(x){alert(x.message)}}}
-async function render(label,route){if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);current=route;crumb.textContent=label;document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active',x.dataset.route===route));const head=`<div class="page-head"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>مدیریت اطلاعات محلی با ذخیره‌سازی امن در SQLite.</p></div><button class="primary" id="addBtn">＋ افزودن</button></div>`;try{
-if(route==='/coach/dashboard'){const d=await api('/api/dashboard');content.innerHTML=`<div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p></div></div><div class="stat-grid"><article><span>کل شاگردها</span><strong>${d.stats.total}</strong></article><article><span>برنامه‌های فعال</span><strong>${d.stats.active}</strong></article><article><span>سفارش‌های در انتظار</span><strong>${d.stats.waiting}</strong></article><article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article></div><div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام','هدف','وضعیت'],d.students,x=>`<tr><td>${esc(x.full_name)}</td><td>${esc(x.goal||'—')}</td><td><b class="badge">${esc(x.status)}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;return}
-if(route==='/users-list'){const list=await api('/api/students');content.innerHTML=head.replace('＋ افزودن','＋ افزودن شاگرد')+table(['نام و نام خانوادگی','موبایل','هدف','وزن','وضعیت'],list,x=>`<tr><td><b>${esc(x.full_name)}</b></td><td>${esc(x.mobile||'—')}</td><td>${esc(x.goal||'—')}</td><td>${x.weight||'—'} کیلو</td><td><b class="badge">${esc(x.status)}</b></td></tr>`);document.querySelector('#addBtn').onclick=()=>modal('ثبت شاگرد جدید',[{label:'نام و نام خانوادگی',name:'full_name',required:true},{label:'شماره موبایل',name:'mobile'},{label:'هدف',name:'goal'},{label:'وزن',name:'weight',type:'number'},{label:'قد',name:'height',type:'number'}],b=>api('/api/students',{method:'POST',body:JSON.stringify(b)}));return}
-if(route==='/programs/exercise/movements-list'){const list=await api('/api/movements');content.innerHTML=head.replace('＋ افزودن','＋ افزودن حرکت')+table(['نام حرکت','عضله هدف','تجهیزات'],list,x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.muscle_group||'—')}</td><td>${esc(x.equipment||'—')}</td></tr>`);document.querySelector('#addBtn').onclick=()=>modal('ثبت حرکت جدید',[{label:'نام حرکت',name:'name',required:true},{label:'عضله هدف',name:'muscle_group'},{label:'تجهیزات',name:'equipment'}],b=>api('/api/movements',{method:'POST',body:JSON.stringify(b)}));return}
-if(route==='/programs/exercise/list'||route==='/programs/diet/list'||route==='/programs/supplement/list'||route==='/programs/corrective/list'){const list=await api('/api/programs');content.innerHTML=head.replace('＋ افزودن','＋ افزودن برنامه')+table(['عنوان','شاگرد','نوع','وضعیت','بازه'],list,x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.student_name||'—')}</td><td>${esc(x.type)}</td><td><b class="badge">${esc(x.status)}</b></td><td>${esc(x.start_date||'—')} تا ${esc(x.end_date||'—')}</td></tr>`);document.querySelector('#addBtn').onclick=()=>modal('ایجاد برنامه جدید',[{label:'عنوان برنامه',name:'title',required:true},{label:'نوع برنامه',name:'type',required:true,placeholder:'تمرینی، غذایی، مکمل یا اصلاحی'},{label:'شناسه شاگرد',name:'student_id',type:'number'},{label:'تاریخ شروع',name:'start_date',type:'date'},{label:'تاریخ پایان',name:'end_date',type:'date'}],b=>api('/api/programs',{method:'POST',body:JSON.stringify(b)}));return}
-if(route==='/coach/settings'||route==='/coach/profile'){content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section>`;const back=async()=>{const r=await api('/api/backup',{method:'POST'});document.querySelector('#backupResult').textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`};document.querySelector('#addBtn').onclick=back;document.querySelector('#backupBtn').onclick=back;return}
-content.innerHTML=`${head.replace('＋ افزودن','در دست ساخت')}<section class="panel"><h2>ماژول ${label}</h2><p>ساختار این صفحه و مسیر آن آماده است. قابلیت‌های عملیاتی آن در مرحله‌های بعدی به API داخلی و SQLite متصل می‌شوند.</p><div class="module-route">${esc(route||'بدون مسیر')}</div></section>`;document.querySelector('#addBtn').style.display='none';
-}catch(e){content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`}}
+function table(h,rows,row){
+  return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row).join(''):`<tr><td colspan="${h.length}" class="empty">اطلاعاتی برای نمایش وجود ندارد.</td></tr>`}</tbody></table></div>`;
+}
+function modal(title,fields,submit){
+  const m=document.createElement('div');
+  m.className='modal-backdrop';
+  m.innerHTML=`<form class="modal"><div class="modal-head"><h2>${title}</h2><button type="button" class="close">×</button></div><div class="form-grid">${fields.map(x=>`<label>${x.label}<input name="${x.name}" type="${x.type||'text'}" ${x.required?'required':''} placeholder="${x.placeholder||''}"></label>`).join('')}</div><div class="modal-actions"><button type="button" class="secondary close">انصراف</button><button class="primary">ذخیره</button></div></form>`;
+  document.body.append(m);
+  m.querySelectorAll('.close').forEach(x=>x.onclick=()=>m.remove());
+  m.querySelector('form').onsubmit=async e=>{
+    e.preventDefault();
+    try{
+      await submit(Object.fromEntries(new FormData(e.currentTarget)));
+      m.remove();
+      render(crumb.textContent,current)
+    }catch(x){alert(x.message)}
+  }
+}
+
+async function render(label,route){
+  if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);
+  if(route==='/programs/exercise/form' && window.renderProgramBuilder) return window.renderProgramBuilder(label,route);
+  if(route==='/templates/exercise/list' && window.renderTrainingProgramsList) return window.renderTrainingProgramsList(label,route);
+  current=route;
+  crumb.textContent=label;
+  document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active',x.dataset.route===route));
+  const head=`<div class="page-head"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>مدیریت اطلاعات محلی با ذخیره‌سازی امن در SQLite.</p></div><button class="primary" id="addBtn">＋ افزودن</button></div>`;
+  try{
+    if(route==='/coach/dashboard'){
+      const d=await api('/api/dashboard');
+      content.innerHTML=`<div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p></div></div><div class="stat-grid"><article><span>کل شاگردها</span><strong>${d.stats.total}</strong></article><article><span>برنامه‌های فعال</span><strong>${d.stats.active}</strong></article><article><span>سفارش‌های در انتظار</span><strong>${d.stats.waiting}</strong></article><article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article></div><div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام','هدف','وضعیت'],d.students,x=>`<tr><td>${esc(x.full_name)}</td><td>${esc(x.goal||'—')}</td><td><b class="badge">${esc(x.status)}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
+      return;
+    }
+    if(route==='/users-list'){
+      const list=await api('/api/students');
+      content.innerHTML=head.replace('＋ افزودن','＋ افزودن شاگرد')+table(['نام و نام خانوادگی','موبایل','هدف','وزن','وضعیت'],list,x=>`<tr><td><b>${esc(x.full_name)}</b></td><td>${esc(x.mobile||'—')}</td><td>${esc(x.goal||'—')}</td><td>${x.weight||'—'} کیلو</td><td><b class="badge">${esc(x.status)}</b></td></tr>`);
+      document.querySelector('#addBtn').onclick=()=>modal('ثبت شاگرد جدید',[{label:'نام و نام خانوادگی',name:'full_name',required:true},{label:'شماره موبایل',name:'mobile'},{label:'هدف',name:'goal'},{label:'وزن',name:'weight',type:'number'},{label:'قد',name:'height',type:'number'}],b=>api('/api/students',{method:'POST',body:JSON.stringify(b)}));
+      return;
+    }
+    if(route==='/programs/exercise/movements-list'){
+      const list=await api('/api/movements');
+      content.innerHTML=head.replace('＋ افزودن','＋ افزودن حرکت')+table(['نام حرکت','عضله هدف','تجهیزات'],list,x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.muscle_group||'—')}</td><td>${esc(x.equipment||'—')}</td></tr>`);
+      document.querySelector('#addBtn').onclick=()=>modal('ثبت حرکت جدید',[{label:'نام حرکت',name:'name',required:true},{label:'عضله هدف',name:'muscle_group'},{label:'تجهیزات',name:'equipment'}],b=>api('/api/movements',{method:'POST',body:JSON.stringify(b)}));
+      return;
+    }
+    if(route==='/programs/exercise/list'||route==='/programs/diet/list'||route==='/programs/supplement/list'||route==='/programs/corrective/list'){
+      const list=await api('/api/programs');
+      content.innerHTML=head.replace('＋ افزودن','＋ افزودن برنامه')+table(['عنوان','شاگرد','نوع','وضعیت','بازه'],list,x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.student_name||'—')}</td><td>${esc(x.type)}</td><td><b class="badge">${esc(x.status)}</b></td><td>${esc(x.start_date||'—')} تا ${esc(x.end_date||'—')}</td></tr>`);
+      document.querySelector('#addBtn').onclick=()=>modal('ایجاد برنامه جدید',[{label:'عنوان برنامه',name:'title',required:true},{label:'نوع برنامه',name:'type',required:true,placeholder:'تمرینی، غذایی، مکمل یا اصلاحی'},{label:'شناسه شاگرد',name:'student_id',type:'number'},{label:'تاریخ شروع',name:'start_date',type:'date'},{label:'تاریخ پایان',name:'end_date',type:'date'}],b=>api('/api/programs',{method:'POST',body:JSON.stringify(b)}));
+      return;
+    }
+    if(route==='/coach/settings'||route==='/coach/profile'){
+      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section>`;
+      const back=async()=>{
+        const r=await api('/api/backup',{method:'POST'});
+        document.querySelector('#backupResult').textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
+      };
+      document.querySelector('#addBtn').onclick=back;
+      document.querySelector('#backupBtn').onclick=back;
+      return;
+    }
+    content.innerHTML=`${head.replace('＋ افزودن','در دست ساخت')}<section class="panel"><h2>ماژول ${label}</h2><p>ساختار این صفحه و مسیر آن آماده است. قابلیت‌های عملیاتی آن در مرحله‌های بعدی به API داخلی و SQLite متصل می‌شوند.</p><div class="module-route">${esc(route||'بدون مسیر')}</div></section>`;
+    document.querySelector('#addBtn').style.display='none';
+  }catch(e){
+    content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
+  }
+}
 render('داشبورد','/coach/dashboard');

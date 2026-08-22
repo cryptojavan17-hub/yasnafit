@@ -362,6 +362,170 @@ async function api(req,res,url){
    return send(res,404,{error:'Image not found for id', id: originalId, searchedIn: [importedRoot, organizedRoot]});
  }
 
+ // --- Training Programs (Redesigned Exercise Program Page) ---
+ function genHash(){ return Math.random().toString(36).substring(2,10) + Date.now().toString(36); }
+
+ if(p==='/api/training-programs' && req.method==='GET'){
+   const list = rows('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id ORDER BY tp.id DESC');
+   return send(res,200,list.map(r=>{
+     try{ r.program_data = JSON.parse(r.program_data||'{}'); }catch(e){ r.program_data={}; }
+     return r;
+   }));
+ }
+ if(p==='/api/training-programs' && req.method==='POST'){
+   const b=await read(req);
+   if(!b.title?.trim()) return send(res,400,{error:'عنوان برنامه الزامی است.'});
+   const programData = b.program_data ? JSON.stringify(b.program_data) : JSON.stringify({days:[]});
+   const r=db.prepare('INSERT INTO training_programs (student_id,title,coach_note,status,start_date,end_date,program_data) VALUES (?,?,?,?,?,?,?)')
+     .run(b.student_id||null, b.title.trim(), b.coach_note||'', b.status||'پیش‌نویس', b.start_date||null, b.end_date||null, programData);
+   const newId = r.lastInsertRowid;
+   try {
+     const data = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : (b.program_data||{days:[]});
+     if(data.days && Array.isArray(data.days)){
+       db.exec('BEGIN');
+       try {
+         for(const day of data.days){
+           const dayHash = day.dayHash || genHash();
+           const dayRes = db.prepare('INSERT INTO program_days (program_id, day_number, day_hash, focus, coach_note, is_rest_day) VALUES (?,?,?,?,?,?)')
+             .run(newId, day.day_number||1, dayHash, day.focus||'', day.coachNote||'', day.isRestDay?1:0);
+           const dayId = dayRes.lastInsertRowid;
+           const systems = day.data || day.systems || [];
+           for(const sys of systems){
+             const sysHash = sys.exerciseSystemHash || sys.systemHash || genHash();
+             const sysRes = db.prepare('INSERT INTO exercise_systems (day_id, exercise_system_id, system_hash, system_type) VALUES (?,?,?,?)')
+               .run(dayId, sys.exercise_system_id||1, sysHash, sys.system_type||'normal');
+             const sysId = sysRes.lastInsertRowid;
+             const movements = sys.movement_list || sys.movements || [];
+             let orderIdx=0;
+             for(const mov of movements){
+               const movHash = mov.movementHash || genHash();
+               let exId = mov.exercise_id || null;
+               if(!exId && mov.exerciseId){
+                 const ex = one('SELECT id FROM exercises WHERE original_id=? OR id=?', Number(mov.exerciseId), Number(mov.exerciseId));
+                 if(ex) exId = ex.id;
+               }
+               const movRes = db.prepare('INSERT INTO program_movements (system_id, exercise_id, movement_hash, description, order_index) VALUES (?,?,?,?,?)')
+                 .run(sysId, exId, movHash, mov.description||'', orderIdx++);
+               const movId = movRes.lastInsertRowid;
+               const sets = mov.sets || [];
+               for(const s of sets){
+                 const setHash = s.setHash || genHash();
+                 db.prepare('INSERT INTO movement_sets (movement_id, set_hash, set_type, count_value, weight, rest_seconds) VALUES (?,?,?,?,?,?)')
+                   .run(movId, setHash, s.type||'reps', s.count||s.count_value||null, s.weight||null, s.restSeconds||s.rest_seconds||60);
+               }
+             }
+           }
+         }
+         db.exec('COMMIT');
+       } catch(e){
+         db.exec('ROLLBACK');
+         console.error('Failed to save normalized on POST:', e);
+       }
+     }
+   } catch(e){ console.error(e); }
+   log('برنامه تمرینی جدید ساخته شد', b.title);
+   return send(res,201,{id:newId});
+ }
+
+ const tpMatch = p.match(/^\/api\/training-programs\/(\d+)(\/full)?$/);
+ if(tpMatch){
+   const id = Number(tpMatch[1]);
+   const isFull = !!tpMatch[2];
+   if(req.method==='GET'){
+     const prog = one('SELECT tp.*, s.full_name student_name FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.id=?', id);
+     if(!prog) return send(res,404,{error:'برنامه پیدا نشد.'});
+     try{ prog.program_data = JSON.parse(prog.program_data||'{}'); }catch(e){ prog.program_data={days:[]}; }
+     if(isFull){
+       if(!prog.program_data.days || prog.program_data.days.length===0){
+         const days = rows('SELECT * FROM program_days WHERE program_id=? ORDER BY day_number', id);
+         const fullDays = days.map(d=>{
+           const systems = rows('SELECT * FROM exercise_systems WHERE day_id=? ORDER BY id', d.id);
+           const fullSystems = systems.map(sys=>{
+             const movements = rows('SELECT pm.*, e.name_fa, e.original_id FROM program_movements pm LEFT JOIN exercises e ON e.id=pm.exercise_id WHERE pm.system_id=? ORDER BY pm.order_index', sys.id);
+             const fullMovements = movements.map(m=>{
+               const sets = rows('SELECT * FROM movement_sets WHERE movement_id=? ORDER BY id', m.id);
+               return {...m, sets};
+             });
+             return {...sys, movement_list: fullMovements};
+           });
+           return {...d, data: fullSystems};
+         });
+         prog.program_data = {days: fullDays};
+       }
+     }
+     return send(res,200,prog);
+   }
+   if(req.method==='PUT'){
+     const b=await read(req);
+     const programData = b.program_data ? JSON.stringify(b.program_data) : null;
+     if(programData){
+       try {
+         const data = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : b.program_data;
+         db.exec('BEGIN');
+         try {
+           db.prepare('DELETE FROM program_days WHERE program_id=?').run(id);
+           if(data.days && Array.isArray(data.days)){
+             for(const day of data.days){
+               const dayHash = day.dayHash || genHash();
+               const dayRes = db.prepare('INSERT INTO program_days (program_id, day_number, day_hash, focus, coach_note, is_rest_day) VALUES (?,?,?,?,?,?)')
+                 .run(id, day.day_number||1, dayHash, day.focus||'', day.coachNote||'', day.isRestDay?1:0);
+               const dayId = dayRes.lastInsertRowid;
+               const systems = day.data || day.systems || [];
+               for(const sys of systems){
+                 const sysHash = sys.exerciseSystemHash || sys.systemHash || genHash();
+                 const sysRes = db.prepare('INSERT INTO exercise_systems (day_id, exercise_system_id, system_hash, system_type) VALUES (?,?,?,?)')
+                   .run(dayId, sys.exercise_system_id||1, sysHash, sys.system_type||'normal');
+                 const sysId = sysRes.lastInsertRowid;
+                 const movements = sys.movement_list || sys.movements || [];
+                 let orderIdx = 0;
+                 for(const mov of movements){
+                   const movHash = mov.movementHash || genHash();
+                   let exId = mov.exercise_id || null;
+                   if(!exId && mov.exerciseId){
+                     const ex = one('SELECT id FROM exercises WHERE original_id=? OR id=?', Number(mov.exerciseId), Number(mov.exerciseId));
+                     if(ex) exId = ex.id;
+                   }
+                   const movRes = db.prepare('INSERT INTO program_movements (system_id, exercise_id, movement_hash, description, order_index) VALUES (?,?,?,?,?)')
+                     .run(sysId, exId, movHash, mov.description||'', orderIdx++);
+                   const movId = movRes.lastInsertRowid;
+                   const sets = mov.sets || [];
+                   for(const s of sets){
+                     const setHash = s.setHash || genHash();
+                     db.prepare('INSERT INTO movement_sets (movement_id, set_hash, set_type, count_value, weight, rest_seconds) VALUES (?,?,?,?,?,?)')
+                       .run(movId, setHash, s.type||'reps', s.count||s.count_value||null, s.weight||null, s.restSeconds||s.rest_seconds||60);
+                   }
+                 }
+               }
+             }
+           }
+           db.exec('COMMIT');
+         } catch(e){
+           db.exec('ROLLBACK');
+           console.error('Failed to save normalized program:', e);
+         }
+       } catch(e){
+         console.error('program_data parse error', e);
+       }
+       const r=db.prepare('UPDATE training_programs SET title=COALESCE(?,title), coach_note=COALESCE(?,coach_note), status=COALESCE(?,status), start_date=COALESCE(?,start_date), end_date=COALESCE(?,end_date), program_data=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
+         .run(b.title||null, b.coach_note||null, b.status||null, b.start_date||null, b.end_date||null, programData, id);
+       if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
+       log('برنامه تمرینی ویرایش شد', b.title||`id ${id}`);
+       return send(res,200,{id});
+     } else {
+       const r=db.prepare('UPDATE training_programs SET title=COALESCE(?,title), coach_note=COALESCE(?,coach_note), status=COALESCE(?,status), start_date=COALESCE(?,start_date), end_date=COALESCE(?,end_date), updated_at=CURRENT_TIMESTAMP WHERE id=?')
+         .run(b.title||null, b.coach_note||null, b.status||null, b.start_date||null, b.end_date||null, id);
+       if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
+       return send(res,200,{id});
+     }
+   }
+   if(req.method==='DELETE'){
+     const r=db.prepare('DELETE FROM training_programs WHERE id=?').run(id);
+     if(!r.changes) return send(res,404,{error:'برنامه پیدا نشد.'});
+     log('برنامه تمرینی حذف شد', `id ${id}`);
+     return send(res,200,{id});
+   }
+ }
+
  if(req.method==='GET'&&p==='/api/programs') return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
  if(req.method==='POST'&&p==='/api/programs') {
    const b=await read(req);

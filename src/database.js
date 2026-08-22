@@ -63,6 +63,61 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS activity_log (
  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS training_programs (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ student_id INTEGER,
+ title TEXT NOT NULL DEFAULT 'برنامه تمرینی جدید',
+ coach_note TEXT DEFAULT '',
+ status TEXT NOT NULL DEFAULT 'پیش‌نویس',
+ start_date TEXT,
+ end_date TEXT,
+ program_data TEXT DEFAULT '{}',
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS program_days (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ program_id INTEGER NOT NULL,
+ day_number INTEGER NOT NULL,
+ day_hash TEXT NOT NULL UNIQUE,
+ focus TEXT DEFAULT '',
+ coach_note TEXT DEFAULT '',
+ is_rest_day INTEGER DEFAULT 0,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(program_id) REFERENCES training_programs(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS exercise_systems (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ day_id INTEGER NOT NULL,
+ exercise_system_id INTEGER DEFAULT 1,
+ system_hash TEXT NOT NULL UNIQUE,
+ system_type TEXT DEFAULT 'normal',
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(day_id) REFERENCES program_days(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS program_movements (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ system_id INTEGER NOT NULL,
+ exercise_id INTEGER,
+ movement_hash TEXT NOT NULL UNIQUE,
+ description TEXT DEFAULT '',
+ order_index INTEGER DEFAULT 0,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(system_id) REFERENCES exercise_systems(id) ON DELETE CASCADE,
+ FOREIGN KEY(exercise_id) REFERENCES exercises(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS movement_sets (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ movement_id INTEGER NOT NULL,
+ set_hash TEXT NOT NULL UNIQUE,
+ set_type TEXT NOT NULL DEFAULT 'reps',
+ count_value INTEGER,
+ weight REAL,
+ rest_seconds INTEGER DEFAULT 60,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(movement_id) REFERENCES program_movements(id) ON DELETE CASCADE
+);
 `);
 
 function scalar(sql, ...params) { return db.prepare(sql).get(...params); }
