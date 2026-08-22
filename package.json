@@ -5,6 +5,8 @@
   "description": "Yasnafit local fitness coaching dashboard",
   "scripts": {
     "start": "node server.js",
+    "test": "npm run test:migrations && npm run test:e2e",
+    "test:migrations": "node tests/migration-regression.js",
     "test:e2e": "node tests/e2e-workflow.js"
   },
   "engines": { "node": ">=22.5" }

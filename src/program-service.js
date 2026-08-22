@@ -235,9 +235,9 @@ function saveProgramToDB(db, programId, programInput){
                 originalExId = exByOrig.original_id;
                 internalExId = exByOrig.id;
               } else {
-                // Invalid exercise, set null but keep original for debugging
-                originalExId = internalExId;
-                internalExId = null;
+                const err = new Error(`شناسه حرکت در بانک ۲۷۰۷ حرکتی پیدا نشد: ${internalExId}`);
+                err.statusCode=400;
+                throw err;
               }
             } else {
               originalExId = exById.original_id;
@@ -247,6 +247,11 @@ function saveProgramToDB(db, programId, programInput){
           if(!internalExId && originalExId){
             const exByOrig = db.prepare('SELECT id FROM exercises WHERE original_id=?').get(originalExId);
             if(exByOrig) internalExId = exByOrig.id;
+            else {
+              const err=new Error(`شناسه منبع حرکت پیدا نشد: ${originalExId}`);
+              err.statusCode=400;
+              throw err;
+            }
           }
 
           const movRes = db.prepare(`
@@ -376,8 +381,9 @@ function createProgramInDB(db, programInput){
                 originalExId = exByOrig.original_id;
                 internalExId = exByOrig.id;
               } else {
-                originalExId = internalExId;
-                internalExId = null;
+                const err = new Error(`شناسه حرکت در بانک ۲۷۰۷ حرکتی پیدا نشد: ${internalExId}`);
+                err.statusCode=400;
+                throw err;
               }
             } else {
               originalExId = exById.original_id;
@@ -386,6 +392,11 @@ function createProgramInDB(db, programInput){
           if(!internalExId && originalExId){
             const exByOrig = db.prepare('SELECT id FROM exercises WHERE original_id=?').get(originalExId);
             if(exByOrig) internalExId = exByOrig.id;
+            else {
+              const err=new Error(`شناسه منبع حرکت پیدا نشد: ${originalExId}`);
+              err.statusCode=400;
+              throw err;
+            }
           }
           const movRes = db.prepare(`
             INSERT INTO program_movements (system_id, exercise_id, original_exercise_id, movement_hash, description, order_index, stable_id, version)

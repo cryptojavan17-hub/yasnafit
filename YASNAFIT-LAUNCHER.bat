@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 set "PORT=3020"
-set "BRANCH=arena/01a028ff-yasnafit"
+set "BRANCH=arena/01a029e8-yasnafit"
 
 :MENU
 cls
@@ -37,14 +37,20 @@ exit /b
 where node >nul 2>&1
 if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then reopen this launcher.& exit /b 1)
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
-if not errorlevel 1 (echo Server is already running on port %PORT%.& start "" http://localhost:%PORT%& exit /b)
+if not errorlevel 1 (echo Server is already running on port %PORT%.& call :OPEN_DASHBOARD& exit /b)
 if not exist logs mkdir logs
 echo Starting Yasnafit server in background (no extra window)...
 REM Run node in background without new window (/B) - keeps launcher visible
 start "" /B node server.js > logs\server.log 2>&1
 timeout /t 2 /nobreak >nul
-start "" http://localhost:%PORT%
+call :OPEN_DASHBOARD
 echo Yasnafit started at http://localhost:%PORT% - launcher stays open
+exit /b
+
+:OPEN_DASHBOARD
+set "COACH_TOKEN="
+if exist data\coach-access-token set /p COACH_TOKEN=<data\coach-access-token
+if defined COACH_TOKEN (start "" "http://localhost:%PORT%/coach-access/%COACH_TOKEN%") else (echo Coach access token was not created. Check logs\server.log.)
 exit /b
 
 :STOP
@@ -59,7 +65,7 @@ echo.
 echo Checking for updates from GitHub...
 call :STOP
 for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set "BRANCH=%%b"
-if not defined BRANCH set "BRANCH=arena/01a028ff-yasnafit"
+if not defined BRANCH set "BRANCH=arena/01a029e8-yasnafit"
 echo Pulling latest changes from branch %BRANCH%...
 git pull origin %BRANCH%
 if errorlevel 1 (echo. & echo Update failed. Check your internet connection and Git status.& exit /b 1)

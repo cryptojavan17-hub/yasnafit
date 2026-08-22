@@ -21,6 +21,19 @@ const LOCAL_COACH_SESSION = crypto.randomBytes(32).toString('base64url');
 
 // --- Database & Services ---
 const { db, dbPath, backup, log } = require('./src/database');
+const coachAccessFile = path.join(path.dirname(dbPath), 'coach-access-token');
+function loadLocalCoachAccessToken(){
+  if(COACH_ACCESS_TOKEN) return COACH_ACCESS_TOKEN;
+  try {
+    const existing=fs.readFileSync(coachAccessFile,'utf8').trim();
+    if(/^[A-Za-z0-9_-]{43}$/.test(existing)) return existing;
+  } catch(e){}
+  const generated=crypto.randomBytes(32).toString('base64url');
+  fs.writeFileSync(coachAccessFile, generated+'\n', {mode:0o600, flag:'w'});
+  try { fs.chmodSync(coachAccessFile,0o600); } catch(e){}
+  return generated;
+}
+const LOCAL_COACH_ACCESS_TOKEN = loadLocalCoachAccessToken();
 const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
@@ -106,7 +119,7 @@ function constantTimeEqual(expectedValue, suppliedValue){
 function isCoachAuthorized(req){
   const auth = String(req.headers.authorization || '');
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : String(req.headers['x-coach-token'] || '');
-  if(COACH_ACCESS_TOKEN) return constantTimeEqual(COACH_ACCESS_TOKEN, bearer);
+  if(COACH_ACCESS_TOKEN && constantTimeEqual(COACH_ACCESS_TOKEN, bearer)) return true;
   const cookies=Object.fromEntries(String(req.headers.cookie||'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{
     const i=v.indexOf('='); return i<0?[v,'']:[v.slice(0,i),v.slice(i+1)];
   }));
@@ -1293,7 +1306,32 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(414); return res.end('URI Too Long');
     }
 
+    // Local launcher/bootstrap: possession of the filesystem-protected coach token
+    // establishes an HttpOnly process session, then immediately removes it from the URL.
+    const coachAccessMatch=url.pathname.match(/^\/coach-access\/([A-Za-z0-9_-]{43})$/);
+    if(coachAccessMatch){
+      if(req.method!=='GET' || !constantTimeEqual(LOCAL_COACH_ACCESS_TOKEN,coachAccessMatch[1])){
+        return sendError(res,401,'دسترسی مربی احراز نشد');
+      }
+      const secureCookie=req.socket.encrypted || String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https' ? '; Secure' : '';
+      res.writeHead(303,{
+        'Location':'/',
+        'Set-Cookie':`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/${secureCookie}`,
+        'Cache-Control':'no-store',
+        'Referrer-Policy':'no-referrer'
+      });
+      return res.end();
+    }
+    if(url.pathname.startsWith('/coach-access/')) return sendError(res,401,'دسترسی مربی احراز نشد');
+
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
+
+    // Coach SPA routes contain no public data, but the dashboard shell itself is also
+    // private. Student join routes remain public and authorize through their token.
+    const requestExt=path.extname(url.pathname).toLowerCase();
+    const isCoachSpaRoute=!url.pathname.startsWith('/join/') &&
+      (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
+    if(isCoachSpaRoute && !isCoachAuthorized(req)) return sendError(res,401,'دسترسی مربی احراز نشد');
 
     // Secure image serving
     if(url.pathname.startsWith('/files/exercise/') || url.pathname.startsWith('/assets/images/exercises/') || url.pathname.startsWith('/assets/videos/')){
@@ -1362,9 +1400,6 @@ const server=http.createServer(async(req,res)=>{
         res.writeHead(403,{'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Forbidden file type'}));
       }
       const headers={'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'};
-      if(ext==='.html' && !url.pathname.startsWith('/join/') && !COACH_ACCESS_TOKEN){
-        headers['Set-Cookie']=`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/`;
-      }
       res.writeHead(200,headers);
       return fs.createReadStream(file).pipe(res);
     }
@@ -1383,9 +1418,6 @@ const server=http.createServer(async(req,res)=>{
       return res.end(JSON.stringify({error:'Not found'}));
     }
     const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
-    if(!url.pathname.startsWith('/join/') && !COACH_ACCESS_TOKEN){
-      spaHeaders['Set-Cookie']=`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/`;
-    }
     res.writeHead(200,spaHeaders);
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){

@@ -432,7 +432,7 @@ curl -X POST /api/backup -> file + rotation
 - Kept lightweight, local-first, fast, easy to run/backup/develop
 
 ## 26. Git Safety
-- Work only on arena/01a028ff-yasnafit, not main
+- Work only on the active Arena task branch (this audit: arena/01a029e8-yasnafit), not main
 - No git reset --hard destroying user work (used stash for conflict resolution earlier)
 - Preserved existing functionality
 
@@ -730,10 +730,12 @@ SQL before mutation. A token for student A cannot access or upload to student B'
 
 Coach API access has two modes:
 
-- Local single-user mode: loading a non-student SPA route issues a random, process-local,
-  HttpOnly, SameSite=Strict coach session cookie. `/join/*` never receives this cookie.
-- Hosted mode: set `YASNAFIT_COACH_TOKEN`; coach APIs require a constant-time checked
-  `Authorization: Bearer <token>` (or `X-Coach-Token`) credential.
+- Local single-user mode: the launcher reads the filesystem-protected, random
+  `data/coach-access-token` and opens the one-time bootstrap route. Only that credential
+  can issue the process-local HttpOnly, SameSite=Strict coach session cookie; loading `/`
+  or `/join/*` never grants coach authorization.
+- Hosted mode: set `YASNAFIT_COACH_TOKEN`; it can bootstrap the UI session or authorize
+  APIs via a constant-time checked `Authorization: Bearer <token>` / `X-Coach-Token`.
 
 This is an authorization boundary for the current local product, not a replacement for
 future multi-coach accounts. The service layer remains identity-agnostic so a future

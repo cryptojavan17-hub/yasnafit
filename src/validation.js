@@ -68,7 +68,7 @@ function validateSet(set, path=''){
   if(set.weight !== undefined && set.weight !== null && set.weight !== ''){
     if(isNaN(Number(set.weight)) || Number(set.weight) < 0 || Number(set.weight) > 1000) errors.push(`${path} وزن نامعتبر`);
   }
-  if(set.restSeconds !== undefined && set.rest_seconds !== undefined){
+  if(set.restSeconds !== undefined || set.rest_seconds !== undefined){
     const rest = set.restSeconds ?? set.rest_seconds;
     if(rest !== null && (isNaN(Number(rest)) || Number(rest) < 0 || Number(rest) > 600)) errors.push(`${path} استراحت نامعتبر`);
   }
@@ -120,7 +120,7 @@ function validateDay(day, path=''){
   const errors=[];
   if(!day) { errors.push(`${path} روز نامعتبر`); return errors; }
   if(!isValidHash(day.dayHash) && !isValidHash(day.day_hash)) errors.push(`${path} dayHash نامعتبر`);
-  if(day.day_number !== undefined && day.dayNumber !== undefined){
+  if(day.day_number !== undefined || day.dayNumber !== undefined){
     const num = day.day_number ?? day.dayNumber;
     if(isNaN(Number(num)) || Number(num) < 1 || Number(num) > 30) errors.push(`${path} شماره روز باید 1-30 باشد`);
   }

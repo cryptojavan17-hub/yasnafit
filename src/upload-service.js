@@ -34,15 +34,92 @@ function getAssessmentDir(studentId, assessmentId){
   return dir;
 }
 
+const CRC_TABLE=(()=>{
+  const table=new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c=n;
+    for(let k=0;k<8;k++) c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);
+    table[n]=c>>>0;
+  }
+  return table;
+})();
+function crc32(buffer){
+  let c=0xffffffff;
+  for(const byte of buffer) c=CRC_TABLE[(c^byte)&0xff]^(c>>>8);
+  return (c^0xffffffff)>>>0;
+}
+function validPng(data){
+  const sig=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
+  if(data.length<45 || !data.subarray(0,8).equals(sig)) return false;
+  let offset=8, first=true, sawIdat=false;
+  while(offset+12<=data.length){
+    const length=data.readUInt32BE(offset);
+    if(length>MAX_FILE_SIZE || offset+12+length>data.length) return false;
+    const type=data.subarray(offset+4,offset+8).toString('ascii');
+    if(!/^[A-Za-z]{4}$/.test(type)) return false;
+    const payloadEnd=offset+8+length;
+    if(crc32(data.subarray(offset+4,payloadEnd))!==data.readUInt32BE(payloadEnd)) return false;
+    if(first){
+      if(type!=='IHDR' || length!==13) return false;
+      const width=data.readUInt32BE(offset+8), height=data.readUInt32BE(offset+12);
+      if(!width || !height || width>20000 || height>20000) return false;
+      first=false;
+    }
+    if(type==='IDAT') sawIdat=true;
+    offset=payloadEnd+4;
+    if(type==='IEND') return length===0 && sawIdat && offset===data.length;
+  }
+  return false;
+}
+function validJpeg(data){
+  if(data.length<20 || data[0]!==0xff || data[1]!==0xd8 || data[data.length-2]!==0xff || data[data.length-1]!==0xd9) return false;
+  const sofMarkers=new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);
+  let offset=2, sawSof=false;
+  while(offset<data.length-2){
+    if(data[offset]!==0xff) return false;
+    while(offset<data.length && data[offset]===0xff) offset++;
+    const marker=data[offset++];
+    if(marker===0xd9) break;
+    if(marker===0x01 || (marker>=0xd0 && marker<=0xd7)) continue;
+    if(offset+2>data.length) return false;
+    const length=data.readUInt16BE(offset);
+    if(length<2 || offset+length>data.length) return false;
+    if(sofMarkers.has(marker)){
+      if(length<8) return false;
+      const height=data.readUInt16BE(offset+3), width=data.readUInt16BE(offset+5);
+      if(!width || !height || width>20000 || height>20000) return false;
+      sawSof=true;
+    }
+    if(marker===0xda) return sawSof; // scan data is bounded by the already-verified final EOI
+    offset+=length;
+  }
+  return sawSof;
+}
+function readUInt24LE(data,offset){ return data[offset]|(data[offset+1]<<8)|(data[offset+2]<<16); }
+function validWebp(data){
+  if(data.length<20 || data.subarray(0,4).toString('ascii')!=='RIFF' || data.subarray(8,12).toString('ascii')!=='WEBP') return false;
+  if(data.readUInt32LE(4)+8!==data.length) return false;
+  const type=data.subarray(12,16).toString('ascii');
+  const size=data.readUInt32LE(16);
+  if(20+size+(size%2)>data.length) return false;
+  const body=data.subarray(20,20+size);
+  if(type==='VP8X' && body.length>=10){
+    return readUInt24LE(body,4)+1>0 && readUInt24LE(body,7)+1>0;
+  }
+  if(type==='VP8L' && body.length>=5 && body[0]===0x2f){
+    const bits=body.readUInt32LE(1);
+    return ((bits&0x3fff)+1)>0 && (((bits>>>14)&0x3fff)+1)>0;
+  }
+  if(type==='VP8 ' && body.length>=10 && body[3]===0x9d && body[4]===0x01 && body[5]===0x2a){
+    return (body.readUInt16LE(6)&0x3fff)>0 && (body.readUInt16LE(8)&0x3fff)>0;
+  }
+  return false;
+}
 function detectImageMime(data){
-  if(!Buffer.isBuffer(data) || data.length < 12) return null;
-  // JPEG SOI plus EOI prevents accepting a renamed arbitrary prefix-only file.
-  if(data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff &&
-     data[data.length - 2] === 0xff && data[data.length - 1] === 0xd9) return 'image/jpeg';
-  const pngSig = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
-  const pngEnd = Buffer.from([0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82]);
-  if(data.subarray(0, 8).equals(pngSig) && data.subarray(-8).equals(pngEnd)) return 'image/png';
-  if(data.subarray(0, 4).toString('ascii') === 'RIFF' && data.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  if(!Buffer.isBuffer(data)) return null;
+  if(validJpeg(data)) return 'image/jpeg';
+  if(validPng(data)) return 'image/png';
+  if(validWebp(data)) return 'image/webp';
   return null;
 }
 

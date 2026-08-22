@@ -2,6 +2,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const BASE = process.env.YASNAFIT_BASE_URL || 'http://127.0.0.1:3020';
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
 let coachCookie = '';
@@ -54,13 +56,22 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
 
 (async()=>{
   const landing=await fetch(BASE+'/');
-  coachCookie=(landing.headers.get('set-cookie')||'').split(';')[0];
-  assert.match(coachCookie,/^yasnafit_coach_session=/,'coach session cookie was not issued');
+  assert.equal(landing.status,401,'coach dashboard shell was public');
+  assert.equal(landing.headers.get('set-cookie'),null,'public dashboard minted a coach session without authentication');
   await expectStatus(401,'/api/students');
+  await expectStatus(401,'/coach-access/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+  const accessToken=process.env.YASNAFIT_COACH_TOKEN || fs.readFileSync(path.join(__dirname,'..','data','coach-access-token'),'utf8').trim();
+  const access=await fetch(`${BASE}/coach-access/${accessToken}`,{redirect:'manual',headers:{'X-Forwarded-Proto':'https'}});
+  assert.equal(access.status,303,'valid coach bootstrap did not redirect');
+  assert.equal(access.headers.get('location'),'/');
+  assert.match(access.headers.get('set-cookie')||'',/; Secure(?:;|$)/,'HTTPS coach cookie was not marked Secure');
+  coachCookie=(access.headers.get('set-cookie')||'').split(';')[0];
+  assert.match(coachCookie,/^yasnafit_coach_session=/,'authenticated coach session cookie was not issued');
 
   const suffix=Date.now();
   const s1=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student A ${suffix}`,mobile:'09120000001',goal:'فیتنس'}});
   const s2=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student B ${suffix}`,mobile:'09120000002',goal:'فیتنس'}});
+  await expectStatus(400,'/api/student-invites',{method:'POST',coach:true,body:{student_id:`${s1.id} OR 1=1`}});
   const inv1=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(s1.id),expires_in_days:30}});
   const revoked=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(s2.id),expires_in_days:30}});
   const inv2=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(s2.id),expires_in_days:0}});
@@ -84,6 +95,9 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.equal(sideUpload.response.status,201,JSON.stringify(sideUpload.data));
   const invalid=await upload(inv1.token,a1.id,'other',Buffer.from('<svg onload=alert(1)>'),'bad.svg','image/svg+xml');
   assert.equal(invalid.response.status,400,'SVG upload must be rejected');
+  const fakePng=Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]),Buffer.from('<script>alert(1)</script>'),Buffer.from([0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82])]);
+  const forged=await upload(inv1.token,a1.id,'other',fakePng,'forged.png','image/png');
+  assert.equal(forged.response.status,400,'signature/trailer-only forged PNG must be rejected');
   const traversal=await upload(inv1.token,a1.id,'other',png,'../escape.png','image/png');
   assert.equal(traversal.response.status,400,'traversal filename must be rejected');
   const crossUpload=await upload(inv2.token,a1.id,'front');
@@ -109,6 +123,15 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   await ok(`/api/assessments/${a1.id}/under-review`,{method:'POST',coach:true});
   const approved1=await ok(`/api/assessments/${a1.id}/approve`,{method:'POST',coach:true,body:{coach_note:'approved month one'}});
   assert.equal(approved1.status,'APPROVED');
+  const invalidDay=programPayload(Number(s1.id),a1.id,1);
+  invalidDay.program_data.days[0].day_number=31;
+  await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:invalidDay});
+  const invalidExercise=programPayload(Number(s1.id),a1.id,1);
+  invalidExercise.program_data.days[0].data[0].movement_list[0].exercise_id=999999999;
+  await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:invalidExercise});
+  const invalidRest=programPayload(Number(s1.id),a1.id,1);
+  invalidRest.program_data.days[0].data[0].movement_list[0].sets[0].restSeconds=-1;
+  await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:invalidRest});
   const p1=await ok('/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(s1.id),a1.id,1)});
   const active1=await ok(`/api/training-programs/${p1.id}/activate`,{method:'POST',coach:true});
   assert.equal(active1.status,'ACTIVE');
@@ -116,6 +139,7 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.equal(portal1.current_program.id,p1.id);
   assert.equal(portal1.current_program.program_data.days[0].data[0].movement_list[0].sets[0].rest_seconds,60);
   await expectStatus(409,`/api/training-programs/${p1.id}`,{method:'PUT',coach:true,body:programPayload(Number(s1.id),a1.id,1)});
+  await expectStatus(409,`/api/training-programs/${p1.id}`,{method:'DELETE',coach:true});
 
   const a2=await ok(`/api/student-portal/${inv1.token}/assessment`,{method:'POST',body:{weight:76,height:175,waist:81,goal:'فیتنس',training_experience:'متوسط',student_note:'month two'}});
   assert.equal(a2.assessment_number,2);
