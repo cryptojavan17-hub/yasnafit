@@ -702,7 +702,7 @@ The implemented product flow is:
 Coach creates Student + Invitation
   -> Student accepts private /join/<256-bit-token> link
   -> Profile + a new draft BodyAssessment are completed
-  -> front/back/side photos are uploaded to private storage
+  -> student explicitly accepts/declines optional private body photos
   -> submit freezes that assessment (SUBMITTED)
   -> coach reviews (UNDER_REVIEW / CHANGES_REQUESTED / APPROVED)
   -> existing Program Builder creates a DRAFT TrainingProgram
@@ -754,9 +754,10 @@ SUBMITTED/UNDER_REVIEW -> CHANGES_REQUESTED -> SUBMITTED
 APPROVED -> PROGRAM_ASSIGNED
 ```
 
-Submission validates profile data, weight, height, goal, training experience, and one
-current photo for each required extensible type: `front`, `back`, and `side`. Optional
-measurements are retained as columns plus a JSON extension object for future analysis.
+Submission validates profile data, weight, height, goal, training experience, and an
+explicit `willing`/`declined` body-photo preference. Photo count is never validated as a
+requirement. Optional measurements are retained as columns plus a JSON extension object
+for future analysis.
 Coach and student notes are separate. All mutations increment `version` and update audit
 timestamps.
 
@@ -978,3 +979,20 @@ separators and comma decimals are normalized before validation. Height, weight a
 optional measurement receive explicit finite/range checks, and any failure remains
 visible inside the wizard instead of disappearing in a short toast. No assessment or
 profile business rule changed.
+
+---
+
+# Optional body photos and explicit preference (v0.6.0)
+
+Body photos are private, optional supporting data—not an assessment requirement. Every
+new draft must explicitly store `willing` or `declined` before submission. `declined`
+soft-deletes any draft photo rows and is shown to the coach as a neutral privacy choice.
+`willing` enables five optional slots (`front`, `side`, `back`, `front_flex`,
+`back_flex`) and accepts zero through five uploads. Submission, coach approval, program
+creation, and portal access never depend on photo count.
+
+Uploaded optional files continue through the existing structural JPEG/PNG/WEBP validator,
+private filesystem storage, path containment and session/coach authorization. Submitted
+photos remain immutable. Medical documents and additional gallery data are not required;
+the current UI reports them as “ارسال نشده • اختیاری” and does not treat absence as an
+error.

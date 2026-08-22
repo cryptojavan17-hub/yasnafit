@@ -716,6 +716,48 @@ const migrations = [
         JSON.stringify(changes)
       );
     }
+  },
+  {
+    id: '013_optional_body_photos_preference',
+    description: 'Explicit optional body-photo preference for assessments',
+    up: (db) => {
+      const columns=new Set(db.prepare('PRAGMA table_info(body_assessments)').all().map(column=>column.name));
+      if(!columns.has('body_photos_preference')){
+        db.exec(`
+          ALTER TABLE body_assessments
+          ADD COLUMN body_photos_preference TEXT
+          CHECK(body_photos_preference IS NULL OR body_photos_preference IN ('willing','declined'));
+        `);
+      }
+      // Uploading a photo is explicit evidence of willingness. No-photo historical
+      // records remain NULL; they must never be misclassified as declined.
+      db.exec(`
+        UPDATE body_assessments
+        SET body_photos_preference='willing',updated_at=CURRENT_TIMESTAMP
+        WHERE body_photos_preference IS NULL
+          AND EXISTS (
+            SELECT 1 FROM assessment_photos ap
+            WHERE ap.assessment_id=body_assessments.id AND ap.deleted_at IS NULL
+          );
+        CREATE INDEX IF NOT EXISTS idx_body_assessments_photo_preference
+          ON body_assessments(body_photos_preference,status);
+      `);
+      const changes={
+        features:['انتخاب صریح تمایل یا عدم تمایل به ارسال تصاویر بدنی'],
+        improvements:['اختیاری شدن تمام پنج جایگاه تصویر بدنی و نمایش وضعیت محترمانه به مربی'],
+        fixes:['حذف کامل الزام تصویر از اعتبار و ارسال ارزیابی'],
+        security:['حفظ اعتبارسنجی ساختاری و دسترسی خصوصی برای تصاویر اختیاری'],
+        breaking_changes:[]
+      };
+      db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `).run(
+        '0.6.0','Optional Body Photos and Explicit Consent','2026-08-22',
+        'ارسال تصاویر بدنی کاملاً اختیاری و مبتنی بر انتخاب صریح دانش‌آموز شد',
+        JSON.stringify(changes)
+      );
+    }
   }
 ];
 

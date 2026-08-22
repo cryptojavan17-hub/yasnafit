@@ -152,6 +152,7 @@ function studentAssessmentView(assessment,photos=[]){
     hips:assessment.hips,body_fat:assessment.body_fat,muscle_mass:assessment.muscle_mass,
     goal:assessment.goal||'',training_experience:assessment.training_experience||'',
     limitations:assessment.limitations||'',injuries:assessment.injuries||'',
+    body_photos_preference:assessment.body_photos_preference||null,
     student_note:assessment.student_note||'',coach_note:assessment.coach_note||'',
     submitted_at:assessment.submitted_at,reviewed_at:assessment.reviewed_at,created_at:assessment.created_at,
     photos:photos.map(photo=>({id:photo.id,photo_type:photo.photo_type,mime_type:photo.mime_type,size_bytes:photo.size_bytes,created_at:photo.created_at}))
@@ -869,9 +870,19 @@ function updateStudentProfileFromSession(studentId,body){
   return one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL',studentId);
 }
 
+function applyDraftPhotoPreference(assessment){
+  if(assessment?.body_photos_preference==='declined'){
+    db.prepare(`
+      UPDATE assessment_photos
+      SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1
+      WHERE assessment_id=? AND deleted_at IS NULL
+    `).run(assessment.id);
+  }
+  return one('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL',assessment.id);
+}
 async function saveSessionAssessment(studentId,body){
   let assessment=one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
-  if(assessment)return studentService.updateAssessment(db,assessment.id,body);
+  if(assessment)return applyDraftPhotoPreference(studentService.updateAssessment(db,assessment.id,body));
   const previous=latestStudentAssessment(studentId);
   if(previous && studentNextRoute(studentId)!=='/student/onboarding'){
     const error=new Error('ارزیابی قبلی هنوز در حال بررسی است یا زمان ارزیابی جدید نرسیده است.');error.statusCode=409;throw error;
@@ -881,12 +892,13 @@ async function saveSessionAssessment(studentId,body){
     height:student.height,weight:student.weight,goal:student.goal,training_experience:student.training_experience,
     limitations:student.limitations,injuries:student.injuries,...body
   });
-  return one('SELECT * FROM body_assessments WHERE id=?',created.id);
+  return applyDraftPhotoPreference(one('SELECT * FROM body_assessments WHERE id=?',created.id));
 }
 
 async function handleSessionPhotoUpload(req,res,studentId){
-  const assessment=one(`SELECT id FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
+  const assessment=one(`SELECT id,body_photos_preference FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
   if(!assessment)return sendError(res,404,'ابتدا اطلاعات ارزیابی را ذخیره کنید');
+  if(assessment.body_photos_preference!=='willing')return sendError(res,409,'برای ارسال عکس، ابتدا گزینه «مایل هستم» را انتخاب کنید');
   const contentType=req.headers['content-type']||'';
   let file,photoType;
   if(contentType.includes('multipart/form-data')){

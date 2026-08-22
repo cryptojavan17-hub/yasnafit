@@ -199,6 +199,9 @@ function validateAssessmentFields(data){
     if(data[key] != null && (typeof data[key] !== 'string' || data[key].length > 4000)) errors.push(`${key} نامعتبر است`);
   }
   if(data.measurements != null && (typeof data.measurements !== 'object' || Array.isArray(data.measurements))) errors.push('اندازه‌گیری‌ها نامعتبر است');
+  if(data.body_photos_preference !== undefined && data.body_photos_preference !== null && !['willing','declined'].includes(data.body_photos_preference)){
+    errors.push('انتخاب مربوط به تصاویر بدنی نامعتبر است');
+  }
   return errors;
 }
 
@@ -217,9 +220,9 @@ function createAssessment(db, studentId, data={}){
     const value = key => data[key] === undefined || data[key] === '' ? null : data[key];
     const res = db.prepare(`
       INSERT INTO body_assessments
-      (stable_id, student_id, assessment_number, status, weight, height, waist, chest, hips, body_fat, muscle_mass, measurements, goal, training_experience, limitations, injuries, student_note, coach_note, version)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-    `).run(stableId, studentId, nextNumber, status, value('weight'), value('height'), value('waist'), value('chest'), value('hips'), value('body_fat'), value('muscle_mass'), JSON.stringify(data.measurements||{}), data.goal||'', data.training_experience||'', data.limitations||'', data.injuries||'', data.student_note||'', '');
+      (stable_id, student_id, assessment_number, status, weight, height, waist, chest, hips, body_fat, muscle_mass, measurements, goal, training_experience, limitations, injuries, student_note, coach_note, body_photos_preference, version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+    `).run(stableId, studentId, nextNumber, status, value('weight'), value('height'), value('waist'), value('chest'), value('hips'), value('body_fat'), value('muscle_mass'), JSON.stringify(data.measurements||{}), data.goal||'', data.training_experience||'', data.limitations||'', data.injuries||'', data.student_note||'', '', data.body_photos_preference||null);
     db.prepare(`UPDATE students SET last_assessment_id=?, profile_status=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(res.lastInsertRowid, status, studentId);
     db.exec('COMMIT');
     return {id:res.lastInsertRowid, stable_id:stableId, assessment_number:nextNumber, status};
@@ -240,7 +243,7 @@ function updateAssessment(db, assessmentId, data){
 
   const fields=[];
   const params=[];
-  const updatable=['weight','height','waist','chest','hips','body_fat','muscle_mass','goal','training_experience','limitations','injuries','student_note','measurements'];
+  const updatable=['weight','height','waist','chest','hips','body_fat','muscle_mass','goal','training_experience','limitations','injuries','student_note','measurements','body_photos_preference'];
   for(const key of updatable){
     if(data[key] !== undefined){
       fields.push(`${key}=?`);
@@ -269,9 +272,11 @@ function submitAssessment(db, assessmentId){
   if(!(existing.height || student.height)) throw new Error('قد الزامی است');
   if(!(existing.goal || student.goal)) throw new Error('هدف تمرینی الزامی است');
   if(!(existing.training_experience || student.training_experience)) throw new Error('سابقه تمرین الزامی است');
-  const required = new Set(db.prepare(`SELECT photo_type FROM assessment_photos WHERE assessment_id=? AND photo_type IN ('front','back','side') AND deleted_at IS NULL`).all(assessmentId).map(p=>p.photo_type));
-  const missing = ['front','back','side'].filter(type=>!required.has(type));
-  if(missing.length) throw new Error(`عکس‌های جلو، پشت و کنار الزامی هستند (ناقص: ${missing.join(', ')})`);
+  if(!['willing','declined'].includes(existing.body_photos_preference)){
+    throw new Error('لطفاً تمایل یا عدم تمایل خود برای ارسال تصاویر بدنی را مشخص کنید');
+  }
+  // Assessment validity never depends on photo count. willing may contain zero to five
+  // photos; declined is an equally valid explicit privacy choice.
 
   db.exec('BEGIN');
   try {

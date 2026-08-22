@@ -110,7 +110,7 @@
 
           <section class="sp-card">
             <h2>📸 عکس‌های ارزیابی</h2>
-            <p style="font-size:12px;color:var(--text-muted)">هر سه عکس جلو، پشت و کنار الزامی است. فقط JPG/PNG/WEBP تا 5MB</p>
+            <p style="font-size:12px;color:var(--text-muted)">ارسال تصاویر بدنی اختیاری است. فقط JPG/PNG/WEBP تا 5MB</p>
             <div class="photo-upload-grid">
               ${['front','back','side'].map(type=>{
                 const labelMap = {front:'جلو', back:'پشت', side:'کنار'};

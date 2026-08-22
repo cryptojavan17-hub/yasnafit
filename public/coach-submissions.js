@@ -6,6 +6,11 @@
     if(!r.ok) throw new Error(d.error||'خطا');
     return d;
   }
+  function photoPreferenceState(assessment){
+    if(assessment.body_photos_preference==='declined')return '<div class="photo-preference-state declined">— این شاگرد ترجیح داده است تصاویر بدنی ارسال نکند.</div>';
+    if(assessment.body_photos_preference==='willing')return `<div class="photo-preference-state willing">✓ مایل به ارسال تصاویر • ${(assessment.photos||[]).length} تصویر ارسال شده</div>`;
+    return '<div class="photo-preference-state legacy">انتخاب تصاویر در این ارزیابی قدیمی ثبت نشده است.</div>';
+  }
 
   function root(label){
     return `
@@ -33,7 +38,7 @@
           <p>وزن: ${item.weight||'—'}kg • قد: ${item.height||'—'} • ${esc(item.goal||'')}</p>
           <div class="program-meta">
             <span>📅 ${new Date(item.submitted_at||item.created_at).toLocaleDateString('fa-IR')}</span>
-            <span>📸 ${item.photo_count||0} عکس</span>
+            <span>${item.body_photos_preference==='declined'?'— عدم تمایل به تصاویر':`📸 ${item.photo_count||0} عکس`}</span>
             <span>📚 ${item.total_assessments||0} ارزیابی کل</span>
             <span>🔑 ${esc(item.status)}</span>
           </div>
@@ -102,14 +107,15 @@
                   یادداشت شاگرد: ${esc(ass.student_note||'—')}<br>
                   یادداشت مربی: ${esc(ass.coach_note||'—')}
                 </p>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+                ${photoPreferenceState(ass)}
+                ${ass.body_photos_preference==='declined'?'':`<div class="private-photo-gallery">
                   ${(ass.photos||[]).map(p=>`
-                    <div style="width:120px;height:120px;border-radius:10px;overflow:hidden;border:1px solid var(--border);position:relative">
-                      <img src="/api/student-photos/${p.id}" style="width:100%;height:100%;object-fit:cover">
-                      <small style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;text-align:center;font-size:10px">${esc(p.photo_type)}</small>
+                    <div class="private-photo-item">
+                      <img src="/api/student-photos/${p.id}" alt="تصویر خصوصی ${esc(p.photo_type)}">
+                      <small>${esc(p.photo_type)}</small>
                     </div>
-                  `).join('')}
-                </div>
+                  `).join('') || '<span class="muted">تصویری ارسال نشده است؛ این موضوع مانع بررسی نیست.</span>'}
+                </div>`}
               </section>
 
               ${prev?`
@@ -120,8 +126,8 @@
                   کمر قبلی: ${prev.waist||'—'} → فعلی: ${ass.waist||'—'}<br>
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <div><small>قبلی:</small><br>${(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border);margin:2px">`).join('')}</div>
-                  <div><small>فعلی:</small><br>${(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border-strong);margin:2px">`).join('')}</div>
+                  <div><small>قبلی:</small>${photoPreferenceState(prev)}${prev.body_photos_preference==='declined'?'':(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border);margin:2px">`).join('')}</div>
+                  <div><small>فعلی:</small>${photoPreferenceState(ass)}${ass.body_photos_preference==='declined'?'':(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border-strong);margin:2px">`).join('')}</div>
                 </div>
                 ${prevProg?`<div style="margin-top:10px"><small>برنامه قبلی: ${esc(prevProg.title)}</small></div>`:''}
               </section>

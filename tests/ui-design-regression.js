@@ -52,5 +52,9 @@ const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'ut
 assert.match(studentAppSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
 assert.match(studentAppSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
 assert.match(studentAppSource,/requireRange\(height,100,250/,'body range validation is missing');
+assert.match(studentAppSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');
+assert.match(studentAppSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
+assert.match(studentAppSource,/هر پنج تصویر اختیاری هستند/,'optional photo wording is missing');
+assert.doesNotMatch(studentAppSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
 console.log(JSON.stringify({ok:true,css_files:cssFiles.length,tokens:true,no_light_overrides:true,no_colorful_legacy_palette:true,components:true,stylesheet_order:true,dedicated_student_shell:true}));

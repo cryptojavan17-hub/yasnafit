@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `012_onboarding_body_input_fix` stored in `settings` table and `schema_migrations`
+Current: `013_optional_body_photos_preference` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -18,6 +18,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `010_repair_legacy_student_timestamps` - Repair missing student timestamps in legacy databases
 - `011_student_sessions_portal` - Hashed, revocable student sessions and portal release
 - `012_onboarding_body_input_fix` - Release record for localized body-input onboarding fix
+- `013_optional_body_photos_preference` - Explicit optional body-photo preference
 
 ## Full Schema
 
@@ -349,7 +350,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..012 applied and Imported 2707 exercises
+# Should show migrations 001..013 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -556,3 +557,18 @@ SQLite or student JSON responses.
 
 Migration `012_onboarding_body_input_fix` only records the intentional `0.5.1` PATCH
 release. It does not alter student, assessment, photo, program, or session tables.
+
+## Schema 013: Explicit optional body-photo preference
+
+`body_assessments.body_photos_preference` is nullable only for immutable legacy records
+and draft records whose student has not answered yet. New submissions require exactly one
+of `willing` or `declined`. Photo count is never part of assessment validity.
+
+```sql
+body_photos_preference TEXT
+  CHECK(body_photos_preference IS NULL OR
+        body_photos_preference IN ('willing','declined'));
+```
+
+Migration backfill sets `willing` only when a current photo actually exists. A historical
+record with no photos stays NULL and is never incorrectly inferred as `declined`.

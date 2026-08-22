@@ -13,7 +13,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-session-'));
 try{
   const db=new DatabaseSync(path.join(dir,'sessions.db'));db.exec('PRAGMA foreign_keys=ON');runMigrations(db);
   const add=db.prepare("INSERT INTO students(stable_id,full_name,status,version,created_at,updated_at) VALUES(?,?,'فعال',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-  const a=Number(add.run('session-a','Student A').lastInsertRowid),b=Number(add.run('session-b','Student B').lastInsertRowid);
+  const a=Number(add.run('session-a','Student A').lastInsertRowid),b=Number(add.run('session-b','Student B').lastInsertRowid),c=Number(add.run('session-c','Student C').lastInsertRowid);
   const inviteA=students.createInvite(db,a,30),inviteB=students.createInvite(db,b,30);
   assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.student_id,a);
   const acceptedA=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA.raw_session);assert.equal(acceptedA.student_id,a);
@@ -28,6 +28,13 @@ try{
   assert.equal(sessions.resolveStudentSession(db,reqB).student_id,b);
   assert.notEqual(sessions.resolveStudentSession(db,reqA).student_id,sessions.resolveStudentSession(db,reqB).student_id);
 
+  const declined=students.createAssessment(db,a,{weight:70,height:170,goal:'fitness',training_experience:'beginner',body_photos_preference:'declined'});
+  assert.equal(students.submitAssessment(db,declined.id).status,'SUBMITTED','declined/no-photo assessment was rejected');
+  const willing=students.createAssessment(db,b,{weight:71,height:171,goal:'fitness',training_experience:'beginner',body_photos_preference:'willing'});
+  assert.equal(students.submitAssessment(db,willing.id).status,'SUBMITTED','willing/zero-photo assessment was rejected');
+  const unspecified=students.createAssessment(db,c,{weight:72,height:172,goal:'fitness',training_experience:'beginner'});
+  assert.throws(()=>students.submitAssessment(db,unspecified.id),/تصاویر بدنی/,'missing explicit photo preference was accepted');
+
   const expiredInvite=students.createInvite(db,b,30);db.prepare("UPDATE student_invites SET expires_at='2000-01-01T00:00:00.000Z' WHERE id=?").run(expiredInvite.id);
   assert.equal(sessions.inspectInvitation(db,expiredInvite.token).error,'expired');
   const revokedInvite=students.createInvite(db,b,30);students.revokeInvite(db,revokedInvite.id);assert.equal(sessions.inspectInvitation(db,revokedInvite.token).error,'revoked');
@@ -38,5 +45,5 @@ try{
   assert.equal(sessions.revokeCurrentSession(db,reqB),true);assert.equal(sessions.resolveStudentSession(db,reqB),null,'logout session reuse accepted');
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   db.close();
-  console.log(JSON.stringify({ok:true,one_time_invite:true,hashed_session:true,expiration:true,revocation:true,logout_reuse_blocked:true,isolation:true}));
+  console.log(JSON.stringify({ok:true,one_time_invite:true,hashed_session:true,expiration:true,revocation:true,logout_reuse_blocked:true,isolation:true,declined_zero_photos_valid:true,willing_zero_photos_valid:true,explicit_preference_required:true}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

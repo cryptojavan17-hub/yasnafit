@@ -145,8 +145,9 @@
   }
 
   function photoGrid(assessment){
-    if(!assessment?.photos?.length) return '<p class="muted">عکسی ثبت نشده است.</p>';
-    return `<div class="student-photo-grid">${assessment.photos.map(photo=>`<button data-open-photo="${photo.id}" title="باز کردن عکس ${esc(photoLabels[photo.photo_type]||photo.photo_type)}"><img src="/api/student-photos/${photo.id}" alt="${esc(photoLabels[photo.photo_type]||photo.photo_type)}"><span>${esc(photoLabels[photo.photo_type]||photo.photo_type)}</span></button>`).join('')}</div>`;
+    if(assessment?.body_photos_preference==='declined')return '<div class="photo-preference-state declined">— این شاگرد ترجیح داده است تصاویر بدنی ارسال نکند.</div>';
+    if(!assessment?.photos?.length)return `<div class="photo-preference-state ${assessment?.body_photos_preference==='willing'?'willing':'legacy'}">${assessment?.body_photos_preference==='willing'?'✓ مایل به ارسال تصاویر؛ تصویری ارسال نشده است.':'انتخاب تصاویر در این ارزیابی قدیمی ثبت نشده است.'}</div>`;
+    return `<div class="photo-preference-state willing">✓ مایل به ارسال تصاویر • ${assessment.photos.length} تصویر</div><div class="student-photo-grid">${assessment.photos.map(photo=>`<button data-open-photo="${photo.id}" title="باز کردن عکس ${esc(photoLabels[photo.photo_type]||photo.photo_type)}"><img src="/api/student-photos/${photo.id}" alt="${esc(photoLabels[photo.photo_type]||photo.photo_type)}"><span>${esc(photoLabels[photo.photo_type]||photo.photo_type)}</span></button>`).join('')}</div>`;
   }
   function assessmentCard(assessment,current=false){
     return `<article class="history-card ${current?'current':''}"><header><div><b>ارزیابی ${assessment.assessment_number}</b><small>${formatDate(assessment.submitted_at||assessment.created_at)}</small></div><span class="student-status neutral">${esc(assessmentLabels[assessment.status]||assessment.status)}</span></header>
