@@ -697,6 +697,25 @@ const migrations = [
         JSON.stringify(changes)
       );
     }
+  },
+  {
+    id: '012_onboarding_body_input_fix',
+    description: 'Release record for robust localized body-information onboarding input',
+    up: (db) => {
+      const changes={
+        features:[],improvements:['پشتیبانی از ارقام فارسی، عربی و ممیز فارسی در اطلاعات بدنی'],
+        fixes:['رفع توقف مرحله اطلاعات بدنی و نمایش خطای پایدار و دقیق داخل فرم'],
+        security:[],breaking_changes:[]
+      };
+      db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `).run(
+        '0.5.1','Localized Body Information Onboarding Fix','2026-08-22',
+        'رفع مشکل عبور از مرحله اطلاعات بدنی در موبایل و صفحه‌کلید فارسی',
+        JSON.stringify(changes)
+      );
+    }
   }
 ];
 

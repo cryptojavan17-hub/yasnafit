@@ -969,3 +969,12 @@ or an authorized coach. DRAFT programs are excluded from every student response.
 assigned program ends (or no active program remains), the existing session routes the
 student back to onboarding to create the next assessment record rather than overwrite the
 previous month.
+
+## Localized body-input fix (v0.5.1)
+
+The body-information onboarding controls use mobile-friendly decimal text inputs instead
+of browser-dependent `type=number` parsing. Persian and Arabic digits, Persian decimal
+separators and comma decimals are normalized before validation. Height, weight and every
+optional measurement receive explicit finite/range checks, and any failure remains
+visible inside the wizard instead of disappearing in a short toast. No assessment or
+profile business rule changed.

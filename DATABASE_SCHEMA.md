@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `011_student_sessions_portal` stored in `settings` table and `schema_migrations`
+Current: `012_onboarding_body_input_fix` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -17,6 +17,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `009_my_students_crm_release` - Release record for the complete My Students CRM
 - `010_repair_legacy_student_timestamps` - Repair missing student timestamps in legacy databases
 - `011_student_sessions_portal` - Hashed, revocable student sessions and portal release
+- `012_onboarding_body_input_fix` - Release record for localized body-input onboarding fix
 
 ## Full Schema
 
@@ -348,7 +349,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..011 applied and Imported 2707 exercises
+# Should show migrations 001..012 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -550,3 +551,8 @@ CREATE TABLE student_sessions (
 Sessions expire after 30 days, are revoked on logout, and are also revoked when the coach
 revokes the invitation that created them. Raw invitation/session values never appear in
 SQLite or student JSON responses.
+
+## Schema 012: Onboarding body-input patch release
+
+Migration `012_onboarding_body_input_fix` only records the intentional `0.5.1` PATCH
+release. It does not alter student, assessment, photo, program, or session tables.

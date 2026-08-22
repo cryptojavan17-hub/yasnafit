@@ -16,8 +16,8 @@ try {
   assert.deepEqual(clean.prepare('PRAGMA integrity_check').get(),Object.assign(Object.create(null),{integrity_check:'ok'}));
   assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get().c,migrations.length);
   assert.ok(clean.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_body_assessments_student_number'").get());
-  assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM releases').get().c,7);
-  assert.equal(clean.prepare("SELECT title FROM releases WHERE version='0.5.0'").get().title,'Dedicated Student Portal and Session Authentication');
+  assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM releases').get().c,8);
+  assert.equal(clean.prepare("SELECT title FROM releases WHERE version='0.5.1'").get().title,'Localized Body Information Onboarding Fix');
   assert.ok(clean.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
   clean.close();
 
@@ -25,7 +25,7 @@ try {
   // must preserve rows, soft-delete the superseded slot, seed releases, and remain idempotent.
   const upgrade=new DatabaseSync(path.join(dir,'upgrade.db'));
   upgrade.exec('PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases','009_my_students_crm_release','010_repair_legacy_student_timestamps','011_student_sessions_portal'].includes(m.id))){
+  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases','009_my_students_crm_release','010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix'].includes(m.id))){
     upgrade.exec('BEGIN');
     migration.up(upgrade);
     upgrade.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(migration.id);
@@ -40,7 +40,7 @@ try {
   const photos=upgrade.prepare('SELECT stable_id,deleted_at FROM assessment_photos ORDER BY id').all();
   assert.ok(photos[0].deleted_at,'superseded duplicate was not soft-deleted');
   assert.equal(photos[1].deleted_at,null,'latest photo was not retained');
-  assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,7);
+  assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,8);
   assert.ok(upgrade.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
   assert.equal(upgrade.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   upgrade.close();
@@ -50,7 +50,7 @@ try {
   // non-constant CURRENT_TIMESTAMP default.
   const legacy=new DatabaseSync(path.join(dir,'legacy-missing-updated-at.db'));
   legacy.exec('PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-  for(const migration of migrations.filter(m=>!['010_repair_legacy_student_timestamps','011_student_sessions_portal'].includes(m.id))){
+  for(const migration of migrations.filter(m=>!['010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix'].includes(m.id))){
     legacy.exec('BEGIN');migration.up(legacy);
     legacy.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(migration.id);
     legacy.exec('COMMIT');
@@ -65,8 +65,9 @@ try {
   assert.ok(repaired.created_at);assert.ok(repaired.updated_at);
   assert.equal(legacy.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   assert.ok(legacy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
+  assert.equal(legacy.prepare('SELECT COUNT(*) AS c FROM releases').get().c,8);
   legacy.close();
-  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->011',releases:7,legacy_missing_updated_at:'repaired',student_sessions:true,integrity:'ok'}));
+  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->012',releases:8,legacy_missing_updated_at:'repaired',student_sessions:true,integrity:'ok'}));
 } finally {
   fs.rmSync(dir,{recursive:true,force:true});
 }

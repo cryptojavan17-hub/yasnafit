@@ -47,5 +47,10 @@ assert.match(studentHtml,/\/student-app\.css/,'student shell misses dedicated re
 assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewport');
 assert.match(css['student-app.css'],/@media\(max-width:800px\)/,'student portal misses tablet/mobile layout');
 assert.match(css['student-app.css'],/@media\(max-width:560px\)/,'student onboarding misses narrow mobile layout');
+assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboarding misses persistent validation feedback');
+const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+assert.match(studentAppSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
+assert.match(studentAppSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
+assert.match(studentAppSource,/requireRange\(height,100,250/,'body range validation is missing');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
 console.log(JSON.stringify({ok:true,css_files:cssFiles.length,tokens:true,no_light_overrides:true,no_colorful_legacy_palette:true,components:true,stylesheet_order:true,dedicated_student_shell:true}));
