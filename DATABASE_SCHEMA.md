@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `008_application_releases` stored in `settings` table and `schema_migrations`
+Current: `009_my_students_crm_release` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -14,6 +14,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `006_student_portal_lifecycle` - Invitations, assessments, private photos, monthly program links
 - `007_monthly_workflow_integrity` - Historical and lifecycle integrity hardening
 - `008_application_releases` - Structured application release history
+- `009_my_students_crm_release` - Release record for the complete My Students CRM
 
 ## Full Schema
 
@@ -345,7 +346,7 @@ All POST/PUT validated via src/validation.js:
 
 ```bash
 rm -rf data/yasnafit.db* && node -e "require('./src/database.js')"
-# Should show migrations 001..008 applied and Imported 2707 exercises
+# Should show migrations 001..009 applied and Imported 2707 exercises
 
 sqlite3 data/yasnafit.db "SELECT id, name, COUNT(*) OVER() as total FROM exercise_categories ORDER BY sort_order;"
 # Should show 13 categories
@@ -506,3 +507,5 @@ CREATE INDEX idx_releases_date ON releases(release_date DESC, id DESC);
 `changes_json` has five arrays: `features`, `improvements`, `fixes`, `security`, and
 `breaking_changes`. Migration `008_application_releases` seeds the actual release history
 from `0.1.0` through `0.3.0` and uses `INSERT OR IGNORE` for idempotency.
+Migration `009_my_students_crm_release` adds the intentional `0.4.0` feature release; it
+does not introduce a competing student table or alter student business data.

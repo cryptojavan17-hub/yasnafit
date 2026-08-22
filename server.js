@@ -209,21 +209,35 @@ async function handleDashboard(req,res){
 }
 
 async function handleStudents(req,res,url){
+  if(url.pathname!=='/api/students') return null;
   if(req.method==='GET'){
-    // Exclude soft deleted
+    const management=url.searchParams.get('view')==='management';
+    if(management){
+      const result=studentService.getManagedStudents(db,{
+        search:url.searchParams.get('search')||'',
+        status:url.searchParams.get('status')||'ALL',
+        page:url.searchParams.get('page')||1,
+        pageSize:url.searchParams.get('page_size')||20
+      });
+      return send(res,200,result);
+    }
+    // Backward-compatible compact list used by the existing Program Builder.
     return send(res,200,rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC'));
   }
   if(req.method==='POST'){
     const b=await readBody(req);
     const errors = validateStudentPayload(b);
     if(errors.length) return sendError(res,400, errors[0], errors);
+    const initialStatuses=['فعال','در انتظار','غیرفعال'];
+    if(b.status && !initialStatuses.includes(b.status)) return sendError(res,400,'وضعیت اولیه نامعتبر است');
 
     const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
     const r=db.prepare('INSERT INTO students (full_name,mobile,goal,status,weight,height,stable_id,version) VALUES (?,?,?,?,?,?,?,?)')
-      .run(b.full_name.trim(), b.mobile||'', b.goal||'', b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
+      .run(b.full_name.trim(), String(b.mobile||'').trim(), String(b.goal||'').trim(), b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
     log('شاگرد جدید ثبت شد', b.full_name);
     return send(res,201,{id:r.lastInsertRowid, stable_id: stableId});
   }
+  return sendError(res,405,'متد مجاز نیست');
 }
 
 async function handleStudentsDelete(req,res,url){
@@ -238,9 +252,9 @@ async function handleStudentsDelete(req,res,url){
     return send(res,200,{id, soft_deleted:true});
   }
   if(req.method==='GET'){
-    const s=one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL', id);
-    if(!s) return sendError(res,404,'شاگرد پیدا نشد');
-    return send(res,200,s);
+    const detail=studentService.getManagedStudentDetail(db,id);
+    if(!detail) return sendError(res,404,'شاگرد پیدا نشد');
+    return send(res,200,detail);
   }
   return null;
 }
@@ -998,6 +1012,20 @@ async function handleBodyAssessments(req,res,url){
 
   if(p==='/api/student-submissions' && req.method==='GET'){
     const list = studentService.getPendingSubmissions(db);
+    return send(res,200,list);
+  }
+
+  const studentProgramsMatch=p.match(/^\/api\/students\/(\d+)\/programs$/);
+  if(studentProgramsMatch && req.method==='GET'){
+    const list=studentService.getStudentPrograms(db,Number(studentProgramsMatch[1]));
+    if(!list) return sendError(res,404,'شاگرد پیدا نشد');
+    return send(res,200,list);
+  }
+
+  const studentInvitesMatch=p.match(/^\/api\/students\/(\d+)\/invites$/);
+  if(studentInvitesMatch && req.method==='GET'){
+    const list=studentService.getStudentInvites(db,Number(studentInvitesMatch[1]));
+    if(!list) return sendError(res,404,'شاگرد پیدا نشد');
     return send(res,200,list);
   }
 

@@ -102,6 +102,7 @@ function go(label, route){ current=route; history.pushState({},'',route); render
 function renderRoute(label,route){
   // Student portal - no sidebar, secure token
   if(route.startsWith('/join/') && window.renderStudentPortal) return window.renderStudentPortal(route);
+  if((route==='/users-list' || route.startsWith('/users-list/')) && window.renderStudentsPage) return window.renderStudentsPage(label,route);
   
   if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);
   if(route==='/programs/exercise/form' && window.renderProgramBuilder) return window.renderProgramBuilder(label,route);

@@ -590,6 +590,35 @@ const migrations = [
         seed.run(release.version,release.title,release.release_date,release.summary,JSON.stringify(release.changes));
       }
     }
+  },
+  {
+    id: '009_my_students_crm_release',
+    description: 'Release record for the complete coach My Students CRM',
+    up: (db) => {
+      const changes={
+        features:[
+          'صفحه واقعی شاگرد های من با جستجو، فیلتر و آمار زنده',
+          'پرونده کامل شاگرد شامل ارزیابی‌ها، عکس‌های خصوصی، برنامه‌ها و تایم‌لاین',
+          'مدیریت لینک دعوت و درخواست ارزیابی جدید از پرونده شاگرد',
+          'نمایش فقط‌خواندنی برنامه‌های تاریخی'
+        ],
+        improvements:[
+          'تجمیع وضعیت ارزیابی و برنامه ماهانه در API مدیریت شاگردان',
+          'صفحه‌بندی سمت سرور برای رشد تعداد شاگردان'
+        ],
+        fixes:['حذف renderer قدیمی و جلوگیری از نمایش placeholder در مسیر /users-list'],
+        security:['حفظ دسترسی coach-only و استفاده از endpoint محافظت‌شده عکس‌ها'],
+        breaking_changes:[]
+      };
+      db.prepare(`
+        INSERT OR IGNORE INTO releases (version,title,release_date,summary,changes_json)
+        VALUES (?,?,?,?,?)
+      `).run(
+        '0.4.0','Complete My Students CRM','2026-08-22',
+        'مرکز واقعی مدیریت شاگرد، دعوت، ارزیابی، برنامه و تاریخچه ماهانه',
+        JSON.stringify(changes)
+      );
+    }
   }
 ];
 

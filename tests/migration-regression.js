@@ -16,15 +16,15 @@ try {
   assert.deepEqual(clean.prepare('PRAGMA integrity_check').get(),Object.assign(Object.create(null),{integrity_check:'ok'}));
   assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM schema_migrations').get().c,migrations.length);
   assert.ok(clean.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_body_assessments_student_number'").get());
-  assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM releases').get().c,4);
-  assert.equal(clean.prepare("SELECT title FROM releases WHERE version='0.3.0'").get().title,'Application Versioning and Release History');
+  assert.equal(clean.prepare('SELECT COUNT(*) AS c FROM releases').get().c,5);
+  assert.equal(clean.prepare("SELECT title FROM releases WHERE version='0.4.0'").get().title,'Complete My Students CRM');
   clean.close();
 
   // Upgrade from schema 006 with duplicate current photo slots. Pending migrations
   // must preserve rows, soft-delete the superseded slot, seed releases, and remain idempotent.
   const upgrade=new DatabaseSync(path.join(dir,'upgrade.db'));
   upgrade.exec('PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases'].includes(m.id))){
+  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases','009_my_students_crm_release'].includes(m.id))){
     upgrade.exec('BEGIN');
     migration.up(upgrade);
     upgrade.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(migration.id);
@@ -39,10 +39,10 @@ try {
   const photos=upgrade.prepare('SELECT stable_id,deleted_at FROM assessment_photos ORDER BY id').all();
   assert.ok(photos[0].deleted_at,'superseded duplicate was not soft-deleted');
   assert.equal(photos[1].deleted_at,null,'latest photo was not retained');
-  assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,4);
+  assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,5);
   assert.equal(upgrade.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   upgrade.close();
-  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->008',releases:4,integrity:'ok'}));
+  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->009',releases:5,integrity:'ok'}));
 } finally {
   fs.rmSync(dir,{recursive:true,force:true});
 }

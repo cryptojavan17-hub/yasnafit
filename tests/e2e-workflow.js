@@ -59,6 +59,7 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.equal(landing.status,401,'coach dashboard shell was public');
   assert.equal(landing.headers.get('set-cookie'),null,'public dashboard minted a coach session without authentication');
   await expectStatus(401,'/api/students');
+  await expectStatus(401,'/users-list');
   await expectStatus(401,'/coach-access/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
   const accessToken=process.env.YASNAFIT_COACH_TOKEN || fs.readFileSync(path.join(__dirname,'..','data','coach-access-token'),'utf8').trim();
   const access=await fetch(`${BASE}/coach-access/${accessToken}`,{redirect:'manual',headers:{'X-Forwarded-Proto':'https'}});
@@ -69,8 +70,14 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.match(coachCookie,/^yasnafit_coach_session=/,'authenticated coach session cookie was not issued');
 
   const suffix=Date.now();
-  const s1=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student A ${suffix}`,mobile:'09120000001',goal:'فیتنس'}});
-  const s2=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student B ${suffix}`,mobile:'09120000002',goal:'فیتنس'}});
+  const mobileA=`09${String(suffix).slice(-9)}`;
+  const mobileB=`08${String(suffix).slice(-9)}`;
+  const s1=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student A ${suffix}`,mobile:mobileA,goal:'فیتنس'}});
+  const s2=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});
+  const newStudentSearch=await ok(`/api/students?view=management&search=${encodeURIComponent(String(suffix))}&status=NEW&page=1&page_size=10`,{coach:true});
+  assert.equal(newStudentSearch.items.length,2);assert.equal(newStudentSearch.items[0].management_status,'NEW');
+  const mobileSearch=await ok(`/api/students?view=management&search=${mobileA}&page=1&page_size=10`,{coach:true});
+  assert.equal(mobileSearch.items.length,1);assert.equal(mobileSearch.items[0].id,s1.id);
   await expectStatus(400,'/api/student-invites',{method:'POST',coach:true,body:{student_id:`${s1.id} OR 1=1`}});
   const inv1=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(s1.id),expires_in_days:30}});
   const revoked=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(s2.id),expires_in_days:30}});
@@ -79,7 +86,7 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   await expectStatus(404,'/api/student-portal/not-a-real-secure-token-value');
 
   await ok(`/api/student-portal/${inv1.token}/profile`,{method:'PUT',body:{
-    full_name:`E2E Student A ${suffix}`,mobile:'09120000001',height:175,weight:78,goal:'فیتنس',
+    full_name:`E2E Student A ${suffix}`,mobile:mobileA,height:175,weight:78,goal:'فیتنس',
     training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'
   }});
   const a1=await ok(`/api/student-portal/${inv1.token}/assessment`,{method:'POST',body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
@@ -107,6 +114,10 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.equal(submitted1.status,'SUBMITTED');
   const pending=await ok('/api/student-submissions',{coach:true});
   assert.ok(pending.some(x=>x.id===a1.id),'coach pending queue omitted assessment');
+  const managementPending=await ok('/api/students?view=management&status=PENDING_REVIEW&page=1&page_size=100',{coach:true});
+  assert.ok(managementPending.items.some(student=>student.id===s1.id),'My Students did not show the submitted assessment as pending review');
+  const studentDetailPending=await ok(`/api/students/${s1.id}`,{coach:true});
+  assert.equal(studentDetailPending.current_assessment.id,a1.id);assert.equal(studentDetailPending.assessments.length,1);
   const detail1=await ok(`/api/assessments/${a1.id}`,{coach:true});
   assert.equal(detail1.assessment.photos.length,3);
   const photoId=detail1.assessment.photos[0].id;
@@ -138,6 +149,8 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   const portal1=await ok(`/api/student-portal/${inv1.token}`);
   assert.equal(portal1.current_program.id,p1.id);
   assert.equal(portal1.current_program.program_data.days[0].data[0].movement_list[0].sets[0].rest_seconds,60);
+  const managementActive=await ok(`/api/students?view=management&search=${encodeURIComponent(`E2E Student A ${suffix}`)}&page=1&page_size=10`,{coach:true});
+  assert.equal(managementActive.items[0].current_program_id,p1.id);assert.equal(managementActive.items[0].current_program_status,'ACTIVE');
   await expectStatus(409,`/api/training-programs/${p1.id}`,{method:'PUT',coach:true,body:programPayload(Number(s1.id),a1.id,1)});
   await expectStatus(409,`/api/training-programs/${p1.id}`,{method:'DELETE',coach:true});
 
@@ -164,25 +177,46 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
   assert.equal(portal2.assessments.length,2);
   assert.equal(portal2.programs.length,2);
   assert.ok(!portal2.programs.some(p=>p.status==='DRAFT'),'student saw a draft');
+  const finalStudentDetail=await ok(`/api/students/${s1.id}`,{coach:true});
+  assert.equal(finalStudentDetail.assessments.length,2);assert.equal(finalStudentDetail.programs.length,2);
+  assert.equal(finalStudentDetail.timeline.filter(item=>item.type==='assessment').length,2);
+  assert.equal(finalStudentDetail.timeline.filter(item=>item.type==='program').length,2);
+  const studentPrograms=await ok(`/api/students/${s1.id}/programs`,{coach:true});
+  assert.deepEqual(studentPrograms.map(program=>program.status),['COMPLETED','ACTIVE']);
+  const studentInvites=await ok(`/api/students/${s1.id}/invites`,{coach:true});
+  assert.ok(studentInvites.length>=1);assert.equal('token_hash' in studentInvites[0],false);
 
   await ok(`/api/student-invites/${inv1.id}/revoke`,{method:'POST',coach:true});
   await expectStatus(404,`/api/student-portal/${inv1.token}`);
+  await expectStatus(404,'/api/students/999999999',{coach:true});
+  await expectStatus(404,'/api/students/not-a-number',{coach:true});
+  const disposable=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`E2E Deleted ${suffix}`,mobile:'09000000000',goal:'test'}});
+  await ok(`/api/students/${disposable.id}`,{method:'DELETE',coach:true});
+  await expectStatus(404,`/api/students/${disposable.id}`,{coach:true});
+  const deletedSearch=await ok(`/api/students?view=management&search=${encodeURIComponent(`E2E Deleted ${suffix}`)}&page=1&page_size=10`,{coach:true});
+  assert.equal(deletedSearch.items.length,0);
   const traversalResponse=await fetch(BASE+'/%2e%2e/server.js');
   assert.notEqual(traversalResponse.status,200,'encoded path traversal served source');
 
   const versionInfo=await ok('/api/version');
-  assert.deepEqual(versionInfo,{version:'0.3.0',name:'Yasnafit',environment:'development'});
+  assert.deepEqual(versionInfo,{version:'0.4.0',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');
-  assert.deepEqual(releases.map(release=>release.version),['0.3.0','0.2.1','0.2.0','0.1.0']);
+  assert.deepEqual(releases.map(release=>release.version),['0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
   assert.ok(releases.every(release=>release.changes && Array.isArray(release.changes.features)));
   assert.equal(releases.filter(release=>release.is_current).length,1);
-  const currentRelease=await ok('/api/releases/0.3.0');
-  assert.equal(currentRelease.title,'Application Versioning and Release History');
+  const currentRelease=await ok('/api/releases/0.4.0');
+  assert.equal(currentRelease.title,'Complete My Students CRM');
   assert.equal(currentRelease.is_current,true);
   await expectStatus(404,'/api/releases/9.9.9');
 
   const coreSource=fs.readFileSync(path.join(__dirname,'..','public','core.js'),'utf8');
+  const appSource=fs.readFileSync(path.join(__dirname,'..','public','app.js'),'utf8');
+  const studentsSource=fs.readFileSync(path.join(__dirname,'..','public','students.js'),'utf8');
   const releaseSource=fs.readFileSync(path.join(__dirname,'..','public','releases.js'),'utf8');
+  assert.match(appSource,/renderStudentsPage/,'/users-list is not delegated to the real student CRM renderer');
+  assert.match(studentsSource,/view:'management'/,'student CRM is not connected to the management API');
+  assert.match(studentsSource,/هنوز شاگردی ثبت نشده است/,'student CRM empty state is missing');
+  assert.doesNotMatch(coreSource,/if\(route==='\/users-list'\)\{/,'legacy competing users-list renderer still exists');
   assert.match(coreSource,/api\/version/,'dashboard does not load the central version API');
   assert.match(coreSource,/dashboard-version/,'dashboard version display is missing');
   assert.match(releaseSource,/api\/releases/,'release history UI is not connected to the releases API');
@@ -193,6 +227,6 @@ async function upload(token, assessmentId, type, bytes=png, filename=`${type}.pn
 
   const health=await ok('/api/health');
   assert.equal(health.exercises,2707);
-  assert.equal(health.schema_version,'008_application_releases');
+  assert.equal(health.schema_version,'009_my_students_crm_release');
   console.log(JSON.stringify({ok:true,student_id:s1.id,assessments:[a1.id,a2.id],programs:[p1.id,p2.id],application_version:versionInfo.version,releases:releases.length},null,2));
 })().catch(error=>{ console.error(error); process.exitCode=1; });

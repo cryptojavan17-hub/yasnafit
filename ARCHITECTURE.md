@@ -876,3 +876,26 @@ Read-only endpoints:
 Release workflow: intentionally update `package.json.version`, add a structured release
 record through a new migration, commit, then create an annotated `vMAJOR.MINOR.PATCH` Git
 tag. Tags are not pushed automatically.
+
+---
+
+# My Students CRM (`/users-list`, v0.4.0)
+
+`public/students.js` is the single coach UI for student management. It consumes the
+existing students, invitations, body assessments, protected photos, normalized training
+programs, and timeline data; it does not create another student model.
+
+`GET /api/students?view=management` provides server-side name/mobile search, derived-state
+filtering, pagination, and aggregate counters. Statuses are projections of actual student,
+latest-assessment, invitation, and active-program rows. Existing `GET /api/students`
+continues returning the compact array required by Program Builder.
+
+Coach detail APIs are `GET /api/students/:id`, `/assessments`, `/programs`, `/timeline`, and
+`/invites`. They all pass the existing coach authorization boundary. Photo JSON omits
+storage paths and the UI loads bytes only from the protected `/api/student-photos/:id`
+endpoint. Historical programs open in a dedicated read-only viewer; activation/history
+immutability remains enforced in `program-service.js`.
+
+Creating or requesting a new assessment reuses the secure invitation service and returns
+the raw token only once. The assessment itself is still completed exclusively in the
+Student Portal. No new student or assessment tables were added.

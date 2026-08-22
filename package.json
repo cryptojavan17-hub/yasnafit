@@ -1,13 +1,14 @@
 {
   "name": "yasnafit",
   "displayName": "Yasnafit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Yasnafit local fitness coaching dashboard",
   "scripts": {
     "start": "node server.js",
-    "test": "npm run test:migrations && npm run test:e2e",
+    "test": "npm run test:migrations && npm run test:students && npm run test:e2e",
     "test:migrations": "node tests/migration-regression.js",
+    "test:students": "node tests/student-management-regression.js",
     "test:e2e": "node tests/e2e-workflow.js"
   },
   "engines": { "node": ">=22.5" }

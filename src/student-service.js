@@ -48,7 +48,15 @@ function createInvite(db, studentId, expiresInDays=30){
 
   // Update student profile_status to INVITED
   try {
-    db.prepare(`UPDATE students SET profile_status='INVITED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(studentId);
+    db.prepare(`
+      UPDATE students
+      SET profile_status=CASE
+        WHEN profile_status IS NULL OR profile_status='' THEN 'INVITED'
+        ELSE profile_status
+      END,
+      updated_at=CURRENT_TIMESTAMP, version=version+1
+      WHERE id=?
+    `).run(studentId);
   } catch(e){}
 
   return {
@@ -296,6 +304,172 @@ function reviewAssessment(db, assessmentId, action, coachNote=''){
   return db.prepare('SELECT * FROM body_assessments WHERE id=?').get(assessmentId);
 }
 
+const MANAGEMENT_STATUS_VALUES = [
+  'NEW','PROFILE_PENDING','PENDING_REVIEW','UNDER_REVIEW','CHANGES_REQUESTED',
+  'APPROVED_AWAITING_PROGRAM','ACTIVE_PROGRAM','NEEDS_ASSESSMENT','INACTIVE'
+];
+
+const MANAGEMENT_CTE = `
+  WITH ranked_assessments AS (
+    SELECT ba.*, ROW_NUMBER() OVER (
+      PARTITION BY ba.student_id ORDER BY ba.assessment_number DESC, ba.id DESC
+    ) AS row_num
+    FROM body_assessments ba WHERE ba.deleted_at IS NULL
+  ),
+  latest_assessment AS (SELECT * FROM ranked_assessments WHERE row_num=1),
+  ranked_programs AS (
+    SELECT tp.*, ROW_NUMBER() OVER (
+      PARTITION BY tp.student_id ORDER BY tp.program_number DESC, tp.id DESC
+    ) AS row_num
+    FROM training_programs tp WHERE tp.deleted_at IS NULL
+  ),
+  latest_program AS (SELECT * FROM ranked_programs WHERE row_num=1),
+  ranked_active_programs AS (
+    SELECT tp.*, ROW_NUMBER() OVER (
+      PARTITION BY tp.student_id ORDER BY tp.program_number DESC, tp.id DESC
+    ) AS row_num
+    FROM training_programs tp WHERE tp.deleted_at IS NULL AND tp.status='ACTIVE'
+  ),
+  active_program AS (SELECT * FROM ranked_active_programs WHERE row_num=1),
+  invitation_summary AS (
+    SELECT student_id, COUNT(*) AS invite_count,
+           SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active_invite_count
+    FROM student_invites WHERE deleted_at IS NULL GROUP BY student_id
+  ),
+  student_management AS (
+    SELECT
+      s.id, s.stable_id, s.full_name, s.mobile, s.goal, s.status AS student_record_status,
+      s.profile_status, s.weight, s.height, s.training_level, s.preferred_location,
+      s.created_at, s.updated_at,
+      la.id AS current_assessment_id,
+      la.assessment_number AS current_assessment_number,
+      la.status AS current_assessment_status,
+      la.submitted_at AS last_assessment_submitted_at,
+      la.created_at AS last_assessment_created_at,
+      lp.id AS current_program_id,
+      lp.title AS current_program_title,
+      lp.status AS current_program_status,
+      lp.start_date AS current_program_start_date,
+      lp.end_date AS current_program_end_date,
+      ap.id AS active_program_id,
+      ap.end_date AS active_program_end_date,
+      COALESCE(ins.invite_count,0) AS invite_count,
+      COALESCE(ins.active_invite_count,0) AS active_invite_count,
+      CASE
+        WHEN s.status IN ('غیرفعال','inactive','INACTIVE') THEN 'INACTIVE'
+        WHEN la.id IS NULL AND COALESCE(ins.invite_count,0)=0 THEN 'NEW'
+        WHEN la.id IS NULL THEN 'PROFILE_PENDING'
+        WHEN la.status='SUBMITTED' THEN 'PENDING_REVIEW'
+        WHEN la.status='UNDER_REVIEW' THEN 'UNDER_REVIEW'
+        WHEN la.status='CHANGES_REQUESTED' THEN 'CHANGES_REQUESTED'
+        WHEN ap.id IS NOT NULL AND ap.end_date IS NOT NULL AND date(ap.end_date)<date('now') THEN 'NEEDS_ASSESSMENT'
+        WHEN ap.id IS NOT NULL THEN 'ACTIVE_PROGRAM'
+        WHEN la.status='APPROVED' THEN 'APPROVED_AWAITING_PROGRAM'
+        WHEN la.status='PROGRAM_ASSIGNED' OR lp.status IN ('COMPLETED','ARCHIVED') THEN 'NEEDS_ASSESSMENT'
+        ELSE 'PROFILE_PENDING'
+      END AS management_status,
+      CASE
+        WHEN la.id IS NULL THEN 'REQUIRED'
+        WHEN la.status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','SUBMITTED','UNDER_REVIEW','CHANGES_REQUESTED') THEN 'IN_PROGRESS'
+        WHEN ap.id IS NOT NULL AND ap.end_date IS NOT NULL AND date(ap.end_date)<date('now') THEN 'DUE'
+        WHEN ap.id IS NOT NULL THEN 'NOT_DUE'
+        WHEN la.status='APPROVED' THEN 'WAITING_PROGRAM'
+        WHEN lp.status IN ('COMPLETED','ARCHIVED') OR la.status='PROGRAM_ASSIGNED' THEN 'DUE'
+        ELSE 'REQUIRED'
+      END AS next_assessment_status
+    FROM students s
+    LEFT JOIN latest_assessment la ON la.student_id=s.id
+    LEFT JOIN latest_program lp ON lp.student_id=s.id
+    LEFT JOIN active_program ap ON ap.student_id=s.id
+    LEFT JOIN invitation_summary ins ON ins.student_id=s.id
+    WHERE s.deleted_at IS NULL
+  )
+`;
+
+function normalizeManagementOptions(options={}){
+  const page=Math.max(1,Number.parseInt(options.page,10)||1);
+  const pageSize=Math.min(100,Math.max(1,Number.parseInt(options.pageSize,10)||20));
+  const search=String(options.search||'').trim().slice(0,100);
+  const status=MANAGEMENT_STATUS_VALUES.includes(options.status)?options.status:'ALL';
+  const studentId=Number.isInteger(Number(options.studentId)) && Number(options.studentId)>0 ? Number(options.studentId) : null;
+  return {page,pageSize,search,status,studentId};
+}
+
+function getManagedStudents(db,options={}){
+  const normalized=normalizeManagementOptions(options);
+  const searchLike=`%${normalized.search}%`;
+  const filters=`
+    WHERE (?='' OR full_name LIKE ? COLLATE NOCASE OR COALESCE(mobile,'') LIKE ?)
+      AND (?='ALL' OR management_status=?)
+      AND (? IS NULL OR id=?)
+  `;
+  const params=[normalized.search,searchLike,searchLike,normalized.status,normalized.status,normalized.studentId,normalized.studentId];
+  const total=db.prepare(`${MANAGEMENT_CTE} SELECT COUNT(*) AS total FROM student_management ${filters}`).get(...params).total;
+  const items=db.prepare(`${MANAGEMENT_CTE}
+    SELECT * FROM student_management ${filters}
+    ORDER BY id DESC LIMIT ? OFFSET ?
+  `).all(...params,normalized.pageSize,(normalized.page-1)*normalized.pageSize);
+  const stats=db.prepare(`${MANAGEMENT_CTE}
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN student_record_status IN ('فعال','active','ACTIVE') THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN management_status IN ('PENDING_REVIEW','UNDER_REVIEW') THEN 1 ELSE 0 END) AS pending_review,
+      SUM(CASE WHEN active_program_id IS NOT NULL THEN 1 ELSE 0 END) AS active_programs,
+      SUM(CASE WHEN management_status='NEEDS_ASSESSMENT' THEN 1 ELSE 0 END) AS needs_assessment
+    FROM student_management
+  `).get();
+  return {
+    items,
+    pagination:{page:normalized.page,page_size:normalized.pageSize,total,total_pages:Math.max(1,Math.ceil(total/normalized.pageSize))},
+    stats:{
+      total:Number(stats.total||0),active:Number(stats.active||0),pending_review:Number(stats.pending_review||0),
+      active_programs:Number(stats.active_programs||0),needs_assessment:Number(stats.needs_assessment||0)
+    },
+    filters:{search:normalized.search,status:normalized.status}
+  };
+}
+
+function getManagedStudentDetail(db,studentId){
+  const summary=getManagedStudents(db,{studentId,pageSize:1}).items[0];
+  if(!summary) return null;
+  const full=getStudentFullData(db,studentId);
+  return {
+    student:full.student,
+    summary,
+    current_assessment:full.assessments.length?full.assessments[full.assessments.length-1]:null,
+    current_program:full.programs.length?full.programs[full.programs.length-1]:null,
+    assessments:full.assessments,
+    programs:full.programs,
+    timeline:full.timeline,
+    invites:full.invites
+  };
+}
+
+function getStudentPrograms(db,studentId){
+  const exists=db.prepare('SELECT id FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
+  if(!exists) return null;
+  return db.prepare(`
+    SELECT id, stable_id, student_id, assessment_id, program_number, title, coach_note,
+           status, start_date, end_date, assigned_at, completed_at, archived_at,
+           version, created_at, updated_at
+    FROM training_programs
+    WHERE student_id=? AND deleted_at IS NULL
+    ORDER BY program_number ASC, id ASC
+  `).all(studentId);
+}
+
+function getStudentInvites(db,studentId){
+  const exists=db.prepare('SELECT id FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
+  if(!exists) return null;
+  return db.prepare(`
+    SELECT id, stable_id, student_id, token_preview, status, expires_at, used_at,
+           revoked_at, created_at, updated_at
+    FROM student_invites
+    WHERE student_id=? AND deleted_at IS NULL
+    ORDER BY id DESC
+  `).all(studentId);
+}
+
 module.exports = {
   genSecureToken,
   hashToken,
@@ -308,5 +482,10 @@ module.exports = {
   createAssessment,
   updateAssessment,
   submitAssessment,
-  reviewAssessment
+  reviewAssessment,
+  MANAGEMENT_STATUS_VALUES,
+  getManagedStudents,
+  getManagedStudentDetail,
+  getStudentPrograms,
+  getStudentInvites
 };
