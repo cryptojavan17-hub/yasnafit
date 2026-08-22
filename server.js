@@ -270,6 +270,73 @@ async function api(req,res,url){
    return send(res,200,{imported: count, organized: organizedCount, sample, importedDir, organizedDir});
  }
 
+ // New: Direct image by original_id - most robust way
+ if(req.method==='GET' && p.startsWith('/api/exercise-image/')) {
+   const originalId = p.replace('/api/exercise-image/','').split('?')[0].trim();
+   if(!originalId) return send(res,400,{error:'ID required'});
+
+   function findByOriginalId(dir, id) {
+     if(!fs.existsSync(dir)) return null;
+     const stack = [dir];
+     const idStr = String(id);
+     while(stack.length){
+       const current = stack.pop();
+       try {
+         const entries = fs.readdirSync(current, {withFileTypes:true});
+         for(const entry of entries){
+           const full = path.join(current, entry.name);
+           if(entry.isFile()){
+             const name = entry.name;
+             const ext = path.extname(name).toLowerCase();
+             if(!['.png','.jpg','.jpeg','.gif','.webp'].includes(ext)) continue;
+             // Exact match: 4.png, 4.jpg
+             if(name.toLowerCase() === idStr.toLowerCase() + ext) return full;
+             // Starts with id_ : 4_xxx.png, 4-xxx.jpg
+             if(name.startsWith(idStr + '_') || name.startsWith(idStr + '-') || name.startsWith(idStr + ' ')) return full;
+             // Contains _id_ or id in name? More permissive
+             // If filename starts with id and then non-digit
+             const match = name.match(/^(\d+)[^0-9]/);
+             if(match && match[1] === idStr) return full;
+           }
+           if(entry.isDirectory()){
+             stack.push(full);
+           }
+         }
+       } catch(e){}
+     }
+     return null;
+   }
+
+   const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+   const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
+   const publicRoot = path.join(publicDir, 'assets', 'images', 'exercises');
+
+   let found = findByOriginalId(importedRoot, originalId)
+            || findByOriginalId(organizedRoot, originalId)
+            || findByOriginalId(publicRoot, originalId);
+
+   // Also try to find by checking exercises_data.json image path directly if file exists in organized
+   if(!found){
+     // Try direct file paths from DB: /files/exercise/images/4.png -> basename
+     const directPaths = [
+       path.join(importedRoot, originalId + '.png'),
+       path.join(importedRoot, originalId + '.jpg'),
+       path.join(importedRoot, originalId + '.jpeg'),
+     ];
+     for(const dp of directPaths){
+       if(fs.existsSync(dp)) { found = dp; break; }
+     }
+   }
+
+   if(found && fs.existsSync(found)){
+     const ext = path.extname(found).toLowerCase();
+     res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
+     return fs.createReadStream(found).pipe(res);
+   }
+
+   return send(res,404,{error:'Image not found for id', id: originalId, searchedIn: [importedRoot, organizedRoot]});
+ }
+
  if(req.method==='GET'&&p==='/api/programs') return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
  if(req.method==='POST'&&p==='/api/programs') {
    const b=await read(req);

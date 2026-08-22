@@ -38,40 +38,74 @@
   }
 
   function imageHtml(ex) {
-    // Try multiple sources: image_path from DB, then imported folder, then placeholder
     const origId = ex.original_id || ex.id;
-    const candidates = [];
-    if (ex.image_path) candidates.push(ex.image_path);
-    candidates.push(`/assets/images/exercises/imported/${origId}.png`);
-    candidates.push(`/assets/images/exercises/imported/${origId}.jpg`);
-    candidates.push(`/files/exercise/images/${origId}.png`);
-    candidates.push(`/files/exercise/images/${origId}.jpg`);
-    // Use first candidate as src, with fallback chain via onerror
-    const primary = candidates[0] || `/assets/images/exercises/imported/${origId}.png`;
-    const fallbackChain = candidates.slice(1).map(c => `'${c}'`).join(',');
+    // Primary robust endpoint that searches recursively for any file starting with originalId
+    const primary = `/api/exercise-image/${origId}`;
+    const candidates = [
+      `/assets/images/exercises/imported/${origId}.png`,
+      `/assets/images/exercises/imported/${origId}.jpg`,
+      `/assets/images/exercises/imported/${origId}.jpeg`,
+      ex.image_path ? ex.image_path : null,
+      `/files/exercise/images/${origId}.png`,
+      `/files/exercise/images/${origId}.jpg`
+    ].filter(Boolean);
+
+    // Store candidates as JSON in data attribute safely (base64 to avoid escaping issues)
+    const fallbacksJson = JSON.stringify(candidates);
+    const fallbacksB64 = btoa(unescape(encodeURIComponent(fallbacksJson)));
+
     return `
       <div class="image-wrap">
         <img class="exercise-image" src="${esc(primary)}" alt="${esc(ex.name_fa)}"
-          data-fallbacks='${esc(JSON.stringify(candidates.slice(1)))}'
+          data-fallbacks-b64="${fallbacksB64}"
+          data-orig-id="${origId}"
           onerror="window.handleImageError(this)"
+          loading="lazy"
         >
         <div class="no-image">تصویر<br>موجود نیست<br><small>ID:${origId}</small></div>
       </div>
     `;
   }
 
-  // Global image error handler with fallback chain
+  // Global image error handler with fallback chain - robust version
   window.handleImageError = function(img) {
     try {
-      const fallbacks = JSON.parse(img.dataset.fallbacks || '[]');
+      // Try to decode base64 fallbacks
+      let fallbacks = [];
+      if (img.dataset.fallbacksB64) {
+        try {
+          const jsonStr = decodeURIComponent(escape(atob(img.dataset.fallbacksB64)));
+          fallbacks = JSON.parse(jsonStr);
+        } catch(e){
+          // Fallback to old attribute if exists
+          try {
+            fallbacks = JSON.parse(img.dataset.fallbacks || '[]');
+          } catch(e2){}
+        }
+      } else if (img.dataset.fallbacks) {
+        try {
+          fallbacks = JSON.parse(img.dataset.fallbacks);
+        } catch(e){}
+      }
+
+      // If current src is the primary /api/exercise-image/, and it failed, try candidates
       if (fallbacks.length === 0) {
+        console.warn('Image failed and no fallbacks:', img.dataset.origId, img.src);
         img.style.display = 'none';
+        // Show no-image div
+        const noImg = img.parentElement.querySelector('.no-image');
+        if(noImg) noImg.style.display = 'grid';
         return;
       }
+
       const next = fallbacks.shift();
-      img.dataset.fallbacks = JSON.stringify(fallbacks);
+      // Update remaining fallbacks
+      const remainingJson = JSON.stringify(fallbacks);
+      img.dataset.fallbacksB64 = btoa(unescape(encodeURIComponent(remainingJson)));
+      // console.log('Trying fallback:', next, 'for', img.dataset.origId);
       img.src = next;
     } catch (e) {
+      console.error('handleImageError failed', e);
       img.style.display = 'none';
     }
   };
