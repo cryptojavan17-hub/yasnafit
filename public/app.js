@@ -44,7 +44,7 @@ const menu = [
   ['لیست انتظار اصلاحی','/corrective/wait-list','◷'],
   ['لیست انتظار مکمل','/supplement/wait-list','◷'],
   ['بانک برنامه ها',null,'▣',[
-    ['ساخت برنامه تمرینی','/templates/exercise/list'],
+    ['ساخت برنامه تمرینی','/programs/exercise/form'],
     ['برنامه های غذایی','/templates/diet/list'],
     ['برنامه های مکمل','/templates/supplement/list'],
     ['برنامه های اصلاحی','/templates/corrective/list']

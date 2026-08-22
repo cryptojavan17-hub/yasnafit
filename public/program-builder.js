@@ -112,6 +112,7 @@
         </div>
         <div class="header-actions">
           <span class="volume-badge">📊 ${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</span>
+          <button class="btn btn-secondary" id="btnList">📋 لیست برنامه‌ها</button>
           <button class="btn btn-secondary" id="btnPreview">👁 JSON</button>
           <button class="btn btn-secondary" id="btnStats">📈 آمار</button>
         </div>
@@ -797,6 +798,7 @@
       document.getElementById('drawerTabCompare').style.display='none';
       openExerciseDrawer();
     };
+    document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
     document.getElementById('btnCalorie').onclick=()=> alert('🧮 محاسبه‌گر کالری: ابزار محاسبه کالری مورد نیاز شاگرد');
     document.getElementById('btnAssist').onclick=()=> alert('👥 دستیارها: مدیریت دستیارها (deleteOrderAssistDeleteRequest, putOrderAssistPassRequest)');
     document.getElementById('btnPreview').onclick=()=>{
