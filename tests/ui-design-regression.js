@@ -104,6 +104,8 @@ assert.doesNotMatch(addStudentBlock,/name=\\?"(?:goal|status|weight|height)\\?"/
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
 for(const heading of ['ردیف','نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
 assert.match(studentsSource,/student-identity-cell[^\n]+student\.full_name[^\n]+شماره پرونده[^\n]+student\.case_number/,'case number is not placed below the student name');
+assert.doesNotMatch(css['students.css'],/student-identity-cell\{min-width:1[5-9]0px/,'student identity cell still forces a wide gap');
+assert.match(css['students.css'],/td:nth-child\(2\)\{width:1%/,'student identity column is not content-sized');
 assert.doesNotMatch(studentsSource,/<th>شماره پرونده<\/th>|شماره پرونده \/ نام و نام خانوادگی/,'case number still has a separate or wide table heading');
 assert.match(studentsSource,/listState\.page-1\)\*listState\.pageSize\+index\+1/,'student row number does not respect pagination');
 assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
