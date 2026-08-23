@@ -33,13 +33,18 @@ async function completeStructuredAssessment(cookie,gender='male'){
   if(gender==='female')await ok('/api/student/assessment/sections/pregnancy',{method:'PUT',cookie,body:{childbirth_history:false,breastfeeding:false,formula_use:false,child_food_allergy:false}});
 }
 async function uploadDocument(cookie,type,bytes,filename,mime){const form=new FormData();form.append('file',new Blob([bytes],{type:mime}),filename);form.append('document_type',type);return request('/api/student/assessment/documents',{method:'POST',body:form,cookie});}
-async function acceptInvitation(invite){
+async function loginWithInvitation(invite,mobile,newPassword=`Yasna${invite.case_number}Pass`){
   const shell=await request(invite.join_url);assert.equal(shell.response.status,200);const html=shell.data.toString('utf8');assert.match(html,/student-app\.js/);assert.doesNotMatch(html,/sidebar|coach-submissions\.js/);
-  const inspected=await ok(`/api/student/join/${invite.token}`);assert.equal(inspected.valid,true);assert.match(inspected.case_number,/^\d{6}$/);
-  const accepted=await request(`/api/student/join/${invite.token}/accept`,{method:'POST'});assert.equal(accepted.response.status,201,JSON.stringify(accepted.data));
-  const setCookie=accepted.response.headers.get('set-cookie')||'';assert.match(setCookie,/yasnafit_student_session=/);assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Strict/);
-  return {cookie:setCookie.split(';')[0],next:accepted.data.next_route};
+  const inspected=await ok(`/api/student/join/${invite.token}`);assert.equal(inspected.valid,true);assert.equal(inspected.case_number,invite.case_number);
+  await expectStatus(401,`/api/student/join/${invite.token}/accept`,{method:'POST'});
+  const loggedIn=await request('/api/student/auth/login',{method:'POST',body:{mobile,password:invite.temporary_password,invitation_token:invite.token}});assert.equal(loggedIn.response.status,200,JSON.stringify(loggedIn.data));assert.equal(loggedIn.data.password_change_required,true);assert.equal(loggedIn.data.next_route,'/student/change-password');
+  const setCookie=loggedIn.response.headers.get('set-cookie')||'';assert.match(setCookie,/yasnafit_student_session=/);assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Strict/);const cookie=setCookie.split(';')[0];
+  await expectStatus(403,'/api/student/dashboard',{cookie});await expectStatus(403,'/api/student/auth/login',{method:'POST',body:{mobile,password:invite.temporary_password}});
+  const changed=await ok('/api/student/auth/change-password',{method:'POST',cookie,body:{new_password:newPassword,confirm_password:newPassword}});assert.equal(changed.password_state,'PERSONAL');
+  await expectStatus(401,'/api/student/auth/login',{method:'POST',body:{mobile,password:invite.temporary_password}});
+  return {cookie,next:changed.next_route,password:newPassword};
 }
+async function loginDirect(mobile,password){const response=await request('/api/student/auth/login',{method:'POST',body:{mobile,password}});assert.equal(response.response.status,200,JSON.stringify(response.data));assert.equal(response.data.password_change_required,false);return {cookie:(response.response.headers.get('set-cookie')||'').split(';')[0],next:response.data.next_route};}
 async function onboard(cookie,{name,mobile,weight,preference='declined',photoTypes=[]}){
   await ok('/api/student/profile',{method:'PUT',cookie,body:{full_name:name,mobile,date_of_birth:'2000-01-01',height:175,weight,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
   await ok('/api/student/assessment',{method:'POST',cookie,body:{weight,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',limitations:'none',injuries:'none',student_note:'monthly assessment',body_photos_preference:preference}});
@@ -48,26 +53,25 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   return ok('/api/student/assessment/submit',{method:'POST',cookie});
 }
 (async()=>{
-  assert.equal((await fetch(BASE+'/')).status,401);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  assert.equal((await fetch(BASE+'/')).status,401);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
   const accessToken=process.env.YASNAFIT_COACH_TOKEN||fs.readFileSync(path.join(__dirname,'..','data','coach-access-token'),'utf8').trim();
   const access=await fetch(`${BASE}/coach-access/${accessToken}`,{redirect:'manual'});assert.equal(access.status,303);coachCookie=(access.headers.get('set-cookie')||'').split(';')[0];
   await expectStatus(401,'/api/student/me',{coach:true});
 
-  const suffix=Date.now(),mobileA=`09${String(suffix).slice(-9)}`,mobileB=`08${String(suffix).slice(-9)}`;
+  const suffix=Date.now(),tail=String(suffix).slice(-8),mobileA=`091${tail}`,mobileB=`081${tail}`,mobileZero=`071${tail}`,mobileChange=`072${tail}`,mobileReject=`073${tail}`,mobileRevoke=`070${tail}`;
   const a=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student A ${suffix}`,mobile:mobileA,goal:'فیتنس'}});
-  const b=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});assert.match(a.case_number,/^\d{6}$/);assert.match(b.case_number,/^\d{6}$/);assert.notEqual(a.case_number,b.case_number);
+  const b=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});await expectStatus(409,'/api/students',{method:'POST',coach:true,body:{full_name:'Duplicate Mobile',mobile:mobileA,goal:'test'}});assert.match(a.case_number,/^\d{6}$/);assert.match(b.case_number,/^\d{6}$/);assert.notEqual(a.case_number,b.case_number);
   await expectStatus(400,'/api/student-invites',{method:'POST',coach:true,body:{student_id:`${a.id} OR 1=1`}});
   const byCase=await ok(`/api/students?view=management&search=${a.case_number}`,{coach:true});assert.equal(byCase.items.length,1);assert.equal(byCase.items[0].case_number,a.case_number);
-  const inviteA=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(a.id),expires_in_days:30}});assert.equal(inviteA.case_number,a.case_number);
-  const inviteB=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(b.id),expires_in_days:30}});
+  const inviteA=a,inviteB=b;assert.equal(inviteA.temporary_password,mobileA.slice(-4));assert.equal(inviteB.temporary_password,mobileB.slice(-4));
   await expectStatus(404,'/api/student/join/not-a-valid-token-value');
   await expectStatus(404,`/api/student/join/${encodeURIComponent("' OR 1=1 --")}`);
   assert.notEqual((await fetch(BASE+'/join/..%2Fserver.js')).status,200);
 
-  const sessionA=await acceptInvitation(inviteA),sessionB=await acceptInvitation(inviteB);
+  const sessionA=await loginWithInvitation(inviteA,mobileA),sessionB=await loginWithInvitation(inviteB,mobileB);
   const documentRoute=await request('/document/edit-document',{cookie:sessionA.cookie});assert.equal(documentRoute.response.status,200);assert.match(documentRoute.data.toString('utf8'),/assessment-wizard\.js/);
   assert.equal(sessionA.next,'/student/onboarding');assert.equal(sessionB.next,'/student/onboarding');
-  assert.equal((await request(`/api/student/join/${inviteA.token}`)).response.status,200);assert.equal((await request(`/api/student/join/${inviteA.token}/accept`,{method:'POST'})).response.status,201);assert.equal((await request(`/api/student/join/${inviteA.token}/accept`,{method:'POST'})).response.status,201);await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,`/api/student/join/${inviteA.token}/accept`,{method:'POST'});
+  assert.equal((await request(`/api/student/join/${inviteA.token}`)).response.status,200);assert.equal((await request('/api/student/auth/login',{method:'POST',body:{mobile:mobileA,password:sessionA.password,invitation_token:inviteA.token}})).response.status,200);assert.equal((await request('/api/student/auth/login',{method:'POST',body:{mobile:mobileA,password:sessionA.password,invitation_token:inviteA.token}})).response.status,200);await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,'/api/student/auth/login',{method:'POST',body:{mobile:mobileA,password:sessionA.password,invitation_token:inviteA.token}});
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
@@ -91,7 +95,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await onboard(sessionB.cookie,{name:`Student B ${suffix}`,mobile:mobileB,weight:67});
 
   const pendingCases=await ok('/api/student-submissions',{coach:true});assert.equal(pendingCases.find(item=>item.student_id===Number(a.id)).case_number,a.case_number);assert.equal(pendingCases.find(item=>item.student_id===Number(b.id)).case_number,b.case_number);
-  const detailA1=await ok(`/api/students/${a.case_number}`,{coach:true}),detailB1=await ok(`/api/students/${b.case_number}`,{coach:true});
+  const detailA1=await ok(`/api/students/${a.case_number}`,{coach:true}),detailB1=await ok(`/api/students/${b.case_number}`,{coach:true});assert.equal('password_hash' in detailA1.student,false);assert.equal('mobile_normalized' in detailA1.student,false);
   const assessmentA1=detailA1.current_assessment.id,assessmentB1=detailB1.current_assessment.id;const reviewPage=await request(`/assessments/${assessmentA1}`,{coach:true});assert.equal(reviewPage.response.status,200);assert.match(reviewPage.data.toString('utf8'),/coach-submissions\.js/);const coachAssessmentA=await ok(`/api/assessments/${assessmentA1}`,{coach:true});assert.equal(coachAssessmentA.student.case_number,a.case_number);assert.equal(coachAssessmentA.assessment.documents.length,1);assert.ok(coachAssessmentA.assessment_details.measurements);
   const snapshotA1=immutableAssessment(detailA1.current_assessment);assert.equal(detailA1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.body_photos_preference,'declined');assert.equal(detailB1.current_assessment.photos.length,0);
   const photoA=detailA1.current_assessment.photos[0].id;
@@ -136,28 +140,28 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const historyB=await ok('/api/student/history',{cookie:sessionB.cookie});assert.equal(historyB.assessments.length,1);assert.equal(historyB.programs.length,1);
 
   // A willing student may submit zero photos; willingness is not a hidden requirement.
-  const zero=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Zero photo willing ${suffix}`,mobile:'07111111111',goal:'test'}});
-  const zeroInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(zero.id),expires_in_days:30}});const zeroSession=await acceptInvitation(zeroInvite);
-  const zeroSubmitted=await onboard(zeroSession.cookie,{name:`Zero photo willing ${suffix}`,mobile:'07111111111',weight:72,preference:'willing',photoTypes:[]});assert.equal(zeroSubmitted.assessment.photos.length,0);assert.equal(zeroSubmitted.assessment.body_photos_preference,'willing');
+  const zero=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Zero photo willing ${suffix}`,mobile:mobileZero,goal:'test'}});
+  const zeroInvite=zero;const zeroSession=await loginWithInvitation(zeroInvite,mobileZero);
+  const zeroSubmitted=await onboard(zeroSession.cookie,{name:`Zero photo willing ${suffix}`,mobile:mobileZero,weight:72,preference:'willing',photoTypes:[]});assert.equal(zeroSubmitted.assessment.photos.length,0);assert.equal(zeroSubmitted.assessment.body_photos_preference,'willing');
 
   // Coach lifecycle: changes requested requires a note and can be resubmitted.
-  const changeStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Changes ${suffix}`,mobile:'07222222222',goal:'test'}});const changeInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(changeStudent.id),expires_in_days:30}});const changeSession=await acceptInvitation(changeInvite);await onboard(changeSession.cookie,{name:`Changes ${suffix}`,mobile:'07222222222',weight:73,preference:'declined'});let changeDetail=await ok(`/api/students/${changeStudent.case_number}`,{coach:true});const changeAssessment=changeDetail.current_assessment.id;await ok(`/api/assessments/${changeAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:''}});await ok(`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:'لطفاً وزن را بررسی کنید'}});await ok('/api/student/assessment',{method:'POST',cookie:changeSession.cookie,body:{weight:74}});await ok('/api/student/assessment/submit',{method:'POST',cookie:changeSession.cookie});changeDetail=await ok(`/api/students/${changeStudent.case_number}`,{coach:true});assert.equal(changeDetail.current_assessment.lifecycle_status,'SUBMITTED');
+  const changeStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Changes ${suffix}`,mobile:mobileChange,goal:'test'}});const changeInvite=changeStudent;const changeSession=await loginWithInvitation(changeInvite,mobileChange);await onboard(changeSession.cookie,{name:`Changes ${suffix}`,mobile:mobileChange,weight:73,preference:'declined'});let changeDetail=await ok(`/api/students/${changeStudent.case_number}`,{coach:true});const changeAssessment=changeDetail.current_assessment.id;await ok(`/api/assessments/${changeAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:''}});await ok(`/api/assessments/${changeAssessment}/request-changes`,{method:'POST',coach:true,body:{coach_note:'لطفاً وزن را بررسی کنید'}});await ok('/api/student/assessment',{method:'POST',cookie:changeSession.cookie,body:{weight:74}});await ok('/api/student/assessment/submit',{method:'POST',cookie:changeSession.cookie});changeDetail=await ok(`/api/students/${changeStudent.case_number}`,{coach:true});assert.equal(changeDetail.current_assessment.lifecycle_status,'SUBMITTED');
 
   // Coach lifecycle: rejected assessments cannot produce programs.
-  const rejectStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Rejected ${suffix}`,mobile:'07333333333',goal:'test'}});const rejectInvite=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(rejectStudent.id),expires_in_days:30}});const rejectSession=await acceptInvitation(rejectInvite);await onboard(rejectSession.cookie,{name:`Rejected ${suffix}`,mobile:'07333333333',weight:75,preference:'declined'});const rejectDetail=await ok(`/api/students/${rejectStudent.case_number}`,{coach:true});const rejectedAssessment=rejectDetail.current_assessment.id;await ok(`/api/assessments/${rejectedAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:''}});const rejected=await ok(`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:'پرونده رد شد'}});assert.equal(rejected.lifecycle_status,'REJECTED');await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(rejectStudent.id),rejectedAssessment,1)});
+  const rejectStudent=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Rejected ${suffix}`,mobile:mobileReject,goal:'test'}});const rejectInvite=rejectStudent;const rejectSession=await loginWithInvitation(rejectInvite,mobileReject);await onboard(rejectSession.cookie,{name:`Rejected ${suffix}`,mobile:mobileReject,weight:75,preference:'declined'});const rejectDetail=await ok(`/api/students/${rejectStudent.case_number}`,{coach:true});const rejectedAssessment=rejectDetail.current_assessment.id;await ok(`/api/assessments/${rejectedAssessment}/under-review`,{method:'POST',coach:true});await expectStatus(400,`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:''}});const rejected=await ok(`/api/assessments/${rejectedAssessment}/reject`,{method:'POST',coach:true,body:{coach_note:'پرونده رد شد'}});assert.equal(rejected.lifecycle_status,'REJECTED');await expectStatus(400,'/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(rejectStudent.id),rejectedAssessment,1)});
 
   // Revocation destroys sessions related to an invitation.
-  const c=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Session revoke ${suffix}`,mobile:'07000000000',goal:'test'}});
-  const inviteC=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(c.id),expires_in_days:30}});const sessionC=await acceptInvitation(inviteC);
-  await ok(`/api/student-invites/${inviteC.id}/revoke`,{method:'POST',coach:true});await expectStatus(401,'/api/student/me',{cookie:sessionC.cookie});
+  const c=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Session revoke ${suffix}`,mobile:mobileRevoke,goal:'test'}});
+  const inviteC=c;const sessionC=await loginWithInvitation(inviteC,mobileRevoke);
+  await ok(`/api/student-invites/${inviteC.invitation_id}/revoke`,{method:'POST',coach:true});await expectStatus(401,'/api/student/me',{cookie:sessionC.cookie});
 
   const logout=await request('/api/student/logout',{method:'POST',cookie:sessionB.cookie});assert.equal(logout.response.status,200);assert.match(logout.response.headers.get('set-cookie')||'',/Max-Age=0/);
-  await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});
+  await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});const reloggedB=await loginDirect(mobileB,sessionB.password);assert.ok(reloggedB.cookie);
 
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.0',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'020_assessment_social_profiles');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'021_student_password_authentication');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

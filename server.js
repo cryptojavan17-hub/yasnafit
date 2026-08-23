@@ -45,6 +45,7 @@ const assessmentService = require('./src/assessment-service');
 const assessmentDocumentService = require('./src/assessment-document-service');
 const engagementService = require('./src/engagement-service');
 const auditService = require('./src/audit-service');
+const studentAuthService = require('./src/student-auth-service');
 
 // --- MIME Types ---
 const types = {
@@ -123,6 +124,7 @@ function studentByReference(reference){
   return Number.isSafeInteger(id)&&id>0?one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL',id):null;
 }
 function studentIdByReference(reference){return studentByReference(reference)?.id||null;}
+function safeCoachStudent(row){return studentAuthService.safeStudent(row);}
 
 function isSafePath(base, target){
   const normalizedBase = path.resolve(base);
@@ -283,7 +285,7 @@ async function handleDashboard(req,res){
   return send(res,200,{
     stats:{total,active,waiting,movements,categories, trainingPrograms: trainingProgs},
     activities: rows('SELECT * FROM activity_log ORDER BY id DESC LIMIT 8'),
-    students: rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5')
+    students: rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').map(safeCoachStudent)
   });
 }
 
@@ -301,7 +303,7 @@ async function handleStudents(req,res,url){
       return send(res,200,result);
     }
     // Backward-compatible compact list used by the existing Program Builder.
-    return send(res,200,rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC'));
+    return send(res,200,rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC').map(safeCoachStudent));
   }
   if(req.method==='POST'){
     const b=await readBody(req);
@@ -310,15 +312,24 @@ async function handleStudents(req,res,url){
     const initialStatuses=['فعال','در انتظار','غیرفعال'];
     if(b.status && !initialStatuses.includes(b.status)) return sendError(res,400,'وضعیت اولیه نامعتبر است');
 
+    if(!String(b.mobile||'').trim())return sendError(res,400,'شماره همراه الزامی است');
+    let auth;
+    try{auth=studentAuthService.authColumnsForMobile(b.mobile);}catch(error){return sendError(res,error.statusCode||400,error.message);}
+    if(one('SELECT id FROM students WHERE mobile_normalized=? AND deleted_at IS NULL',auth.mobile_normalized))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');
     const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
-    const r=db.prepare(`
-      INSERT INTO students
-        (full_name,mobile,goal,status,weight,height,stable_id,version,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-    `).run(b.full_name.trim(), String(b.mobile||'').trim(), String(b.goal||'').trim(), b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
-    const created=one('SELECT id,stable_id,case_number FROM students WHERE id=?',Number(r.lastInsertRowid));
-    log('شاگرد جدید ثبت شد', b.full_name);
-    return send(res,201,created);
+    db.exec('BEGIN');
+    try{
+      const r=db.prepare(`
+        INSERT INTO students
+          (full_name,mobile,mobile_normalized,goal,status,weight,height,stable_id,password_hash,password_state,version,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      `).run(b.full_name.trim(),String(b.mobile).trim(),auth.mobile_normalized,String(b.goal||'').trim(),b.status||'فعال',Number(b.weight)||null,Number(b.height)||null,stableId,auth.password_hash,auth.password_state);
+      const studentId=Number(r.lastInsertRowid),invite=studentService.createInvite(db,studentId,30),created=one('SELECT id,stable_id,case_number,mobile FROM students WHERE id=?',studentId),temporaryPassword=studentAuthService.temporaryPassword(created.mobile);
+      db.exec('COMMIT');
+      log('شاگرد جدید ثبت شد',`${created.case_number} - ${b.full_name}`);
+      auditService.record(db,{actorType:'coach',action:'student.created',entityType:'student',entityId:studentId,entityStableId:stableId,metadata:{case_number:created.case_number}});
+      return send(res,201,{...created,invitation_id:invite.id,join_url:`/join/${invite.token}`,token:invite.token,token_preview:invite.token_preview,expires_at:invite.expires_at,temporary_password:temporaryPassword,password_change_required:true});
+    }catch(error){try{db.exec('ROLLBACK');}catch(rollbackError){}if(String(error.message).includes('UNIQUE constraint failed'))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');return sendError(res,400,error.message);}
   }
   return sendError(res,405,'متد مجاز نیست');
 }
@@ -869,15 +880,38 @@ async function handleStudentJoin(req,res,url){
     return send(res,200,{valid:true,student_name:inspected.student.full_name||'',case_number:inspected.student.case_number||'',remaining_entries:inspected.invitation.remaining_uses,message:'دعوت معتبر است'});
   }
   if(acceptMatch && req.method==='POST'){
-    const accepted=studentSessionService.acceptInvitation(db,acceptMatch[1]);
-    if(accepted.error)return invitationErrorResponse(res,accepted.error);
-    log('نشست شاگرد ایجاد شد',`invitation accepted for student ${accepted.student_id}`);
-    auditService.record(db,{actorType:'student',actorId:accepted.student_id,action:'student.registered',entityType:'student',entityId:accepted.student_id});
-    return send(res,201,{success:true,next_route:studentNextRoute(accepted.student_id),expires_at:accepted.expires_at},{
-      'Set-Cookie':studentSessionService.sessionCookie(req,accepted.raw_session)
-    });
+    return send(res,401,{error:'برای ورود، شماره همراه و رمز عبور را وارد کنید.',code:'PASSWORD_LOGIN_REQUIRED'});
   }
   return null;
+}
+
+function studentAuthError(res,code){
+  const errors={INVALID_CREDENTIALS:[401,'شماره همراه یا رمز عبور نادرست است.'],AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],AUTH_SETUP_REQUIRED:[403,'ورود این حساب هنوز آماده نیست؛ با مربی تماس بگیرید.'],TEMPORARY_ALREADY_USED:[403,'رمز موقت قبلاً استفاده شده است. همان نشست را ادامه دهید یا برای بازنشانی با مربی تماس بگیرید.']};
+  const [status,message]=errors[code]||errors.INVALID_CREDENTIALS;return send(res,status,{error:message,code});
+}
+async function handleStudentAuth(req,res,url){
+  if(url.pathname!=='/api/student/auth/login'||req.method!=='POST')return null;
+  if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');
+  if(!rateLimit(req,res,'student-password-login',30,15*60*1000))return true;
+  const body=await readBody(req);
+  if(body.invitation_token){
+    const inspected=studentSessionService.inspectInvitation(db,body.invitation_token);
+    if(inspected.error)return invitationErrorResponse(res,inspected.error);
+    let normalized;try{normalized=studentAuthService.normalizeMobile(body.mobile);}catch(error){return studentAuthError(res,'INVALID_CREDENTIALS');}
+    const invited=one('SELECT mobile_normalized FROM students WHERE id=? AND deleted_at IS NULL',inspected.invitation.student_id);
+    if(!invited||invited.mobile_normalized!==normalized)return studentAuthError(res,'INVALID_CREDENTIALS');
+  }
+  const authenticated=studentAuthService.authenticate(db,body.mobile,body.password);
+  if(authenticated.error)return studentAuthError(res,authenticated.error);
+  let invitationId=null;
+  if(body.invitation_token){
+    const consumed=studentSessionService.consumeInvitation(db,body.invitation_token,authenticated.student.id);
+    if(consumed.error)return invitationErrorResponse(res,consumed.error);
+    invitationId=consumed.invitation_id;
+  }
+  const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRequired=authenticated.student.password_state!=='PERSONAL';
+  auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_required:passwordChangeRequired,via_invitation:Boolean(invitationId)}});
+  return send(res,200,{success:true,password_change_required:passwordChangeRequired,next_route:passwordChangeRequired?'/student/change-password':studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
 }
 
 function updateStudentProfileFromSession(studentId,body){
@@ -887,6 +921,12 @@ function updateStudentProfileFromSession(studentId,body){
   if(!Object.keys(updates).length){const error=new Error('هیچ فیلدی برای ویرایش نیست');error.statusCode=400;throw error;}
   if(updates.full_name!==undefined && (!String(updates.full_name).trim()||String(updates.full_name).length>100)){const error=new Error('نام نامعتبر است');error.statusCode=400;throw error;}
   if(updates.mobile!==undefined && (typeof updates.mobile!=='string'||updates.mobile.length>20)){const error=new Error('موبایل نامعتبر است');error.statusCode=400;throw error;}
+  if(updates.mobile!==undefined){
+    const current=one('SELECT mobile,password_state FROM students WHERE id=? AND deleted_at IS NULL',studentId),normalized=studentAuthService.normalizeMobile(updates.mobile),duplicate=one('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL',normalized,studentId);
+    if(duplicate)throw Object.assign(new Error('این شماره همراه قبلاً ثبت شده است'),{statusCode:409});
+    updates.mobile_normalized=normalized;
+    if(current?.password_state==='TEMPORARY'&&String(current.mobile)!==String(updates.mobile)){updates.password_hash=studentAuthService.hashPassword(studentAuthService.temporaryPassword(normalized));updates.temporary_login_at=null;}
+  }
   for(const key of ['telegram_id','instagram_id']){
     if(updates[key]!==undefined && (typeof updates[key]!=='string'||updates[key].length>100)){const error=new Error('شناسه شبکه اجتماعی نامعتبر است');error.statusCode=400;throw error;}
   }
@@ -988,8 +1028,21 @@ async function handleStudentSessionApi(req,res,url){
     return send(res,200,{success:true},{'Set-Cookie':studentSessionService.clearSessionCookie(req)});
   }
   if(p==='/api/student/me' && req.method==='GET'){
-    return send(res,200,{student:studentSessionService.safeStudent(context.student),session_expires_at:context.expires_at,next_route:studentNextRoute(studentId)});
+    const passwordChangeRequired=context.student.password_state!=='PERSONAL';
+    return send(res,200,{student:studentSessionService.safeStudent(context.student),session_expires_at:context.expires_at,password_change_required:passwordChangeRequired,next_route:passwordChangeRequired?'/student/change-password':studentNextRoute(studentId)});
   }
+  if(p==='/api/student/auth/change-password'&&req.method==='POST'){
+    try{
+      const body=await readBody(req);
+      if(body.new_password!==body.confirm_password)return sendError(res,400,'تکرار رمز جدید مطابقت ندارد');
+      if(context.student.password_state==='PERSONAL'&&!studentAuthService.verifyPassword(body.current_password,context.student.password_hash))return send(res,401,{error:'رمز فعلی نادرست است',code:'INVALID_CURRENT_PASSWORD'});
+      const changed=studentAuthService.setPersonalPassword(db,studentId,body.new_password);
+      db.prepare('UPDATE student_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE student_id=? AND id<>? AND revoked_at IS NULL').run(studentId,context.session_id);
+      auditService.record(db,{actorType:'student',actorId:studentId,action:'student.password_changed',entityType:'student',entityId:studentId,metadata:{forced:context.student.password_state!=='PERSONAL'}});
+      return send(res,200,{success:true,...changed,next_route:studentNextRoute(studentId)});
+    }catch(error){return sendError(res,error.statusCode||400,error.message);}
+  }
+  if(context.student.password_state!=='PERSONAL')return send(res,403,{error:'ابتدا رمز شخصی خود را تعیین کنید.',code:'PASSWORD_CHANGE_REQUIRED',next_route:'/student/change-password'});
   if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
   const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
@@ -1127,7 +1180,7 @@ async function handleStudentPortal(req,res,url){
     }
 
     return send(res,200,{
-      student,
+      student:safeCoachStudent(student),
       current_assessment: currentAssessment ? {...currentAssessment, photos: currentPhotos} : null,
       current_program: programFull,
       timeline: full.timeline,
@@ -1168,7 +1221,7 @@ async function handleStudentPortal(req,res,url){
 
     const updated = one('SELECT * FROM students WHERE id=?', studentId);
     log('پروفایل شاگرد ویرایش شد', updated.full_name);
-    return send(res,200,updated);
+    return send(res,200,safeCoachStudent(updated));
   }
 
   // POST /api/student-portal/:token/assessment
@@ -1416,7 +1469,7 @@ async function handleBodyAssessments(req,res,url){
             } catch(e){}
           }
         }
-        return send(res,200,{assessment: {...ass, photos, documents:assessmentDocumentService.list(db,ass.id)}, assessment_details:assessmentService.getDetails(db,ass.id), student, previous_assessment: prev ? {...prev, photos: prevPhotos} : null, previous_assessment_details:prev?assessmentService.getDetails(db,prev.id):null, previous_program: prevProgram});
+        return send(res,200,{assessment: {...ass, photos, documents:assessmentDocumentService.list(db,ass.id)}, assessment_details:assessmentService.getDetails(db,ass.id), student:safeCoachStudent(student), previous_assessment: prev ? {...prev, photos: prevPhotos} : null, previous_assessment_details:prev?assessmentService.getDetails(db,prev.id):null, previous_program: prevProgram});
       }
     }
   }
@@ -1477,7 +1530,7 @@ async function handleAssessmentDocuments(req,res,url){
   const match=url.pathname.match(/^\/api\/student-documents\/(\d+)$/);if(!match||req.method!=='GET')return null;
   const document=assessmentDocumentService.get(db,Number(match[1]));if(!document)return sendError(res,404,'مدرک پیدا نشد');
   const coach=isCoachAuthorized(req),student=coach?null:studentSessionService.resolveStudentSession(db,req);
-  if(!coach&&(!student||student.student_id!==document.student_id))return sendError(res,student?403:401,'دسترسی به این مدرک مجاز نیست');
+  if(!coach&&(!student||student.student_id!==document.student_id||student.student.password_state!=='PERSONAL'))return sendError(res,student?403:401,'دسترسی به این مدرک مجاز نیست');
   res.writeHead(200,{'Content-Type':document.mime_type,'Content-Length':document.size_bytes,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Disposition':`inline; filename="${sanitizeFileName(document.original_filename)}"`,'Content-Security-Policy':"default-src 'none'"});
   return fs.createReadStream(document.storage_path).pipe(res);
 }
@@ -1510,6 +1563,7 @@ async function handleAssessmentPhotos(req,res,url){
     const studentContext=coachAuthorized?null:studentSessionService.resolveStudentSession(db,req);
     if(!coachAuthorized){
       if(!studentContext)return sendError(res,401,'نشست معتبر پیدا نشد');
+      if(studentContext.student.password_state!=='PERSONAL')return sendError(res,403,'ابتدا رمز شخصی خود را تعیین کنید');
       if(studentContext.student_id!==photo.student_id)return sendError(res,403,'دسترسی به این عکس مجاز نیست');
     }
     log('دسترسی به عکس ارزیابی',`photo ${photoId} student ${photo.student_id} ${coachAuthorized?'via coach':'via student session'}`);
@@ -1604,6 +1658,7 @@ async function api(req,res,url){
       const releaseResponse=await handleReleaseInfo(req,res,url);
       if(releaseResponse) return releaseResponse;
     }
+    if(p==='/api/student/auth/login')return await handleStudentAuth(req,res,url);
     if(p.startsWith('/api/student/join/')){
       const joined=await handleStudentJoin(req,res,url);
       if(joined)return joined;
@@ -1759,9 +1814,9 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
-    const isStudentPage=['/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
+    const isStudentPage=['/student/login','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
-      const authenticated=isJoinPage || Boolean(studentSessionService.resolveStudentSession(db,req));
+      const authenticated=isJoinPage || url.pathname==='/student/login' || Boolean(studentSessionService.resolveStudentSession(db,req));
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',

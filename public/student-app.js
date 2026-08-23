@@ -52,19 +52,17 @@
     if(!documents.length)return '<div class="student-empty"><p>مدرک پزشکی ارسال نشده است. این بخش اختیاری است.</p></div>';
     return `<div class="history-list">${documents.map(document=>`<article class="history-item"><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><small>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</small></a></article>`).join('')}</div>`;
   }
+  function loginForm({token='',studentName='',caseNumber=''}={}){
+    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>${token?'ورود به پنل دعوت‌شده':'ورود شاگرد'}</h1>${studentName?`<p>سلام <span class="student-name">${esc(studentName)}</span> 👋</p>`:''}${caseNumber?`<div class="created-case-number"><span>شماره پرونده</span><b>${esc(caseNumber)}</b></div>`:''}<form class="student-auth-form" id="studentLoginForm"><label>شماره همراه<input name="mobile" inputmode="tel" autocomplete="username" required maxlength="20" placeholder="شماره همراه ثبت‌شده"></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز موقت یا رمز شخصی"></label><p class="password-help">در اولین ورود، رمز موقت همان چهار رقم آخر شماره همراه است. پس از ورود باید رمز شخصی تعیین کنید.</p><button class="primary">ورود امن</button></form>${token?'<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>':'<small class="join-meta">اطلاعات ورود را از مربی خود دریافت کنید.</small>'}</div></section>`;
+    document.querySelector('#studentLoginForm').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button'),form=new FormData(event.currentTarget);button.disabled=true;button.textContent='در حال بررسی…';try{const result=await api('/api/student/auth/login',{method:'POST',body:jsonBody({mobile:form.get('mobile'),password:form.get('password'),invitation_token:token||undefined})});location.replace(result.next_route);}catch(error){toast(error.message,'error');button.disabled=false;button.textContent='ورود امن';}};
+  }
+  async function renderLogin(){loginForm();}
   async function renderJoin(){
     const token=location.pathname.match(/^\/join\/([^/]+)$/)?.[1];
     if(!token)return errorPage('لینک نامعتبر است','آدرس دعوت کامل نیست.');
     loading('در حال بررسی لینک...');
-    try{
-      const result=await api(`/api/student/join/${encodeURIComponent(token)}`);
-      root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>دعوت به پنل شخصی شما</h1><p>سلام <span class="student-name">${esc(result.student_name||'')}</span> 👋</p>${result.case_number?`<div class="created-case-number"><span>شماره پرونده شما</span><b>${esc(result.case_number)}</b></div>`:''}<p>مربی شما یک پنل اختصاصی در Yasnafit برایتان ایجاد کرده است.</p><button class="primary" id="acceptInvitation">شروع</button><small class="join-meta">اطلاعات و تصاویر شما خصوصی و فقط در اختیار خودتان و مربی است.</small></div></section>`;
-      document.querySelector('#acceptInvitation').onclick=async event=>{
-        event.currentTarget.disabled=true;event.currentTarget.textContent='در حال ساخت پنل امن...';
-        try{const accepted=await api(`/api/student/join/${encodeURIComponent(token)}/accept`,{method:'POST'});location.replace(accepted.next_route);}
-        catch(error){renderInvitationError(error);}
-      };
-    }catch(error){renderInvitationError(error);}
+    try{const result=await api(`/api/student/join/${encodeURIComponent(token)}`);loginForm({token,studentName:result.student_name,caseNumber:result.case_number});}
+    catch(error){renderInvitationError(error);}
   }
   function renderInvitationError(error){
     const map={INVALID_INVITATION:['لینک نامعتبر است','این لینک دعوت معتبر نیست.'],EXPIRED_INVITATION:['این لینک منقضی شده است','برای دریافت لینک جدید با مربی تماس بگیرید.'],REVOKED_INVITATION:['این لینک لغو شده است','این دعوت توسط مربی لغو شده است.'],USED_INVITATION:['این دعوت قبلاً استفاده شده است','برای ورود دوباره از نشست فعال خود استفاده کنید یا از مربی لینک جدید بخواهید.']};
@@ -72,8 +70,8 @@
   }
 
   async function loadMe(){
-    try{me=await api('/api/student/me');return true;}
-    catch(error){errorPage('جلسه شما منقضی شده است.','برای ورود امن، از مربی خود یک لینک جدید دریافت کنید.','⌛');return false;}
+    try{me=await api('/api/student/me');if(me.password_change_required&&location.pathname!=='/student/change-password'){location.replace('/student/change-password');return false;}return true;}
+    catch(error){errorPage('جلسه شما منقضی شده است.','از صفحه ورود با شماره همراه و رمز شخصی وارد شوید.','⌛');setTimeout(()=>{const actions=document.querySelector('.student-error-actions');if(actions)actions.innerHTML='<a class="primary" href="/student/login">صفحه ورود</a>';},0);return false;}
   }
   async function renderDashboard(){
     loading();if(!await loadMe())return;
@@ -101,7 +99,7 @@
   }
   async function renderProfile(){
     loading();if(!await loadMe())return;const {student}=await api('/api/student/profile');
-    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="date" name="date_of_birth" value="${esc(student.date_of_birth)}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form>`);
+    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="date" name="date_of_birth" value="${esc(student.date_of_birth)}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form><section class="student-card" style="margin-top:10px"><h2>امنیت حساب</h2><p>رمز شخصی خود را در هر زمان می‌توانید تغییر دهید.</p><div class="student-actions"><a class="secondary" href="/student/change-password">تغییر رمز عبور</a></div></section>`);
     document.querySelector('#profileForm').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await api('/api/student/profile',{method:'PUT',body:jsonBody(Object.fromEntries(new FormData(event.currentTarget)))});toast('پروفایل ذخیره شد.');}catch(error){toast(error.message,'error');}finally{button.disabled=false;}};
   }
 
@@ -117,16 +115,24 @@
     if(!window.YasnafitAssessmentWizard)return errorPage('خطا در بارگذاری فرم','ماژول ارزیابی در دسترس نیست.');
     return window.YasnafitAssessmentWizard.mount({root,api,me,toast,renderSuccess});
   }
+  async function renderChangePassword(){
+    loading();if(!await loadMe())return;const forced=Boolean(me.password_change_required);
+    const form=`<form class="student-auth-form" id="passwordChangeForm">${forced?'':`<label>رمز فعلی<input name="current_password" type="password" autocomplete="current-password" required maxlength="128"></label>`}<label>رمز شخصی جدید<input name="new_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="حداقل ۸ کاراکتر، شامل حرف و عدد"></label><label>تکرار رمز جدید<input name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></label><p class="password-help">پس از ثبت، رمز موقت چهاررقمی دیگر معتبر نخواهد بود.</p><button class="primary">ثبت رمز جدید</button></form>`;
+    if(forced)root.innerHTML=`<section class="student-auth-page"><div class="join-card password-change-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>تعیین رمز شخصی</h1><p>برای امنیت حساب، پیش از ورود به پنل یک رمز شخصی بسازید.</p>${form}</div></section>`;
+    else shell('/student/profile',`<div class="student-page-head"><h1>تغییر رمز عبور</h1><p>رمز فعلی و رمز جدید را وارد کنید.</p></div><section class="student-card password-change-card">${form}</section>`);
+    document.querySelector('#passwordChangeForm').onsubmit=async event=>{event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),button=event.currentTarget.querySelector('button');button.disabled=true;try{const result=await api('/api/student/auth/change-password',{method:'POST',body:jsonBody(body)});toast('رمز شخصی با موفقیت ثبت شد.');location.replace(result.next_route);}catch(error){toast(error.message,'error');button.disabled=false;}};
+  }
   function renderSuccess(){root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><span class="join-brand">YASNAFIT</span><h1>اطلاعات شما با موفقیت ارسال شد</h1><p>متشکریم. اطلاعات و تصاویر شما برای مربی ارسال شد.</p><p>پس از بررسی مربی، برنامه تمرینی شما در پنل شخصی‌تان قرار خواهد گرفت.</p><a class="primary" href="/student/dashboard">ورود به پنل شخصی</a></div></section>`;}
   async function renderLogout(){
     try{await api('/api/student/logout',{method:'POST'});}catch(error){}
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره، از مربی لینک جدید دریافت کنید.</p></div></section>`;
+    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره از شماره همراه و رمز شخصی استفاده کنید.</p><a class="primary" href="/student/login">ورود دوباره</a></div></section>`;
   }
   async function start(){
     const path=location.pathname;
     if(path.startsWith('/join/'))return renderJoin();
+    if(path==='/student/login')return renderLogin();
     if(path==='/student/logout')return renderLogout();
-    const pages={'/student/onboarding':renderOnboarding,'/document/edit-document':renderOnboarding,'/student/dashboard':renderDashboard,'/student/program':renderProgram,'/student/workouts':renderWorkouts,'/student/messages':renderMessages,'/student/notifications':renderNotifications,'/student/assessment':renderAssessment,'/student/history':renderHistory,'/student/profile':renderProfile};
+    const pages={'/student/change-password':renderChangePassword,'/student/onboarding':renderOnboarding,'/document/edit-document':renderOnboarding,'/student/dashboard':renderDashboard,'/student/program':renderProgram,'/student/workouts':renderWorkouts,'/student/messages':renderMessages,'/student/notifications':renderNotifications,'/student/assessment':renderAssessment,'/student/history':renderHistory,'/student/profile':renderProfile};
     return (pages[path]||(()=>errorPage('صفحه پیدا نشد','مسیر درخواستی وجود ندارد.')))();
   }
   start().catch(error=>{console.error(error);errorPage('خطای غیرمنتظره','لطفاً دوباره تلاش کنید.');});

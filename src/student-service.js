@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const studentAuth = require('./student-auth-service');
 
 function genSecureToken(bytes=32){
   // Cryptographically random token, base64url
@@ -166,7 +167,7 @@ function getStudentFullData(db, studentId, options={}){
   timeline.sort((a,b)=> new Date(a.date) - new Date(b.date));
 
   return {
-    student,
+    student:studentAuth.safeStudent(student),
     assessments: assessmentsWithPhotos,
     programs,
     timeline,

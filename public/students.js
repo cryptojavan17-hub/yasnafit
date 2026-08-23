@@ -54,12 +54,14 @@
   function showInvitation(studentId,result,title='لینک شاگرد ایجاد شد'){
     const absolute=`${location.origin}${result.join_url}`;
     generatedLinks.set(Number(studentId),absolute);
+    const shareText=result.temporary_password?`لینک ورود Yasnafit: ${absolute}\nشماره پرونده: ${result.case_number}\nرمز موقت: ${result.temporary_password}`:absolute;
     const modal=createModal(`<div class="student-modal-head"><h2>🔐 ${esc(title)}</h2><button data-close-modal>×</button></div>
       <p>این لینک امن فقط همین بار از API برگردانده شده است. آن را برای شاگرد ارسال کنید.</p>
       ${result.case_number?`<div class="created-case-number"><span>شماره پرونده</span><b>${esc(result.case_number)}</b></div>`:''}
+      ${result.temporary_password?`<div class="temporary-password"><span>رمز موقت ورود</span><b>${esc(result.temporary_password)}</b><small>چهار رقم آخر شماره همراه؛ فقط تا تعیین رمز شخصی معتبر است.</small></div>`:''}
       <div class="generated-link"><code>${esc(absolute)}</code></div>
-      <div class="student-modal-actions"><button class="primary" data-copy-link>کپی لینک</button><button class="secondary" data-close-modal>بستن</button></div>`);
-    modal.querySelector('[data-copy-link]').onclick=async()=>{ await copyText(absolute); modal.querySelector('[data-copy-link]').textContent='کپی شد ✓'; };
+      <div class="student-modal-actions"><button class="primary" data-copy-link>${result.temporary_password?'کپی لینک و رمز':'کپی لینک'}</button><button class="secondary" data-close-modal>بستن</button></div>`);
+    modal.querySelector('[data-copy-link]').onclick=async()=>{ await copyText(shareText); modal.querySelector('[data-copy-link]').textContent='کپی شد ✓'; };
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
   }
   async function generateInvitation(studentId,title){
@@ -133,17 +135,13 @@
   }
   function openAddStudent(){
     const modal=createModal(`<form id="addStudentForm"><div class="student-modal-head"><h2>افزودن شاگرد</h2><button type="button" data-close-modal>×</button></div>
-      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100"></label><label>موبایل<input name="mobile" maxlength="20" inputmode="tel"></label><label>هدف<input name="goal" maxlength="200"></label><label>وضعیت اولیه<select name="status"><option value="فعال">فعال</option><option value="در انتظار">در انتظار</option><option value="غیرفعال">غیرفعال</option></select></label></div>
+      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100"></label><label>شماره همراه *<input name="mobile" required maxlength="20" inputmode="tel" autocomplete="tel"></label><label>هدف<input name="goal" maxlength="200"></label><label>وضعیت اولیه<select name="status"><option value="فعال">فعال</option><option value="در انتظار">در انتظار</option><option value="غیرفعال">غیرفعال</option></select></label></div>
       <div class="student-modal-actions"><button type="button" class="secondary" data-close-modal>انصراف</button><button class="primary">ثبت شاگرد</button></div></form>`);
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
     modal.querySelector('form').onsubmit=async event=>{
       event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget));
       try{
-        const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();
-        const success=createModal(`<div class="student-modal-head"><h2>شاگرد ثبت شد</h2><button data-close-modal>×</button></div><div class="created-case-number"><span>شماره پرونده یکتا</span><b>${esc(created.case_number)}</b></div><p>اکنون لینک امن پورتال شاگرد را ایجاد کنید.</p><div class="student-modal-actions"><button class="primary" data-create-invite>ایجاد لینک شاگرد</button><button class="secondary" data-open-detail>مشاهده شاگرد</button></div>`);
-        success.querySelector('[data-create-invite]').onclick=async()=>{success.remove();try{await generateInvitation(created.id);}catch(error){alert(error.message);}};
-        success.querySelector('[data-open-detail]').onclick=()=>{location.href=`/users-list/${created.case_number}`;};
-        success.querySelector('[data-close-modal]').onclick=()=>success.remove();
+        const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();showInvitation(created.id,created,'شاگرد و دسترسی ورود ایجاد شد');
       }catch(error){alert(error.message);}
     };
   }

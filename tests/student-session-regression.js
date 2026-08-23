@@ -15,16 +15,17 @@ try{
   const add=db.prepare("INSERT INTO students(stable_id,full_name,status,version,created_at,updated_at) VALUES(?,?,'فعال',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
   const a=Number(add.run('session-a','Student A').lastInsertRowid),b=Number(add.run('session-b','Student B').lastInsertRowid),c=Number(add.run('session-c','Student C').lastInsertRowid);
   const inviteA=students.createInvite(db,a,30),inviteB=students.createInvite(db,b,30);
+  const consumeAndCreate=token=>{const consumed=sessions.consumeInvitation(db,token);return consumed.error?consumed:sessions.createStudentSession(db,consumed.student_id,consumed.invitation_id);};
   assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.student_id,a);
-  const acceptedA=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA.raw_session);assert.equal(acceptedA.student_id,a);
-  const acceptedA2=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA2.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.remaining_uses,1);const acceptedA3=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA3.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).error,'used');assert.equal(sessions.acceptInvitation(db,inviteA.token).error,'used');
+  const acceptedA=consumeAndCreate(inviteA.token);assert.ok(acceptedA.raw_session);assert.equal(acceptedA.student_id,a);
+  const acceptedA2=consumeAndCreate(inviteA.token);assert.ok(acceptedA2.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.remaining_uses,1);const acceptedA3=consumeAndCreate(inviteA.token);assert.ok(acceptedA3.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).error,'used');assert.equal(consumeAndCreate(inviteA.token).error,'used');
   assert.equal(db.prepare('SELECT session_hash FROM student_sessions WHERE student_id=?').get(a).session_hash,students.hashToken(acceptedA.raw_session));
   assert.equal(db.prepare("SELECT COUNT(*) c FROM student_sessions WHERE session_hash=?").get(acceptedA.raw_session).c,0,'raw session stored in SQLite');
   const reqA={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedA.raw_session}`},socket:{encrypted:false}};
   assert.match(sessions.sessionCookie({headers:{'x-forwarded-proto':'https'},socket:{encrypted:false}},acceptedA.raw_session),/HttpOnly; SameSite=Strict; Path=\/; Max-Age=\d+; Secure/);
   assert.equal(sessions.resolveStudentSession(db,reqA).student_id,a);
   assert.equal(sessions.resolveStudentSession(db,{headers:{cookie:`${sessions.SESSION_COOKIE}=%E0%A4%A`},socket:{encrypted:false}}),null);
-  const acceptedB=sessions.acceptInvitation(db,inviteB.token);const reqB={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedB.raw_session}`},socket:{encrypted:false}};
+  const acceptedB=consumeAndCreate(inviteB.token);const reqB={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedB.raw_session}`},socket:{encrypted:false}};
   assert.equal(sessions.resolveStudentSession(db,reqB).student_id,b);
   assert.notEqual(sessions.resolveStudentSession(db,reqA).student_id,sessions.resolveStudentSession(db,reqB).student_id);
 

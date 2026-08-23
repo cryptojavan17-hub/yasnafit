@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const studentAuth = require('./student-auth-service');
 
 // Versioned migrations - idempotent, ordered
 const migrations = [
@@ -1060,6 +1061,39 @@ const migrations = [
       const columns=new Set(db.prepare('PRAGMA table_info(students)').all().map(column=>column.name));
       if(!columns.has('telegram_id')) db.exec("ALTER TABLE students ADD COLUMN telegram_id TEXT NOT NULL DEFAULT ''");
       if(!columns.has('instagram_id')) db.exec("ALTER TABLE students ADD COLUMN instagram_id TEXT NOT NULL DEFAULT ''");
+    }
+  },
+  {
+    id: '021_student_password_authentication',
+    description: 'Unique normalized mobile identity, scrypt passwords and first-login password state',
+    up: (db) => {
+      const columns=new Set(db.prepare('PRAGMA table_info(students)').all().map(column=>column.name));
+      if(!columns.has('mobile_normalized')) db.exec('ALTER TABLE students ADD COLUMN mobile_normalized TEXT');
+      if(!columns.has('password_hash')) db.exec('ALTER TABLE students ADD COLUMN password_hash TEXT');
+      if(!columns.has('password_state')) db.exec("ALTER TABLE students ADD COLUMN password_state TEXT NOT NULL DEFAULT 'RESET_REQUIRED'");
+      if(!columns.has('password_changed_at')) db.exec('ALTER TABLE students ADD COLUMN password_changed_at TEXT');
+      if(!columns.has('temporary_login_at')) db.exec('ALTER TABLE students ADD COLUMN temporary_login_at TEXT');
+      if(!columns.has('auth_failed_attempts')) db.exec('ALTER TABLE students ADD COLUMN auth_failed_attempts INTEGER NOT NULL DEFAULT 0');
+      if(!columns.has('auth_locked_until')) db.exec('ALTER TABLE students ADD COLUMN auth_locked_until TEXT');
+      if(!columns.has('last_login_at')) db.exec('ALTER TABLE students ADD COLUMN last_login_at TEXT');
+
+      const claimed=new Set();
+      for(const student of db.prepare('SELECT id,mobile,password_hash,password_state FROM students WHERE deleted_at IS NULL ORDER BY id').all()){
+        try{
+          const normalized=studentAuth.normalizeMobile(student.mobile);
+          if(claimed.has(normalized)){
+            db.prepare("UPDATE students SET mobile_normalized=NULL,password_state='RESET_REQUIRED',password_hash=NULL WHERE id=?").run(student.id);
+            continue;
+          }
+          claimed.add(normalized);
+          const passwordHash=student.password_hash||studentAuth.hashPassword(studentAuth.temporaryPassword(normalized));
+          const state=student.password_hash&&['TEMPORARY','PERSONAL'].includes(student.password_state)?student.password_state:'TEMPORARY';
+          db.prepare('UPDATE students SET mobile_normalized=?,password_hash=?,password_state=? WHERE id=?').run(normalized,passwordHash,state,student.id);
+        }catch(error){
+          db.prepare("UPDATE students SET mobile_normalized=NULL,password_state='RESET_REQUIRED',password_hash=NULL WHERE id=?").run(student.id);
+        }
+      }
+      db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_students_mobile_normalized_unique ON students(mobile_normalized) WHERE mobile_normalized IS NOT NULL AND mobile_normalized<>''");
     }
   }
 ];

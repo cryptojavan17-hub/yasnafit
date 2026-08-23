@@ -91,7 +91,7 @@ for(const heading of ['ردیف','شماره پرونده','نام و نام خ�
 assert.doesNotMatch(studentsSource,/شاگرد \/ پرونده/,'student and case columns are still combined');
 assert.match(studentsSource,/listState\.page-1\)\*listState\.pageSize\+index\+1/,'student row number does not respect pagination');
 assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
-assert.match(studentsSource,/شماره پرونده یکتا/,'new-student case number confirmation is missing');
+assert.match(studentsSource,/created-case-number/,'new-student case number confirmation is missing');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
 assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
@@ -102,6 +102,13 @@ assert.match(wizardSource,/wizard-top-error/,'measurement errors are not visible
 assert.match(wizardSource,/const button=event\.currentTarget/,'next-step button reference is not preserved across await');
 assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async handler can leave the next-step button disabled');
 assert.doesNotMatch(wizardSource,/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still visible');
+assert.match(studentAppSource,/\/student\/login/,'student login page is missing');
+assert.match(studentAppSource,/\/api\/student\/auth\/login/,'student password login API is not wired');
+assert.match(studentAppSource,/\/student\/change-password/,'forced password-change route is missing');
+assert.match(studentAppSource,/\/api\/student\/auth\/change-password/,'student password-change API is not wired');
+assert.match(studentAppSource,/current_password/,'personal password change is unavailable from the student panel');
+assert.doesNotMatch(studentAppSource,/join\/\$\{encodeURIComponent\(token\)\}\/accept/,'invitation still creates a passwordless session');
+assert.match(studentsSource,/temporary_password/,'coach credential handoff does not show the temporary password');
 assert.match(studentAppSource,/\/student\/workouts/,'student workout UI route is missing');
 assert.match(studentAppSource,/\/student\/messages/,'student messaging UI route is missing');
 assert.match(studentAppSource,/data-start-day/,'active program cannot start a real workout');

@@ -6,7 +6,7 @@
   "description": "Yasnafit local fitness coaching dashboard",
   "scripts": {
     "start": "node server.js",
-    "test": "npm run test:migrations && npm run test:ui && npm run test:terminology && npm run test:sessions && npm run test:assessment && npm run test:engagement && npm run test:students && npm run test:e2e",
+    "test": "npm run test:migrations && npm run test:ui && npm run test:terminology && npm run test:auth && npm run test:sessions && npm run test:assessment && npm run test:engagement && npm run test:students && npm run test:e2e",
     "test:migrations": "node tests/migration-regression.js",
     "test:ui": "node tests/ui-design-regression.js",
     "test:sessions": "node tests/student-session-regression.js",
@@ -14,7 +14,8 @@
     "test:engagement": "node tests/engagement-regression.js",
     "test:students": "node tests/student-management-regression.js",
     "test:e2e": "node tests/e2e-workflow.js",
-    "test:terminology": "node tests/terminology-regression.js"
+    "test:terminology": "node tests/terminology-regression.js",
+    "test:auth": "node tests/student-auth-regression.js"
   },
   "engines": {
     "node": ">=22.5"

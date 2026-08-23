@@ -60,37 +60,26 @@ function inspectInvitation(db,rawToken){
   };
 }
 
-function acceptInvitation(db,rawToken){
+function consumeInvitation(db,rawToken,expectedStudentId=null){
   const inspected=inspectInvitation(db,rawToken);
-  if(inspected.error) return inspected;
-  const rawSession=crypto.randomBytes(32).toString('base64url');
-  const sessionHash=hashToken(rawSession);
-  const stableId=genUUID();
-  const expiresAt=new Date(Date.now()+SESSION_TTL_MS).toISOString();
-  db.exec('BEGIN');
-  try{
-    const consumed=db.prepare(`
-      UPDATE student_invites
-      SET use_count=use_count+1,
-          status=CASE WHEN use_count+1>=max_uses THEN 'used' ELSE 'active' END,
-          used_at=CASE WHEN use_count+1>=max_uses THEN CURRENT_TIMESTAMP ELSE used_at END,
-          updated_at=CURRENT_TIMESTAMP,version=version+1
-      WHERE id=? AND status='active' AND use_count<max_uses AND deleted_at IS NULL
-    `).run(inspected.invitation.id);
-    if(consumed.changes!==1){ db.exec('ROLLBACK'); return {error:'used'}; }
-    db.prepare(`
-      INSERT INTO student_sessions
-        (stable_id,invitation_id,student_id,session_hash,expires_at,last_seen_at,updated_at)
-      VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-    `).run(stableId,inspected.invitation.id,inspected.invitation.student_id,sessionHash,expiresAt);
-    db.exec('COMMIT');
-    return {raw_session:rawSession,expires_at:expiresAt,student_id:inspected.invitation.student_id};
-  }catch(error){
-    try{db.exec('ROLLBACK');}catch(rollbackError){}
-    throw error;
-  }
+  if(inspected.error)return inspected;
+  if(expectedStudentId&&Number(expectedStudentId)!==Number(inspected.invitation.student_id))return {error:'invalid'};
+  const consumed=db.prepare(`
+    UPDATE student_invites
+    SET use_count=use_count+1,
+        status=CASE WHEN use_count+1>=max_uses THEN 'used' ELSE 'active' END,
+        used_at=CASE WHEN use_count+1>=max_uses THEN CURRENT_TIMESTAMP ELSE used_at END,
+        updated_at=CURRENT_TIMESTAMP,version=version+1
+    WHERE id=? AND status='active' AND use_count<max_uses AND deleted_at IS NULL
+  `).run(inspected.invitation.id);
+  if(consumed.changes!==1)return {error:'used'};
+  return {invitation_id:inspected.invitation.id,student_id:inspected.invitation.student_id};
 }
-
+function createStudentSession(db,studentId,invitationId=null){
+  const rawSession=crypto.randomBytes(32).toString('base64url'),sessionHash=hashToken(rawSession),stableId=genUUID(),expiresAt=new Date(Date.now()+SESSION_TTL_MS).toISOString();
+  db.prepare(`INSERT INTO student_sessions(stable_id,invitation_id,student_id,session_hash,expires_at,last_seen_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`).run(stableId,invitationId,studentId,sessionHash,expiresAt);
+  return {raw_session:rawSession,expires_at:expiresAt,student_id:Number(studentId)};
+}
 function resolveStudentSession(db,req){
   const rawSession=parseCookies(req)[SESSION_COOKIE];
   if(!TOKEN_PATTERN.test(String(rawSession||''))) return null;
@@ -126,10 +115,11 @@ function safeStudent(student){
     goal:student.goal||'',height:student.height,weight:student.weight,
     training_experience:student.training_experience||'',training_level:student.training_level||'',
     preferred_location:student.preferred_location||'gym',limitations:student.limitations||'',
-    injuries:student.injuries||'',medical_notes:student.medical_notes||'',profile_status:student.profile_status||''
+    injuries:student.injuries||'',medical_notes:student.medical_notes||'',profile_status:student.profile_status||'',
+    password_change_required:student.password_state!=='PERSONAL'
   };
 }
 module.exports={
   SESSION_COOKIE,SESSION_TTL_MS,TOKEN_PATTERN,parseCookies,sessionCookie,clearSessionCookie,
-  inspectInvitation,acceptInvitation,resolveStudentSession,revokeCurrentSession,revokeInvitationSessions,safeStudent
+  inspectInvitation,consumeInvitation,createStudentSession,resolveStudentSession,revokeCurrentSession,revokeInvitationSessions,safeStudent
 };
