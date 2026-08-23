@@ -679,12 +679,12 @@ const migrations = [
       `);
       const changes={
         features:[
-          'نشست مستقل و امن دانش‌آموز با cookie از نوع HttpOnly',
+          'نشست مستقل و امن شاگرد با cookie از نوع HttpOnly',
           'صفحه اختصاصی join و onboarding چندمرحله‌ای',
-          'داشبورد، برنامه، ارزیابی، پروفایل و تاریخچه دانش‌آموز'
+          'داشبورد، برنامه، ارزیابی، پروفایل و تاریخچه شاگرد'
         ],
-        improvements:['جداسازی کامل پوسته دانش‌آموز از داشبورد مربی','تجربه موبایل RTL برای عکس و ارزیابی'],
-        fixes:['حذف استفاده دائمی از توکن دعوت به‌عنوان credential دانش‌آموز'],
+        improvements:['جداسازی کامل پوسته شاگرد از داشبورد مربی','تجربه موبایل RTL برای عکس و ارزیابی'],
+        fixes:['حذف استفاده دائمی از توکن دعوت به‌عنوان credential شاگرد'],
         security:['ذخیره فقط hash نشست، انقضا، logout و کنترل دسترسی عکس بر اساس نشست'],
         breaking_changes:[]
       };
@@ -693,7 +693,7 @@ const migrations = [
         VALUES (?,?,?,?,?)
       `).run(
         '0.5.0','Dedicated Student Portal and Session Authentication','2026-08-22',
-        'پورتال واقعی دانش‌آموز با نشست مستقل، onboarding و تاریخچه ماهانه',
+        'پورتال واقعی شاگرد با نشست مستقل، onboarding و تاریخچه ماهانه',
         JSON.stringify(changes)
       );
     }
@@ -754,7 +754,7 @@ const migrations = [
         VALUES (?,?,?,?,?)
       `).run(
         '0.6.0','Optional Body Photos and Explicit Consent','2026-08-22',
-        'ارسال تصاویر بدنی کاملاً اختیاری و مبتنی بر انتخاب صریح دانش‌آموز شد',
+        'ارسال تصاویر بدنی کاملاً اختیاری و مبتنی بر انتخاب صریح شاگرد شد',
         JSON.stringify(changes)
       );
     }
@@ -853,7 +853,7 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_assessments_type_status ON body_assessments(assessment_type,lifecycle_status,student_id);
       `);
       const changes={
-        features:['فرم حرفه‌ای ده‌مرحله‌ای ارزیابی دانش‌آموز','ذخیره ساخت‌یافته پزشکی، ورزشی، تغذیه، عادات و بارداری','نوع INITIAL/MONTHLY و lifecycle مستقل ارزیابی'],
+        features:['فرم حرفه‌ای ده‌مرحله‌ای ارزیابی شاگرد','ذخیره ساخت‌یافته پزشکی، ورزشی، تغذیه، عادات و بارداری','نوع INITIAL/MONTHLY و lifecycle مستقل ارزیابی'],
         improvements:['ذخیره موقت، autosave و بازبینی کامل قبل از ارسال','مقایسه ماهانه و اتصال صریح برنامه به ارزیابی'],
         fixes:['جایگزینی کامل placeholder مسیر document/edit-document'],
         security:['اعتبارسنجی server-side همه بخش‌ها و حفظ session-bound ownership'],breaking_changes:[]
@@ -896,7 +896,7 @@ const migrations = [
     id: '017_onboarding_next_button_recovery',
     description: 'Release record for async onboarding next-button recovery',
     up: (db) => {
-      const changes={features:[],improvements:['مهلت ۱۵ ثانیه‌ای برای درخواست‌های پورتال دانش‌آموز'],fixes:['رفع باقی‌ماندن دکمه مرحله بعد در حالت disabled پس از await یا خطای API'],security:[],breaking_changes:[]};
+      const changes={features:[],improvements:['مهلت ۱۵ ثانیه‌ای برای درخواست‌های پورتال شاگرد'],fixes:['رفع باقی‌ماندن دکمه مرحله بعد در حالت disabled پس از await یا خطای API'],security:[],breaking_changes:[]};
       db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.7.2','Onboarding Next Button Recovery','2026-08-22','رفع قطعی خاموش ماندن دکمه مرحله بعد در wizard ارزیابی',JSON.stringify(changes));
     }
   },
@@ -963,8 +963,94 @@ const migrations = [
         );
         CREATE INDEX IF NOT EXISTS idx_workout_results_session ON workout_results(workout_session_id,status);
       `);
-      const changes={features:['ثبت اجرای تمرین جدا از ست تجویزی','اعلان‌های درون‌برنامه‌ای واقعی','پیام‌رسانی سبک مربی و دانش‌آموز','audit log ساخت‌یافته'],improvements:['نمای عملکرد مربی فقط بر اساس داده واقعی تمرین'],fixes:[],security:['مالکیت session-bound برای تمرین، پیام و اعلان و حذف اسرار از audit metadata'],breaking_changes:[]};
+      const changes={features:['ثبت اجرای تمرین جدا از ست تجویزی','اعلان‌های درون‌برنامه‌ای واقعی','پیام‌رسانی سبک مربی و شاگرد','audit log ساخت‌یافته'],improvements:['نمای عملکرد مربی فقط بر اساس داده واقعی تمرین'],fixes:[],security:['مالکیت session-bound برای تمرین، پیام و اعلان و حذف اسرار از audit metadata'],breaking_changes:[]};
       db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.8.0','Coach Student Engagement Foundation','2026-08-23','ثبت واقعی تمرین، اعلان، پیام و audit برای چرخه بلندمدت مربیگری',JSON.stringify(changes));
+    }
+  },
+  {
+    id: '019_core_journey_stabilization',
+    description: 'Central theme, three-entry invitations, permanent ownership and case identity',
+    up: (db) => {
+      const columns = table => new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(column => column.name));
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS assessment_ai_suggestions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          assessment_id INTEGER NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING','READY','DISMISSED','APPLIED','FAILED')),
+          provider TEXT,
+          model TEXT,
+          suggestion_json TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(suggestion_json)),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(assessment_id) REFERENCES body_assessments(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_assessment_ai_suggestions_status ON assessment_ai_suggestions(status,updated_at);
+        CREATE TABLE IF NOT EXISTS coaches (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          display_name TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','INACTIVE')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        INSERT OR IGNORE INTO coaches(id,stable_id,display_name) VALUES(1,'local-coach','مربی محلی');
+        CREATE TABLE IF NOT EXISTS coach_students (
+          student_id INTEGER PRIMARY KEY,
+          coach_id INTEGER NOT NULL,
+          assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE RESTRICT
+        );
+        INSERT OR IGNORE INTO coach_students(student_id,coach_id) SELECT id,1 FROM students;
+        CREATE INDEX IF NOT EXISTS idx_coach_students_coach ON coach_students(coach_id,student_id);
+        CREATE TRIGGER IF NOT EXISTS trg_students_default_coach
+        AFTER INSERT ON students WHEN NOT EXISTS(SELECT 1 FROM coach_students WHERE student_id=NEW.id)
+        BEGIN INSERT INTO coach_students(student_id,coach_id) VALUES(NEW.id,1); END;
+      `);
+      const studentColumns=columns('students');
+      if(!studentColumns.has('case_number')) db.exec('ALTER TABLE students ADD COLUMN case_number TEXT');
+      db.exec(`
+        UPDATE students SET case_number=printf('%06d',100000+id) WHERE case_number IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_students_case_number_unique ON students(case_number);
+        CREATE TRIGGER IF NOT EXISTS trg_students_case_number
+        AFTER INSERT ON students WHEN NEW.case_number IS NULL
+        BEGIN UPDATE students SET case_number=printf('%06d',100000+NEW.id) WHERE id=NEW.id; END;
+        CREATE TRIGGER IF NOT EXISTS trg_students_case_number_format_insert
+        BEFORE INSERT ON students WHEN NEW.case_number IS NOT NULL AND NEW.case_number NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]'
+        BEGIN SELECT RAISE(ABORT,'case_number must be six digits'); END;
+        CREATE TRIGGER IF NOT EXISTS trg_students_case_number_format_update
+        BEFORE UPDATE OF case_number ON students WHEN NEW.case_number IS NULL OR NEW.case_number NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]'
+        BEGIN SELECT RAISE(ABORT,'case_number must be six digits'); END;
+      `);
+      const inviteColumns=columns('student_invites');
+      if(!inviteColumns.has('use_count')) db.exec('ALTER TABLE student_invites ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0');
+      if(!inviteColumns.has('max_uses')) db.exec('ALTER TABLE student_invites ADD COLUMN max_uses INTEGER NOT NULL DEFAULT 3');
+      if(!inviteColumns.has('opened_at')) db.exec('ALTER TABLE student_invites ADD COLUMN opened_at TEXT');
+      db.exec(`
+        UPDATE student_invites SET use_count=3,max_uses=3 WHERE status='used';
+        UPDATE student_invites SET max_uses=3 WHERE max_uses IS NULL OR max_uses<>3;
+      `);
+
+      // Correct already-persisted historical release copy without retaining obsolete terminology in source.
+      const obsolete=[
+        String.fromCodePoint(0x62f,0x627,0x646,0x634,0x20,0x622,0x645,0x648,0x632),
+        String.fromCodePoint(0x62f,0x627,0x646,0x634,0x200c,0x622,0x645,0x648,0x632),
+        String.fromCodePoint(0x62f,0x627,0x646,0x634,0x20,0x627,0x645,0x648,0x632)
+      ];
+      for(const word of obsolete){
+        db.prepare('UPDATE releases SET summary=replace(summary,?,?),changes_json=replace(changes_json,?,?),updated_at=CURRENT_TIMESTAMP').run(word,'شاگرد',word,'شاگرد');
+      }
+      const changes={
+        features:['مالکیت دائمی هر شاگرد توسط یک مربی','شماره پرونده یکتای شش‌رقمی','دعوت امن با سه بار امکان ساخت نشست','ساختار غیرفعال پیشنهاد اولیه AI برای بررسی مربی'],
+        improvements:['توکن‌های طراحی متمرکز برای همه صفحات','راهنمای تصویری بدون چهره برای تصاویر اختیاری','نمای نسخه و آخرین تغییرات در داشبورد مربی'],
+        fixes:['یکسان‌سازی کامل واژگان کسب‌وکار','حذف اجبار انتخاب در بخش تصاویر اختیاری'],
+        security:['توکن دعوت همچنان فقط به‌صورت hash ذخیره می‌شود و نشست‌ها قابل ابطال هستند'],
+        breaking_changes:[]
+      };
+      db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)')
+        .run('0.9.0','Core Journey Stabilization','2026-08-23','تثبیت مسیر دعوت، پورتال خصوصی، ارزیابی و مالکیت مربی',JSON.stringify(changes));
     }
   }
 ];

@@ -30,14 +30,14 @@ function inspectInvitation(db,rawToken){
   if(!TOKEN_PATTERN.test(String(rawToken||''))) return {error:'invalid'};
   const invitation=db.prepare(`
     SELECT si.id,si.student_id,si.status,si.expires_at,si.used_at,si.revoked_at,
-           s.full_name,s.profile_status
+           si.use_count,si.max_uses,si.opened_at,s.full_name,s.profile_status
     FROM student_invites si
     JOIN students s ON s.id=si.student_id AND s.deleted_at IS NULL
     WHERE si.token_hash=? AND si.deleted_at IS NULL
   `).get(hashToken(rawToken));
   if(!invitation) return {error:'invalid'};
   if(invitation.status==='revoked') return {error:'revoked'};
-  if(invitation.status==='used') return {error:'used'};
+  if(invitation.status==='used' || invitation.use_count>=invitation.max_uses) return {error:'used'};
   if(invitation.status==='expired') return {error:'expired'};
   if(invitation.status!=='active') return {error:'invalid'};
   if(invitation.expires_at){
@@ -47,7 +47,17 @@ function inspectInvitation(db,rawToken){
       return {error:'expired'};
     }
   }
-  return {invitation:{id:invitation.id,student_id:invitation.student_id},student:{full_name:invitation.full_name,profile_status:invitation.profile_status}};
+  db.prepare('UPDATE student_invites SET opened_at=COALESCE(opened_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?').run(invitation.id);
+  return {
+    invitation:{
+      id:invitation.id,
+      student_id:invitation.student_id,
+      use_count:invitation.use_count,
+      max_uses:invitation.max_uses,
+      remaining_uses:Math.max(0,invitation.max_uses-invitation.use_count)
+    },
+    student:{full_name:invitation.full_name,profile_status:invitation.profile_status}
+  };
 }
 
 function acceptInvitation(db,rawToken){
@@ -61,8 +71,11 @@ function acceptInvitation(db,rawToken){
   try{
     const consumed=db.prepare(`
       UPDATE student_invites
-      SET status='used',used_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1
-      WHERE id=? AND status='active' AND deleted_at IS NULL
+      SET use_count=use_count+1,
+          status=CASE WHEN use_count+1>=max_uses THEN 'used' ELSE 'active' END,
+          used_at=CASE WHEN use_count+1>=max_uses THEN CURRENT_TIMESTAMP ELSE used_at END,
+          updated_at=CURRENT_TIMESTAMP,version=version+1
+      WHERE id=? AND status='active' AND use_count<max_uses AND deleted_at IS NULL
     `).run(inspected.invitation.id);
     if(consumed.changes!==1){ db.exec('ROLLBACK'); return {error:'used'}; }
     db.prepare(`
@@ -107,6 +120,7 @@ function revokeInvitationSessions(db,invitationId){
 }
 function safeStudent(student){
   return {
+    case_number:student.case_number||'',
     full_name:student.full_name||'',mobile:student.mobile||'',date_of_birth:student.date_of_birth||'',gender:student.gender||'unspecified',
     goal:student.goal||'',height:student.height,weight:student.weight,
     training_experience:student.training_experience||'',training_level:student.training_level||'',

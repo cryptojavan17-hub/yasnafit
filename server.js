@@ -302,8 +302,9 @@ async function handleStudents(req,res,url){
         (full_name,mobile,goal,status,weight,height,stable_id,version,created_at,updated_at)
       VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
     `).run(b.full_name.trim(), String(b.mobile||'').trim(), String(b.goal||'').trim(), b.status||'فعال', Number(b.weight)||null, Number(b.height)||null, stableId, 1);
+    const created=one('SELECT id,stable_id,case_number FROM students WHERE id=?',Number(r.lastInsertRowid));
     log('شاگرد جدید ثبت شد', b.full_name);
-    return send(res,201,{id:r.lastInsertRowid, stable_id: stableId});
+    return send(res,201,created);
   }
   return sendError(res,405,'متد مجاز نیست');
 }
@@ -772,7 +773,7 @@ async function handleStudentInvites(req,res,url){
   const p=url.pathname;
   if(p==='/api/student-invites' && req.method==='GET'){
     const list = rows(`
-      SELECT si.id, si.stable_id, si.student_id, si.token_preview, si.status, si.created_at, si.expires_at, si.used_at, si.revoked_at, s.full_name, s.mobile
+      SELECT si.id, si.stable_id, si.student_id, si.token_preview, si.status, si.created_at, si.expires_at, si.used_at, si.opened_at, si.use_count, si.max_uses, si.revoked_at, s.full_name, s.mobile
       FROM student_invites si
       JOIN students s ON s.id=si.student_id AND s.deleted_at IS NULL
       WHERE si.deleted_at IS NULL
@@ -849,12 +850,12 @@ async function handleStudentJoin(req,res,url){
   if(inspectMatch && req.method==='GET'){
     const inspected=studentSessionService.inspectInvitation(db,inspectMatch[1]);
     if(inspected.error)return invitationErrorResponse(res,inspected.error);
-    return send(res,200,{valid:true,student_name:inspected.student.full_name||'',message:'دعوت معتبر است'});
+    return send(res,200,{valid:true,student_name:inspected.student.full_name||'',remaining_entries:inspected.invitation.remaining_uses,message:'دعوت معتبر است'});
   }
   if(acceptMatch && req.method==='POST'){
     const accepted=studentSessionService.acceptInvitation(db,acceptMatch[1]);
     if(accepted.error)return invitationErrorResponse(res,accepted.error);
-    log('نشست دانش‌آموز ایجاد شد',`invitation accepted for student ${accepted.student_id}`);
+    log('نشست شاگرد ایجاد شد',`invitation accepted for student ${accepted.student_id}`);
     auditService.record(db,{actorType:'student',actorId:accepted.student_id,action:'student.registered',entityType:'student',entityId:accepted.student_id});
     return send(res,201,{success:true,next_route:studentNextRoute(accepted.student_id),expires_at:accepted.expires_at},{
       'Set-Cookie':studentSessionService.sessionCookie(req,accepted.raw_session)
@@ -973,7 +974,7 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
   const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
-  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید دانش‌آموز',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}
+  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید شاگرد',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}
   if(p==='/api/student/workouts'&&req.method==='GET')return send(res,200,{workouts:engagementService.listWorkouts(db,studentId),performance:engagementService.performance(db,studentId)});
   if(p==='/api/student/workouts'&&req.method==='POST'){try{const workout=engagementService.startWorkout(db,studentId,(await readBody(req)).day_ref);auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.started',entityType:'workout_session',entityStableId:workout.stable_id});return send(res,201,{workout});}catch(error){return sendError(res,400,error.message);}}
   const workoutResults=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/results$/);if(workoutResults&&req.method==='PUT'){try{return send(res,200,{workout:engagementService.saveWorkoutResults(db,studentId,workoutResults[1],(await readBody(req)).results)});}catch(error){return sendError(res,400,error.message);}}
@@ -1058,7 +1059,7 @@ async function handleStudentSessionApi(req,res,url){
     const programs=rows("SELECT * FROM training_programs WHERE student_id=? AND status IN ('ACTIVE','COMPLETED','ARCHIVED') AND deleted_at IS NULL ORDER BY program_number ASC,id ASC",studentId);
     return send(res,200,{assessments:assessments.map(item=>studentAssessmentView(item,assessmentPhotos(item.id))),programs:programs.map(studentProgramView)});
   }
-  return sendError(res,404,'مسیر دانش‌آموز پیدا نشد');
+  return sendError(res,404,'مسیر شاگرد پیدا نشد');
 }
 
 async function handleStudentPortal(req,res,url){

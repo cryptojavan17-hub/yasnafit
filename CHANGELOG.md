@@ -2,6 +2,22 @@
 
 Application versions follow Semantic Versioning. `package.json.version` is the current application version; SQLite migration IDs and Git commits are separate identifiers. Structured release data is also available through `GET /api/releases`.
 
+## 0.9.0 — 2026-08-23
+
+### Features
+- Added a single global theme token file shared by coach and private portal shells.
+- Added permanent `coaches` and `coach_students` ownership foundations.
+- Added a dormant `assessment_ai_suggestions` structure for future coach-reviewed suggestions; no AI is called in production.
+- Added a unique six-digit display-only case number for every شاگرد.
+- Added exactly three secure invitation entries, each issuing an independent hashed session.
+- Added neutral, no-facial-detail pose guides for all five optional body-photo slots.
+- Added current release date and latest changes to the coach dashboard.
+
+### Fixes and security
+- Made body photos fully skippable without forcing a refusal choice.
+- Kept token hashes, revocation, expiry, rate limiting and session isolation intact.
+- Added a repository-wide terminology regression guard and corrected stored historical release text during migration.
+
 ## 0.8.0 — 2026-08-23
 
 ### Features

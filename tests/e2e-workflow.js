@@ -66,14 +66,13 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const sessionA=await acceptInvitation(inviteA),sessionB=await acceptInvitation(inviteB);
   const documentRoute=await request('/document/edit-document',{cookie:sessionA.cookie});assert.equal(documentRoute.response.status,200);assert.match(documentRoute.data.toString('utf8'),/assessment-wizard\.js/);
   assert.equal(sessionA.next,'/student/onboarding');assert.equal(sessionB.next,'/student/onboarding');
-  await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,`/api/student/join/${inviteA.token}/accept`,{method:'POST'});
+  assert.equal((await request(`/api/student/join/${inviteA.token}`)).response.status,200);assert.equal((await request(`/api/student/join/${inviteA.token}/accept`,{method:'POST'})).response.status,201);assert.equal((await request(`/api/student/join/${inviteA.token}/accept`,{method:'POST'})).response.status,201);await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,`/api/student/join/${inviteA.token}/accept`,{method:'POST'});
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
   await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
   await completeStructuredAssessment(sessionA.cookie,'male');
-  await expectStatus(400,'/api/student/assessment/submit',{method:'POST',cookie:sessionA.cookie});
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{body_photos_preference:'willing'}});
   const fakePng=Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]),Buffer.from('<script>alert(1)</script>'),Buffer.from([0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82])]);
@@ -154,9 +153,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});
 
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
-  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.8.0',name:'Yasnafit',environment:'development'});
-  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'018_engagement_audit_workouts');
+  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.0',name:'Yasnafit',environment:'development'});
+  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'019_core_journey_stabilization');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

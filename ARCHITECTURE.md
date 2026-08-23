@@ -1062,3 +1062,13 @@ student-scoped conversation and sender/read timestamps. Structured `audit_events
 keys containing token/session/password/path/hash/secret and record invitation, assessment,
 program, workout, file and message events. SameSite cookies are supplemented by Origin
 checks on student mutations and in-memory rate limits on invitation/join endpoints.
+
+# Core journey stabilization (v0.9.0)
+
+- `public/theme.css` is the global design-token source for coach and private portal shells.
+- `coaches` stores permanent coach identities; `coach_students` gives every شاگرد exactly one owner and is ready for ownership-scoped authorization as additional coach accounts are introduced.
+- `assessment_ai_suggestions` is a dormant persistence boundary for future coach-reviewed suggestions. No model, provider, or automatic assignment is enabled in production.
+- `students.case_number` is a unique six-digit display identifier and is never used as a database primary key or authentication credential.
+- Invitations retain hashed tokens, expiry and revocation. Each invitation can create exactly three independent, server-side hashed sessions; `use_count`, `max_uses`, and `opened_at` record its lifecycle.
+- Assessment and medical files remain private and outside `public/`. Body photos are fully optional; the five SVG files under `public/guides/` are public pose instructions only.
+- Schema migration `019_core_journey_stabilization` upgrades existing databases transactionally and corrects historical release terminology already persisted in SQLite.

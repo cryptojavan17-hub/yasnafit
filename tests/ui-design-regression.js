@@ -5,12 +5,12 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const publicDir=path.join(root,'public');
-const cssFiles=['styles.css','dark-theme.css','exercises.css','program-builder.css','student-portal.css','releases.css','students.css','student-app.css'];
+const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','student-portal.css','releases.css','students.css','student-app.css'];
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
 
 for(const token of ['--bg: #050505','--surface: #101010','--glass: rgba(255, 255, 255, .045)','--border: rgba(255, 255, 255, .085)','--text: #fff','--radius-lg: 16px','--transition: 180ms ease']){
-  assert.ok(css['styles.css'].includes(token),`missing central design token: ${token}`);
+  assert.ok(css['theme.css'].includes(token),`missing central design token: ${token}`);
 }
 assert.doesNotMatch(Object.values(css).join('\n'),/!important/i,'CSS architecture regressed to !important overrides');
 assert.doesNotMatch(Object.values(css).join('\n'),/background(?:-color)?\s*:\s*(?:#fff(?:fff)?|white)\b/i,'pure white component background found');
@@ -42,7 +42,7 @@ for(const file of coachCssFiles){
 }
 const studentHtml=fs.readFileSync(path.join(publicDir,'student.html'),'utf8');
 assert.match(studentHtml,/dir="rtl"/,'student shell is not RTL');
-assert.match(studentHtml,/\/styles\.css/,'student shell misses design tokens');
+assert.match(studentHtml,/\/theme\.css/,'student shell misses central design tokens');
 assert.match(studentHtml,/\/student-app\.css/,'student shell misses dedicated responsive styles');
 assert.match(studentHtml,/\/assessment-wizard\.js/,'student shell misses professional assessment wizard');
 assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewport');
@@ -62,9 +62,10 @@ assert.match(studentAppSource,/\/student\/workouts/,'student workout UI route is
 assert.match(studentAppSource,/\/student\/messages/,'student messaging UI route is missing');
 assert.match(studentAppSource,/data-start-day/,'active program cannot start a real workout');
 assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از 10/,'ten-step progress indicator is missing');
-assert.match(wizardSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');
+assert.doesNotMatch(wizardSource,/name="bodyPhotoPreference"/,'optional photos still force a preference choice');
 assert.match(wizardSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
-assert.match(wizardSource,/همه تصاویر اختیاری هستند/,'optional photo wording is missing');
+assert.match(wizardSource,/بدون انتخاب فایل می‌توانید ادامه دهید/,'optional photo wording is missing');
+assert.match(css['student-app.css'],/guides\/body-front\.svg/,'educational pose guides are missing');
 assert.doesNotMatch(wizardSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
 console.log(JSON.stringify({ok:true,css_files:cssFiles.length,tokens:true,no_light_overrides:true,no_colorful_legacy_palette:true,components:true,stylesheet_order:true,dedicated_student_shell:true}));

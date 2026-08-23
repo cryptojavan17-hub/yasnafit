@@ -1,0 +1,42 @@
+/* Yasnafit global design tokens — the single source of truth for every shell. */
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --bg-raised: #080808;
+  --surface: #101010;
+  --surface-2: #151515;
+  --surface-3: #1b1b1b;
+  --surface-inset: #0d0d0d;
+  --card: rgba(255, 255, 255, .045);
+  --accent: #ffffff;
+  --glass: rgba(255, 255, 255, .045);
+  --glass-hover: rgba(255, 255, 255, .075);
+  --glass-strong: rgba(255, 255, 255, .1);
+  --border: rgba(255, 255, 255, .085);
+  --border-strong: rgba(255, 255, 255, .15);
+  --border-focus: rgba(255, 255, 255, .72);
+  --text: #fff;
+  --text-primary: #f5f5f5;
+  --text-secondary: #c8c8c8;
+  --text-muted: #999;
+  --text-placeholder: #777;
+  --text-disabled: #666;
+  --white: #fff;
+  --black: #000;
+  --danger: #ef8a8a;
+  --danger-surface: rgba(190, 56, 56, .12);
+  --danger-border: rgba(239, 138, 138, .3);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 10px 28px rgba(0, 0, 0, .25);
+  --shadow: 0 20px 60px rgba(0, 0, 0, .42);
+  --shadow-deep: 0 28px 90px rgba(0, 0, 0, .62);
+  --transition: 180ms ease;
+  --sidebar-width: 286px;
+  --green: var(--white);
+  --ink: var(--text-primary);
+  --muted: var(--text-muted);
+  --line: var(--border);
+}

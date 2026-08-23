@@ -17,7 +17,7 @@ try{
   const inviteA=students.createInvite(db,a,30),inviteB=students.createInvite(db,b,30);
   assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.student_id,a);
   const acceptedA=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA.raw_session);assert.equal(acceptedA.student_id,a);
-  assert.equal(sessions.inspectInvitation(db,inviteA.token).error,'used');assert.equal(sessions.acceptInvitation(db,inviteA.token).error,'used');
+  const acceptedA2=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA2.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).invitation.remaining_uses,1);const acceptedA3=sessions.acceptInvitation(db,inviteA.token);assert.ok(acceptedA3.raw_session);assert.equal(sessions.inspectInvitation(db,inviteA.token).error,'used');assert.equal(sessions.acceptInvitation(db,inviteA.token).error,'used');
   assert.equal(db.prepare('SELECT session_hash FROM student_sessions WHERE student_id=?').get(a).session_hash,students.hashToken(acceptedA.raw_session));
   assert.equal(db.prepare("SELECT COUNT(*) c FROM student_sessions WHERE session_hash=?").get(acceptedA.raw_session).c,0,'raw session stored in SQLite');
   const reqA={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedA.raw_session}`},socket:{encrypted:false}};
@@ -33,7 +33,7 @@ try{
   const willing=students.createAssessment(db,b,{weight:71,height:171,goal:'fitness',training_experience:'beginner',body_photos_preference:'willing'});
   assert.equal(students.submitAssessment(db,willing.id).status,'SUBMITTED','willing/zero-photo assessment was rejected');
   const unspecified=students.createAssessment(db,c,{weight:72,height:172,goal:'fitness',training_experience:'beginner'});
-  assert.throws(()=>students.submitAssessment(db,unspecified.id),/تصاویر بدنی/,'missing explicit photo preference was accepted');
+  assert.equal(students.submitAssessment(db,unspecified.id).status,'SUBMITTED','optional no-photo assessment was rejected');
 
   const expiredInvite=students.createInvite(db,b,30);db.prepare("UPDATE student_invites SET expires_at='2000-01-01T00:00:00.000Z' WHERE id=?").run(expiredInvite.id);
   assert.equal(sessions.inspectInvitation(db,expiredInvite.token).error,'expired');
@@ -45,5 +45,5 @@ try{
   assert.equal(sessions.revokeCurrentSession(db,reqB),true);assert.equal(sessions.resolveStudentSession(db,reqB),null,'logout session reuse accepted');
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   db.close();
-  console.log(JSON.stringify({ok:true,one_time_invite:true,hashed_session:true,expiration:true,revocation:true,logout_reuse_blocked:true,isolation:true,declined_zero_photos_valid:true,willing_zero_photos_valid:true,explicit_preference_required:true}));
+  console.log(JSON.stringify({ok:true,three_entry_invite:true,hashed_session:true,expiration:true,revocation:true,logout_reuse_blocked:true,isolation:true,declined_zero_photos_valid:true,willing_zero_photos_valid:true,photo_preference_optional:true}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

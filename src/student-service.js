@@ -281,17 +281,13 @@ function submitAssessment(db, assessmentId){
   if(!(existing.height || student.height)) throw new Error('قد الزامی است');
   if(!(existing.goal || student.goal)) throw new Error('هدف تمرینی الزامی است');
   if(!(existing.training_experience || student.training_experience)) throw new Error('سابقه تمرین الزامی است');
-  if(!['willing','declined'].includes(existing.body_photos_preference)){
-    throw new Error('لطفاً تمایل یا عدم تمایل خود برای ارسال تصاویر بدنی را مشخص کنید');
-  }
-  // Assessment validity never depends on photo count. willing may contain zero to five
-  // photos; declined is an equally valid explicit privacy choice.
+  // Body photos and the preference flag are optional. Submission validity never
+  // depends on a photo count; historical explicit choices remain compatible.
 
   db.exec('BEGIN');
   try {
     db.prepare(`UPDATE body_assessments SET status='SUBMITTED',lifecycle_status='SUBMITTED',submitted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(assessmentId);
     db.prepare(`UPDATE students SET profile_status='SUBMITTED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessmentId, existing.student_id);
-    db.prepare(`UPDATE student_invites SET status='used', used_at=COALESCE(used_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE student_id=? AND status='active'`).run(existing.student_id);
     db.exec('COMMIT');
   } catch(e){ db.exec('ROLLBACK'); throw e; }
   return db.prepare('SELECT * FROM body_assessments WHERE id=?').get(assessmentId);
@@ -476,7 +472,7 @@ function getStudentInvites(db,studentId){
   if(!exists) return null;
   return db.prepare(`
     SELECT id, stable_id, student_id, token_preview, status, expires_at, used_at,
-           revoked_at, created_at, updated_at
+           use_count, max_uses, opened_at, revoked_at, created_at, updated_at
     FROM student_invites
     WHERE student_id=? AND deleted_at IS NULL
     ORDER BY id DESC

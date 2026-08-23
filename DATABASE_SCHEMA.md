@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `018_engagement_audit_workouts` stored in `settings` table and `schema_migrations`
+Current: `019_core_journey_stabilization` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -24,6 +24,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `016_measurement_input_compatibility` - Localized numeric input compatibility patch
 - `017_onboarding_next_button_recovery` - Async next-button recovery patch
 - `018_engagement_audit_workouts` - Workouts, notifications, messages and audit events
+- `019_core_journey_stabilization` - Coach ownership, six-digit case identity and three-entry invitations
 
 ## Full Schema
 
