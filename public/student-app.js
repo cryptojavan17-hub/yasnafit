@@ -33,7 +33,7 @@
   }
   function shell(path,content){
     const navigation=nav(path),name=me?.student?.full_name||'شاگرد';
-    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>${me?.student?.case_number?`پرونده ${esc(me.student.case_number)} • `:''}برنامه و ارزیابی شخصی</small></div><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${content}</section></div>${navigation.bottom}</div>`;
+    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>برنامه و ارزیابی شخصی</small>${me?.student?.case_number?`<span class="portal-case-number">پرونده <b>${esc(me.student.case_number)}</b></span>`:''}</div><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${content}</section></div>${navigation.bottom}</div>`;
     root.querySelectorAll('[data-student-logout]').forEach(button=>button.addEventListener('click',logout));
   }
   async function logout(){

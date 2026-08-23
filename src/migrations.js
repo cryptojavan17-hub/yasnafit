@@ -1052,6 +1052,15 @@ const migrations = [
       db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)')
         .run('0.9.0','Core Journey Stabilization','2026-08-23','تثبیت مسیر دعوت، پورتال خصوصی، ارزیابی و مالکیت مربی',JSON.stringify(changes));
     }
+  },
+  {
+    id: '020_assessment_social_profiles',
+    description: 'Optional Telegram and Instagram profile fields for assessment onboarding',
+    up: (db) => {
+      const columns=new Set(db.prepare('PRAGMA table_info(students)').all().map(column=>column.name));
+      if(!columns.has('telegram_id')) db.exec("ALTER TABLE students ADD COLUMN telegram_id TEXT NOT NULL DEFAULT ''");
+      if(!columns.has('instagram_id')) db.exec("ALTER TABLE students ADD COLUMN instagram_id TEXT NOT NULL DEFAULT ''");
+    }
   }
 ];
 

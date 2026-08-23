@@ -65,6 +65,17 @@ assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از \$\{steps\.lengt
 assert.equal((wizardSource.match(/data-step=\"\d\"/g)||[]).length,8,'assessment wizard must have exactly eight main steps');
 assert.match(wizardSource,/segmented-control/,'fast segmented controls are missing');
 assert.match(wizardSource,/saveCurrent\(true\)/,'step-change autosave is missing');
+assert.match(wizardSource,/id="personalTelegram"/,'Telegram field is missing');
+assert.match(wizardSource,/id="personalInstagram"/,'Instagram field is missing');
+assert.match(wizardSource,/assessment-case/,'case number is missing from assessment header');
+assert.doesNotMatch(wizardSource,/ترجیح می‌دهم نگویم/,'assessment gender has an unsupported third option');
+assert.match(wizardSource,/id="primaryGoal"/,'single goal dropdown is missing');
+assert.doesNotMatch(wizardSource,/name="goals"/,'complex multi-goal controls still exist');
+assert.match(wizardSource,/habits-panel/,'habit questions are not visibly grouped');
+assert.doesNotMatch(wizardSource,/data-lifestyle-tab/,'habit questions are still hidden behind tabs');
+assert.match(wizardSource,/review-groups/,'grouped review report is missing');
+assert.match(wizardSource,/آیا نکته یا توضیحاتی دارید که مربی بداند؟/,'final coach note is missing');
+assert.match(css['student-app.css'],/min-height:42px/,'compact touch target rules are missing');
 assert.doesNotMatch(wizardSource,/name="bodyPhotoPreference"/,'optional photos still force a preference choice');
 assert.match(wizardSource,/\['front_flex','back_flex','side'\]/,'three optional photo slots are missing');
 assert.match(wizardSource,/بدون هیچ فایلی می‌توانید ادامه دهید/,'optional photo wording is missing');

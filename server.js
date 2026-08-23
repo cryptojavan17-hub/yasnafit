@@ -865,12 +865,15 @@ async function handleStudentJoin(req,res,url){
 }
 
 function updateStudentProfileFromSession(studentId,body){
-  const allowed=['full_name','mobile','date_of_birth','gender','height','weight','goal','training_experience','training_level','preferred_location','limitations','injuries','medical_notes'];
+  const allowed=['full_name','mobile','telegram_id','instagram_id','date_of_birth','gender','height','weight','goal','training_experience','training_level','preferred_location','limitations','injuries','medical_notes'];
   const updates={};
   for(const key of allowed)if(body[key]!==undefined)updates[key]=body[key];
   if(!Object.keys(updates).length){const error=new Error('هیچ فیلدی برای ویرایش نیست');error.statusCode=400;throw error;}
   if(updates.full_name!==undefined && (!String(updates.full_name).trim()||String(updates.full_name).length>100)){const error=new Error('نام نامعتبر است');error.statusCode=400;throw error;}
   if(updates.mobile!==undefined && (typeof updates.mobile!=='string'||updates.mobile.length>20)){const error=new Error('موبایل نامعتبر است');error.statusCode=400;throw error;}
+  for(const key of ['telegram_id','instagram_id']){
+    if(updates[key]!==undefined && (typeof updates[key]!=='string'||updates[key].length>100)){const error=new Error('شناسه شبکه اجتماعی نامعتبر است');error.statusCode=400;throw error;}
+  }
   if(updates.date_of_birth){
     const birth=new Date(`${updates.date_of_birth}T00:00:00Z`),earliest=new Date('1900-01-01T00:00:00Z');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(updates.date_of_birth)||Number.isNaN(birth.getTime())||birth<earliest||birth>new Date()){

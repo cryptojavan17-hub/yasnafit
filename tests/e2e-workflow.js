@@ -55,7 +55,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 
   const suffix=Date.now(),mobileA=`09${String(suffix).slice(-9)}`,mobileB=`08${String(suffix).slice(-9)}`;
   const a=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student A ${suffix}`,mobile:mobileA,goal:'فیتنس'}});
-  const b=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});
+  const b=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});assert.match(a.case_number,/^\d{6}$/);assert.match(b.case_number,/^\d{6}$/);assert.notEqual(a.case_number,b.case_number);
   await expectStatus(400,'/api/student-invites',{method:'POST',coach:true,body:{student_id:`${a.id} OR 1=1`}});
   const inviteA=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(a.id),expires_in_days:30}});
   const inviteB=await ok('/api/student-invites',{method:'POST',coach:true,body:{student_id:Number(b.id),expires_in_days:30}});
@@ -70,7 +70,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
-  await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
+  await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,telegram_id:'@yasnafit_test',instagram_id:'@yasnafit.test',height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});const meA=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meA.student.telegram_id,'@yasnafit_test');assert.equal(meA.student.instagram_id,'@yasnafit.test');assert.equal(meA.student.case_number,a.case_number);
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
   await completeStructuredAssessment(sessionA.cookie,'male');
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
@@ -155,7 +155,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.0',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'019_core_journey_stabilization');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'020_assessment_social_profiles');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

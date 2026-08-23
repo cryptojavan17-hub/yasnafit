@@ -98,6 +98,7 @@
           <div class="onboarding-wrap assessment-wizard">
             <header class="wizard-header">
               <a class="wizard-brand" href="/student/dashboard" aria-label="بازگشت به پنل"><span>Y</span><div><b>YASNAFIT</b><small>${assessment.assessment_type==='MONTHLY'?'ارزیابی ماهانه':'ارزیابی اولیه'}</small></div></a>
+              <div class="assessment-case"><small>شماره پرونده</small><b>${esc(student.case_number||'------')}</b></div>
               <div class="save-state" id="saveState" aria-live="polite"><span></span><b>${state.lastSaved?'ذخیره شده':'آماده تکمیل'}</b><small id="lastSaved">${state.lastSaved?new Date(state.lastSaved).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}):'ذخیره خودکار فعال است'}</small></div>
             </header>
 
@@ -115,15 +116,16 @@
                   <label class="field-control wide"><span>نام و نام خانوادگی <i>ضروری</i></span><input id="personalName" maxlength="100" autocomplete="name" value="${esc(student.full_name||'')}" placeholder="نام کامل شما"></label>
                   <label class="field-control"><span>شماره موبایل</span><input id="personalMobile" inputmode="tel" dir="ltr" maxlength="20" autocomplete="tel" value="${esc(student.mobile||'')}" placeholder="09xxxxxxxxx"></label>
                   <label class="field-control"><span>تاریخ تولد</span><input id="personalBirthDate" type="date" dir="ltr" value="${esc(student.date_of_birth||'')}"></label>
+                  <label class="field-control"><span>شناسه تلگرام <i>اختیاری</i></span><input id="personalTelegram" dir="ltr" maxlength="100" value="${esc(student.telegram_id||'')}" placeholder="@username"></label>
+                  <label class="field-control"><span>اینستاگرام <i>اختیاری</i></span><input id="personalInstagram" dir="ltr" maxlength="100" value="${esc(student.instagram_id||'')}" placeholder="@username"></label>
                 </div>
-                <fieldset class="option-group"><legend>جنسیت</legend><div class="select-cards three"><label><input type="radio" name="wizardGender" value="female" ${student.gender==='female'?'checked':''}><span>خانم</span></label><label><input type="radio" name="wizardGender" value="male" ${student.gender==='male'?'checked':''}><span>آقا</span></label><label><input type="radio" name="wizardGender" value="unspecified" ${!['female','male'].includes(student.gender)?'checked':''}><span>ترجیح می‌دهم نگویم</span></label></div></fieldset>
+                <fieldset class="option-group"><legend>جنسیت <i>ضروری</i></legend><div class="select-cards two"><label><input type="radio" name="wizardGender" value="female" ${student.gender==='female'?'checked':''}><span>خانم</span></label><label><input type="radio" name="wizardGender" value="male" ${student.gender==='male'?'checked':''}><span>آقا</span></label></div></fieldset>
                 <fieldset class="option-group"><legend>محل اصلی تمرین</legend><div class="select-cards two"><label><input type="radio" name="preferredLocation" value="gym" ${student.preferred_location!=='home'?'checked':''}><span>باشگاه</span></label><label><input type="radio" name="preferredLocation" value="home" ${student.preferred_location==='home'?'checked':''}><span>منزل</span></label></div></fieldset>
               </section>
 
               <section class="onboarding-step" data-step="1">
-                <div class="step-heading"><span class="step-icon">02</span><div><h2>از این دوره چه می‌خواهید؟</h2><p>یک یا چند هدف را انتخاب کنید؛ انتخاب مسابقه مستقل است.</p></div></div>
-                <div class="goal-grid">${Object.entries(goalLabels).map(([code,label])=>`<label><input type="checkbox" name="goals" value="${code}" ${(details.goals||[]).includes(code)?'checked':''}><span><b>${label}</b><small>${code==='competition'?'برنامه‌ریزی تخصصی':'انتخاب هدف'}</small></span></label>`).join('')}</div>
-                ${textArea('generalNotes','نکته‌ای که مربی باید بداند',assessment.student_note||'','اختیاری؛ کوتاه و کاربردی بنویسید')}
+                <div class="step-heading"><span class="step-icon">02</span><div><h2>از این دوره چه می‌خواهید؟</h2><p>هدف اصلی این دوره را از فهرست انتخاب کنید.</p></div></div>
+                <label class="field-control goal-select"><span>هدف اصلی این دوره <i>ضروری</i></span><select id="primaryGoal"><option value="">یک هدف را انتخاب کنید</option>${Object.entries(goalLabels).map(([code,label])=>option(code,label,(details.goals||[])[0]||'')).join('')}</select></label>
               </section>
 
               <section class="onboarding-step" data-step="2">
@@ -178,22 +180,24 @@
               </section>
 
               <section class="onboarding-step" data-step="5">
-                <div class="step-heading"><span class="step-icon">06</span><div><h2>تغذیه و سبک زندگی</h2><p>سه بخش کوتاه؛ بین آن‌ها جابه‌جا شوید.</p></div></div>
-                <div class="substep-tabs" role="tablist"><button type="button" class="active" data-lifestyle-tab="nutrition">تغذیه</button><button type="button" data-lifestyle-tab="habits">عادت‌ها</button><button type="button" data-lifestyle-tab="pregnancy" ${student.gender==='female'?'':'hidden'}>بارداری و زایمان</button></div>
-                <div class="lifestyle-panel active" data-lifestyle-panel="nutrition">
+                <div class="step-heading"><span class="step-icon">06</span><div><h2>تغذیه و سبک زندگی</h2><p>سؤال‌های تغذیه و عادت‌ها به‌ترتیب و بدون بخش پنهان نمایش داده می‌شوند.</p></div></div>
+                <div class="lifestyle-overview"><span>تمام سؤال‌ها در همین صفحه و به‌ترتیب نمایش داده می‌شوند.</span></div>
+                <section class="lifestyle-panel active" data-lifestyle-panel="nutrition"><div class="lifestyle-title"><span>۱</span><div><b>تغذیه</b><small>الگوی غذا و اشتها</small></div></div>
                   <div class="quick-select-grid"><label class="field-control"><span>الگوی غذایی</span><select id="dietType">${option('iranian','سفره ایرانی',nutrition.diet_type||'iranian')}${option('professional','رژیم حرفه‌ای',nutrition.diet_type||'iranian')}</select></label><label class="field-control"><span>وضعیت اشتها</span><select id="appetiteStatus">${option('low_eating','کم‌خوری',nutrition.appetite_status||'low_eating')}${option('grazing','ریز‌خوری',nutrition.appetite_status||'low_eating')}${option('overeating','پرخوری',nutrition.appetite_status||'low_eating')}${option('emotional_overeating','پرخوری عصبی',nutrition.appetite_status||'low_eating')}${option('anorexia','بی‌اشتهایی عصبی',nutrition.appetite_status||'low_eating')}</select></label><label class="field-control"><span>وضعیت دفع</span><select id="defecationProblem">${option('none','بدون مشکل',nutrition.defecation_problem||'none')}${option('constipation','یبوست',nutrition.defecation_problem||'none')}${option('diarrhea','اسهال',nutrition.defecation_problem||'none')}${option('difficult_defecation','دفع سخت',nutrition.defecation_problem||'none')}</select></label></div>
                   ${segment('previous_diet','قبلاً رژیم داشته‌اید؟',nutrition.previous_diet)}
                   <div data-show-if="previous_diet:yes" class="form-grid"><label class="field-control"><span>مدت رژیم</span><input id="previousDietDuration" value="${esc(nutrition.previous_diet_duration||'')}"></label><label class="field-control"><span>نوع رژیم</span><input id="previousDietType" value="${esc(nutrition.previous_diet_type||'')}"></label>${textArea('previousDietNotes','نتیجه یا توضیح رژیم',nutrition.previous_diet_notes)}</div>
                   <details class="optional-disclosure"><summary><span><b>جزئیات بیشتر تغذیه</b><small>اختیاری</small></span><i>＋</i></summary><div class="form-grid">${textArea('foodAllergies','حساسیت یا عدم تحمل غذایی',nutrition.food_allergies)}${textArea('weightChanges','تغییرات اخیر وزن',nutrition.weight_changes)}${textArea('appetiteNotes','توضیح اشتها',nutrition.appetite_notes)}${textArea('breakfast','صبحانه معمول',nutrition.breakfast)}${textArea('lunch','ناهار معمول',nutrition.lunch)}${textArea('dinner','شام معمول',nutrition.dinner)}</div></details>
-                </div>
-                <div class="lifestyle-panel" data-lifestyle-panel="habits">
+                </section>
+                <section class="lifestyle-panel habits-panel" data-lifestyle-panel="habits">
+                  <div class="lifestyle-title"><span>۲</span><div><b>عادت‌های روزمره</b><small>تمام پرسش‌های مربوط به عادت‌ها</small></div></div>
                   <div class="question-grid">${segment('smoking','مصرف دخانیات دارید؟',habits.smoking,'دارم','ندارم')}${segment('alcohol','مصرف الکل دارید؟',habits.alcohol,'دارم','ندارم')}</div>
                   <div class="conditional-stack"><div data-show-if="smoking:yes">${textArea('smokingDetails','نوع و میزان مصرف دخانیات',habits.smoking_details)}</div><div data-show-if="alcohol:yes">${textArea('alcoholDetails','نوع و میزان مصرف الکل',habits.alcohol_details)}</div></div>
-                </div>
-                <div class="lifestyle-panel" data-lifestyle-panel="pregnancy">
+                </section>
+                <section class="lifestyle-panel pregnancy-panel" data-lifestyle-panel="pregnancy" ${student.gender==='female'?'':'hidden'}>
+                  <div class="lifestyle-title"><span>۳</span><div><b>بارداری و زایمان</b><small>ویژه شاگرد خانم</small></div></div>
                   <div class="question-grid">${segment('childbirth_history','سابقه زایمان دارید؟',pregnancy.childbirth_history)}${segment('breastfeeding','در حال شیردهی هستید؟',pregnancy.breastfeeding)}${segment('formula_use','کودک شیر خشک مصرف می‌کند؟',pregnancy.formula_use)}${segment('child_food_allergy','کودک حساسیت غذایی دارد؟',pregnancy.child_food_allergy)}</div>
                   <div class="conditional-stack"><div data-show-if="childbirth_history:yes" class="form-grid"><label class="field-control"><span>تعداد زایمان</span><input id="childbirthCount" inputmode="numeric" value="${esc(pregnancy.childbirth_count??'')}"></label><label class="field-control"><span>نوع زایمان</span><select id="childbirthType">${option('natural','طبیعی',pregnancy.childbirth_type||'natural')}${option('cesarean','سزارین',pregnancy.childbirth_type||'natural')}</select></label>${textArea('childbirthNotes','توضیحات زایمان',pregnancy.childbirth_notes)}</div><div data-show-if="breastfeeding:yes" class="form-grid"><label class="field-control"><span>سن کودک به ماه</span><input id="childAgeMonths" inputmode="numeric" value="${esc(pregnancy.child_age_months??'')}"></label>${textArea('breastfeedingNotes','توضیحات شیردهی',pregnancy.breastfeeding_notes)}</div><div data-show-if="formula_use:yes" class="form-grid"><label class="field-control"><span>نوع شیر خشک</span><input id="formulaType" value="${esc(pregnancy.formula_type||'')}"></label><label class="field-control"><span>مقدار</span><input id="formulaAmount" value="${esc(pregnancy.formula_amount||'')}"></label><label class="field-control"><span>دفعات</span><input id="formulaFrequency" value="${esc(pregnancy.formula_frequency||'')}"></label></div><div data-show-if="child_food_allergy:yes">${textArea('childFoodAllergyNotes','شرح حساسیت کودک',pregnancy.child_food_allergy_notes)}</div></div>
-                </div>
+                </section>
               </section>
 
               <section class="onboarding-step" data-step="6">
@@ -209,6 +213,7 @@
                 <div class="review-hero"><div class="review-score"><span>100%</span><small>آماده ارسال</small></div><div><b>${esc(student.full_name||'پرونده شما')}</b><p>اطلاعات پس از ارسال قفل می‌شود و فقط با درخواست اصلاح مربی قابل ویرایش خواهد بود.</p></div></div>
                 <div class="review-sections" id="reviewSections"></div>
                 <label class="review-confirm"><input type="checkbox" id="confirmAssessment"><span><b>اطلاعات را بررسی کردم</b><small>صحت اطلاعات واردشده را تأیید می‌کنم.</small></span></label>
+                <div class="final-note">${textArea('generalNotes','آیا نکته یا توضیحاتی دارید که مربی بداند؟',assessment.student_note||'','اختیاری؛ آخرین نکته خود را اینجا بنویسید')}</div>
               </section>
 
               <div class="onboarding-error" data-wizard-error role="alert"></div>
@@ -237,13 +242,14 @@
       }
       async function saveProfile(silent=false){
         const full_name=field('personalName');if(!full_name)throw new Error('نام و نام خانوادگی را وارد کنید.');
+        const gender=checked('wizardGender');if(!gender)throw new Error('جنسیت را انتخاب کنید.');
         saving(true);
-        try{const response=await api('/api/student/profile',{method:'PUT',body:JSON.stringify({full_name,mobile:field('personalMobile'),date_of_birth:field('personalBirthDate'),gender:checked('wizardGender')||'unspecified',preferred_location:checked('preferredLocation')||'gym'})});state.student=response.student;student.full_name=response.student.full_name;student.gender=response.student.gender;saved();if(!silent)toast('اطلاعات شخصی ذخیره شد.');return response;}
+        try{const response=await api('/api/student/profile',{method:'PUT',body:JSON.stringify({full_name,mobile:field('personalMobile'),telegram_id:field('personalTelegram'),instagram_id:field('personalInstagram'),date_of_birth:field('personalBirthDate'),gender,preferred_location:checked('preferredLocation')||'gym'})});state.student=response.student;student.full_name=response.student.full_name;student.gender=response.student.gender;saved();if(!silent)toast('اطلاعات شخصی ذخیره شد.');return response;}
         catch(error){saving(false,true);if(!silent)showError(error.message);throw error;}
       }
 
       const payloads={
-        general:()=>({goals:selected('goals'),additional_notes:field('generalNotes'),gender:checked('wizardGender')||state.student.gender||'unspecified'}),
+        general:()=>({goals:field('primaryGoal')?[field('primaryGoal')]:[],additional_notes:field('generalNotes'),gender:checked('wizardGender')||state.student.gender}),
         measurements:()=>Object.fromEntries(measureFields.map(([id])=>[id,number(field(`m_${id}`))])),
         medical:()=>({has_disease:bool(checked('has_disease')),disease_details:field('diseaseDetails'),has_medication:bool(checked('has_medication')),medication_details:field('medicationDetails'),has_injury:bool(checked('has_injury')),injury_details:field('injuryDetails'),has_surgery:bool(checked('has_surgery')),surgery_details:field('surgeryDetails'),last_blood_test_notes:field('bloodTestNotes'),corrective_notes:field('correctiveNotes'),items:[...document.querySelectorAll('[name="medicalItem"]:checked')].map(input=>catalogItems[Number(input.value)])}),
         sports:()=>({average_daily_activity:field('dailyActivity'),practice_history:bool(checked('practice_history')),practice_history_details:field('practiceHistoryDetails'),practice_duration:field('practiceDuration'),sport_discipline:field('sportDiscipline'),practice_now:bool(checked('practice_now')),current_practice_details:field('currentPracticeDetails'),practice_place:field('practicePlace'),home_equipment:field('homeEquipment'),sessions_per_week:Number(field('sessionsPerWeek')),supplement_history:bool(checked('supplement_history')),supplement_details:field('supplementDetails'),doping_history:field('dopingHistory')}),
@@ -303,19 +309,65 @@
       }
       async function deleteDocument(id){try{await api(`/api/student/assessment/documents/${id}`,{method:'DELETE'});state.documents=state.documents.filter(document=>document.id!==id);documentList();}catch(error){toast(error.message,'error');}}
 
-      const statusText=(value,yes='ثبت شده',no='موردی ثبت نشده')=>value==='yes'?yes:no;
       function renderReview(){
-        const goals=selected('goals').map(code=>goalLabels[code]).join('، ')||'انتخاب نشده';
-        const review=[
-          {icon:'●',title:'اطلاعات شخصی',value:`${field('personalName')} • ${checked('wizardGender')==='female'?'خانم':checked('wizardGender')==='male'?'آقا':'ثبت نشده'}`,step:0},
-          {icon:'◆',title:'هدف‌های دوره',value:goals,step:1},
-          {icon:'↕',title:'اندازه‌های بدن',value:`قد ${field('m_height')||'—'} سانتی‌متر • وزن ${field('m_weight')||'—'} کیلوگرم`,step:2},
-          {icon:'＋',title:'سوابق پزشکی',value:[checked('has_disease'),checked('has_medication'),checked('has_injury'),checked('has_surgery')].includes('yes')?'جزئیات پزشکی ثبت شده':'مورد خاصی ثبت نشده',step:3},
-          {icon:'↗',title:'سابقه ورزشی',value:`${field('sessionsPerWeek')||'—'} جلسه در هفته • ${field('practicePlace')==='home'?'منزل':'باشگاه'}`,step:4},
-          {icon:'◐',title:'تغذیه و سبک زندگی',value:`${field('dietType')==='professional'?'رژیم حرفه‌ای':'سفره ایرانی'} • ${statusText(checked('smoking'),'مصرف دخانیات ثبت شده','بدون دخانیات')}`,step:5},
-          {icon:'▧',title:'تصاویر و مدارک',value:`${photoSlots.filter(type=>state.photos[type]).length} تصویر • ${state.documents.length} مدرک خصوصی`,step:6}
-        ];
-        document.querySelector('#reviewSections').innerHTML=review.map(item=>`<article><span class="review-icon">${item.icon}</span><div><b>${item.title}</b><small>${esc(item.value)}</small></div><button type="button" data-edit-step="${item.step}">ویرایش</button></article>`).join('');
+        const groups=[];
+        const add=(rows,label,value)=>{if(value!==undefined&&value!==null&&String(value).trim()!=='')rows.push([label,String(value).trim()]);};
+        const answer=(name)=>checked(name)==='yes'?'بله':checked(name)==='no'?'خیر':'';
+        const group=(title,step,rows)=>{if(rows.length)groups.push({title,step,rows});};
+
+        const personal=[];
+        add(personal,'شماره پرونده',student.case_number);
+        add(personal,'نام و نام خانوادگی',field('personalName'));
+        add(personal,'موبایل',field('personalMobile'));
+        add(personal,'تلگرام',field('personalTelegram'));
+        add(personal,'اینستاگرام',field('personalInstagram'));
+        add(personal,'تاریخ تولد',field('personalBirthDate'));
+        add(personal,'جنسیت',checked('wizardGender')==='female'?'خانم':checked('wizardGender')==='male'?'آقا':'');
+        add(personal,'محل تمرین',checked('preferredLocation')==='home'?'منزل':checked('preferredLocation')==='gym'?'باشگاه':'');
+        group('اطلاعات شخصی',0,personal);
+
+        const goal=[];add(goal,'هدف اصلی',goalLabels[field('primaryGoal')]||'');group('هدف دوره',1,goal);
+
+        const body=[];
+        for(const [id,label,unit] of measureFields)add(body,label,field(`m_${id}`)?`${field(`m_${id}`)} ${unit}`:'');
+        group('اندازه‌های بدن',2,body);
+
+        const health=[];
+        add(health,'سابقه بیماری',answer('has_disease'));if(checked('has_disease')==='yes')add(health,'شرح بیماری',field('diseaseDetails'));
+        add(health,'مصرف دارو',answer('has_medication'));if(checked('has_medication')==='yes')add(health,'شرح دارو',field('medicationDetails'));
+        add(health,'آسیب‌دیدگی',answer('has_injury'));if(checked('has_injury')==='yes')add(health,'شرح آسیب',field('injuryDetails'));
+        add(health,'سابقه جراحی',answer('has_surgery'));if(checked('has_surgery')==='yes')add(health,'شرح جراحی',field('surgeryDetails'));
+        add(health,'آزمایش خون',field('bloodTestNotes'));add(health,'تمرین اصلاحی',field('correctiveNotes'));
+        const selectedMedical=[...document.querySelectorAll('[name="medicalItem"]:checked')].map(input=>catalogItems[Number(input.value)]?.name).filter(Boolean).join('، ');add(health,'موارد انتخاب‌شده',selectedMedical);
+        group('سوابق پزشکی',3,health);
+
+        const training=[];
+        const activity={low:'کم',medium:'متوسط',high:'زیاد'};add(training,'فعالیت روزانه',activity[field('dailyActivity')]);
+        add(training,'محل تمرین',field('practicePlace')==='home'?'منزل':field('practicePlace')==='gym'?'باشگاه':'');
+        add(training,'جلسات هفتگی',field('sessionsPerWeek')?`${field('sessionsPerWeek')} جلسه`:'');
+        add(training,'سابقه تمرین',answer('practice_history'));if(checked('practice_history')==='yes'){add(training,'مدت سابقه',field('practiceDuration'));add(training,'رشته اصلی',field('sportDiscipline'));add(training,'شرح سابقه',field('practiceHistoryDetails'));}
+        add(training,'تمرین فعلی',answer('practice_now'));if(checked('practice_now')==='yes')add(training,'شرح تمرین فعلی',field('currentPracticeDetails'));
+        add(training,'مصرف مکمل',answer('supplement_history'));if(checked('supplement_history')==='yes')add(training,'شرح مکمل',field('supplementDetails'));add(training,'تجهیزات منزل',field('homeEquipment'));add(training,'سابقه دوپینگ',field('dopingHistory'));
+        group('سابقه ورزشی',4,training);
+
+        const food=[];
+        const diets={iranian:'سفره ایرانی',professional:'رژیم حرفه‌ای'},appetites={low_eating:'کم‌خوری',grazing:'ریزخوری',overeating:'پرخوری',emotional_overeating:'پرخوری عصبی',anorexia:'بی‌اشتهایی عصبی'},defecation={none:'بدون مشکل',constipation:'یبوست',diarrhea:'اسهال',difficult_defecation:'دفع سخت'};
+        add(food,'الگوی غذایی',diets[field('dietType')]);add(food,'وضعیت اشتها',appetites[field('appetiteStatus')]);add(food,'وضعیت دفع',defecation[field('defecationProblem')]);
+        add(food,'سابقه رژیم',answer('previous_diet'));if(checked('previous_diet')==='yes'){add(food,'مدت رژیم قبلی',field('previousDietDuration'));add(food,'نوع رژیم قبلی',field('previousDietType'));add(food,'توضیح رژیم قبلی',field('previousDietNotes'));}
+        add(food,'حساسیت غذایی',field('foodAllergies'));add(food,'تغییرات وزن',field('weightChanges'));add(food,'توضیح اشتها',field('appetiteNotes'));add(food,'صبحانه',field('breakfast'));add(food,'ناهار',field('lunch'));add(food,'شام',field('dinner'));
+        group('تغذیه',5,food);
+
+        const lifestyle=[];
+        add(lifestyle,'مصرف دخانیات',answer('smoking'));if(checked('smoking')==='yes')add(lifestyle,'شرح دخانیات',field('smokingDetails'));add(lifestyle,'مصرف الکل',answer('alcohol'));if(checked('alcohol')==='yes')add(lifestyle,'شرح الکل',field('alcoholDetails'));
+        group('عادت‌های روزمره',5,lifestyle);
+
+        if(checked('wizardGender')==='female'){
+          const maternal=[];add(maternal,'سابقه زایمان',answer('childbirth_history'));if(checked('childbirth_history')==='yes'){add(maternal,'تعداد زایمان',field('childbirthCount'));add(maternal,'نوع زایمان',field('childbirthType'));add(maternal,'توضیحات زایمان',field('childbirthNotes'));}add(maternal,'شیردهی',answer('breastfeeding'));if(checked('breastfeeding')==='yes'){add(maternal,'سن کودک',field('childAgeMonths'));add(maternal,'توضیحات شیردهی',field('breastfeedingNotes'));}add(maternal,'مصرف شیر خشک',answer('formula_use'));if(checked('formula_use')==='yes'){add(maternal,'نوع شیر خشک',field('formulaType'));add(maternal,'مقدار شیر خشک',field('formulaAmount'));add(maternal,'دفعات شیر خشک',field('formulaFrequency'));}add(maternal,'حساسیت غذایی کودک',answer('child_food_allergy'));if(checked('child_food_allergy')==='yes')add(maternal,'شرح حساسیت کودک',field('childFoodAllergyNotes'));group('بارداری و زایمان',5,maternal);
+        }
+
+        const files=[];const photoCount=photoSlots.filter(type=>state.photos[type]).length;if(photoCount)add(files,'تصاویر بدنی',`${photoCount} تصویر`);if(state.documents.length)add(files,'مدارک خصوصی',`${state.documents.length} فایل`);group('تصاویر و مدارک',6,files);
+
+        document.querySelector('#reviewSections').innerHTML=`<div class="review-groups">${groups.map(item=>`<section class="review-group"><header><h3>${item.title}</h3><button type="button" data-edit-step="${item.step}">ویرایش</button></header><dl>${item.rows.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl></section>`).join('')}</div>`;
         document.querySelectorAll('[data-edit-step]').forEach(button=>button.onclick=()=>goTo(Number(button.dataset.editStep),false));
       }
 
@@ -342,10 +394,8 @@
         state.step=Math.max(0,Math.min(steps.length-1,step));draw();
       }
 
-      document.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{setConditional();if(input.name==='wizardGender'){const pregnancyTab=document.querySelector('[data-lifestyle-tab="pregnancy"]');pregnancyTab.hidden=input.value!=='female';if(input.value!=='female'&&pregnancyTab.classList.contains('active'))document.querySelector('[data-lifestyle-tab="nutrition"]').click();}}));
-      document.querySelectorAll('input[name="goals"]').forEach(input=>input.addEventListener('change',()=>{if(input.value==='competition'&&input.checked)document.querySelectorAll('input[name="goals"]').forEach(other=>{if(other!==input)other.checked=false;});else if(input.checked){const competition=document.querySelector('input[name="goals"][value="competition"]');if(competition)competition.checked=false;}}));
+      document.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{setConditional();if(input.name==='wizardGender'){const pregnancyPanel=document.querySelector('[data-lifestyle-panel="pregnancy"]');if(pregnancyPanel)pregnancyPanel.hidden=input.value!=='female';}}));
       document.querySelector('#catalogSearch').addEventListener('input',event=>{const query=event.target.value.trim();document.querySelectorAll('[data-catalog-text]').forEach(item=>item.hidden=!item.dataset.catalogText.includes(query));});
-      document.querySelectorAll('[data-lifestyle-tab]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-lifestyle-tab]').forEach(item=>item.classList.toggle('active',item===button));document.querySelectorAll('[data-lifestyle-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.lifestylePanel===button.dataset.lifestyleTab));setConditional();});
       document.querySelectorAll('[data-pick-document]').forEach(button=>button.onclick=async()=>{await ensurePhotoReady();document.querySelector(`[data-document-input="${button.dataset.pickDocument}"]`).click();});
       document.querySelectorAll('[data-document-input]').forEach(input=>input.onchange=()=>input.files[0]&&uploadDocument(input.dataset.documentInput,input.files[0]));
       document.querySelector('#skipPhotos').onclick=()=>goTo(7,true).catch(error=>{showError(error.message);toast(error.message,'error');});
@@ -354,7 +404,7 @@
       document.querySelector('#nextStep').onclick=async event=>{
         const button=event.currentTarget;if(button.dataset.busy==='1')return;button.dataset.busy='1';button.disabled=true;
         try{
-          if(state.step===7){if(!document.querySelector('#confirmAssessment').checked)throw new Error('برای ارسال، تأیید نهایی اطلاعات را فعال کنید.');await api('/api/student/assessment/submit',{method:'POST'});renderSuccess();return;}
+          if(state.step===7){if(!document.querySelector('#confirmAssessment').checked)throw new Error('برای ارسال، تأیید نهایی اطلاعات را فعال کنید.');await saveSection('general',payloads.general(),true);await api('/api/student/assessment/submit',{method:'POST'});renderSuccess();return;}
           await goTo(state.step+1,true);
         }catch(error){showError(error.message);toast(error.message,'error');}
         finally{delete button.dataset.busy;if(button.isConnected)button.disabled=false;}
@@ -362,8 +412,8 @@
       document.querySelectorAll('[data-step-dot]').forEach(button=>button.onclick=()=>goTo(Number(button.dataset.stepDot),false));
 
       function readyForAutosave(){
-        if(state.step===0)return Boolean(field('personalName'));
-        if(state.step===1)return selected('goals').length>0;
+        if(state.step===0)return Boolean(field('personalName')&&checked('wizardGender'));
+        if(state.step===1)return Boolean(field('primaryGoal'));
         if(state.step===2)return Boolean(field('m_height')&&field('m_weight'));
         if(state.step===3)return ['has_disease','has_medication','has_injury','has_surgery'].every(name=>checked(name));
         if(state.step===4)return ['practice_history','practice_now','supplement_history'].every(name=>checked(name));
