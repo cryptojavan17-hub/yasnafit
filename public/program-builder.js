@@ -6,7 +6,10 @@
   let currentProgram = null;
   let exerciseCategories = [];
   let selectedSystemForAdd = null;
+  let assessmentContext = null;
   let dirty = false;
+
+  const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
 
   // Based on PROMPT: ESetType
   const setTypes = [
@@ -110,7 +113,7 @@
       <div class="builder-header">
         <div>
           <h1>🏋️ ساخت برنامه تمرینی</h1>
-          <p>ساختار: روز → سیستم تمرینی → حرکت → ست (بر اساس پرامپت بازطراحی)</p>
+          <p>ساختار برنامه: روز → سیستم تمرینی → حرکت → ست</p>
         </div>
         <div class="header-actions">
           <span class="volume-badge">📊 ${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</span>
@@ -120,9 +123,11 @@
         </div>
       </div>
 
+      <div id="assessmentContext"></div>
+
       <div class="builder-form">
         <div class="form-row">
-          <label>عنوان برنامه * (title)
+          <label>عنوان برنامه *
             <input id="progTitle" placeholder="مثلاً برنامه چربی‌سوزی شهریور - ماه اول">
           </label>
           <label>شاگرد
@@ -130,22 +135,22 @@
           </label>
         </div>
         <div class="form-row">
-          <label>سطح (Level)
+          <label>سطح تمرین
             <select id="progLevel">
               ${levels.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
             </select>
           </label>
-          <label>مکان (Location)
+          <label>محل تمرین
             <select id="progLocation">
               ${locations.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
             </select>
           </label>
         </div>
         <div class="form-row">
-          <label>هدف (Target)
-            <select id="progTarget"><option value="Fitness">فیتنس</option></select>
+          <label>هدف اصلی
+            <select id="progTarget">${Object.entries(goalLabels).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select>
           </label>
-          <label>آسیب (Injury)
+          <label>وضعیت آسیب
             <select id="progInjury">
               ${injuries.map(i=>`<option value="${i.id}">${i.label}</option>`).join('')}
             </select>
@@ -160,7 +165,7 @@
           </label>
         </div>
         <div class="form-row full">
-          <label>توضیحات مربی (coach_note)
+          <label>توضیحات مربی
             <textarea id="progNote" placeholder="توضیحات کلی برنامه، نکات تغذیه، استراحت..."></textarea>
           </label>
         </div>
@@ -728,6 +733,37 @@
     } catch(e){ alert('خطا: '+e.message); }
   };
 
+  function makeAssessmentDays(count){
+    const total=Math.min(7,Math.max(1,Number(count)||3));
+    return Array.from({length:total},(_,index)=>({day_number:index+1,dayHash:genHash(),focus:`جلسه ${index+1}`,coachNote:'',isRestDay:false,data:[{exercise_system_id:1,exerciseSystemHash:genHash(),system_type:'normal',movement_list:[]}]}));
+  }
+  function renderAssessmentContext(){
+    const host=document.getElementById('assessmentContext');if(!host)return;
+    if(!assessmentContext){host.innerHTML='';return;}
+    const {assessment,assessment_details:details={},student}=assessmentContext,measure=details.measurements||{},sports=details.sports||{},medical=details.medical||{},goals=(details.goals||String(assessment.goal||'').split(',').filter(Boolean));
+    const facts=[
+      ['هدف',goals.map(goal=>goalLabels[goal]||fa(goal)).join('، ')],['قد',measure.height||assessment.height?`${measure.height||assessment.height} سانتی‌متر`:'' ],['وزن',measure.weight||assessment.weight?`${measure.weight||assessment.weight} کیلوگرم`:'' ],
+      ['جلسات پیشنهادی',sports.sessions_per_week?`${sports.sessions_per_week} جلسه در هفته`:'' ],['محل تمرین',sports.practice_place?fa(sports.practice_place):fa(student.preferred_location)],['سابقه تمرین',sports.practice_history? 'دارد':'ندارد']
+    ].filter(([,value])=>value!==''&&value!=='—');
+    const warnings=[];if(medical.has_injury)warnings.push(medical.injury_details||'سابقه آسیب‌دیدگی');if(medical.has_disease)warnings.push(medical.disease_details||'سابقه بیماری');if(medical.has_medication)warnings.push(medical.medication_details||'مصرف دارو');for(const item of details.medical_items||[])if(item.name)warnings.push(item.name);
+    host.innerHTML=`<section class="assessment-program-context"><header><div><p class="eyebrow">مبنای ساخت برنامه</p><h2>${esc(student.full_name)} <span>پرونده ${esc(student.case_number||'------')}</span></h2><small>ارزیابی ${assessment.assessment_number} • تأییدشده</small></div><a href="/assessments/${assessment.id}" class="secondary">مشاهده پرونده کامل</a></header><div class="assessment-context-facts">${facts.map(([label,value])=>`<div><span>${label}</span><b>${esc(value)}</b></div>`).join('')}</div>${warnings.length?`<div class="assessment-context-warning"><b>ملاحظات پزشکی و آسیب‌ها</b><span>${esc([...new Set(warnings)].join('، '))}</span></div>`:''}${assessment.student_note?`<div class="assessment-context-note"><b>نکته شاگرد</b><span>${esc(assessment.student_note)}</span></div>`:''}</section>`;
+  }
+  async function loadAssessmentContext(assessmentId,expectedStudentId){
+    if(!assessmentId)return null;
+    const data=await api(`/api/assessments/${assessmentId}`),status=data.assessment.lifecycle_status||data.assessment.status;
+    if(status!=='APPROVED')throw new Error('فقط ارزیابی تأییدشده می‌تواند مبنای برنامه باشد.');
+    if(expectedStudentId&&Number(data.student.id)!==Number(expectedStudentId))throw new Error('ارزیابی به شاگرد انتخاب‌شده تعلق ندارد.');
+    assessmentContext=data;
+    const details=data.assessment_details||{},sports=details.sports||{},medical=details.medical||{},goals=details.goals||[];
+    currentProgram.student_id=data.student.id;currentProgram.assessment_id=data.assessment.id;
+    if(!currentProgram.id){currentProgram.title=`برنامه ۳۰ روزه ${data.student.full_name} - پرونده ${data.student.case_number}`;currentProgram.days=makeAssessmentDays(sports.sessions_per_week);}
+    document.getElementById('progLevel').value=sports.practice_history?'Professional':'Beginner';
+    document.getElementById('progLocation').value=(sports.practice_place||data.student.preferred_location)==='home'?'Home':'Gym';
+    if(goals[0])document.getElementById('progTarget').value=goals[0];
+    document.getElementById('progInjury').value=(medical.has_injury||(details.medical_items||[]).some(item=>item.kind==='injury'))?'Injury':'None';
+    renderAssessmentContext();return data;
+  }
+
   async function loadStudents(){
     try {
       const students = await api('/api/students');
@@ -735,6 +771,7 @@
       if(sel){
         sel.innerHTML = `<option value="">بدون شاگرد</option>` + students.map(s=>`<option value="${s.id}">پرونده ${esc(s.case_number||'------')} • ${esc(s.full_name)} • ${esc(s.goal||'بدون هدف')}</option>`).join('');
         if(currentProgram.student_id) sel.value = currentProgram.student_id;
+        if(assessmentContext){sel.disabled=true;sel.title='شاگرد از ارزیابی تأییدشده انتخاب شده است';}
       }
     } catch(e){}
   }
@@ -950,6 +987,7 @@
       } else currentProgram = createEmptyProgram();
     }
 
+    if(currentProgram.assessment_id)await loadAssessmentContext(currentProgram.assessment_id,currentProgram.student_id);
     document.getElementById('progTitle').value = currentProgram.title||'';
     document.getElementById('progNote').value = currentProgram.coach_note||'';
     document.getElementById('progStart').value = currentProgram.start_date||'';
@@ -957,14 +995,13 @@
   }
 
   window.renderProgramBuilder = async (label, route) => {
-    window.current=route;
+    window.current=route;currentProgram=null;assessmentContext=null;dirty=false;
     document.querySelector('#breadcrumb').textContent=label;
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
     document.querySelector('#content').innerHTML = root();
     bindMainEvents();
-    await loadProgramIfEditing();
-    await loadStudents();
-    renderDays();
+    try{await loadProgramIfEditing();await loadStudents();renderAssessmentContext();renderDays();}
+    catch(error){document.querySelector('#content').innerHTML=`<section class="panel error"><h2>ساخت برنامه آماده نشد</h2><p>${esc(error.message)}</p><a class="secondary" href="/students/submissions">بازگشت به ارزیابی‌ها</a></section>`;}
   };
 
   window.renderTrainingProgramsList = async (label, route) => {

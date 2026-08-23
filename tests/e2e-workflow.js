@@ -108,7 +108,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(404,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
 
   await expectStatus(400,`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'too early'}});
-  await ok(`/api/assessments/${assessmentA1}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'A approved'}});
+  await ok(`/api/assessments/${assessmentA1}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentA1}/approve`,{method:'POST',coach:true,body:{coach_note:'A approved'}});const approvedContext=await ok(`/api/assessments/${assessmentA1}`,{coach:true});assert.equal(approvedContext.assessment.lifecycle_status,'APPROVED');assert.equal(approvedContext.student.id,Number(a.id));assert.ok(approvedContext.assessment_details.sports);const builderPage=await request(`/programs/exercise/form?student_id=${a.id}&assessment_id=${assessmentA1}`,{coach:true});assert.equal(builderPage.response.status,200);assert.match(builderPage.data.toString('utf8'),/program-builder\.js/);
   await ok(`/api/assessments/${assessmentB1}/under-review`,{method:'POST',coach:true});await ok(`/api/assessments/${assessmentB1}/approve`,{method:'POST',coach:true,body:{coach_note:'B approved'}});
   const draftA=await ok('/api/training-programs',{method:'POST',coach:true,body:programPayload(Number(a.id),assessmentA1,1)});
   const payloadB=programPayload(Number(b.id),assessmentB1,1);payloadB.title='E2E Student B program';

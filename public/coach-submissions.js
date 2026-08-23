@@ -162,7 +162,8 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
         try{
           if(lifecycle==='SUBMITTED')await api(`/api/assessments/${id}/under-review`,{method:'POST'});
           await api(`/api/assessments/${id}/${action}`,{method:'POST',body:JSON.stringify({coach_note:note})});
-          location.reload();
+          if(action==='approve')location.href=`/programs/exercise/form?student_id=${student.id}&assessment_id=${id}`;
+          else location.reload();
         }catch(error){feedback.textContent=error.message;document.querySelectorAll('button.review-action').forEach(button=>button.disabled=false);}
       }
       document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));

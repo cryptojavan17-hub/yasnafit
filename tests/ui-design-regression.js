@@ -121,6 +121,13 @@ assert.doesNotMatch(studentsSource,/لینک ورود Yasnafit:|شماره پر�
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
 assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
+assert.match(reviewSource,/action==='approve'[^\n]+programs\/exercise\/form\?student_id=\$\{student\.id\}&assessment_id=\$\{id\}/,'approval does not continue to Program Builder');
+const builderSource=fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8');
+assert.match(builderSource,/loadAssessmentContext/,'Program Builder does not load its approved assessment context');
+assert.match(builderSource,/assessment-program-context/,'Program Builder assessment summary is missing');
+assert.match(builderSource,/makeAssessmentDays\(sports\.sessions_per_week\)/,'training-day count is not initialized from the assessment');
+for(const field of ['progLevel','progLocation','progTarget','progInjury'])assert.match(builderSource,new RegExp(`getElementById\\('${field}'\\)\\.value`),`assessment does not prefill ${field}`);
+assert.match(builderSource,/sel\.disabled=true/,'assessment-selected student is not locked in Program Builder');
 assert.doesNotMatch(coreSource,/esc\(x\.profile_status\|\|x\.status\)/,'dashboard exposes an English profile status');
 assert.doesNotMatch(reviewSource,/esc\(item\.status\)/,'submissions list exposes an English status');
 assert.match(studentAppSource,/const fa=value=>/,'student portal is not using centralized Persian labels');
