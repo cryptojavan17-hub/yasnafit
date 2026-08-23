@@ -116,7 +116,7 @@ function safeStudent(student){
     training_experience:student.training_experience||'',training_level:student.training_level||'',
     preferred_location:student.preferred_location||'gym',limitations:student.limitations||'',
     injuries:student.injuries||'',medical_notes:student.medical_notes||'',profile_status:student.profile_status||'',
-    password_change_required:student.password_state!=='PERSONAL'
+    password_change_recommended:student.password_state!=='PERSONAL'
   };
 }
 module.exports={

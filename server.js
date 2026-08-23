@@ -328,7 +328,7 @@ async function handleStudents(req,res,url){
       db.exec('COMMIT');
       log('شاگرد جدید ثبت شد',`${created.case_number} - ${b.full_name}`);
       auditService.record(db,{actorType:'coach',action:'student.created',entityType:'student',entityId:studentId,entityStableId:stableId,metadata:{case_number:created.case_number}});
-      return send(res,201,{...created,invitation_id:invite.id,join_url:`/join/${invite.token}`,token:invite.token,token_preview:invite.token_preview,expires_at:invite.expires_at,temporary_password:temporaryPassword,password_change_required:true});
+      return send(res,201,{...created,invitation_id:invite.id,join_url:`/join/${invite.token}`,token:invite.token,token_preview:invite.token_preview,expires_at:invite.expires_at,temporary_password:temporaryPassword,password_change_recommended:true});
     }catch(error){try{db.exec('ROLLBACK');}catch(rollbackError){}if(String(error.message).includes('UNIQUE constraint failed'))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');return sendError(res,400,error.message);}
   }
   return sendError(res,405,'متد مجاز نیست');
@@ -886,7 +886,7 @@ async function handleStudentJoin(req,res,url){
 }
 
 function studentAuthError(res,code){
-  const errors={INVALID_CREDENTIALS:[401,'شماره همراه یا رمز عبور نادرست است.'],AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],AUTH_SETUP_REQUIRED:[403,'ورود این حساب هنوز آماده نیست؛ با مربی تماس بگیرید.'],TEMPORARY_ALREADY_USED:[403,'رمز موقت قبلاً استفاده شده است. همان نشست را ادامه دهید یا برای بازنشانی با مربی تماس بگیرید.']};
+  const errors={INVALID_CREDENTIALS:[401,'شماره همراه یا رمز عبور نادرست است.'],AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],AUTH_SETUP_REQUIRED:[403,'ورود این حساب هنوز آماده نیست؛ با مربی تماس بگیرید.']};
   const [status,message]=errors[code]||errors.INVALID_CREDENTIALS;return send(res,status,{error:message,code});
 }
 async function handleStudentAuth(req,res,url){
@@ -909,9 +909,9 @@ async function handleStudentAuth(req,res,url){
     if(consumed.error)return invitationErrorResponse(res,consumed.error);
     invitationId=consumed.invitation_id;
   }
-  const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRequired=authenticated.student.password_state!=='PERSONAL';
-  auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_required:passwordChangeRequired,via_invitation:Boolean(invitationId)}});
-  return send(res,200,{success:true,password_change_required:passwordChangeRequired,next_route:passwordChangeRequired?'/student/change-password':studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+  const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRecommended=authenticated.student.password_state!=='PERSONAL';
+  auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_recommended:passwordChangeRecommended,via_invitation:Boolean(invitationId)}});
+  return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
 }
 
 function updateStudentProfileFromSession(studentId,body){
@@ -1028,21 +1028,20 @@ async function handleStudentSessionApi(req,res,url){
     return send(res,200,{success:true},{'Set-Cookie':studentSessionService.clearSessionCookie(req)});
   }
   if(p==='/api/student/me' && req.method==='GET'){
-    const passwordChangeRequired=context.student.password_state!=='PERSONAL';
-    return send(res,200,{student:studentSessionService.safeStudent(context.student),session_expires_at:context.expires_at,password_change_required:passwordChangeRequired,next_route:passwordChangeRequired?'/student/change-password':studentNextRoute(studentId)});
+    const passwordChangeRecommended=context.student.password_state!=='PERSONAL';
+    return send(res,200,{student:studentSessionService.safeStudent(context.student),session_expires_at:context.expires_at,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(studentId)});
   }
   if(p==='/api/student/auth/change-password'&&req.method==='POST'){
     try{
       const body=await readBody(req);
       if(body.new_password!==body.confirm_password)return sendError(res,400,'تکرار رمز جدید مطابقت ندارد');
-      if(context.student.password_state==='PERSONAL'&&!studentAuthService.verifyPassword(body.current_password,context.student.password_hash))return send(res,401,{error:'رمز فعلی نادرست است',code:'INVALID_CURRENT_PASSWORD'});
+      if(!studentAuthService.verifyPassword(body.current_password,context.student.password_hash))return send(res,401,{error:'رمز فعلی نادرست است',code:'INVALID_CURRENT_PASSWORD'});
       const changed=studentAuthService.setPersonalPassword(db,studentId,body.new_password);
       db.prepare('UPDATE student_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE student_id=? AND id<>? AND revoked_at IS NULL').run(studentId,context.session_id);
-      auditService.record(db,{actorType:'student',actorId:studentId,action:'student.password_changed',entityType:'student',entityId:studentId,metadata:{forced:context.student.password_state!=='PERSONAL'}});
+      auditService.record(db,{actorType:'student',actorId:studentId,action:'student.password_changed',entityType:'student',entityId:studentId,metadata:{from_temporary_password:context.student.password_state!=='PERSONAL'}});
       return send(res,200,{success:true,...changed,next_route:studentNextRoute(studentId)});
     }catch(error){return sendError(res,error.statusCode||400,error.message);}
   }
-  if(context.student.password_state!=='PERSONAL')return send(res,403,{error:'ابتدا رمز شخصی خود را تعیین کنید.',code:'PASSWORD_CHANGE_REQUIRED',next_route:'/student/change-password'});
   if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
   const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
@@ -1530,7 +1529,7 @@ async function handleAssessmentDocuments(req,res,url){
   const match=url.pathname.match(/^\/api\/student-documents\/(\d+)$/);if(!match||req.method!=='GET')return null;
   const document=assessmentDocumentService.get(db,Number(match[1]));if(!document)return sendError(res,404,'مدرک پیدا نشد');
   const coach=isCoachAuthorized(req),student=coach?null:studentSessionService.resolveStudentSession(db,req);
-  if(!coach&&(!student||student.student_id!==document.student_id||student.student.password_state!=='PERSONAL'))return sendError(res,student?403:401,'دسترسی به این مدرک مجاز نیست');
+  if(!coach&&(!student||student.student_id!==document.student_id))return sendError(res,student?403:401,'دسترسی به این مدرک مجاز نیست');
   res.writeHead(200,{'Content-Type':document.mime_type,'Content-Length':document.size_bytes,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Disposition':`inline; filename="${sanitizeFileName(document.original_filename)}"`,'Content-Security-Policy':"default-src 'none'"});
   return fs.createReadStream(document.storage_path).pipe(res);
 }
@@ -1563,7 +1562,6 @@ async function handleAssessmentPhotos(req,res,url){
     const studentContext=coachAuthorized?null:studentSessionService.resolveStudentSession(db,req);
     if(!coachAuthorized){
       if(!studentContext)return sendError(res,401,'نشست معتبر پیدا نشد');
-      if(studentContext.student.password_state!=='PERSONAL')return sendError(res,403,'ابتدا رمز شخصی خود را تعیین کنید');
       if(studentContext.student_id!==photo.student_id)return sendError(res,403,'دسترسی به این عکس مجاز نیست');
     }
     log('دسترسی به عکس ارزیابی',`photo ${photoId} student ${photo.student_id} ${coachAuthorized?'via coach':'via student session'}`);

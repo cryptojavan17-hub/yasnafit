@@ -33,11 +33,9 @@ function verifyPassword(password,encoded){
   }catch(error){return false;}
 }
 const DUMMY_HASH=hashPassword('yasnafit-dummy-password');
-function validatePersonalPassword(password,mobile){
+function validatePersonalPassword(password){
   const value=String(password??'');
-  if(value.length<8||value.length>128)throw Object.assign(new Error('رمز جدید باید بین ۸ تا ۱۲۸ کاراکتر باشد'),{statusCode:400});
-  if(!/[\p{L}]/u.test(value)||!/[0-9۰-۹٠-٩]/.test(value))throw Object.assign(new Error('رمز جدید باید شامل حرف و عدد باشد'),{statusCode:400});
-  if(value===temporaryPassword(mobile))throw Object.assign(new Error('رمز شخصی نباید همان رمز موقت باشد'),{statusCode:400});
+  if(value.length<8||value.length>128)throw Object.assign(new Error('رمز جدید باید حداقل ۸ کاراکتر و حداکثر ۱۲۸ کاراکتر باشد'),{statusCode:400});
   return value;
 }
 function authColumnsForMobile(mobile){
@@ -56,20 +54,18 @@ function authenticate(db,mobile,password){
   if(!student){verifyPassword(password,DUMMY_HASH);return {error:'INVALID_CREDENTIALS'};}
   if(student.auth_locked_until&&new Date(student.auth_locked_until)>new Date())return {error:'AUTH_LOCKED'};
   if(!student.password_hash||!PASSWORD_STATES.has(student.password_state))return {error:'AUTH_SETUP_REQUIRED'};
-  if(student.password_state==='TEMPORARY'&&student.temporary_login_at)return {error:'TEMPORARY_ALREADY_USED'};
   if(!verifyPassword(password,student.password_hash)){
     const failures=Number(student.auth_failed_attempts||0)+1,lockUntil=failures>=MAX_FAILURES?new Date(Date.now()+LOCK_MS).toISOString():null;
     db.prepare('UPDATE students SET auth_failed_attempts=?,auth_locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(failures>=MAX_FAILURES?0:failures,lockUntil,student.id);
     return {error:lockUntil?'AUTH_LOCKED':'INVALID_CREDENTIALS'};
   }
-  const temporaryLoginAt=student.password_state==='TEMPORARY'?new Date().toISOString():student.temporary_login_at;
-  db.prepare('UPDATE students SET auth_failed_attempts=0,auth_locked_until=NULL,last_login_at=CURRENT_TIMESTAMP,temporary_login_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(temporaryLoginAt,student.id);
-  return {student:{...student,auth_failed_attempts:0,auth_locked_until:null,temporary_login_at:temporaryLoginAt}};
+  db.prepare('UPDATE students SET auth_failed_attempts=0,auth_locked_until=NULL,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(student.id);
+  return {student:{...student,auth_failed_attempts:0,auth_locked_until:null}};
 }
 function setPersonalPassword(db,studentId,newPassword){
   const student=db.prepare('SELECT id,mobile,password_state FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
   if(!student)throw Object.assign(new Error('شاگرد پیدا نشد'),{statusCode:404});
-  const validated=validatePersonalPassword(newPassword,student.mobile),hash=hashPassword(validated);
+  const validated=validatePersonalPassword(newPassword),hash=hashPassword(validated);
   db.prepare("UPDATE students SET password_hash=?,password_state='PERSONAL',password_changed_at=CURRENT_TIMESTAMP,auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?").run(hash,studentId);
   return {password_state:'PERSONAL',password_changed_at:new Date().toISOString()};
 }

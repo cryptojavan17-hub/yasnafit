@@ -1070,7 +1070,7 @@ checks on student mutations and in-memory rate limits on invitation/join endpoin
 - `assessment_ai_suggestions` is a dormant persistence boundary for future coach-reviewed suggestions. No model, provider, or automatic assignment is enabled in production.
 - `students.case_number` is a unique six-digit display identifier and is never used as a database primary key or authentication credential.
 - Invitations retain hashed tokens, expiry and revocation. Each invitation can create exactly three independent, server-side hashed sessions; `use_count`, `max_uses`, and `opened_at` record its lifecycle.
-- Assessment and medical files remain private and outside `public/`. Body photos are fully optional; the five SVG files under `public/guides/` are public pose instructions only.
+- Assessment and medical files remain private and outside `public/`. Body photos are fully optional; the three PNG files under `public/guides/` are public pose instructions only.
 - Schema migration `019_core_journey_stabilization` upgrades existing databases transactionally and corrects historical release terminology already persisted in SQLite.
 
 # Student password authentication (schema 021)
@@ -1078,8 +1078,8 @@ checks on student mutations and in-memory rate limits on invitation/join endpoin
 - Coach creation requires a mobile number and atomically creates the permanent student, six-digit case number, three-use invitation, and a temporary credential derived from the mobile's last four digits.
 - `students.mobile_normalized` is the unique login identity. Equivalent Persian, Arabic, `+98`, and local representations normalize before uniqueness checks.
 - Passwords use Node `scrypt` with a random 128-bit salt. SQLite stores only the encoded salt/hash; the temporary plaintext is returned once to the authenticated coach because it is derivable from the submitted mobile and is never persisted.
-- A temporary credential has a one-time successful-login marker. The resulting session is restricted to `me`, logout, and password change until a personal password is set.
-- Personal passwords require 8–128 characters with at least one letter and one number. Changing the password revokes all other student sessions.
+- A temporary credential remains valid until the student voluntarily replaces it. The portal shows a non-blocking security recommendation and never redirects or restricts an authenticated student solely because the temporary credential is still active.
+- Personal passwords accept any value from 8–128 characters without composition rules. Changing the password verifies the current credential and revokes all other student sessions.
 - Invitation and password are independent factors: an invitation login verifies both credentials and consumes one of the existing three uses. Direct `/student/login` remains available after onboarding.
 - Student and coach sessions remain separate, hashed, server-side, `HttpOnly`, `SameSite=Strict`, and HTTPS-secure.
 - Password hashes, normalized login identifiers, lock counters, and lock timestamps are removed from every serialized coach/student response.

@@ -26,7 +26,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `018_engagement_audit_workouts` - Workouts, notifications, messages and audit events
 - `019_core_journey_stabilization` - Coach ownership, six-digit case identity and three-entry invitations
 - `020_assessment_social_profiles` - Optional Telegram and Instagram profile fields
-- `021_student_password_authentication` - Unique normalized mobile identity, scrypt password authentication and forced first-login password change
+- `021_student_password_authentication` - Unique normalized mobile identity, scrypt password authentication and optional personal-password lifecycle
 
 ## Full Schema
 

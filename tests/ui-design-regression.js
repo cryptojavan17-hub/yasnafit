@@ -106,7 +106,9 @@ assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async han
 assert.doesNotMatch(wizardSource,/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still visible');
 assert.match(studentAppSource,/\/student\/login/,'student login page is missing');
 assert.match(studentAppSource,/\/api\/student\/auth\/login/,'student password login API is not wired');
-assert.match(studentAppSource,/\/student\/change-password/,'forced password-change route is missing');
+assert.match(studentAppSource,/\/student\/change-password/,'optional password-change route is missing');
+assert.match(studentAppSource,/password-recommendation/,'non-blocking password recommendation is missing');
+assert.doesNotMatch(studentAppSource,/password_change_required.*location\.replace/,'student is still forced onto the password-change page');
 assert.match(studentAppSource,/\/api\/student\/auth\/change-password/,'student password-change API is not wired');
 assert.match(studentAppSource,/current_password/,'personal password change is unavailable from the student panel');
 assert.doesNotMatch(studentAppSource,/join\/\$\{encodeURIComponent\(token\)\}\/accept/,'invitation still creates a passwordless session');
