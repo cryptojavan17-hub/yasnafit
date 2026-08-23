@@ -591,15 +591,31 @@
     if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';if(searchSection)searchSection.open=false;if(categorySection)categorySection.open=false;
     if(list)list.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';
   }
+  function mountExerciseDrawer(){
+    const drawer=document.getElementById('exerciseDrawer');
+    if(!drawer)return null;
+    // The page content has an entrance transform/animation. A fixed element kept
+    // inside that container becomes its child containing block in Chromium and
+    // can render the panel shell while clipping or hiding its body. Keep this
+    // overlay as a direct body portal so its full content is always viewport-fixed.
+    if(drawer.parentElement!==document.body)document.body.appendChild(drawer);
+    return drawer;
+  }
   function openExerciseDrawer(){
-    const drawer=document.getElementById('exerciseDrawer'),list=document.getElementById('drawerList');
-    if(!drawer||!list)return;
-    document.getElementById('drawerTitle').textContent='افزودن حرکت از بانک';
-    document.getElementById('drawerTabAdd').style.display='flex';
-    resetDrawerBankFlow();document.getElementById('drawerCats').innerHTML='';drawer.classList.add('open');
+    const drawer=mountExerciseDrawer();
+    if(!drawer)return;
+    const list=drawer.querySelector('#drawerList'),title=drawer.querySelector('#drawerTitle'),tab=drawer.querySelector('#drawerTabAdd'),cats=drawer.querySelector('#drawerCats');
+    if(!list||!title||!tab||!cats){
+      console.error('Exercise drawer markup is incomplete');
+      return;
+    }
+    title.textContent='افزودن حرکت از بانک';
+    tab.style.display='flex';
+    resetDrawerBankFlow();cats.innerHTML='';drawer.classList.add('open');
   }
   function closeDrawer(){
-    document.getElementById('exerciseDrawer').classList.remove('open');
+    const drawer=document.getElementById('exerciseDrawer');
+    if(drawer)drawer.classList.remove('open');
     selectedSystemForAdd=null;
   }
   async function selectDrawerLocation(location){
@@ -975,7 +991,10 @@
     window.current=route;currentProgram=null;assessmentContext=null;dirty=false;
     document.querySelector('#breadcrumb').textContent=label;
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
+    const previousDrawer=document.querySelector('body > #exerciseDrawer');
+    if(previousDrawer)previousDrawer.remove();
     document.querySelector('#content').innerHTML = root();
+    mountExerciseDrawer();
     bindMainEvents();
     try{await loadProgramIfEditing();await loadStudents();renderAssessmentContext();renderDays();}
     catch(error){document.querySelector('#content').innerHTML=`<section class="panel error"><h2>ساخت برنامه آماده نشد</h2><p>${esc(error.message)}</p><a class="secondary" href="/students/submissions">بازگشت به ارزیابی‌ها</a></section>`;}

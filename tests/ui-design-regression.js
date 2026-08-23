@@ -141,6 +141,8 @@ assert.match(builderSource,/data-bank-location="gym"[^\n]+data-bank-location="ho
 assert.match(builderSource,/drawer-filter-accordion/,'search and category controls are not accordion-based');
 assert.match(builderSource,/id="drawerTabAdd" style="display:flex"/,'exercise bank content is not visible by default');
 assert.doesNotMatch(builderSource,/class="drawer-tabs"|drawerTabHistory|drawerTabCompare/,'obsolete drawer tabs can hide the exercise bank');
+assert.match(builderSource,/document\.body\.appendChild\(drawer\)/,'exercise drawer is not mounted outside the animated page container');
+assert.match(css['program-builder.css'],/\.drawer-panel \{[^}]*z-index: 1;[^}]*height: 100dvh;/,'exercise drawer panel does not have an explicit viewport layer');
 assert.match(css['program-builder.css'],/#drawerTabAdd\{flex:1;min-height:0/,'exercise drawer result viewport is not scrollable');
 assert.match(builderSource,/querySelectorAll\('\[data-cat-summary\]'\)[^\n]+loadDrawerExercises\(currentDrawerCat,'all',''\)/,'category heading does not load its exercises');
 assert.match(builderSource,/searchVal\.length<2/,'drawer search does not wait for an intentional query');

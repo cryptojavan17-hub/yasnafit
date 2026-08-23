@@ -64,10 +64,10 @@
 .empty-system { margin: 10px; padding: 28px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--surface-inset); font-size: 11px; }
 .empty-day { padding: 38px; }
 .add-movement-bar { margin-top: 8px; display: flex; gap: 7px; }
-.drawer { position: fixed; z-index: 80; inset: 0; display: none; }
+.drawer { position: fixed; z-index: 80; inset: 0; display: none; direction: rtl; color: var(--text); }
 .drawer.open { display: block; }
-.drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(8px); animation: fadeIn 180ms ease; }
-.drawer-panel { position: absolute; inset: 0 auto 0 0; width: min(500px,94vw); display: flex; flex-direction: column; border-right: 1px solid var(--border-strong); background: rgba(14,14,14,.96); box-shadow: var(--shadow-deep); backdrop-filter: blur(24px); animation: drawerIn 220ms ease; }
+.drawer-backdrop { position: absolute; z-index: 0; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(8px); animation: fadeIn 180ms ease; }
+.drawer-panel { position: absolute; z-index: 1; inset: 0 auto 0 0; width: min(500px,94vw); height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-right: 1px solid var(--border-strong); background: rgba(14,14,14,.96); box-shadow: var(--shadow-deep); backdrop-filter: blur(24px); animation: drawerIn 220ms ease; }
 @keyframes drawerIn { from { transform: translateX(-100%); } }
 .drawer-header { padding: 17px 19px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
 .drawer-header h3 { margin: 0; font-size: 15px; }
