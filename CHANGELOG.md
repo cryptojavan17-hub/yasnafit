@@ -12,6 +12,7 @@ Application versions follow Semantic Versioning. `package.json.version` is the c
 - Added exactly three secure invitation entries, each issuing an independent hashed session.
 - Added neutral, no-facial-detail pose guides for all five optional body-photo slots.
 - Added current release date and latest changes to the coach dashboard.
+- Enforced an exact 30-day start/end range for new monthly programs.
 
 ### Fixes and security
 - Made body photos fully skippable without forcing a refusal choice.

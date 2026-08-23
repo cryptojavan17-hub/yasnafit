@@ -53,7 +53,7 @@
       title: 'برنامه تمرینی جدید',
       coach_note: '',
       start_date: new Date().toISOString().split('T')[0],
-      end_date: new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0],
+      end_date: new Date(Date.now()+29*24*3600*1000).toISOString().split('T')[0],
       status: 'DRAFT',
       student_id: null,
       assessment_id: null,
