@@ -133,8 +133,13 @@ for(const field of ['progLevel','progLocation','progTarget','progInjury'])assert
 assert.match(builderSource,/sel\.disabled=true/,'assessment-selected student is not locked in Program Builder');
 assert.match(builderSource,/selectedSystemForAdd = \{dayIdx, sysIdx\};\s*openExerciseDrawer\(\)/,'add-movement button is not connected to the exercise drawer');
 assert.match(builderSource,/api\('\/api\/categories\/grouped'\)/,'drawer does not load real exercise categories');
-assert.match(builderSource,/currentDrawerCat=exerciseCategories\[0\]\.id/,'drawer does not open with a real category');
-assert.match(builderSource,/api\(`\/api\/exercises\?\$\{q\}`\)/,'drawer does not read exercises from the bank API');
+assert.match(builderSource,/resetDrawerBankFlow\(\)/,'drawer does not reset before each movement selection');
+assert.match(builderSource,/ابتدا محل تمرین را انتخاب کنید/,'drawer exposes exercises before location selection');
+assert.match(builderSource,/data-bank-location="gym"[^\n]+data-bank-location="home"/,'gym/home selection is missing');
+assert.match(builderSource,/drawer-filter-accordion/,'search and category controls are not accordion-based');
+assert.match(builderSource,/searchVal\.length<2/,'drawer search does not wait for an intentional query');
+assert.match(builderSource,/location:currentDrawerLocation/,'exercise API is not filtered by selected location');
+assert.match(builderSource,/api\(`\/api\/exercises\?\$\{query\}`\)/,'drawer does not read exercises from the bank API');
 assert.match(builderSource,/exercise_id: exId[\s\S]{0,120}original_exercise_id:origId/,'selected bank exercise IDs are not preserved correctly');
 assert.match(css['program-builder.css'],/inset: 0 auto 0 0/,'exercise drawer is not anchored to the left');
 assert.doesNotMatch(coreSource,/esc\(x\.profile_status\|\|x\.status\)/,'dashboard exposes an English profile status');

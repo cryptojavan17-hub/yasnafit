@@ -207,11 +207,24 @@
           <button data-tab="compare">📊 مقایسه</button>
         </div>
         <div id="drawerTabAdd">
-          <div class="drawer-search">
-            <input id="drawerSearch" placeholder="جستجوی هوشمند حرکت... مثلاً پرس سینه">
+          <div class="drawer-bank-flow">
+            <section class="drawer-bank-step active" id="drawerLocationStep">
+              <header><span>۱</span><div><b>محل تمرین</b><small>ابتدا یکی را انتخاب کنید</small></div></header>
+              <div class="drawer-location-options"><button type="button" data-bank-location="gym">باشگاه</button><button type="button" data-bank-location="home">منزل</button></div>
+            </section>
+            <section class="drawer-bank-step locked" id="drawerFilterStep" hidden>
+              <header><span>۲</span><div><b>پیدا کردن حرکت</b><small>جستجو یا انتخاب دسته‌بندی</small></div></header>
+              <details class="drawer-filter-accordion" id="drawerSearchSection">
+                <summary>جستجوی نام حرکت</summary>
+                <div class="drawer-search"><input id="drawerSearch" placeholder="مثلاً پرس سینه" autocomplete="off"></div>
+              </details>
+              <details class="drawer-filter-accordion" id="drawerCategorySection">
+                <summary>دسته‌بندی حرکات</summary>
+                <div class="drawer-cats" id="drawerCats"></div>
+              </details>
+            </section>
           </div>
-          <div class="drawer-cats" id="drawerCats"></div>
-          <div class="drawer-list" id="drawerList"></div>
+          <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
         <div id="drawerTabHistory" style="display:none;padding:16px">
           <p style="color:var(--text-muted);font-size:13px">سوابق برنامه‌های قبلی کاربر اینجا نمایش داده می‌شود</p>
@@ -590,67 +603,64 @@
     document.getElementById('drawerTabCompare').style.display=tab==='compare'?'block':'none';
     document.getElementById('drawerTitle').textContent=tab==='add'?'افزودن حرکت از بانک':tab==='history'?'سوابق برنامه‌های قبلی':'مقایسه';
   }
+  function resetDrawerBankFlow(){
+    currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
+    document.querySelectorAll('[data-bank-location]').forEach(button=>button.classList.remove('active'));
+    const filter=document.getElementById('drawerFilterStep'),search=document.getElementById('drawerSearch'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
+    if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';if(searchSection)searchSection.open=false;if(categorySection)categorySection.open=false;
+    if(list)list.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';
+  }
   async function openExerciseDrawer(tab='add'){
     const drawer=document.getElementById('exerciseDrawer'),list=document.getElementById('drawerList');
     if(!drawer||!list)return;
     showDrawerTab(tab);drawer.classList.add('open');
     if(tab==='history'){await loadHistory();return;}
     if(tab!=='add')return;
-    list.innerHTML='<div class="drawer-loading">در حال اتصال به بانک حرکات…</div>';
+    resetDrawerBankFlow();
     try{
       if(exerciseCategories.length===0)exerciseCategories=await api('/api/categories/grouped');
       if(!exerciseCategories.length)throw new Error('دسته‌ای در بانک حرکات پیدا نشد');
-      if(currentDrawerCat==='all'||!exerciseCategories.some(category=>category.id===currentDrawerCat))currentDrawerCat=exerciseCategories[0].id;
       renderDrawerCats();
-      await loadDrawerExercises(currentDrawerCat);
     }catch(error){list.innerHTML=`<div class="drawer-error">اتصال به بانک حرکات انجام نشد: ${esc(error.message)}</div>`;}
   }
   function closeDrawer(){
     document.getElementById('exerciseDrawer').classList.remove('open');
     selectedSystemForAdd=null;
   }
+  function selectDrawerLocation(location){
+    currentDrawerLocation=location;currentDrawerCat=null;currentDrawerSub=null;
+    document.querySelectorAll('[data-bank-location]').forEach(button=>button.classList.toggle('active',button.dataset.bankLocation===location));
+    const filter=document.getElementById('drawerFilterStep'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
+    filter.hidden=false;filter.classList.remove('locked');searchSection.open=true;categorySection.open=false;
+    list.innerHTML='<div class="drawer-guidance">نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.</div>';
+    document.getElementById('drawerSearch').focus();
+  }
   function renderDrawerCats(){
     const host=document.getElementById('drawerCats');
-    host.innerHTML = `<button data-cat="all" class="${currentDrawerCat==='all'?'active':''}">همه</button>` + exerciseCategories.map(c=>`<button data-cat="${c.id}" class="${currentDrawerCat===c.id?'active':''}">${esc(c.name)} (${c.count})</button>`).join('');
-    host.querySelectorAll('button').forEach(b=>{
-      b.onclick=()=>{
-        host.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
-        loadDrawerExercises(b.dataset.cat);
-      };
-    });
+    host.innerHTML=exerciseCategories.map(category=>`<details class="drawer-category-group"><summary>${esc(category.name)} <small>${category.count.toLocaleString('fa-IR')} حرکت</small></summary><div><button type="button" data-cat="${category.id}" data-sub="all">همه حرکات ${esc(category.name)}</button>${(category.subs||[]).map(sub=>`<button type="button" data-cat="${category.id}" data-sub="${sub.id}">${esc(sub.name)} <small>${sub.count.toLocaleString('fa-IR')}</small></button>`).join('')}</div></details>`).join('');
+    host.querySelectorAll('[data-cat]').forEach(button=>button.onclick=event=>{event.preventDefault();currentDrawerCat=button.dataset.cat;currentDrawerSub=button.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.toggle('active',item===button));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
   }
-  let currentDrawerCat='all';
-  async function loadDrawerExercises(catId='all'){
-    const host=document.getElementById('drawerList');
-    host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">در حال بارگذاری...</div>`;
-    currentDrawerCat=catId;
-    const searchVal=document.getElementById('drawerSearch').value.trim();
-    try {
-      if(catId==='all' && !searchVal){
-        host.innerHTML=`<div style="text-align:center;padding:20px">یک دسته انتخاب کنید یا جستجو کنید<br><small>بانک 2707 حرکتی با تصویر</small></div>`;
-        return;
-      }
-      let allItems=[];
-      if(catId==='all' && searchVal){
-        const catsToSearch=exerciseCategories.map(category=>category.id);
-        for(const c of catsToSearch){
-          try{
-            const res=await api(`/api/exercises?categoryId=${c}&status=active&page=0&pageSize=15&query=${encodeURIComponent(searchVal)}`);
-            allItems = allItems.concat(res.items||[]);
-            if(allItems.length>=40) break;
-          }catch(e){}
+  let currentDrawerCat=null;
+  let currentDrawerSub=null;
+  let currentDrawerLocation=null;
+  async function loadDrawerExercises(catId=null,subId=null,searchValue=null){
+    const host=document.getElementById('drawerList'),searchVal=searchValue===null?document.getElementById('drawerSearch').value.trim():String(searchValue).trim();
+    if(!currentDrawerLocation){host.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';return;}
+    if(!catId&&searchVal.length<2){host.innerHTML=`<div class="drawer-guidance">${searchVal?'حداقل دو حرف برای جستجو وارد کنید.':'نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.'}</div>`;return;}
+    host.innerHTML='<div class="drawer-loading">در حال خواندن بانک حرکات…</div>';
+    try{
+      if(!catId){
+        let allItems=[];
+        for(const category of exerciseCategories){
+          try{const query=new URLSearchParams({categoryId:category.id,location:currentDrawerLocation,status:'active',page:0,pageSize:15,query:searchVal}),response=await api(`/api/exercises?${query}`);allItems=allItems.concat(response.items||[]);if(allItems.length>=40)break;}catch(error){}
         }
-        renderDrawerList(allItems);
-        return;
-      } else {
-        const q = new URLSearchParams({categoryId: catId, status:'active', page:0, pageSize:40, query: searchVal});
-        const res = await api(`/api/exercises?${q}`);
-        renderDrawerList(res.items||[]);
+        renderDrawerList(allItems.slice(0,40));return;
       }
-    } catch(e){
-      host.innerHTML=`<div style="color:var(--danger);padding:20px">خطا: ${esc(e.message)}</div>`;
-    }
+      currentDrawerCat=catId;currentDrawerSub=subId;
+      const query=new URLSearchParams({categoryId:catId,location:currentDrawerLocation,status:'active',page:0,pageSize:40,query:searchVal});
+      if(subId&&subId!=='all')query.set('subCategoryId',subId);
+      const response=await api(`/api/exercises?${query}`);renderDrawerList(response.items||[]);
+    }catch(error){host.innerHTML=`<div class="drawer-error">خطا در دریافت حرکات: ${esc(error.message)}</div>`;}
   }
   function renderDrawerList(items){
     const host=document.getElementById('drawerList');
@@ -875,12 +885,11 @@
         else if(tab==='history')loadHistory();
       };
     });
+    document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
       clearTimeout(drawerSearchTimeout);
-      drawerSearchTimeout=setTimeout(()=>{
-        loadDrawerExercises(currentDrawerCat);
-      }, 400);
+      drawerSearchTimeout=setTimeout(()=>loadDrawerExercises(null,null,drawerSearch.value),400);
     };
 
     // Dirty state warning
