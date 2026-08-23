@@ -55,7 +55,7 @@
             <span>🔑 ${esc(item.status)}</span>
           </div>
           <div class="program-actions">
-            <button class="btn btn-primary btn-small" onclick="location.href='/assessments/${item.id}'">👁 بررسی</button>
+            <a class="btn btn-primary btn-small" href="/assessments/${item.id}">مشاهده ارزیابی</a>
             <button class="btn btn-secondary btn-small" onclick="location.href='/students/${item.student_id}/timeline'">📜 تاریخچه شاگرد</button>
           </div>
         </div>
@@ -74,153 +74,101 @@
   };
 
   window.renderAssessmentReview = async (label, route) => {
-    const match = route.match(/\/assessments\/(\d+)/);
-    const id = match ? Number(match[1]) : null;
-    if(!id) return;
-
-    document.querySelector('#breadcrumb').textContent='بررسی ارزیابی';
-    document.querySelectorAll('.menu-link').forEach(x=>x.classList.remove('active'));
+    const match=route.match(/^\/assessments\/(\d+)$/),id=match?Number(match[1]):null;
     const content=document.querySelector('#content');
-    content.innerHTML=`<div style="text-align:center;padding:40px">در حال بارگذاری ارزیابی #${id}...</div>`;
+    document.querySelector('#breadcrumb').textContent='بررسی ارزیابی';
+    document.querySelectorAll('.menu-link').forEach(item=>item.classList.remove('active'));
+    if(!id){content.innerHTML='<section class="coach-review-error">شناسه ارزیابی معتبر نیست.</section>';return;}
+    content.innerHTML='<div class="coach-review-loading"><span></span><p>در حال دریافت ارزیابی…</p></div>';
 
-    try {
-      const data=await api(`/api/assessments/${id}`);
-      const ass=data.assessment;
-      const student=data.student;
-      const prev=data.previous_assessment;
-      const prevProg=data.previous_program;
-      const details=data.assessment_details||{};
-      const prevDetails=data.previous_assessment_details||{};
-      const lifecycle=ass.lifecycle_status||ass.status;
+    const labels={
+      full_name:'نام و نام خانوادگی',mobile:'موبایل',telegram_id:'تلگرام',instagram_id:'اینستاگرام',date_of_birth:'تاریخ تولد',gender:'جنسیت',preferred_location:'محل تمرین',
+height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:'دور سینه',around_the_belly:'دور شکم',around_the_hips:'دور باسن',around_the_leg:'دور ساق',around_the_thigh:'دور ران',around_the_wrist:'دور مچ',body_fat:'درصد چربی',muscle_mass:'توده عضلانی',
+      has_disease:'سابقه بیماری',disease_details:'شرح بیماری',has_medication:'مصرف دارو',medication_details:'شرح دارو',has_injury:'آسیب‌دیدگی',injury_details:'شرح آسیب',has_surgery:'سابقه جراحی',surgery_details:'شرح جراحی',last_blood_test_notes:'آزمایش خون',corrective_notes:'تمرین اصلاحی',
+      average_daily_activity:'فعالیت روزانه',practice_history:'سابقه تمرین',practice_history_details:'شرح سابقه',practice_duration:'مدت سابقه',sport_discipline:'رشته ورزشی',practice_now:'تمرین فعلی',current_practice_details:'شرح تمرین فعلی',practice_place:'محل تمرین',home_equipment:'تجهیزات منزل',sessions_per_week:'جلسه در هفته',supplement_history:'مصرف مکمل',supplement_details:'شرح مکمل',doping_history:'سابقه دوپینگ',
+      diet_type:'الگوی غذایی',previous_diet:'سابقه رژیم',previous_diet_duration:'مدت رژیم',previous_diet_type:'نوع رژیم قبلی',previous_diet_notes:'توضیح رژیم قبلی',food_allergies:'حساسیت غذایی',weight_changes:'تغییرات وزن',appetite_status:'وضعیت اشتها',appetite_notes:'توضیح اشتها',defecation_problem:'وضعیت دفع',breakfast:'صبحانه',lunch:'ناهار',dinner:'شام',
+      smoking:'مصرف دخانیات',smoking_details:'شرح دخانیات',alcohol:'مصرف الکل',alcohol_details:'شرح الکل',
+      childbirth_history:'سابقه زایمان',childbirth_count:'تعداد زایمان',childbirth_type:'نوع زایمان',childbirth_notes:'توضیحات زایمان',breastfeeding:'شیردهی',breastfeeding_notes:'توضیحات شیردهی',child_age_months:'سن کودک به ماه',formula_use:'مصرف شیر خشک',formula_type:'نوع شیر خشک',formula_amount:'مقدار شیر خشک',formula_frequency:'دفعات شیر خشک',child_food_allergy:'حساسیت غذایی کودک',child_food_allergy_notes:'شرح حساسیت کودک',
+      student_note:'توضیحات شاگرد',limitations:'محدودیت‌ها',injuries:'آسیب‌ها'
+    };
+    const enumLabels={female:'خانم',male:'آقا',gym:'باشگاه',home:'منزل',low:'کم',medium:'متوسط',high:'زیاد',iranian:'سفره ایرانی',professional:'رژیم حرفه‌ای',low_eating:'کم‌خوری',grazing:'ریزخوری',overeating:'پرخوری',emotional_overeating:'پرخوری عصبی',anorexia:'بی‌اشتهایی عصبی',none:'بدون مشکل',constipation:'یبوست',diarrhea:'اسهال',difficult_defecation:'دفع سخت',natural:'طبیعی',cesarean:'سزارین'};
+    const booleanKeys=new Set(['has_disease','has_medication','has_injury','has_surgery','practice_history','practice_now','supplement_history','previous_diet','smoking','alcohol','childbirth_history','breastfeeding','formula_use','child_food_allergy']);
+    const hiddenKeys=new Set(['id','stable_id','assessment_id','student_id','created_at','updated_at','deleted_at','version']);
+    const valueFor=(key,value)=>booleanKeys.has(key)?(Number(value)===1?'بله':'خیر'):(enumLabels[value]||value);
+    const rowsFrom=(object,allowed=null)=>{
+      if(!object)return [];
+      return Object.entries(object).filter(([key,value])=>!hiddenKeys.has(key)&&(!allowed||allowed.includes(key))&&value!==null&&value!==undefined&&value!=='').map(([key,value])=>[labels[key]||key,valueFor(key,value)]);
+    };
+    const group=(title,rows,icon)=>rows.length?`<section class="coach-review-group"><header><span>${icon}</span><h2>${title}</h2></header><dl>${rows.map(([key,value])=>`<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl></section>`:'';
+
+    try{
+      const data=await api(`/api/assessments/${id}`),ass=data.assessment,student=data.student,details=data.assessment_details||{},lifecycle=ass.lifecycle_status||ass.status;
+      const lifecycleLabels={SUBMITTED:'ارسال‌شده',PENDING_REVIEW:'در حال بررسی',APPROVED:'تأییدشده',REJECTED:'ردشده',CHANGES_REQUESTED:'نیازمند اصلاح'};
+      const rawGoals=(details.goals||[]).length?details.goals:String(ass.goal||student.goal||'').split(',').filter(Boolean),goals=rawGoals.map(goal=>({weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'}[goal]||goal));
+      const measurementData=details.measurements?{...details.measurements}:{height:ass.height,weight:ass.weight,around_the_chest:ass.chest,around_the_belly:ass.waist,around_the_hips:ass.hips};if(ass.body_fat!=null)measurementData.body_fat=ass.body_fat;if(ass.muscle_mass!=null)measurementData.muscle_mass=ass.muscle_mass;
+      const profileRows=rowsFrom(student,['mobile','telegram_id','instagram_id','date_of_birth','gender','preferred_location']);
+      const noteRows=[];if(ass.student_note)noteRows.push(['توضیحات شاگرد',ass.student_note]);if(ass.limitations||student.limitations)noteRows.push(['محدودیت‌ها',ass.limitations||student.limitations]);if(ass.injuries||student.injuries)noteRows.push(['آسیب‌ها',ass.injuries||student.injuries]);
+      const medicalRows=rowsFrom(details.medical);if((details.medical_items||[]).length)medicalRows.push(['موارد انتخاب‌شده',details.medical_items.map(item=>item.name).filter(Boolean).join('، ')]);
+      const reviewable=['SUBMITTED','PENDING_REVIEW'].includes(lifecycle);
+      const photos=ass.photos||[],documents=ass.documents||[];
 
       content.innerHTML=`
-        <div class="program-builder">
-          <div class="order-header">
-            <div><h2>ارزیابی #${ass.assessment_number} - ${esc(student.full_name)} • ${esc(lifecycle)}</h2><small>${esc(ass.assessment_type||'INITIAL')} • ایجاد: ${new Date(ass.created_at).toLocaleString('fa-IR')} • ارسال: ${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'—'} • وزن: ${ass.weight}kg</small></div>
-            <button class="btn btn-secondary" onclick="history.back()">← بازگشت</button>
+        <div class="coach-review-page">
+          <header class="coach-review-hero">
+            <div class="coach-review-heading"><a href="/students/submissions" class="review-back" aria-label="بازگشت">→</a><div><p class="eyebrow">بررسی ارزیابی ${ass.assessment_number}</p><h1>${esc(student.full_name)}</h1><div class="review-meta"><span class="case-chip">پرونده <b>${esc(student.case_number||'------')}</b></span><span>${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'تاریخ ارسال ثبت نشده'}</span><span class="review-status ${esc(lifecycle.toLowerCase())}">${esc(lifecycleLabels[lifecycle]||lifecycle)}</span></div></div></div>
+            <div class="review-header-links"><a class="secondary" href="/students/${student.id}/timeline">تاریخچه شاگرد</a><a class="secondary" href="/users-list/${student.id}">پروفایل شاگرد</a></div>
+          </header>
+
+          <div class="coach-review-layout">
+            <main class="coach-review-main">
+              ${group('اطلاعات شخصی',profileRows,'●')}
+              ${group('هدف دوره',goals.length?[['هدف اصلی',goals.join('، ')]]:[],'◆')}
+              ${group('اندازه‌های بدن',rowsFrom(measurementData),'↕')}
+              ${group('سوابق پزشکی',medicalRows,'＋')}
+              ${group('سابقه ورزشی',rowsFrom(details.sports),'↗')}
+              ${group('تغذیه',rowsFrom(details.nutrition),'◐')}
+              ${group('عادت‌های روزمره',rowsFrom(details.habits),'○')}
+              ${group('بارداری و زایمان',rowsFrom(details.pregnancy),'◇')}
+              ${group('توضیحات تکمیلی',noteRows,'✎')}
+
+              ${photos.length?`<section class="coach-review-group coach-review-photos"><header><span>▧</span><h2>تصاویر خصوصی</h2><b>${photos.length} تصویر</b></header><div class="review-photo-grid">${photos.map(photo=>`<a href="/api/student-photos/${photo.id}" target="_blank" rel="noopener"><img src="/api/student-photos/${photo.id}" alt="تصویر خصوصی ${esc(photo.photo_type)}"><small>${esc(photo.photo_type)}</small></a>`).join('')}</div></section>`:''}
+              ${documents.length?`<section class="coach-review-group"><header><span>⌑</span><h2>مدارک خصوصی</h2></header><div class="review-document-list">${documents.map(document=>`<a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><div><b>${esc(document.original_filename)}</b><small>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</small></div><span>مشاهده</span></a>`).join('')}</div></section>`:''}
+
+              ${data.previous_assessment&&details.measurements&&data.previous_assessment_details?.measurements?`<section class="coach-review-group"><header><span>◫</span><h2>مقایسه با ارزیابی قبلی</h2></header>${measurementComparison(details.measurements,data.previous_assessment_details.measurements)}</section>`:''}
+            </main>
+
+            <aside class="coach-review-sidebar">
+              <section class="review-decision-card">
+                <div><p class="eyebrow">تصمیم مربی</p><h2>${reviewable?'نتیجه بررسی را ثبت کنید':esc(lifecycleLabels[lifecycle]||lifecycle)}</h2></div>
+                <label>یادداشت برای شاگرد<textarea id="coachNote" maxlength="4000" placeholder="توضیح کوتاه و روشن…">${esc(ass.coach_note||'')}</textarea></label>
+                <div class="review-actions">
+                  <button class="review-action approve" id="btnApprove" ${reviewable?'':'disabled'}>✓ <span>تأیید</span></button>
+                  <button class="review-action revise" id="btnRequestChanges" ${reviewable?'':'disabled'}>↻ <span>درخواست اصلاح</span></button>
+                  <button class="review-action reject" id="btnReject" ${reviewable?'':'disabled'}>× <span>رد</span></button>
+                  <a class="review-action message" href="/users-list/${student.id}">✉ <span>پیام به شاگرد</span></a>
+                </div>
+                <p class="review-action-feedback" id="reviewActionFeedback" role="alert"></p>
+                ${lifecycle==='APPROVED'?`<a class="primary review-program-link" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}">ساخت برنامه ۳۰ روزه</a>`:''}
+              </section>
+            </aside>
           </div>
+        </div>`;
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-            <div>
-              <section class="sp-card">
-                <h2>👤 ${esc(student.full_name)}</h2>
-                <p style="font-size:13px;line-height:1.8">
-                  موبایل: ${esc(student.mobile||'—')}<br>
-                  هدف: ${esc(student.goal||ass.goal||'—')}<br>
-                  قد: ${student.height||ass.height||'—'}<br>
-                  وزن فعلی: ${ass.weight||'—'}kg<br>
-                  سابقه: ${esc(student.training_experience||'—')}<br>
-                  محدودیت: ${esc(student.limitations||ass.limitations||'—')}
-                </p>
-              </section>
-
-              <section class="sp-card">
-                <h2>📋 ارزیابی فعلی #${ass.assessment_number}</h2>
-                <p style="font-size:12px;line-height:1.8">
-                  وزن: ${ass.weight}kg • کمر: ${ass.waist||'—'} • سینه: ${ass.chest||'—'} • باسن: ${ass.hips||'—'}<br>
-                  چربی: ${ass.body_fat||'—'}% • عضله: ${ass.muscle_mass||'—'}<br>
-                  یادداشت شاگرد: ${esc(ass.student_note||'—')}<br>
-                  یادداشت مربی: ${esc(ass.coach_note||'—')}
-                </p>
-                ${photoPreferenceState(ass)}
-                ${ass.body_photos_preference==='declined'?'':`<div class="private-photo-gallery">
-                  ${(ass.photos||[]).map(p=>`
-                    <div class="private-photo-item">
-                      <img src="/api/student-photos/${p.id}" alt="تصویر خصوصی ${esc(p.photo_type)}">
-                      <small>${esc(p.photo_type)}</small>
-                    </div>
-                  `).join('') || '<span class="muted">تصویری ارسال نشده است؛ این موضوع مانع بررسی نیست.</span>'}
-                </div>`}
-                <h3 style="margin-top:14px">مدارک پزشکی و آنالیز</h3>
-                <div class="document-list">${(ass.documents||[]).map(document=>`<article><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><span>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</span></a></article>`).join('')||'<p class="muted">ارسال نشده • اختیاری</p>'}</div>
-              </section>
-              <section class="sp-card assessment-detail-sections">
-                <h2>جزئیات حرفه‌ای پرونده</h2>
-                <section class="assessment-detail-group"><h3>اطلاعات کلی</h3><div><span><small>اهداف</small><b>${esc((details.goals||[]).join('، ')||'—')}</b></span></div></section>
-                ${detailsCard('اندازه‌ها',details.measurements)}
-                ${detailsCard('سوابق پزشکی',details.medical)}
-                ${detailsCard('سوابق ورزشی',details.sports)}
-                ${detailsCard('تغذیه',details.nutrition)}
-                ${detailsCard('عادات',details.habits)}
-                ${detailsCard('بارداری و زایمان',details.pregnancy)}
-              </section>
-
-              ${prev?`
-              <section class="sp-card" style="border-color:var(--border-strong);background:var(--glass-hover)">
-                <h2>📚 مقایسه با ارزیابی قبلی #${prev.assessment_number}</h2>
-                <p style="font-size:12px">
-                  وزن قبلی: ${prev.weight}kg → فعلی: ${ass.weight}kg • تفاوت: ${(ass.weight - prev.weight).toFixed(1)}kg<br>
-                  کمر قبلی: ${prev.waist||'—'} → فعلی: ${ass.waist||'—'}<br>
-                </p>
-                ${measurementComparison(details.measurements,prevDetails.measurements)}
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <div><small>قبلی:</small>${photoPreferenceState(prev)}${prev.body_photos_preference==='declined'?'':(prev.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border);margin:2px">`).join('')}</div>
-                  <div><small>فعلی:</small>${photoPreferenceState(ass)}${ass.body_photos_preference==='declined'?'':(ass.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--border-strong);margin:2px">`).join('')}</div>
-                </div>
-                ${prevProg?`<div style="margin-top:10px"><small>برنامه قبلی: ${esc(prevProg.title)}</small></div>`:''}
-              </section>
-              `:''}
-            </div>
-
-            <div>
-              <section class="sp-card">
-                <h2>✅ تصمیم مربی</h2>
-                <textarea id="coachNote" placeholder="یادداشت برای شاگرد..." style="width:100%;min-height:80px;border:1px solid var(--border);border-radius:10px;padding:10px">${esc(ass.coach_note||'')}</textarea>
-                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-                  ${lifecycle==='SUBMITTED'?'<button class="btn btn-secondary" id="btnUnderReview">🔍 شروع بررسی</button>':''}
-                  ${lifecycle==='PENDING_REVIEW'?'<button class="btn btn-danger" id="btnRequestChanges">✏️ درخواست اصلاح</button><button class="btn btn-danger" id="btnReject">رد پرونده</button><button class="btn btn-primary" id="btnApprove">✅ تایید پرونده</button>':''}
-                </div>
-                <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-                  ${lifecycle==='APPROVED'?'<button class="btn btn-primary" id="btnCreateProgram">💪 ساخت برنامه یک ماهه</button>':'<span class="muted">ساخت برنامه پس از تأیید پرونده فعال می‌شود.</span>'}
-                  <small style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">از Program Builder موجود استفاده می‌شود و به ارزیابی لینک می‌شود</small>
-                </div>
-              </section>
-
-              <section class="sp-card">
-                <h2>📜 تایم‌لاین شاگرد</h2>
-                <div id="timelineMini">در حال بارگذاری...</div>
-              </section>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('btnUnderReview')?.addEventListener('click',async()=>{
-        await api(`/api/assessments/${id}/under-review`, {method:'POST'});location.reload();
-      });
-      document.getElementById('btnRequestChanges')?.addEventListener('click',async()=>{
-        const note=document.getElementById('coachNote').value;if(!note.trim())return alert('یادداشت مربی الزامی است.');
-        await api(`/api/assessments/${id}/request-changes`, {method:'POST', body: JSON.stringify({coach_note: note})});location.reload();
-      });
-      document.getElementById('btnReject')?.addEventListener('click',async()=>{
-        const note=document.getElementById('coachNote').value;if(!note.trim())return alert('برای رد پرونده یادداشت مربی الزامی است.');
-        await api(`/api/assessments/${id}/reject`,{method:'POST',body:JSON.stringify({coach_note:note})});location.reload();
-      });
-      document.getElementById('btnApprove')?.addEventListener('click',async()=>{
-        const note=document.getElementById('coachNote').value;
-        await api(`/api/assessments/${id}/approve`, {method:'POST', body: JSON.stringify({coach_note: note})});location.reload();
-      });
-      document.getElementById('btnCreateProgram')?.addEventListener('click',()=>{
-        location.href=`/programs/exercise/form?student_id=${student.id}&assessment_id=${id}`;
-      });
-
-      // Load timeline
-      try {
-        const full=await api(`/api/students/${student.id}/timeline`);
-        const host=document.getElementById('timelineMini');
-        host.innerHTML = (full.timeline||[]).map(item=>{
-          if(item.type==='assessment'){
-            return `<div style="padding:8px;background:var(--surface-inset);border-radius:8px;margin-bottom:6px"><b>ارزیابی #${item.data.assessment_number}</b> - ${esc(item.data.status)}<br><small>${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
-          } else if(item.type==='workout'){
-            return `<div style="padding:8px;background:var(--surface-inset);border-radius:8px;margin-bottom:6px"><b>تمرین ${esc(item.data.program_title)} • روز ${item.data.day_number}</b><br><small>${esc(item.data.status)} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
-          } else {
-            return `<div style="padding:8px;background:var(--glass-hover);border-radius:8px;margin-bottom:6px"><b>${esc(item.data.title)}</b><br><small>${esc(item.data.start_date||'')} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
-          }
-        }).join('') || 'تاریخچه‌ای نیست';
-      } catch(e){}
-
-    } catch(e){
-      content.innerHTML=`<div style="color:var(--danger);padding:20px">خطا: ${esc(e.message)}</div>`;
+      async function decide(action,requiresNote){
+        const feedback=document.querySelector('#reviewActionFeedback'),note=document.querySelector('#coachNote').value.trim();
+        if(requiresNote&&!note){feedback.textContent='برای این تصمیم، نوشتن یادداشت الزامی است.';return;}
+        document.querySelectorAll('.review-action button,button.review-action').forEach(button=>button.disabled=true);feedback.textContent='در حال ثبت تصمیم…';
+        try{
+          if(lifecycle==='SUBMITTED')await api(`/api/assessments/${id}/under-review`,{method:'POST'});
+          await api(`/api/assessments/${id}/${action}`,{method:'POST',body:JSON.stringify({coach_note:note})});
+          location.reload();
+        }catch(error){feedback.textContent=error.message;document.querySelectorAll('button.review-action').forEach(button=>button.disabled=false);}
+      }
+      document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));
+      document.querySelector('#btnRequestChanges')?.addEventListener('click',()=>decide('request-changes',true));
+      document.querySelector('#btnReject')?.addEventListener('click',()=>decide('reject',true));
+    }catch(error){
+      content.innerHTML=`<section class="coach-review-error"><b>ارزیابی باز نشد</b><p>${esc(error.message)}</p><a class="secondary" href="/students/submissions">بازگشت به فهرست</a></section>`;
     }
   };
 

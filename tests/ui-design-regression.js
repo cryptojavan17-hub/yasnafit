@@ -55,6 +55,17 @@ assert.match(css['student-app.css'],/@media\(max-width:560px\)/,'student onboard
 assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboarding misses persistent validation feedback');
 const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
 const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
+const coreSource=fs.readFileSync(path.join(publicDir,'core.js'),'utf8');
+const reviewSource=fs.readFileSync(path.join(publicDir,'coach-submissions.js'),'utf8');
+const dashboardBlock=coreSource.slice(coreSource.indexOf("if(route==='/coach/dashboard')"),coreSource.indexOf("if(route==='/programs/exercise/movements-list')"));
+assert.doesNotMatch(dashboardBlock,/student-submissions|latestRelease|release-dashboard-card|اعلان‌های جدید|ارزیابی در انتظار بررسی/,'dashboard still contains duplicate assessment or release notifications');
+assert.match(reviewSource,/href="\/assessments\/\$\{item\.id\}"[^>]*>مشاهده ارزیابی/,'submission button is not a reliable assessment link');
+assert.match(reviewSource,/window\.renderAssessmentReview/,'assessment review component is missing');
+assert.ok(reviewSource.includes('const match=route.match(')&&reviewSource.includes('assessments')&&reviewSource.includes('id=match?Number(match[1]):null'),'assessment review route is not wired');
+for(const action of ['btnApprove','btnReject','btnRequestChanges'])assert.match(reviewSource,new RegExp(`id="${action}"`),`review action is missing: ${action}`);
+assert.match(reviewSource,/پیام به شاگرد/,'student message action is missing');
+assert.match(reviewSource,/case_number/,'case number is missing from coach review');
+assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
 assert.match(wizardSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
 assert.match(wizardSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
 assert.match(wizardSource,/\[٫,\\\/\]/,'slash/Persian decimal normalization is missing');

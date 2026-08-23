@@ -90,7 +90,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await onboard(sessionB.cookie,{name:`Student B ${suffix}`,mobile:mobileB,weight:67});
 
   const detailA1=await ok(`/api/students/${a.id}`,{coach:true}),detailB1=await ok(`/api/students/${b.id}`,{coach:true});
-  const assessmentA1=detailA1.current_assessment.id,assessmentB1=detailB1.current_assessment.id;const coachAssessmentA=await ok(`/api/assessments/${assessmentA1}`,{coach:true});assert.equal(coachAssessmentA.assessment.documents.length,1);assert.ok(coachAssessmentA.assessment_details.measurements);
+  const assessmentA1=detailA1.current_assessment.id,assessmentB1=detailB1.current_assessment.id;const reviewPage=await request(`/assessments/${assessmentA1}`,{coach:true});assert.equal(reviewPage.response.status,200);assert.match(reviewPage.data.toString('utf8'),/coach-submissions\.js/);const coachAssessmentA=await ok(`/api/assessments/${assessmentA1}`,{coach:true});assert.equal(coachAssessmentA.student.case_number,a.case_number);assert.equal(coachAssessmentA.assessment.documents.length,1);assert.ok(coachAssessmentA.assessment_details.measurements);
   const snapshotA1=immutableAssessment(detailA1.current_assessment);assert.equal(detailA1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.status,'SUBMITTED');assert.equal(detailB1.current_assessment.body_photos_preference,'declined');assert.equal(detailB1.current_assessment.photos.length,0);
   const photoA=detailA1.current_assessment.photos[0].id;
   await expectStatus(401,`/api/student-photos/${photoA}?token=${inviteA.token}`);
