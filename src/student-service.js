@@ -159,6 +159,10 @@ function getStudentFullData(db, studentId, options={}){
       timeline.push({type:'program', date: p.start_date||p.created_at, data: p});
     }
   });
+  try{
+    const workouts=db.prepare('SELECT ws.stable_id,ws.status,ws.started_at,ws.completed_at,ws.notes,pd.day_number,tp.title program_title FROM workout_sessions ws JOIN program_days pd ON pd.id=ws.program_day_id JOIN training_programs tp ON tp.id=ws.program_id WHERE ws.student_id=? AND ws.deleted_at IS NULL ORDER BY ws.started_at').all(studentId);
+    workouts.forEach(workout=>timeline.push({type:'workout',date:workout.completed_at||workout.started_at,data:workout}));
+  }catch(error){}
   timeline.sort((a,b)=> new Date(a.date) - new Date(b.date));
 
   return {

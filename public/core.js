@@ -40,8 +40,8 @@ async function render(label,route){
   const head=`<div class="page-head"><div><p class="eyebrow">پنل مدیریت Yasnafit</p><h1>${label}</h1><p>مدیریت اطلاعات محلی با ذخیره‌سازی امن در SQLite.</p></div><button class="primary" id="addBtn">＋ افزودن</button></div>`;
   try{
     if(route==='/coach/dashboard'){
-      const [d,versionInfo]=await Promise.all([api('/api/dashboard'),api('/api/version')]);
-      const pending = await api('/api/student-submissions').catch(()=>[]);
+      const [d,versionInfo,coachNotifications]=await Promise.all([api('/api/dashboard'),api('/api/version'),api('/api/coach/notifications').catch(()=>({notifications:[]}))]);
+      const pending = await api('/api/student-submissions').catch(()=>[]),unreadCoach=coachNotifications.notifications.filter(item=>!item.read_at);
       content.innerHTML=`
         <div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p><small class="dashboard-version">${esc(versionInfo.name)} v${esc(versionInfo.version)}</small></div></div>
         <div class="stat-grid">
@@ -51,6 +51,7 @@ async function render(label,route){
           <article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article>
         </div>
         ${pending.length>0?`<div class="sp-card" style="border-color:var(--border-strong);background:var(--glass-hover)"><h2>📋 ${pending.length} ارزیابی در انتظار بررسی</h2><p style="font-size:12px">شاگردانی که اطلاعات خود را ارسال کرده‌اند و نیاز به بررسی دارند</p><button class="btn btn-primary btn-small" onclick="location.href='/students/submissions'">مشاهده درخواست‌ها</button></div>`:''}
+        ${unreadCoach.length?`<div class="sp-card"><h2>اعلان‌های جدید (${unreadCoach.length})</h2>${unreadCoach.slice(0,4).map(item=>`<div class="notification-item"><b>${esc(item.title)}</b><small>${esc(item.student_name||'')} • ${esc(item.body||'')}</small></div>`).join('')}</div>`:''}
         <div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام','هدف','وضعیت'],d.students,x=>`<tr><td><b>${esc(x.full_name)}</b></td><td>${esc(x.goal||'—')}</td><td><b class="badge">${esc(x.profile_status||x.status)}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
       return;
     }

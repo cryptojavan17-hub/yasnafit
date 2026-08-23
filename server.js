@@ -43,6 +43,8 @@ const releaseService = require('./src/release-service');
 const studentSessionService = require('./src/student-session-service');
 const assessmentService = require('./src/assessment-service');
 const assessmentDocumentService = require('./src/assessment-document-service');
+const engagementService = require('./src/engagement-service');
+const auditService = require('./src/audit-service');
 
 // --- MIME Types ---
 const types = {
@@ -136,6 +138,10 @@ function requireCoach(req, res){
   return true;
 }
 
+const rateBuckets=new Map();
+function rateLimit(req,res,scope,limit,windowMs){const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim(),key=`${scope}:${ip}`,now=Date.now();let bucket=rateBuckets.get(key);if(!bucket||bucket.resetAt<=now)bucket={count:0,resetAt:now+windowMs};bucket.count++;rateBuckets.set(key,bucket);if(bucket.count>limit){send(res,429,{error:'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.',code:'RATE_LIMITED'},{'Retry-After':String(Math.ceil((bucket.resetAt-now)/1000))});return false;}if(rateBuckets.size>5000)for(const [entry,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(entry);return true;}
+function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;try{const expected=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();return new URL(origin).host===expected;}catch(error){return false;}}
+
 function requireStudent(req,res){
   const context=studentSessionService.resolveStudentSession(db,req);
   if(!context){
@@ -175,7 +181,7 @@ function studentProgramView(program){
 function studentProgramData(programData={}){
   return {
     days:(programData.days||[]).map(day=>({
-      day_number:day.day_number,focus:day.focus||'',coach_note:day.coach_note||day.coachNote||'',
+      day_ref:day.stable_id,day_number:day.day_number,focus:day.focus||'',coach_note:day.coach_note||day.coachNote||'',
       is_rest_day:Boolean(day.is_rest_day||day.isRestDay),
       systems:(day.data||[]).map(system=>({
         system_type:system.system_type||'normal',exercise_system_id:system.exercise_system_id,
@@ -183,7 +189,7 @@ function studentProgramData(programData={}){
           name:movement.nameFa||movement.name||'حرکت',description:movement.description||'',
           image_path:movement.image_path||null,
           sets:(movement.sets||[]).map(set=>({
-            type:set.type||set.set_type,count:set.count??set.count_value??null,
+            set_ref:set.stable_id,type:set.type||set.set_type,count:set.count??set.count_value??null,
             weight:set.weight??null,rest_seconds:set.restSeconds??set.rest_seconds??null
           }))
         }))
@@ -659,6 +665,7 @@ async function handleTrainingPrograms(req,res,url){
       // Use service for single source of truth
       const result = programService.createProgramInDB(db, b);
       log('برنامه تمرینی جدید ساخته شد', b.title||`id ${result.id}`);
+      const created=one('SELECT stable_id,student_id,assessment_id FROM training_programs WHERE id=?',result.id);auditService.record(db,{actorType:'coach',action:'program.created',entityType:'training_program',entityId:Number(result.id),entityStableId:created?.stable_id,metadata:{student_id:created?.student_id,assessment_id:created?.assessment_id}});
       return send(res,201,{id: result.id, programData: result.programData});
     } catch(e){
       if(e.validationErrors){
@@ -673,11 +680,13 @@ async function handleTrainingPrograms(req,res,url){
   if(lifecycleMatch && req.method==='POST'){
     const id=Number(lifecycleMatch[1]);
     try {
-      const action=lifecycleMatch[2];
+      const action=lifecycleMatch[2],previousActive=action==='activate'?one("SELECT id,stable_id,student_id FROM training_programs WHERE student_id=(SELECT student_id FROM training_programs WHERE id=?) AND status='ACTIVE' AND id<>? AND deleted_at IS NULL",id,id):null;
       const updated = action==='activate'
         ? programService.activateProgram(db,id)
         : programService.transitionProgram(db,id,action==='complete'?'COMPLETED':'ARCHIVED');
       log(action==='activate'?'برنامه به شاگرد اختصاص یافت':'چرخه برنامه تغییر کرد', `program ${id}: ${updated.status}`);
+      if(updated.student_id)engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:`program_${action}`,title:action==='activate'?'برنامه جدید شما فعال شد':`وضعیت برنامه: ${updated.status}`,body:updated.title||'',entityType:'training_program',entityId:id});
+      auditService.record(db,{actorType:'coach',action:`program.${action}`,entityType:'training_program',entityId:id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id,status:updated.status}});if(previousActive)auditService.record(db,{actorType:'system',action:'program.completed',entityType:'training_program',entityId:previousActive.id,entityStableId:previousActive.stable_id,metadata:{student_id:previousActive.student_id,replaced_by:id}});
       return send(res,200,updated);
     } catch(e){ return sendError(res,e.statusCode||400,e.message); }
   }
@@ -772,6 +781,7 @@ async function handleStudentInvites(req,res,url){
     return send(res,200,list);
   }
   if(p==='/api/student-invites' && req.method==='POST'){
+    if(!rateLimit(req,res,'coach-invitations',20,10*60*1000))return true;
     const b=await readBody(req);
     if(!b.student_id || !Number.isInteger(Number(b.student_id))) return sendError(res,400,'student_id الزامی است');
     const studentId = Number(b.student_id);
@@ -783,6 +793,7 @@ async function handleStudentInvites(req,res,url){
     try { result = studentService.createInvite(db, studentId, expiresDays); }
     catch(e){ return sendError(res,400,e.message); }
     log('لینک دعوت شاگرد ساخته شد', `${result.token_preview} برای ${studentId}`);
+    auditService.record(db,{actorType:'coach',action:'invitation.created',entityType:'student_invitation',entityId:Number(result.id),entityStableId:result.stable_id,metadata:{student_id:studentId,expires_at:result.expires_at}});
     // Return token only once, plus join URL
     const joinUrl = `/join/${result.token}`;
     return send(res,201,{id: result.id, stable_id: result.stable_id, student_id: studentId, token: result.token, token_preview: result.token_preview, join_url: joinUrl, expires_at: result.expires_at});
@@ -795,6 +806,7 @@ async function handleStudentInvites(req,res,url){
     if(!ok) return sendError(res,404,'دعوت پیدا نشد');
     studentSessionService.revokeInvitationSessions(db,id);
     log('لینک دعوت و نشست‌های مرتبط باطل شد', `id ${id}`);
+    auditService.record(db,{actorType:'coach',action:'invitation.revoked',entityType:'student_invitation',entityId:id});
     return send(res,200,{id, revoked:true});
   }
 
@@ -833,6 +845,7 @@ function studentNextRoute(studentId){
 async function handleStudentJoin(req,res,url){
   const inspectMatch=url.pathname.match(/^\/api\/student\/join\/([A-Za-z0-9_-]{43})$/);
   const acceptMatch=url.pathname.match(/^\/api\/student\/join\/([A-Za-z0-9_-]{43})\/accept$/);
+  if((inspectMatch||acceptMatch)&&!rateLimit(req,res,'student-join',30,60*1000))return true;
   if(inspectMatch && req.method==='GET'){
     const inspected=studentSessionService.inspectInvitation(db,inspectMatch[1]);
     if(inspected.error)return invitationErrorResponse(res,inspected.error);
@@ -842,6 +855,7 @@ async function handleStudentJoin(req,res,url){
     const accepted=studentSessionService.acceptInvitation(db,acceptMatch[1]);
     if(accepted.error)return invitationErrorResponse(res,accepted.error);
     log('نشست دانش‌آموز ایجاد شد',`invitation accepted for student ${accepted.student_id}`);
+    auditService.record(db,{actorType:'student',actorId:accepted.student_id,action:'student.registered',entityType:'student',entityId:accepted.student_id});
     return send(res,201,{success:true,next_route:studentNextRoute(accepted.student_id),expires_at:accepted.expires_at},{
       'Set-Cookie':studentSessionService.sessionCookie(req,accepted.raw_session)
     });
@@ -899,6 +913,7 @@ async function saveSessionAssessment(studentId,body){
     height:student.height,weight:student.weight,goal:student.goal,training_experience:student.training_experience,
     limitations:student.limitations,injuries:student.injuries,...body
   });
+  auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.created',entityType:'assessment',entityId:Number(created.id),entityStableId:created.stable_id,metadata:{assessment_number:created.assessment_number,assessment_type:created.assessment_type}});
   return applyDraftPhotoPreference(one('SELECT * FROM body_assessments WHERE id=?',created.id));
 }
 
@@ -927,7 +942,7 @@ async function handleSessionPhotoUpload(req,res,studentId){
     file={originalFilename:body.filename||`${photoType}.jpg`,mimeType:body.mime_type||'image/jpeg',size:buffer.length,data:buffer};
   }
   if(!uploadService.PHOTO_TYPES.includes(photoType))return sendError(res,400,'نوع عکس نامعتبر است');
-  try{return send(res,201,{photo:uploadService.saveAssessmentPhoto(db,studentId,assessment.id,file,photoType)});}
+  try{const photo=uploadService.saveAssessmentPhoto(db,studentId,assessment.id,file,photoType);auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.photo_uploaded',entityType:'assessment',entityId:assessment.id,metadata:{photo_id:Number(photo.id),photo_type:photoType,size_bytes:photo.size_bytes}});return send(res,201,{photo});}
   catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
 }
 
@@ -939,11 +954,12 @@ async function handleSessionDocumentUpload(req,res,studentId){
   try{
     const parts=await uploadService.parseMultipart(req,boundary),files=parts.filter(part=>part.type==='file'),fields=Object.fromEntries(parts.filter(part=>part.type==='field').map(part=>[part.name,part.value]));
     if(files.length!==1)return sendError(res,400,'در هر درخواست دقیقاً یک فایل ارسال کنید');
-    return send(res,201,{document:assessmentDocumentService.save(db,studentId,assessment.id,files[0],fields.document_type)});
+    const document=assessmentDocumentService.save(db,studentId,assessment.id,files[0],fields.document_type);auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.document_uploaded',entityType:'assessment',entityId:assessment.id,metadata:{document_id:Number(document.id),document_type:document.document_type,size_bytes:document.size_bytes}});return send(res,201,{document});
   }catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
 }
 
 async function handleStudentSessionApi(req,res,url){
+  if(!['GET','HEAD','OPTIONS'].includes(req.method)&&!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');
   const context=requireStudent(req,res);if(!context)return true;
   const studentId=context.student_id;
   const p=url.pathname;
@@ -954,6 +970,15 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/me' && req.method==='GET'){
     return send(res,200,{student:studentSessionService.safeStudent(context.student),session_expires_at:context.expires_at,next_route:studentNextRoute(studentId)});
   }
+  if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
+  const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
+  if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
+  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید دانش‌آموز',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}
+  if(p==='/api/student/workouts'&&req.method==='GET')return send(res,200,{workouts:engagementService.listWorkouts(db,studentId),performance:engagementService.performance(db,studentId)});
+  if(p==='/api/student/workouts'&&req.method==='POST'){try{const workout=engagementService.startWorkout(db,studentId,(await readBody(req)).day_ref);auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.started',entityType:'workout_session',entityStableId:workout.stable_id});return send(res,201,{workout});}catch(error){return sendError(res,400,error.message);}}
+  const workoutResults=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/results$/);if(workoutResults&&req.method==='PUT'){try{return send(res,200,{workout:engagementService.saveWorkoutResults(db,studentId,workoutResults[1],(await readBody(req)).results)});}catch(error){return sendError(res,400,error.message);}}
+  const workoutComplete=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/complete$/);if(workoutComplete&&req.method==='POST'){try{const workout=engagementService.completeWorkout(db,studentId,workoutComplete[1],await readBody(req));auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.completed',entityType:'workout_session',entityStableId:workout.stable_id,metadata:{status:workout.status}});return send(res,200,{workout});}catch(error){return sendError(res,400,error.message);}}
+  const workoutGet=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)$/);if(workoutGet&&req.method==='GET'){const workout=engagementService.workoutSession(db,studentId,workoutGet[1]);if(!workout)return sendError(res,404,'جلسه پیدا نشد');return send(res,200,{workout});}
   if((p==='/api/student/profile') && req.method==='GET')return send(res,200,{student:studentSessionService.safeStudent(context.student)});
   if((p==='/api/student/profile') && req.method==='PUT'){
     try{return send(res,200,{student:studentSessionService.safeStudent(updateStudentProfileFromSession(studentId,await readBody(req)))});}
@@ -962,7 +987,8 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/dashboard' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId);
     const active=one("SELECT * FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY program_number DESC,id DESC LIMIT 1",studentId);
-    return send(res,200,{student:studentSessionService.safeStudent(context.student),assessment:studentAssessmentView(assessment),program:studentProgramView(active),onboarding_required:studentNextRoute(studentId)==='/student/onboarding'});
+    engagementService.ensureProgramEndReminder(db,studentId);const notifications=engagementService.listNotifications(db,'student',studentId,10),performance=engagementService.performance(db,studentId);
+    return send(res,200,{student:studentSessionService.safeStudent(context.student),assessment:studentAssessmentView(assessment),program:studentProgramView(active),notifications,unread_notifications:notifications.filter(item=>!item.read_at).length,performance,onboarding_required:studentNextRoute(studentId)==='/student/onboarding'});
   }
   if(p==='/api/student/onboarding' && req.method==='GET'){
     const assessment=one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
@@ -988,13 +1014,13 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/assessment/documents' && req.method==='POST')return handleSessionDocumentUpload(req,res,studentId);
   const deleteDocumentMatch=p.match(/^\/api\/student\/assessment\/documents\/(\d+)$/);
   if(deleteDocumentMatch&&req.method==='DELETE'){
-    if(!assessmentDocumentService.remove(db,Number(deleteDocumentMatch[1]),studentId))return sendError(res,404,'مدرک پیدا نشد یا پرونده قفل است');
+    const documentId=Number(deleteDocumentMatch[1]);if(!assessmentDocumentService.remove(db,documentId,studentId))return sendError(res,404,'مدرک پیدا نشد یا پرونده قفل است');auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.document_deleted',entityType:'assessment_document',entityId:documentId});
     return send(res,200,{success:true});
   }
   const deletePhotoMatch=p.match(/^\/api\/student\/assessment\/photos\/(\d+)$/);
   if(deletePhotoMatch && req.method==='DELETE'){
-    const deleted=uploadService.deletePhoto(db,Number(deletePhotoMatch[1]),studentId);
-    if(!deleted)return sendError(res,404,'عکس پیدا نشد یا ارزیابی قفل شده است');
+    const photoId=Number(deletePhotoMatch[1]),deleted=uploadService.deletePhoto(db,photoId,studentId);
+    if(!deleted)return sendError(res,404,'عکس پیدا نشد یا ارزیابی قفل شده است');auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.photo_deleted',entityType:'assessment_photo',entityId:photoId});
     return send(res,200,{success:true});
   }
   if(p==='/api/student/assessment/submit' && req.method==='POST'){
@@ -1002,8 +1028,12 @@ async function handleStudentSessionApi(req,res,url){
     if(!assessment)return sendError(res,409,'ارزیابی قابل ارسال پیدا نشد');
     const completeness=assessmentService.validateForSubmission(db,assessment,context.student);
     if(completeness.length)return sendError(res,400,completeness[0],completeness);
-    try{return send(res,200,{success:true,assessment:studentAssessmentView(studentService.submitAssessment(db,assessment.id),assessmentPhotos(assessment.id))});}
-    catch(error){return sendError(res,400,error.message);}
+    try{
+      const submitted=studentService.submitAssessment(db,assessment.id);
+      engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
+      auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
+      return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});
+    }catch(error){return sendError(res,400,error.message);}
   }
   if(p==='/api/student/assessment' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId,true);
@@ -1376,6 +1406,8 @@ async function handleBodyAssessments(req,res,url){
     try {
       const updated = studentService.reviewAssessment(db, id, 'request_changes', b.coach_note||'');
       log('ارزیابی نیاز به اصلاح دارد', `ارزیابی #${updated.assessment_number} - ${updated.student_id}`);
+      engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:'assessment_changes_requested',title:'اصلاح پرونده درخواست شد',body:updated.coach_note,entityType:'assessment',entityId:updated.id});
+      auditService.record(db,{actorType:'coach',action:'assessment.changes_requested',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
       return sendError(res,400,e.message);
@@ -1389,6 +1421,8 @@ async function handleBodyAssessments(req,res,url){
     try {
       const updated = studentService.reviewAssessment(db, id, 'approve', b.coach_note||'');
       log('ارزیابی تایید شد', `ارزیابی #${updated.assessment_number}`);
+      engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:'assessment_approved',title:'پرونده شما تأیید شد',body:updated.coach_note||'مربی پرونده شما را تأیید کرد.',entityType:'assessment',entityId:updated.id});
+      auditService.record(db,{actorType:'coach',action:'assessment.approved',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
       return sendError(res,400,e.message);
@@ -1398,7 +1432,7 @@ async function handleBodyAssessments(req,res,url){
   const rejectMatch=p.match(/^\/api\/assessments\/(\d+)\/reject$/);
   if(rejectMatch&&req.method==='POST'){
     const id=Number(rejectMatch[1]),body=await readBody(req);
-    try{return send(res,200,studentService.reviewAssessment(db,id,'reject',body.coach_note||''));}
+    try{const updated=studentService.reviewAssessment(db,id,'reject',body.coach_note||'');engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:'assessment_rejected',title:'پرونده رد شد',body:updated.coach_note,entityType:'assessment',entityId:updated.id});auditService.record(db,{actorType:'coach',action:'assessment.rejected',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});return send(res,200,updated);}
     catch(error){return sendError(res,400,error.message);}
   }
 
@@ -1407,6 +1441,7 @@ async function handleBodyAssessments(req,res,url){
     const id=Number(underReviewMatch[1]);
     try {
       const updated = studentService.reviewAssessment(db, id, 'under_review');
+      auditService.record(db,{actorType:'coach',action:'assessment.review_started',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
       return sendError(res,400,e.message);
@@ -1527,6 +1562,16 @@ async function handleBackup(req,res,url){
   return null;
 }
 
+async function handleCoachEngagement(req,res,url){
+  const p=url.pathname;
+  if(p==='/api/coach/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'coach',null,100)});
+  const notificationRead=p.match(/^\/api\/coach\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(notificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,notificationRead[1],'coach'))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
+  const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=Number(messagesMatch[1]);if(!one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL',studentId))return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}}
+  const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=Number(performanceMatch[1]);if(!one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL',studentId))return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
+  const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=Number(auditMatch[1]);return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
+  return null;
+}
+
 // --- Main API Router ---
 async function api(req,res,url){
   try {
@@ -1549,6 +1594,7 @@ async function api(req,res,url){
     const studentScoped = p.startsWith('/api/student-photos/')||p.startsWith('/api/student-documents/');
     if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
+    if(p.startsWith('/api/coach/')||p.startsWith('/api/students/')){const engagement=await handleCoachEngagement(req,res,url);if(engagement)return engagement;}
 
     if(p.startsWith('/api/students')){
       const r1 = await handleStudentsDelete(req,res,url);
@@ -1691,7 +1737,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
-    const isStudentPage=['/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
+    const isStudentPage=['/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
       const authenticated=isJoinPage || Boolean(studentSessionService.resolveStudentSession(db,req));
       res.writeHead(authenticated?200:401,{

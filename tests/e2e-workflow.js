@@ -68,7 +68,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.equal(sessionA.next,'/student/onboarding');assert.equal(sessionB.next,'/student/onboarding');
   await expectStatus(409,`/api/student/join/${inviteA.token}`);await expectStatus(409,`/api/student/join/${inviteA.token}/accept`,{method:'POST'});
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
-  await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});
+  await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
   await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
@@ -114,7 +114,10 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const programA=await ok('/api/student/program',{cookie:sessionA.cookie}),programB=await ok('/api/student/program',{cookie:sessionB.cookie});
   assert.equal(programA.program.title,'E2E monthly program 1');assert.equal(programA.program.status,'ACTIVE');assert.equal(programA.program.program_data.days[0].systems[0].movements[0].sets[0].rest_seconds,60);
   assert.equal(programB.program.status,'ACTIVE');assert.equal(programB.program.title,'E2E Student B program');assert.equal('student_id' in programA.program,false);assert.equal('student_id' in programB.program,false);
-  const dashboardA=await ok('/api/student/dashboard',{cookie:sessionA.cookie});assert.equal(dashboardA.program.status,'ACTIVE');
+  const dayRef=programA.program.program_data.days[0].day_ref,setRef=programA.program.program_data.days[0].systems[0].movements[0].sets[0].set_ref;assert.ok(dayRef&&setRef);
+  const workoutStarted=await ok('/api/student/workouts',{method:'POST',cookie:sessionA.cookie,body:{day_ref:dayRef}});await ok(`/api/student/workouts/${workoutStarted.workout.stable_id}/results`,{method:'PUT',cookie:sessionA.cookie,body:{results:[{set_ref:setRef,actual_repetitions:'12',actual_weight:42.5,actual_duration_seconds:null,status:'COMPLETED',notes:'progress'}]}});await expectStatus(404,`/api/student/workouts/${workoutStarted.workout.stable_id}`,{cookie:sessionB.cookie});await ok(`/api/student/workouts/${workoutStarted.workout.stable_id}/complete`,{method:'POST',cookie:sessionA.cookie,body:{status:'COMPLETED'}});const coachPerformance=await ok(`/api/students/${a.id}/performance`,{coach:true});assert.equal(coachPerformance.sessions_completed,1);assert.equal(coachPerformance.completion_rate,100);
+  const studentMessage=await ok('/api/student/messages',{method:'POST',cookie:sessionA.cookie,body:{body:'تمرین انجام شد'}});assert.equal(studentMessage.message.sender_type,'student');const coachMessage=await ok(`/api/students/${a.id}/messages`,{method:'POST',coach:true,body:{body:'عالی بود'}});assert.equal(coachMessage.message.sender_type,'coach');const messagesA=await ok('/api/student/messages',{cookie:sessionA.cookie});assert.equal(messagesA.messages.length>=2,true);
+  const dashboardA=await ok('/api/student/dashboard',{cookie:sessionA.cookie});assert.equal(dashboardA.program.status,'ACTIVE');assert.equal(dashboardA.performance.sessions_completed,1);assert.ok(dashboardA.notifications.some(item=>item.type==='program_activate'||item.type==='assessment_approved'||item.type==='coach_message'));const coachNotifications=await ok('/api/coach/notifications',{coach:true});assert.ok(coachNotifications.notifications.some(item=>item.type==='assessment_submitted'));const auditA=await ok(`/api/students/${a.id}/audit`,{coach:true});assert.ok(auditA.events.some(item=>item.action==='workout.completed'));
   const assessmentViewA=await ok('/api/student/assessment',{cookie:sessionA.cookie});assert.equal(assessmentViewA.assessment.assessment_number,1);assert.equal(assessmentViewA.assessment.photos.length,5);
   await expectStatus(409,`/api/training-programs/${draftA.id}`,{method:'PUT',coach:true,body:programPayload(Number(a.id),assessmentA1,1)});
 
@@ -150,9 +153,10 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const logout=await request('/api/student/logout',{method:'POST',cookie:sessionB.cookie});assert.equal(logout.response.status,200);assert.match(logout.response.headers.get('set-cookie')||'',/Max-Age=0/);
   await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});
 
-  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.7.2',name:'Yasnafit',environment:'development'});
-  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'017_onboarding_next_button_recovery');
+  let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
+  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.8.0',name:'Yasnafit',environment:'development'});
+  const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'018_engagement_audit_workouts');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

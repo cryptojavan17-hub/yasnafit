@@ -58,6 +58,9 @@ assert.match(wizardSource,/wizard-top-error/,'measurement errors are not visible
 assert.match(wizardSource,/const button=event\.currentTarget/,'next-step button reference is not preserved across await');
 assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async handler can leave the next-step button disabled');
 assert.match(wizardSource,/around_the_belly_from_the_navel/,'normalized measurement fields are missing');
+assert.match(studentAppSource,/\/student\/workouts/,'student workout UI route is missing');
+assert.match(studentAppSource,/\/student\/messages/,'student messaging UI route is missing');
+assert.match(studentAppSource,/data-start-day/,'active program cannot start a real workout');
 assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از 10/,'ten-step progress indicator is missing');
 assert.match(wizardSource,/name="bodyPhotoPreference"/,'explicit body-photo preference is missing');
 assert.match(wizardSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');

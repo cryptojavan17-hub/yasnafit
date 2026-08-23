@@ -1044,3 +1044,21 @@ event `currentTarget` is transient and becomes null after asynchronous dispatch;
 inside `finally` could leave the button disabled after a validation/API error. The stable
 reference is always re-enabled, duplicate clicks are guarded with a busy flag, and portal
 API calls abort with a readable error after 15 seconds.
+
+---
+
+# Engagement, workout execution and audit (v0.8.0)
+
+Workout execution is separated from prescriptions: `movement_sets` remain coach-authored,
+while `workout_results` references a prescribed set and stores actual repetitions, weight,
+duration, completion/skipped status and notes. Student APIs derive identity from the
+student session and resolve set/day stable references only inside the student's ACTIVE
+program. Coach performance endpoints calculate counts/rates from actual session rows and
+return `null` rather than inventing a rate when no decided sessions exist.
+
+Notifications are emitted for assessment submission/review outcomes, coach/student
+messages, program lifecycle events and approaching program end. Messaging uses one
+student-scoped conversation and sender/read timestamps. Structured `audit_events` redact
+keys containing token/session/password/path/hash/secret and record invitation, assessment,
+program, workout, file and message events. SameSite cookies are supplemented by Origin
+checks on student mutations and in-memory rate limits on invitation/join endpoints.

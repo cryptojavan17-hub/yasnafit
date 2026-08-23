@@ -899,6 +899,73 @@ const migrations = [
       const changes={features:[],improvements:['مهلت ۱۵ ثانیه‌ای برای درخواست‌های پورتال دانش‌آموز'],fixes:['رفع باقی‌ماندن دکمه مرحله بعد در حالت disabled پس از await یا خطای API'],security:[],breaking_changes:[]};
       db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.7.2','Onboarding Next Button Recovery','2026-08-22','رفع قطعی خاموش ماندن دکمه مرحله بعد در wizard ارزیابی',JSON.stringify(changes));
     }
+  },
+  {
+    id: '018_engagement_audit_workouts',
+    description: 'Workout results, notifications, secure messages and structured audit events',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          actor_type TEXT NOT NULL CHECK(actor_type IN ('coach','student','system')),
+          actor_id INTEGER,action TEXT NOT NULL,entity_type TEXT NOT NULL,entity_id INTEGER,
+          entity_stable_id TEXT,metadata_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,CHECK(json_valid(metadata_json))
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_events_entity ON audit_events(entity_type,entity_id,created_at);
+        CREATE INDEX IF NOT EXISTS idx_audit_events_actor ON audit_events(actor_type,actor_id,created_at);
+        CREATE TABLE IF NOT EXISTS notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          audience_type TEXT NOT NULL CHECK(audience_type IN ('coach','student')),
+          student_id INTEGER,type TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL DEFAULT '',
+          entity_type TEXT,entity_id INTEGER,read_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_notifications_audience ON notifications(audience_type,student_id,read_at,created_at);
+        CREATE TABLE IF NOT EXISTS conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL UNIQUE,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          conversation_id INTEGER NOT NULL,sender_type TEXT NOT NULL CHECK(sender_type IN ('coach','student')),
+          sender_student_id INTEGER,body TEXT NOT NULL,read_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT,
+          FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+          FOREIGN KEY(sender_student_id) REFERENCES students(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id,created_at,deleted_at);
+        CREATE TABLE IF NOT EXISTS workout_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL,program_id INTEGER NOT NULL,program_day_id INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'IN_PROGRESS' CHECK(status IN ('IN_PROGRESS','COMPLETED','SKIPPED')),
+          started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,completed_at TEXT,notes TEXT NOT NULL DEFAULT '',
+          version INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+          FOREIGN KEY(program_id) REFERENCES training_programs(id) ON DELETE RESTRICT,
+          FOREIGN KEY(program_day_id) REFERENCES program_days(id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS idx_workout_sessions_student ON workout_sessions(student_id,status,started_at);
+        CREATE INDEX IF NOT EXISTS idx_workout_sessions_program ON workout_sessions(program_id,program_day_id,status);
+        CREATE TABLE IF NOT EXISTS workout_results (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,stable_id TEXT NOT NULL UNIQUE,
+          workout_session_id INTEGER NOT NULL,prescribed_set_id INTEGER NOT NULL,
+          actual_repetitions TEXT,actual_weight REAL,actual_duration_seconds INTEGER,
+          status TEXT NOT NULL CHECK(status IN ('COMPLETED','SKIPPED')),
+          notes TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,deleted_at TEXT,
+          FOREIGN KEY(workout_session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY(prescribed_set_id) REFERENCES movement_sets(id) ON DELETE RESTRICT,
+          UNIQUE(workout_session_id,prescribed_set_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_workout_results_session ON workout_results(workout_session_id,status);
+      `);
+      const changes={features:['ثبت اجرای تمرین جدا از ست تجویزی','اعلان‌های درون‌برنامه‌ای واقعی','پیام‌رسانی سبک مربی و دانش‌آموز','audit log ساخت‌یافته'],improvements:['نمای عملکرد مربی فقط بر اساس داده واقعی تمرین'],fixes:[],security:['مالکیت session-bound برای تمرین، پیام و اعلان و حذف اسرار از audit metadata'],breaking_changes:[]};
+      db.prepare('INSERT OR IGNORE INTO releases(version,title,release_date,summary,changes_json) VALUES(?,?,?,?,?)').run('0.8.0','Coach Student Engagement Foundation','2026-08-23','ثبت واقعی تمرین، اعلان، پیام و audit برای چرخه بلندمدت مربیگری',JSON.stringify(changes));
+    }
   }
 ];
 

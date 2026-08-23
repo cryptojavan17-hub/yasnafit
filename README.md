@@ -1,3 +1,20 @@
+# Yasnafit
+
+Yasnafit is a local-first Node.js + SQLite coaching platform with permanent students, one-time invitations, a dedicated student portal, normalized INITIAL/MONTHLY assessments, private files, assessment-linked programs, real workout execution, in-app notifications/messages and structured audit events.
+
+- Start: `YASNAFIT-LAUNCHER.bat` or `npm start`
+- Tests: `npm test`
+- Port: `3020`
+- Application version: `package.json`
+- Database schema: `settings.schema_version` / `schema_migrations`
+- Architecture: `ARCHITECTURE.md`
+- Database: `DATABASE_SCHEMA.md`
+- Releases: `CHANGELOG.md` and `/coach/releases`
+
+Student and coach authorization are separate. Student entry is `/join/:token`; private body photos/documents are never served from `public/`.
+
+---
+
 # Morabiha — User Guide | راهنمای کاربر مربیها
 
 <details>

@@ -211,6 +211,8 @@
         host.innerHTML = (full.timeline||[]).map(item=>{
           if(item.type==='assessment'){
             return `<div style="padding:8px;background:var(--surface-inset);border-radius:8px;margin-bottom:6px"><b>ارزیابی #${item.data.assessment_number}</b> - ${esc(item.data.status)}<br><small>${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
+          } else if(item.type==='workout'){
+            return `<div style="padding:8px;background:var(--surface-inset);border-radius:8px;margin-bottom:6px"><b>تمرین ${esc(item.data.program_title)} • روز ${item.data.day_number}</b><br><small>${esc(item.data.status)} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
           } else {
             return `<div style="padding:8px;background:var(--glass-hover);border-radius:8px;margin-bottom:6px"><b>${esc(item.data.title)}</b><br><small>${esc(item.data.start_date||'')} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div>`;
           }
@@ -250,6 +252,8 @@
                   </div>
                 </div>
                 `;
+              } else if(item.type==='workout'){
+                const workout=item.data;return `<div style="display:flex;gap:16px"><div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">✓</div><div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px"><h3 style="margin:0 0 8px">تمرین ${esc(workout.program_title)} • روز ${workout.day_number}</h3><p>${esc(workout.status)} • ${new Date(item.date).toLocaleDateString('fa-IR')}</p></div></div>`;
               } else {
                 const p=item.data;
                 return `

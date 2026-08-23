@@ -159,7 +159,8 @@
     return `<article class="history-card"><header><div><b>${esc(program.title)}</b><small>${formatDate(program.start_date)} تا ${formatDate(program.end_date)}</small></div><span class="program-status ${String(program.status).toLowerCase()}">${esc(programLabels[program.status]||program.status)}</span></header><p>${esc(program.coach_note||'بدون توضیح')}</p><div class="history-actions"><button class="secondary" data-view-program="${program.id}">مشاهده فقط‌خواندنی</button></div></article>`;
   }
   function timelineItem(item){
-    if(item.type==='assessment') return `<li><span class="timeline-dot assessment">📋</span><div><b>ارزیابی ${item.data.assessment_number}</b><small>${formatDate(item.date)} • ${esc(assessmentLabels[item.data.status]||item.data.status)}</small></div></li>`;
+    if(item.type==='assessment') return `<li><span class="timeline-dot assessment">📋</span><div><b>ارزیابی ${item.data.assessment_number}</b><small>${formatDate(item.date)} • ${esc(assessmentLabels[item.data.lifecycle_status||item.data.status]||item.data.lifecycle_status||item.data.status)}</small></div></li>`;
+    if(item.type==='workout')return `<li><span class="timeline-dot">✓</span><div><b>تمرین ${esc(item.data.program_title)} • روز ${item.data.day_number}</b><small>${formatDate(item.date)} • ${esc(item.data.status)}</small></div></li>`;
     return `<li><span class="timeline-dot program">🏋️</span><div><b>${esc(item.data.title)}</b><small>${formatDate(item.date)} • ${esc(programLabels[item.data.status]||item.data.status)}</small></div></li>`;
   }
   async function openProgramReadOnly(programId){
@@ -178,7 +179,7 @@
     const content=document.querySelector('#content');
     content.innerHTML='<div class="students-loading">در حال دریافت پرونده شاگرد...</div>';
     try{
-      const data=await api(`/api/students/${studentId}`);const student=data.student,summary=data.summary;
+      const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);const student=data.student,summary=data.summary;
       document.querySelector('#breadcrumb').textContent='پرونده شاگرد';
       content.innerHTML=`<div class="student-detail-page">
         <div class="page-head student-detail-head"><div><button class="back-link" data-back-students>← شاگرد های من</button><h1>${esc(student.full_name)}</h1><p>${esc(student.mobile||'بدون موبایل')} • ${esc(student.goal||'بدون هدف')}</p>${statusBadge(summary.management_status)}</div><div class="detail-head-actions"><button class="secondary" data-new-invite>ایجاد لینک جدید</button><button class="primary" data-request-assessment>درخواست ارزیابی جدید</button></div></div>
@@ -193,6 +194,8 @@
           <aside>
             <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||data.current_assessment.status)}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||data.current_program.status)}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||summary.next_assessment_status)}</dd></div></dl>${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}">ساخت برنامه ماهانه</button>`:''}</section>
             <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت</h2><button class="text-button" data-new-invite>＋ لینک جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,studentId)).join(''):'<p class="muted">لینکی ساخته نشده است.</p>'}</div></section>
+            <section class="detail-section"><h2>عملکرد واقعی تمرین</h2><div class="profile-data"><div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div><div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div><div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div></div></section>
+            <section class="detail-section"><h2>پیام‌های مربی و شاگرد</h2><div class="coach-message-list">${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}</b><span>${esc(message.body)}</span></div>`).join('')||'<p class="muted">پیامی ثبت نشده است.</p>'}</div><form id="coachMessageForm" class="coach-message-form"><textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea><button class="primary">ارسال</button></form></section>
             <section class="detail-section"><h2>تایم‌لاین شاگرد</h2><ol class="student-timeline">${data.timeline.length?data.timeline.map(timelineItem).join(''):'<li class="muted">رویدادی ثبت نشده است.</li>'}</ol></section>
           </aside>
         </div>
@@ -206,6 +209,7 @@
       content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${studentId}&assessment_id=${button.dataset.createProgram}`;});
       content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(studentId)));button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(studentId);}catch(error){alert(error.message);}});
+      content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(studentId)}catch(error){alert(error.message)}};
     }catch(error){content.innerHTML=`<section class="panel error"><h2>پرونده شاگرد پیدا نشد</h2><p>${esc(error.message)}</p><button class="secondary" onclick="location.href='/users-list'">بازگشت</button></section>`;}
   }
 
