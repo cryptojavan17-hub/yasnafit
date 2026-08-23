@@ -598,7 +598,7 @@
   let drawerSearchTimeout;
   function showDrawerTab(tab='add'){
     document.querySelectorAll('.drawer-tabs button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
-    document.getElementById('drawerTabAdd').style.display=tab==='add'?'block':'none';
+    document.getElementById('drawerTabAdd').style.display=tab==='add'?'flex':'none';
     document.getElementById('drawerTabHistory').style.display=tab==='history'?'block':'none';
     document.getElementById('drawerTabCompare').style.display=tab==='compare'?'block':'none';
     document.getElementById('drawerTitle').textContent=tab==='add'?'افزودن حرکت از بانک':tab==='history'?'سوابق برنامه‌های قبلی':'مقایسه';
@@ -637,8 +637,9 @@
   }
   function renderDrawerCats(){
     const host=document.getElementById('drawerCats');
-    host.innerHTML=exerciseCategories.map(category=>`<details class="drawer-category-group"><summary>${esc(category.name)} <small>${category.count.toLocaleString('fa-IR')} حرکت</small></summary><div><button type="button" data-cat="${category.id}" data-sub="all">همه حرکات ${esc(category.name)}</button>${(category.subs||[]).map(sub=>`<button type="button" data-cat="${category.id}" data-sub="${sub.id}">${esc(sub.name)} <small>${sub.count.toLocaleString('fa-IR')}</small></button>`).join('')}</div></details>`).join('');
-    host.querySelectorAll('[data-cat]').forEach(button=>button.onclick=event=>{event.preventDefault();currentDrawerCat=button.dataset.cat;currentDrawerSub=button.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.toggle('active',item===button));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
+    host.innerHTML=exerciseCategories.map(category=>`<details class="drawer-category-group"><summary data-cat-summary="${category.id}">${esc(category.name)} <small>${category.count.toLocaleString('fa-IR')} حرکت</small></summary><div><button type="button" data-cat="${category.id}" data-sub="all">همه حرکات ${esc(category.name)}</button>${(category.subs||[]).map(sub=>`<button type="button" data-cat="${category.id}" data-sub="${sub.id}">${esc(sub.name)} <small>${sub.count.toLocaleString('fa-IR')}</small></button>`).join('')}</div></details>`).join('');
+    host.querySelectorAll('[data-cat-summary]').forEach(summary=>summary.onclick=()=>{currentDrawerCat=summary.dataset.catSummary;currentDrawerSub='all';document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.remove('active'));loadDrawerExercises(currentDrawerCat,'all','');});
+    host.querySelectorAll('[data-cat]').forEach(button=>button.onclick=event=>{event.preventDefault();event.stopPropagation();currentDrawerCat=button.dataset.cat;currentDrawerSub=button.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.toggle('active',item===button));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
   }
   let currentDrawerCat=null;
   let currentDrawerSub=null;
@@ -668,7 +669,7 @@
       host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">حرکتی پیدا نشد</div>`;
       return;
     }
-    host.innerHTML = items.map(ex=>`
+    host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت کلیک کنید</span></div>` + items.map(ex=>`
       <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}">
         <img src="/api/exercise-image/${ex.original_id||ex.id}" onerror="this.style.display='none'" loading="lazy">
         <div>
