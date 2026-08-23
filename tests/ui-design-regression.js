@@ -66,6 +66,8 @@ assert.match(index,/id="coachReviewBell"/,'coach header notification bell is mis
 assert.match(index,/id="coachNotificationPanel" hidden/,'notification panel must be closed by default');
 assert.match(index,/id="coachReviewBellCount" hidden/,'notification count must stay hidden when there are no unread items');
 assert.match(index,/href="\/students\/submissions"/,'notification panel does not link to pending assessments');
+assert.match(index,/id="clearNotifications"[^>]*>پاک کردن همه/,'notification clear-all button is missing');
+assert.match(fs.readFileSync(path.join(publicDir,'core.js'),'utf8'),/api\('\/api\/coach\/notifications',\{method:'DELETE'\}\)/,'notification clear-all action is not wired');
 assert.match(index,/id="sidebarToggle"/,'desktop sidebar visibility control is missing');
 assert.match(fs.readFileSync(path.join(publicDir,'app.js'),'utf8'),/yasnafit_sidebar_collapsed/,'sidebar visibility preference is not persisted');
 assert.match(fs.readFileSync(path.join(publicDir,'core.js'),'utf8'),/notifications\.filter\(item=>!item\.read_at\)/,'header badge is not based on unread notifications');
