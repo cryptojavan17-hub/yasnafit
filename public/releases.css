@@ -13,7 +13,7 @@
 .release-list { display: flex; flex-direction: column; gap: 12px; }
 .release-card { padding: 17px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--glass); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); transition: var(--transition); }
 .release-card:hover { transform: translateY(-1px); border-color: var(--border-strong); background: var(--glass-hover); }
-.release-card.current { border-color: rgba(255,255,255,.28); box-shadow: var(--shadow); }
+.release-card.current { border-color: var(--accent-border); box-shadow: var(--shadow); }
 .release-card > header { padding-bottom: 11px; display: flex; align-items: flex-start; justify-content: space-between; gap: 17px; border-bottom: 1px solid var(--border); }
 .release-card h2 { margin: 0; font-size: 16px; }
 .release-card header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 10px; }
@@ -21,7 +21,7 @@
 .release-version-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .release-version, .current-release-badge, .release-badge { padding: 3px 7px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--glass-hover); color: var(--text-secondary); font-size: 9px; }
 .release-version { color: var(--text); font-weight: 700; direction: ltr; }
-.current-release-badge { background: var(--white); color: var(--black); border-color: var(--white); }
+.current-release-badge { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .release-changes { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 9px; }
 .release-change-group { padding: 10px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-inset); }
 .release-change-group h3 { margin: 0 0 6px; }

@@ -9,9 +9,14 @@ const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','progr
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
 
-for(const token of ['--bg: #050505','--surface: #101010','--glass: rgba(255, 255, 255, .045)','--border: rgba(255, 255, 255, .085)','--text: #fff','--radius-lg: 16px','--transition: 180ms ease']){
+for(const token of ['--bg: #050505','--card: rgba(18, 18, 22, .78)','--surface: #101010','--glass: rgba(255, 255, 255, .045)','--border: rgba(255, 255, 255, .085)','--text: #fff','--accent: #3b82f6','--success: #34d399','--danger: #f87171','--radius-lg: 16px','--transition: 180ms ease']){
   assert.ok(css['theme.css'].includes(token),`missing central design token: ${token}`);
 }
+for(const [file,source] of Object.entries(css)){
+  if(file!=='theme.css')assert.doesNotMatch(source,/#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\b/i,`${file} defines colors outside the central theme`);
+}
+assert.doesNotMatch(Object.values(css).join('\n'),/background(?:-color)?\s*:\s*var\(--white\)/i,'legacy white surface token is still used');
+assert.doesNotMatch(Object.values(css).join('\n'),/color\s*:\s*var\(--black\)/i,'legacy black-on-light component remains');
 assert.doesNotMatch(Object.values(css).join('\n'),/!important/i,'CSS architecture regressed to !important overrides');
 assert.doesNotMatch(Object.values(css).join('\n'),/background(?:-color)?\s*:\s*(?:#fff(?:fff)?|white)\b/i,'pure white component background found');
 assert.doesNotMatch(Object.values(css).join('\n'),/#(?:22c55e|4aaf29|4dc224|70d947|369b18|e0f2fe|e9f7e4|fffbeb|f6fff3|efe8ff|e8f2ff)/i,'legacy colorful palette found');

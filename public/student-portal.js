@@ -132,8 +132,8 @@
               ${(currentAss?.photos||[]).map(p=>`
                 <div style="position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
                   <img src="/api/student-photos/${p.id}?token=${token}" style="width:100%;height:100%;object-fit:cover">
-                  <button data-del-photo="${p.id}" style="position:absolute;top:2px;right:2px;background:var(--danger);color:var(--black);border:0;border-radius:50%;width:20px;height:20px;cursor:pointer">×</button>
-                  <small style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;font-size:9px;text-align:center">${esc(p.photo_type)}</small>
+                  <button data-del-photo="${p.id}" style="position:absolute;top:2px;right:2px;background:var(--danger);color:var(--on-accent);border:0;border-radius:50%;width:20px;height:20px;cursor:pointer">×</button>
+                  <small style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:var(--text);font-size:9px;text-align:center">${esc(p.photo_type)}</small>
                 </div>
               `).join('')}
             </div>
@@ -339,7 +339,7 @@
     document.querySelector('.main').style.marginRight='0';
     document.querySelector('.main').style.width='100%';
 
-    content.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--border-strong);border-top-color:var(--white);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><p>در حال بارگذاری پرتال...</p></div>`;
+    content.innerHTML = `<div style="text-align:center;padding:40px"><div class="spinner" style="width:32px;height:32px;border:3px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><p>در حال بارگذاری پرتال...</p></div>`;
 
     try {
       const data = await api(`/api/student-portal/${token}`);

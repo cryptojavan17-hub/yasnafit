@@ -347,9 +347,9 @@
           const warn = document.createElement('span');
           warn.id='volWarning';
           warn.className='volume-badge';
-          warn.style.background='#fef2f2';
-          warn.style.color='#dc2626';
-          warn.style.borderColor='#fecaca';
+          warn.style.background='var(--danger-surface)';
+          warn.style.color='var(--danger)';
+          warn.style.borderColor='var(--danger-border)';
           warn.textContent = `⚠️ حجم بالا: ${vol.totalSets} ست`;
           header.append(warn);
         }
@@ -818,7 +818,7 @@
     document.getElementById('btnPreview').onclick=()=>{
       const preview = JSON.stringify(currentProgram, null, 2);
       const w=window.open();
-      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title></head><body style="margin:0;padding:24px;background:#050505;color:#f5f5f5;font-family:Tahoma,Arial,sans-serif"><pre style="font-family:monospace;white-space:pre-wrap;background:#101010;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:18px">${esc(preview)}</pre></body></html>`);
+      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><pre style="font-family:monospace;white-space:pre-wrap;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px">${esc(preview)}</pre></body></html>`);
     };
     document.getElementById('btnStats').onclick=()=>{
       const vol=calculateVolume(currentProgram);
@@ -1028,7 +1028,7 @@
           const id=b.dataset.preview;
           const prog=await api(`/api/training-programs/${id}/full`);
           const w=window.open();
-          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title></head><body style="margin:0;padding:24px;background:#050505;color:#f5f5f5;font-family:Tahoma,Arial,sans-serif"><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:#101010;border:1px solid rgba(255,255,255,.1);padding:18px;border-radius:12px;color:#c8c8c8">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
+          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:var(--card);border:1px solid var(--border);padding:18px;border-radius:12px;color:var(--text-secondary)">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
         };
       });
       host.querySelectorAll('[data-pdf]').forEach(b=>{

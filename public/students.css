@@ -67,7 +67,7 @@
 .assessment-numbers { margin: 8px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .assessment-numbers span { padding: 5px; border: 1px solid var(--border); border-radius: 6px; background: var(--glass); color: var(--text-secondary); font-size: 8px; }
 .student-photo-grid { margin: 8px 0; display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
-.student-photo-grid button { position: relative; overflow: hidden; padding: 0; aspect-ratio: 3/4; border: 1px solid var(--border); border-radius: 8px; background: #090909; cursor: pointer; }
+.student-photo-grid button { position: relative; overflow: hidden; padding: 0; aspect-ratio: 3/4; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-inset); cursor: pointer; }
 .student-photo-grid img { width: 100%; height: 100%; display: block; object-fit: cover; filter: saturate(.72); transition: var(--transition); }
 .student-photo-grid button:hover img { transform: scale(1.025); filter: saturate(.9); }
 .student-photo-grid span { position: absolute; right: 0; bottom: 0; left: 0; padding: 3px; background: rgba(0,0,0,.72); color: var(--text); font-size: 7px; }

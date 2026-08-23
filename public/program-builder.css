@@ -28,11 +28,11 @@
 .day-card:hover { border-color: rgba(255,255,255,.2); }
 .day-header { padding: 15px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.055); }
 .day-header h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; }
-.day-number { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--white); color: var(--black); font-weight: 800; }
+.day-number { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--accent); color: var(--on-accent); font-weight: 800; }
 .day-actions, .system-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .day-focus-input { min-width: 180px; min-height: 35px; padding: 6px 10px; }
 .btn { min-height: 37px; padding: 7px 13px; border: 1px solid transparent; border-radius: 9px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: var(--transition); }
-.btn-primary { border-color: var(--white); background: var(--white); color: var(--black); }
+.btn-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover { filter: brightness(.86); transform: translateY(-1px); }
 .btn-secondary { border-color: var(--border); background: var(--glass); color: var(--text-secondary); }
 .btn-secondary:hover { border-color: var(--border-strong); background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
@@ -73,11 +73,11 @@
 .drawer-header h3 { margin: 0; font-size: 15px; }
 .drawer-tabs { padding: 7px 11px; display: flex; gap: 4px; border-bottom: 1px solid var(--border); background: var(--surface-inset); }
 .drawer-tabs button { flex: 1; min-height: 34px; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--glass); color: var(--text-muted); font-size: 10px; cursor: pointer; }
-.drawer-tabs button.active { border-color: var(--white); background: var(--white); color: var(--black); }
+.drawer-tabs button.active { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .drawer-search { padding: 11px 14px; border-bottom: 1px solid var(--border); }
 .drawer-cats { padding: 9px 11px; display: flex; gap: 5px; overflow-x: auto; border-bottom: 1px solid var(--border); }
 .drawer-cats button { padding: 5px 10px; white-space: nowrap; border: 1px solid var(--border); border-radius: 999px; background: var(--glass); color: var(--text-muted); font-size: 9px; cursor: pointer; }
-.drawer-cats button.active { border-color: var(--white); background: var(--white); color: var(--black); }
+.drawer-cats button.active { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .drawer-list { flex: 1; overflow-y: auto; padding: 11px; display: flex; flex-direction: column; gap: 7px; }
 .drawer-item { padding: 9px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--glass); cursor: pointer; transition: var(--transition); }
 .drawer-item:hover { transform: translateY(-1px); border-color: var(--border-strong); background: var(--glass-hover); }
