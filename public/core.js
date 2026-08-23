@@ -82,16 +82,31 @@ async function render(label,route){
   }
 }
 window.renderCoreRoute=render;
-async function updateCoachReviewBell(){
-  const bell=document.querySelector('#coachReviewBell'),text=document.querySelector('#coachReviewBellText'),badge=document.querySelector('#coachReviewBellCount');
-  if(!bell||!text||!badge)return;
-  try{
-    const pending=await api('/api/student-submissions'),count=Array.isArray(pending)?pending.length:0,localized=count.toLocaleString('fa-IR');
-    text.textContent=`${localized} ارزیابی در انتظار بررسی`;
-    badge.textContent=localized;
-    bell.classList.toggle('empty',count===0);
-    bell.setAttribute('aria-label',`${localized} ارزیابی در انتظار بررسی؛ مشاهده فهرست`);
-  }catch(error){bell.classList.add('empty');}
+function coachNotificationTarget(item){
+  if(item.entity_type==='assessment'&&item.entity_id)return `/assessments/${item.entity_id}`;
+  if(item.student_case_number)return `/users-list/${item.student_case_number}`;
+  return '';
 }
-updateCoachReviewBell();
+async function updateCoachNotifications(){
+  const bell=document.querySelector('#coachReviewBell'),badge=document.querySelector('#coachReviewBellCount'),summary=document.querySelector('#coachNotificationSummary'),list=document.querySelector('#coachNotificationList');
+  if(!bell||!badge||!summary||!list)return;
+  try{
+    const response=await api('/api/coach/notifications'),notifications=Array.isArray(response.notifications)?response.notifications:[],unread=notifications.filter(item=>!item.read_at).length,localized=unread.toLocaleString('fa-IR');
+    badge.textContent=localized;badge.hidden=unread===0;summary.textContent=unread?`${localized} اعلان خوانده‌نشده`:'اعلان جدیدی ندارید';bell.setAttribute('aria-label',unread?`${localized} اعلان جدید`:'اعلان‌ها');
+    const recent=notifications.slice(0,12);
+    list.innerHTML=recent.length?recent.map(item=>{const target=coachNotificationTarget(item),date=new Date(String(item.created_at||'').replace(' ','T')+'Z'),dateText=Number.isNaN(date.getTime())?'':date.toLocaleString('fa-IR',{dateStyle:'short',timeStyle:'short'});return `<button type="button" class="coach-notification-item ${item.read_at?'read':'unread'}" data-notification="${esc(item.stable_id)}" data-target="${esc(target)}"><i></i><span><b>${esc(item.title)}</b><span>${esc(item.body||'')}</span><small>${item.student_name?`${esc(item.student_name)}${item.student_case_number?` • پرونده ${esc(item.student_case_number)}`:''} • `:''}${esc(dateText)}</small></span></button>`}).join(''):'<p>اعلانی برای نمایش وجود ندارد.</p>';
+    list.querySelectorAll('[data-notification]').forEach(item=>item.onclick=async()=>{const target=item.dataset.target;try{if(item.classList.contains('unread'))await api(`/api/coach/notifications/${encodeURIComponent(item.dataset.notification)}/read`,{method:'POST'});}catch(error){}if(target)location.href=target;else updateCoachNotifications();});
+  }catch(error){summary.textContent='دریافت اعلان‌ها انجام نشد';list.innerHTML='<p>برای تلاش دوباره زنگ را ببندید و باز کنید.</p>';}
+}
+function setupCoachNotifications(){
+  const center=document.querySelector('#coachNotificationCenter'),bell=document.querySelector('#coachReviewBell'),panel=document.querySelector('#coachNotificationPanel'),close=document.querySelector('#closeNotifications');if(!center||!bell||!panel)return;
+  const setOpen=open=>{panel.hidden=!open;bell.setAttribute('aria-expanded',String(open));if(open)updateCoachNotifications();};
+  bell.onclick=event=>{event.stopPropagation();setOpen(panel.hidden);};
+  close.onclick=()=>setOpen(false);
+  panel.onclick=event=>event.stopPropagation();
+  document.addEventListener('click',event=>{if(!center.contains(event.target))setOpen(false);});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')setOpen(false);});
+  updateCoachNotifications();setInterval(updateCoachNotifications,30000);window.addEventListener('focus',updateCoachNotifications);
+}
+setupCoachNotifications();
 render('داشبورد','/coach/dashboard');

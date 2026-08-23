@@ -65,6 +65,10 @@ sidebarMenu.forEach(([label,route,icon,children])=>{
   menuEl.append(wrap)
 });
 
+const sidebarToggle=document.querySelector('#sidebarToggle');
+function setSidebarCollapsed(collapsed){document.body.classList.toggle('sidebar-collapsed',collapsed);sidebarToggle?.setAttribute('aria-pressed',String(collapsed));sidebarToggle?.setAttribute('aria-label',collapsed?'نمایش سایدبار':'مخفی کردن سایدبار');try{localStorage.setItem('yasnafit_sidebar_collapsed',collapsed?'1':'0');}catch(error){}}
+try{setSidebarCollapsed(localStorage.getItem('yasnafit_sidebar_collapsed')==='1');}catch(error){setSidebarCollapsed(false);}
+if(sidebarToggle)sidebarToggle.onclick=()=>setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
 document.querySelector('#menuToggle').onclick=()=>document.querySelector('#sidebar').classList.toggle('open');
 window.onpopstate=()=>{
   const path=location.pathname;
