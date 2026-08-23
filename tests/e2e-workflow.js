@@ -25,7 +25,7 @@ async function upload(cookie,type,bytes=png,filename=`${type}.png`,mime='image/p
 }
 async function completeStructuredAssessment(cookie,gender='male'){
   await ok('/api/student/assessment/sections/general',{method:'PUT',cookie,body:{goals:['fitness'],additional_notes:'structured assessment',gender}});
-  await ok('/api/student/assessment/sections/measurements',{method:'PUT',cookie,body:{height:175,weight:70,around_the_arm:30,around_the_chest:90,around_the_belly:80,around_the_belly_from_the_navel:82,around_the_hips:95,around_the_leg:35,around_the_thigh:55,around_the_wrist:17}});
+  await ok('/api/student/assessment/sections/measurements',{method:'PUT',cookie,body:{height:175,weight:70,around_the_arm:30,around_the_chest:90,around_the_belly:80,around_the_hips:95,around_the_leg:35,around_the_thigh:55,around_the_wrist:17}});
   await ok('/api/student/assessment/sections/medical',{method:'PUT',cookie,body:{has_disease:false,has_medication:false,has_injury:false,has_surgery:false,last_blood_test_notes:'',corrective_notes:'',items:[]}});
   await ok('/api/student/assessment/sections/sports',{method:'PUT',cookie,body:{average_daily_activity:'medium',practice_history:false,practice_now:false,practice_place:'gym',home_equipment:'',sessions_per_week:3,supplement_history:false,doping_history:''}});
   await ok('/api/student/assessment/sections/nutrition',{method:'PUT',cookie,body:{diet_type:'iranian',previous_diet:false,food_allergies:'',weight_changes:'',appetite_status:'low_eating',appetite_notes:'',defecation_problem:'none',breakfast:'',lunch:'',dinner:''}});

@@ -84,7 +84,6 @@
         ['around_the_arm','دور بازو','cm',measurements.around_the_arm],
         ['around_the_chest','دور سینه','cm',measurements.around_the_chest],
         ['around_the_belly','دور شکم','cm',measurements.around_the_belly],
-        ['around_the_belly_from_the_navel','دور ناف','cm',measurements.around_the_belly_from_the_navel],
         ['around_the_hips','دور باسن','cm',measurements.around_the_hips],
         ['around_the_thigh','دور ران','cm',measurements.around_the_thigh],
         ['around_the_leg','دور ساق','cm',measurements.around_the_leg],
@@ -132,7 +131,7 @@
                 <div class="step-heading"><span class="step-icon">03</span><div><h2>اندازه‌های فعلی بدن</h2><p>فقط قد و وزن ضروری است؛ سایر اندازه‌ها دقت برنامه را بیشتر می‌کنند.</p></div></div>
                 <div class="metric-grid essentials">${measureFields.slice(0,2).map(measureInput).join('')}</div>
                 <details class="optional-disclosure" ${measureFields.slice(2).some(item=>item[3]!=null)?'open':''}>
-                  <summary><span><b>اندازه‌های تکمیلی</b><small>اختیاری • ۸ مورد</small></span><i>＋</i></summary>
+                  <summary><span><b>اندازه‌های تکمیلی</b><small>اختیاری • ۷ مورد</small></span><i>＋</i></summary>
                   <div class="metric-grid">${measureFields.slice(2).map(measureInput).join('')}</div>
                 </details>
                 <div class="measurement-tip"><span>◎</span><p>متر را بدون فشار و موازی زمین نگه دارید. اعداد فارسی و اعشاری پذیرفته می‌شوند.</p></div>

@@ -6,7 +6,7 @@
     if(!r.ok) throw new Error(d.error||'خطا');
     return d;
   }
-  const detailLabels={height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:'دور سینه',around_the_belly:'دور شکم',around_the_belly_from_the_navel:'دور ناف',around_the_hips:'دور باسن',around_the_leg:'دور ساق',around_the_thigh:'دور ران',around_the_wrist:'دور مچ',disease_details:'بیماری',medication_details:'دارو',injury_details:'آسیب',surgery_details:'جراحی',last_blood_test_notes:'آزمایش خون',corrective_notes:'ناهنجاری اصلاحی',average_daily_activity:'فعالیت روزانه',practice_history_details:'سابقه تمرین',current_practice_details:'تمرین فعلی',supplement_details:'مکمل',doping_history:'دوپینگ',diet_type:'نوع رژیم',food_allergies:'حساسیت غذایی',weight_changes:'تغییر وزن',appetite_status:'اشتها',defecation_problem:'دفع',breakfast:'صبحانه',lunch:'نهار',dinner:'شام',smoking_details:'دخانیات',alcohol_details:'الکل'};
+  const detailLabels={height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:'دور سینه',around_the_belly:'دور شکم',around_the_hips:'دور باسن',around_the_leg:'دور ساق',around_the_thigh:'دور ران',around_the_wrist:'دور مچ',disease_details:'بیماری',medication_details:'دارو',injury_details:'آسیب',surgery_details:'جراحی',last_blood_test_notes:'آزمایش خون',corrective_notes:'ناهنجاری اصلاحی',average_daily_activity:'فعالیت روزانه',practice_history_details:'سابقه تمرین',current_practice_details:'تمرین فعلی',supplement_details:'مکمل',doping_history:'دوپینگ',diet_type:'نوع رژیم',food_allergies:'حساسیت غذایی',weight_changes:'تغییر وزن',appetite_status:'اشتها',defecation_problem:'دفع',breakfast:'صبحانه',lunch:'نهار',dinner:'شام',smoking_details:'دخانیات',alcohol_details:'الکل'};
   function detailsCard(title,object){
     if(!object)return `<section class="assessment-detail-group"><h3>${title}</h3><p class="muted">ثبت نشده</p></section>`;
     const hidden=new Set(['assessment_id','created_at','updated_at']);
@@ -15,7 +15,7 @@
   }
   function measurementComparison(current,previous){
     if(!current||!previous)return '';
-    const keys=['weight','height','around_the_arm','around_the_chest','around_the_belly','around_the_belly_from_the_navel','around_the_hips','around_the_thigh','around_the_leg','around_the_wrist'];
+    const keys=['weight','height','around_the_arm','around_the_chest','around_the_belly','around_the_hips','around_the_thigh','around_the_leg','around_the_wrist'];
     return `<div class="measurement-comparison">${keys.filter(key=>current[key]!=null||previous[key]!=null).map(key=>{const change=Number.isFinite(Number(current[key]))&&Number.isFinite(Number(previous[key]))?(Number(current[key])-Number(previous[key])).toFixed(1):'—';return `<span><small>${esc(detailLabels[key]||key)}</small><b>${esc(previous[key]??'—')} ← ${esc(current[key]??'—')}</b><i>${change==='—'?'':`${change>0?'+':''}${change}`}</i></span>`}).join('')}</div>`;
   }
   function photoPreferenceState(assessment){

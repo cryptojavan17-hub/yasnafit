@@ -41,6 +41,10 @@ for(const file of coachCssFiles){
   previous=current;
 }
 const studentHtml=fs.readFileSync(path.join(publicDir,'student.html'),'utf8');
+assert.match(index,/id="coachReviewBell"/,'coach header review bell is missing');
+assert.match(index,/href="\/students\/submissions"/,'coach review bell does not link to pending assessments');
+assert.match(fs.readFileSync(path.join(publicDir,'core.js'),'utf8'),/ارزیابی در انتظار بررسی/,'pending assessment count is not loaded into the coach header');
+assert.doesNotMatch(fs.readFileSync(path.join(publicDir,'coach-submissions.js'),'utf8'),/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still shown to coach');
 assert.match(studentHtml,/dir="rtl"/,'student shell is not RTL');
 assert.match(studentHtml,/\/theme\.css/,'student shell misses central design tokens');
 assert.match(studentHtml,/\/student-app\.css/,'student shell misses dedicated responsive styles');
@@ -57,7 +61,7 @@ assert.match(wizardSource,/\[٫,\\\/\]/,'slash/Persian decimal normalization is 
 assert.match(wizardSource,/wizard-top-error/,'measurement errors are not visible at the top of the wizard');
 assert.match(wizardSource,/const button=event\.currentTarget/,'next-step button reference is not preserved across await');
 assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async handler can leave the next-step button disabled');
-assert.match(wizardSource,/around_the_belly_from_the_navel/,'normalized measurement fields are missing');
+assert.doesNotMatch(wizardSource,/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still visible');
 assert.match(studentAppSource,/\/student\/workouts/,'student workout UI route is missing');
 assert.match(studentAppSource,/\/student\/messages/,'student messaging UI route is missing');
 assert.match(studentAppSource,/data-start-day/,'active program cannot start a real workout');

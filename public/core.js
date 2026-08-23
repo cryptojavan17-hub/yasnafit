@@ -84,4 +84,16 @@ async function render(label,route){
     content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
   }
 }
+async function updateCoachReviewBell(){
+  const bell=document.querySelector('#coachReviewBell'),text=document.querySelector('#coachReviewBellText'),badge=document.querySelector('#coachReviewBellCount');
+  if(!bell||!text||!badge)return;
+  try{
+    const pending=await api('/api/student-submissions'),count=Array.isArray(pending)?pending.length:0,localized=count.toLocaleString('fa-IR');
+    text.textContent=`${localized} ارزیابی در انتظار بررسی`;
+    badge.textContent=localized;
+    bell.classList.toggle('empty',count===0);
+    bell.setAttribute('aria-label',`${localized} ارزیابی در انتظار بررسی؛ مشاهده فهرست`);
+  }catch(error){bell.classList.add('empty');}
+}
+updateCoachReviewBell();
 render('داشبورد','/coach/dashboard');
