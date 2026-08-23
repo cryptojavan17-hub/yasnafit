@@ -42,6 +42,7 @@ async function render(label,route){
   try{
     if(route==='/coach/dashboard'){
       const [d,versionInfo]=await Promise.all([api('/api/dashboard'),api('/api/version')]);
+      if(!['/','/index.html','/coach/dashboard'].includes(location.pathname))return;
       content.innerHTML=`
         <div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p><small class="dashboard-version">${esc(versionInfo.name)} v${esc(versionInfo.version)}</small></div></div>
         <div class="stat-grid">
@@ -110,4 +111,5 @@ function setupCoachNotifications(){
   updateCoachNotifications();setInterval(updateCoachNotifications,30000);window.addEventListener('focus',updateCoachNotifications);
 }
 setupCoachNotifications();
-render('داشبورد','/coach/dashboard');
+const initialCoachPath=location.pathname;
+if(initialCoachPath==='/'||initialCoachPath==='/index.html'||initialCoachPath==='/coach/dashboard')render('داشبورد','/coach/dashboard');

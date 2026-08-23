@@ -80,5 +80,7 @@ window.onpopstate=()=>{
   if(path==='/coach/releases') foundLabel='نسخه و تغییرات';
   renderRoute(foundLabel, path);
 };
-renderRoute('داشبورد','/coach/dashboard');
+const initialPath=location.pathname;
+if(initialPath==='/'||initialPath==='/index.html'||initialPath==='/coach/dashboard')renderRoute('داشبورد','/coach/dashboard');
+else content.innerHTML='<div class="loading-state"><span class="spinner"></span><p>در حال بارگذاری صفحه…</p></div>';
 window.goToRoute = go;

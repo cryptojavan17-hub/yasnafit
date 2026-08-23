@@ -45,6 +45,7 @@ for(const route of operationalMenuRoutes)assert.match(appSource,new RegExp(route
 for(const removed of ['/coach/manage-landing','/products/my','/coach/assists','/templates/diet/list','/templates/supplement/list','/templates/corrective/list','/reports/coach/general','/coach/profile'])assert.doesNotMatch(appSource,new RegExp(removed.replaceAll('/','\\/')),`dead menu route remains: ${removed}`);
 assert.doesNotMatch(appSource,/آماده طراحی|پیاده‌سازی امکانات|محتوای عملیاتی آن در مرحله بعد/,'dead placeholder page remains in the coach router');
 assert.match(appSource,/window\.renderCoreRoute/,'operational core routes are not delegated from the sidebar router');
+assert.match(appSource,/if\(initialPath==='\/'\|\|initialPath==='\/index\.html'\|\|initialPath==='\/coach\/dashboard'\)/,'app shell does not guard dashboard rendering on deep routes');
 const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
 assert.doesNotMatch(inlineSources,/background\s*:\s*#(?:fff(?:fff)?|f[0-9a-f]{5}|e[0-9a-f]{5})/i,'light inline background can override dark theme');
 assert.doesNotMatch(inlineSources,/var\(--[^)]+\)[0-9a-f]+/i,'malformed CSS variable found in inline styles');
@@ -88,6 +89,8 @@ const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'
 const coreSource=fs.readFileSync(path.join(publicDir,'core.js'),'utf8');
 const reviewSource=fs.readFileSync(path.join(publicDir,'coach-submissions.js'),'utf8');
 const dashboardBlock=coreSource.slice(coreSource.indexOf("if(route==='/coach/dashboard')"),coreSource.indexOf("if(route==='/programs/exercise/movements-list')"));
+assert.match(coreSource,/if\(initialCoachPath==='\/'\|\|initialCoachPath==='\/index\.html'\|\|initialCoachPath==='\/coach\/dashboard'\)render/,'core dashboard rendering is not guarded from deep routes');
+assert.match(dashboardBlock,/if\(!\['\/','\/index\.html','\/coach\/dashboard'\]\.includes\(location\.pathname\)\)return/,'late dashboard response can overwrite Program Builder');
 assert.doesNotMatch(dashboardBlock,/student-submissions|latestRelease|release-dashboard-card|اعلان‌های جدید|ارزیابی در انتظار بررسی/,'dashboard still contains duplicate assessment or release notifications');
 assert.match(reviewSource,/href="\/assessments\/\$\{item\.id\}"[^>]*>مشاهده ارزیابی/,'submission button is not a reliable assessment link');
 assert.match(reviewSource,/window\.renderAssessmentReview/,'assessment review component is missing');
