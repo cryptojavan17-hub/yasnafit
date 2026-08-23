@@ -110,6 +110,20 @@ function one(sql, ...args){
   return db.prepare(sql).get(...args);
 }
 
+// The six-digit case number is the public/business reference used by coach-facing
+// routes. Numeric primary keys remain private relational keys inside SQLite.
+function studentByReference(reference){
+  const value=String(reference??'').trim();
+  if(!/^\d+$/.test(value))return null;
+  if(/^\d{6}$/.test(value)){
+    const byCase=one('SELECT * FROM students WHERE case_number=? AND deleted_at IS NULL',value);
+    if(byCase)return byCase;
+  }
+  const id=Number(value);
+  return Number.isSafeInteger(id)&&id>0?one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL',id):null;
+}
+function studentIdByReference(reference){return studentByReference(reference)?.id||null;}
+
 function isSafePath(base, target){
   const normalizedBase = path.resolve(base);
   const normalizedTarget = path.resolve(target);
@@ -312,7 +326,9 @@ async function handleStudents(req,res,url){
 async function handleStudentsDelete(req,res,url){
   const match = url.pathname.match(/^\/api\/students\/(\d+)$/);
   if(!match) return null;
-  const id=Number(match[1]);
+  const student=studentByReference(match[1]);
+  if(!student)return sendError(res,404,'شاگرد پیدا نشد');
+  const id=student.id;
   if(req.method==='DELETE'){
     // Soft delete
     const r=db.prepare('UPDATE students SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
@@ -650,7 +666,7 @@ async function handleTrainingPrograms(req,res,url){
   const p=url.pathname;
 
   if(p==='/api/training-programs' && req.method==='GET'){
-    const list = rows('SELECT tp.*,s.full_name student_name,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC');
+    const list = rows('SELECT tp.*,s.full_name student_name,s.case_number student_case_number,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC');
     return send(res,200,list.map(r=>{
       try{ r.program_data = JSON.parse(r.program_data||'{}'); }catch(e){ r.program_data={days:[]}; }
       return r;
@@ -700,7 +716,7 @@ async function handleTrainingPrograms(req,res,url){
 
     if(req.method==='GET'){
       try {
-        const prog = one('SELECT tp.*,s.full_name student_name,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.id=? AND tp.deleted_at IS NULL', id);
+        const prog = one('SELECT tp.*,s.full_name student_name,s.case_number student_case_number,ba.assessment_number,ba.assessment_type FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id LEFT JOIN body_assessments ba ON ba.id=tp.assessment_id WHERE tp.id=? AND tp.deleted_at IS NULL', id);
         if(!prog) return sendError(res,404,'برنامه پیدا نشد');
         try{ prog.program_data = JSON.parse(prog.program_data||'{}'); }catch(e){ prog.program_data={days:[]}; }
 
@@ -773,7 +789,7 @@ async function handleStudentInvites(req,res,url){
   const p=url.pathname;
   if(p==='/api/student-invites' && req.method==='GET'){
     const list = rows(`
-      SELECT si.id, si.stable_id, si.student_id, si.token_preview, si.status, si.created_at, si.expires_at, si.used_at, si.opened_at, si.use_count, si.max_uses, si.revoked_at, s.full_name, s.mobile
+      SELECT si.id, si.stable_id, si.student_id, si.token_preview, si.status, si.created_at, si.expires_at, si.used_at, si.opened_at, si.use_count, si.max_uses, si.revoked_at, s.full_name, s.mobile, s.case_number
       FROM student_invites si
       JOIN students s ON s.id=si.student_id AND s.deleted_at IS NULL
       WHERE si.deleted_at IS NULL
@@ -786,7 +802,7 @@ async function handleStudentInvites(req,res,url){
     const b=await readBody(req);
     if(!b.student_id || !Number.isInteger(Number(b.student_id))) return sendError(res,400,'student_id الزامی است');
     const studentId = Number(b.student_id);
-    const student = one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL', studentId);
+    const student = one('SELECT id,case_number FROM students WHERE id=? AND deleted_at IS NULL', studentId);
     if(!student) return sendError(res,404,'شاگرد پیدا نشد');
     const expiresDays = b.expires_in_days != null ? Number(b.expires_in_days) : 30;
     if(!Number.isInteger(expiresDays) || expiresDays < 0 || expiresDays > 3650) return sendError(res,400,'اعتبار دعوت باید بین صفر تا ۳۶۵۰ روز باشد');
@@ -797,7 +813,7 @@ async function handleStudentInvites(req,res,url){
     auditService.record(db,{actorType:'coach',action:'invitation.created',entityType:'student_invitation',entityId:Number(result.id),entityStableId:result.stable_id,metadata:{student_id:studentId,expires_at:result.expires_at}});
     // Return token only once, plus join URL
     const joinUrl = `/join/${result.token}`;
-    return send(res,201,{id: result.id, stable_id: result.stable_id, student_id: studentId, token: result.token, token_preview: result.token_preview, join_url: joinUrl, expires_at: result.expires_at});
+    return send(res,201,{id: result.id, stable_id: result.stable_id, student_id: studentId, case_number:student.case_number, token: result.token, token_preview: result.token_preview, join_url: joinUrl, expires_at: result.expires_at});
   }
 
   const revokeMatch = p.match(/^\/api\/student-invites\/(\d+)\/revoke$/);
@@ -850,7 +866,7 @@ async function handleStudentJoin(req,res,url){
   if(inspectMatch && req.method==='GET'){
     const inspected=studentSessionService.inspectInvitation(db,inspectMatch[1]);
     if(inspected.error)return invitationErrorResponse(res,inspected.error);
-    return send(res,200,{valid:true,student_name:inspected.student.full_name||'',remaining_entries:inspected.invitation.remaining_uses,message:'دعوت معتبر است'});
+    return send(res,200,{valid:true,student_name:inspected.student.full_name||'',case_number:inspected.student.case_number||'',remaining_entries:inspected.invitation.remaining_uses,message:'دعوت معتبر است'});
   }
   if(acceptMatch && req.method==='POST'){
     const accepted=studentSessionService.acceptInvitation(db,acceptMatch[1]);
@@ -1344,28 +1360,30 @@ async function handleBodyAssessments(req,res,url){
 
   const studentProgramsMatch=p.match(/^\/api\/students\/(\d+)\/programs$/);
   if(studentProgramsMatch && req.method==='GET'){
-    const list=studentService.getStudentPrograms(db,Number(studentProgramsMatch[1]));
+    const list=studentService.getStudentPrograms(db,studentIdByReference(studentProgramsMatch[1]));
     if(!list) return sendError(res,404,'شاگرد پیدا نشد');
     return send(res,200,list);
   }
 
   const studentInvitesMatch=p.match(/^\/api\/students\/(\d+)\/invites$/);
   if(studentInvitesMatch && req.method==='GET'){
-    const list=studentService.getStudentInvites(db,Number(studentInvitesMatch[1]));
+    const list=studentService.getStudentInvites(db,studentIdByReference(studentInvitesMatch[1]));
     if(!list) return sendError(res,404,'شاگرد پیدا نشد');
     return send(res,200,list);
   }
 
   const studentAssessMatch = p.match(/^\/api\/students\/(\d+)\/assessments$/);
   if(studentAssessMatch && req.method==='GET'){
-    const studentId=Number(studentAssessMatch[1]);
+    const studentId=studentIdByReference(studentAssessMatch[1]);
+    if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');
     const list = rows('SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL ORDER BY assessment_number ASC', studentId);
     return send(res,200,list);
   }
 
   const studentTimelineMatch = p.match(/^\/api\/students\/(\d+)\/timeline$/);
   if(studentTimelineMatch && req.method==='GET'){
-    const studentId=Number(studentTimelineMatch[1]);
+    const studentId=studentIdByReference(studentTimelineMatch[1]);
+    if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');
     const full = studentService.getStudentFullData(db, studentId);
     if(!full) return sendError(res,404,'شاگرد پیدا نشد');
     return send(res,200,full);
@@ -1521,7 +1539,7 @@ async function handleAssessmentPhotos(req,res,url){
 
 async function handleLegacyPrograms(req,res,url){
   if(url.pathname==='/api/programs' && req.method==='GET'){
-    return send(res,200,rows('SELECT p.*,s.full_name student_name FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
+    return send(res,200,rows('SELECT p.*,s.full_name student_name,s.case_number student_case_number FROM programs p LEFT JOIN students s ON s.id=p.student_id ORDER BY p.id DESC'));
   }
   if(url.pathname==='/api/programs' && req.method==='POST'){
     const b=await readBody(req);
@@ -1570,9 +1588,9 @@ async function handleCoachEngagement(req,res,url){
   const p=url.pathname;
   if(p==='/api/coach/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'coach',null,100)});
   const notificationRead=p.match(/^\/api\/coach\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(notificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,notificationRead[1],'coach'))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
-  const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=Number(messagesMatch[1]);if(!one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL',studentId))return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}}
-  const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=Number(performanceMatch[1]);if(!one('SELECT id FROM students WHERE id=? AND deleted_at IS NULL',studentId))return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
-  const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=Number(auditMatch[1]);return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
+  const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}}
+  const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
+  const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=studentIdByReference(auditMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
   return null;
 }
 

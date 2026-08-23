@@ -56,6 +56,7 @@
     generatedLinks.set(Number(studentId),absolute);
     const modal=createModal(`<div class="student-modal-head"><h2>🔐 ${esc(title)}</h2><button data-close-modal>×</button></div>
       <p>این لینک امن فقط همین بار از API برگردانده شده است. آن را برای شاگرد ارسال کنید.</p>
+      ${result.case_number?`<div class="created-case-number"><span>شماره پرونده</span><b>${esc(result.case_number)}</b></div>`:''}
       <div class="generated-link"><code>${esc(absolute)}</code></div>
       <div class="student-modal-actions"><button class="primary" data-copy-link>کپی لینک</button><button class="secondary" data-close-modal>بستن</button></div>`);
     modal.querySelector('[data-copy-link]').onclick=async()=>{ await copyText(absolute); modal.querySelector('[data-copy-link]').textContent='کپی شد ✓'; };
@@ -73,7 +74,7 @@
       <div class="student-stat-grid" id="studentStats"></div>
       <section class="students-panel">
         <div class="student-toolbar">
-          <label class="student-search"><span>⌕</span><input id="studentSearch" placeholder="جستجو با نام یا موبایل" autocomplete="off"></label>
+          <label class="student-search"><span>⌕</span><input id="studentSearch" placeholder="جستجو با نام، موبایل یا شماره پرونده" autocomplete="off"></label>
           <select id="studentStatusFilter" aria-label="فیلتر وضعیت">
             <option value="ALL">همه وضعیت‌ها</option><option value="NEW">جدید</option><option value="PROFILE_PENDING">در انتظار تکمیل اطلاعات</option>
             <option value="PENDING_REVIEW">در انتظار بررسی</option><option value="UNDER_REVIEW">در حال بررسی</option>
@@ -98,16 +99,16 @@
       return;
     }
     host.innerHTML=`<div class="students-table-wrap"><table class="students-table"><thead><tr>
-      <th>شاگرد</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
+      <th>شاگرد / پرونده</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
     </tr></thead><tbody>${items.map(student=>`<tr>
-      <td><button class="student-name-link" data-open-student="${student.id}"><b>${esc(student.full_name)}</b><small>${esc(student.mobile||'بدون موبایل')}</small></button></td>
+      <td><button class="student-name-link" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b><small class="case-number-inline">پرونده ${esc(student.case_number)} • ${esc(student.mobile||'بدون موبایل')}</small></button></td>
       <td>${statusBadge(student.management_status)}<small class="record-status">${esc(student.student_record_status||'')}</small></td>
       <td>${student.current_assessment_id?`<b>ارزیابی ${student.current_assessment_number}</b><small>${esc(assessmentLabels[student.current_assessment_status]||student.current_assessment_status)}</small>`:'<span class="muted">ثبت نشده</span>'}</td>
       <td>${student.current_program_id?`<b>${esc(programLabels[student.current_program_status]||student.current_program_status)}</b><small>${formatDate(student.current_program_start_date)} تا ${formatDate(student.current_program_end_date)}</small>`:'<span class="muted">بدون برنامه</span>'}</td>
       <td>${formatDate(student.last_assessment_submitted_at||student.last_assessment_created_at)}</td>
       <td><span class="next-assessment ${String(student.next_assessment_status).toLowerCase()}">${esc(nextLabels[student.next_assessment_status]||student.next_assessment_status)}</span></td>
       <td>${formatDate(student.created_at)}</td>
-      <td><div class="student-row-actions"><button class="secondary" data-open-student="${student.id}">مشاهده</button><button class="secondary" data-invite-student="${student.id}">ایجاد لینک</button></div></td>
+      <td><div class="student-row-actions"><button class="secondary" data-open-student="${student.case_number}">مشاهده</button><button class="secondary" data-invite-student="${student.id}">ایجاد لینک</button></div></td>
     </tr>`).join('')}</tbody></table></div>`;
     host.querySelectorAll('[data-open-student]').forEach(button=>button.onclick=()=>{ location.href=`/users-list/${button.dataset.openStudent}`; });
     host.querySelectorAll('[data-invite-student]').forEach(button=>button.onclick=async()=>{ try{await generateInvitation(button.dataset.inviteStudent);}catch(error){alert(error.message);} });
@@ -136,9 +137,9 @@
       event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget));
       try{
         const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();
-        const success=createModal(`<div class="student-modal-head"><h2>شاگرد ثبت شد</h2><button data-close-modal>×</button></div><p>اکنون لینک امن پورتال شاگرد را ایجاد کنید.</p><div class="student-modal-actions"><button class="primary" data-create-invite>ایجاد لینک شاگرد</button><button class="secondary" data-open-detail>مشاهده شاگرد</button></div>`);
+        const success=createModal(`<div class="student-modal-head"><h2>شاگرد ثبت شد</h2><button data-close-modal>×</button></div><div class="created-case-number"><span>شماره پرونده یکتا</span><b>${esc(created.case_number)}</b></div><p>اکنون لینک امن پورتال شاگرد را ایجاد کنید.</p><div class="student-modal-actions"><button class="primary" data-create-invite>ایجاد لینک شاگرد</button><button class="secondary" data-open-detail>مشاهده شاگرد</button></div>`);
         success.querySelector('[data-create-invite]').onclick=async()=>{success.remove();try{await generateInvitation(created.id);}catch(error){alert(error.message);}};
-        success.querySelector('[data-open-detail]').onclick=()=>{location.href=`/users-list/${created.id}`;};
+        success.querySelector('[data-open-detail]').onclick=()=>{location.href=`/users-list/${created.case_number}`;};
         success.querySelector('[data-close-modal]').onclick=()=>success.remove();
       }catch(error){alert(error.message);}
     };
@@ -179,21 +180,21 @@
     const content=document.querySelector('#content');
     content.innerHTML='<div class="students-loading">در حال دریافت پرونده شاگرد...</div>';
     try{
-      const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);const student=data.student,summary=data.summary;
+      const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);const student=data.student,summary=data.summary,internalStudentId=student.id,caseNumber=student.case_number;
       document.querySelector('#breadcrumb').textContent='پرونده شاگرد';
       content.innerHTML=`<div class="student-detail-page">
-        <div class="page-head student-detail-head"><div><button class="back-link" data-back-students>← شاگرد های من</button><h1>${esc(student.full_name)}</h1><p>${esc(student.mobile||'بدون موبایل')} • ${esc(student.goal||'بدون هدف')}</p>${statusBadge(summary.management_status)}</div><div class="detail-head-actions"><button class="secondary" data-new-invite>ایجاد لینک جدید</button><button class="primary" data-request-assessment>درخواست ارزیابی جدید</button></div></div>
+        <div class="page-head student-detail-head"><div><button class="back-link" data-back-students>← شاگرد های من</button><h1>${esc(student.full_name)}</h1><div class="student-case-chip">شماره پرونده <b>${esc(student.case_number)}</b></div><p>${esc(student.mobile||'بدون موبایل')} • ${esc(student.goal||'بدون هدف')}</p>${statusBadge(summary.management_status)}</div><div class="detail-head-actions"><button class="secondary" data-new-invite>ایجاد لینک جدید</button><button class="primary" data-request-assessment>درخواست ارزیابی جدید</button></div></div>
         <div class="student-detail-grid">
           <main>
             <section class="detail-section"><h2>اطلاعات شاگرد</h2><div class="profile-data">
-              <div><span>نام</span><b>${esc(student.full_name)}</b></div><div><span>موبایل</span><b>${esc(student.mobile||'—')}</b></div><div><span>هدف</span><b>${esc(student.goal||'—')}</b></div><div><span>قد</span><b>${student.height??'—'} cm</b></div><div><span>وزن</span><b>${student.weight??'—'} kg</b></div><div><span>سطح تمرین</span><b>${esc(student.training_level||student.training_experience||'—')}</b></div><div><span>محدودیت‌ها</span><b>${esc(student.limitations||'—')}</b></div><div><span>آسیب‌ها</span><b>${esc(student.injuries||'—')}</b></div><div class="wide"><span>یادداشت پزشکی</span><b>${esc(student.medical_notes||'—')}</b></div><div class="wide"><span>یادداشت مربی</span><b>${esc(student.coach_notes||'—')}</b></div>
+              <div><span>شماره پرونده</span><b class="case-number-value">${esc(student.case_number)}</b></div><div><span>نام</span><b>${esc(student.full_name)}</b></div><div><span>موبایل</span><b>${esc(student.mobile||'—')}</b></div><div><span>هدف</span><b>${esc(student.goal||'—')}</b></div><div><span>قد</span><b>${student.height??'—'} cm</b></div><div><span>وزن</span><b>${student.weight??'—'} kg</b></div><div><span>سطح تمرین</span><b>${esc(student.training_level||student.training_experience||'—')}</b></div><div><span>محدودیت‌ها</span><b>${esc(student.limitations||'—')}</b></div><div><span>آسیب‌ها</span><b>${esc(student.injuries||'—')}</b></div><div class="wide"><span>یادداشت پزشکی</span><b>${esc(student.medical_notes||'—')}</b></div><div class="wide"><span>یادداشت مربی</span><b>${esc(student.coach_notes||'—')}</b></div>
             </div></section>
             <section class="detail-section"><div class="section-title"><h2>ارزیابی‌ها</h2><span>${data.assessments.length.toLocaleString('fa-IR')} سابقه</span></div><div class="history-grid">${data.assessments.length?data.assessments.slice().reverse().map((assessment,index)=>assessmentCard(assessment,index===0)).join(''):'<p class="muted">هنوز ارزیابی ثبت نشده است.</p>'}</div></section>
             <section class="detail-section"><div class="section-title"><h2>برنامه‌های ماهانه</h2><span>${data.programs.length.toLocaleString('fa-IR')} برنامه</span></div><div class="history-grid">${data.programs.length?data.programs.slice().reverse().map(programCard).join(''):'<p class="muted">هنوز برنامه‌ای ثبت نشده است.</p>'}</div></section>
           </main>
           <aside>
             <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||data.current_assessment.status)}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||data.current_program.status)}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||summary.next_assessment_status)}</dd></div></dl>${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}">ساخت برنامه ماهانه</button>`:''}</section>
-            <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت</h2><button class="text-button" data-new-invite>＋ لینک جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,studentId)).join(''):'<p class="muted">لینکی ساخته نشده است.</p>'}</div></section>
+            <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت</h2><button class="text-button" data-new-invite>＋ لینک جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted">لینکی ساخته نشده است.</p>'}</div></section>
             <section class="detail-section"><h2>عملکرد واقعی تمرین</h2><div class="profile-data"><div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div><div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div><div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div></div></section>
             <section class="detail-section"><h2>پیام‌های مربی و شاگرد</h2><div class="coach-message-list">${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}</b><span>${esc(message.body)}</span></div>`).join('')||'<p class="muted">پیامی ثبت نشده است.</p>'}</div><form id="coachMessageForm" class="coach-message-form"><textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea><button class="primary">ارسال</button></form></section>
             <section class="detail-section"><h2>تایم‌لاین شاگرد</h2><ol class="student-timeline">${data.timeline.length?data.timeline.map(timelineItem).join(''):'<li class="muted">رویدادی ثبت نشده است.</li>'}</ol></section>
@@ -201,22 +202,22 @@
         </div>
       </div>`;
       content.querySelector('[data-back-students]').onclick=()=>{location.href='/users-list';};
-      content.querySelectorAll('[data-new-invite]').forEach(button=>button.onclick=async()=>{try{await generateInvitation(studentId);setTimeout(()=>loadStudentDetail(studentId),300);}catch(error){alert(error.message);}});
-      content.querySelector('[data-request-assessment]').onclick=async()=>{try{await generateInvitation(studentId,'لینک ارزیابی جدید ایجاد شد');}catch(error){alert(error.message);}};
+      content.querySelectorAll('[data-new-invite]').forEach(button=>button.onclick=async()=>{try{await generateInvitation(internalStudentId);setTimeout(()=>loadStudentDetail(caseNumber),300);}catch(error){alert(error.message);}});
+      content.querySelector('[data-request-assessment]').onclick=async()=>{try{await generateInvitation(internalStudentId,'لینک ارزیابی جدید ایجاد شد');}catch(error){alert(error.message);}};
       content.querySelectorAll('[data-open-photo]').forEach(button=>button.onclick=()=>window.open(`/api/student-photos/${button.dataset.openPhoto}`,'_blank','noopener'));
       content.querySelectorAll('[data-review-assessment]').forEach(button=>button.onclick=()=>{location.href=`/assessments/${button.dataset.reviewAssessment}`;});
       content.querySelectorAll('[data-view-program]').forEach(button=>button.onclick=()=>openProgramReadOnly(button.dataset.viewProgram));
-      content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${studentId}&assessment_id=${button.dataset.createProgram}`;});
-      content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(studentId)));button.textContent='کپی شد ✓';});
-      content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(studentId);}catch(error){alert(error.message);}});
-      content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(studentId)}catch(error){alert(error.message)}};
+      content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${internalStudentId}&assessment_id=${button.dataset.createProgram}`;});
+      content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(internalStudentId)));button.textContent='کپی شد ✓';});
+      content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(caseNumber);}catch(error){alert(error.message);}});
+      content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(caseNumber)}catch(error){alert(error.message)}};
     }catch(error){content.innerHTML=`<section class="panel error"><h2>پرونده شاگرد پیدا نشد</h2><p>${esc(error.message)}</p><button class="secondary" onclick="location.href='/users-list'">بازگشت</button></section>`;}
   }
 
   window.renderStudentsPage=async(label,route)=>{
     const detailMatch=route.match(/^\/users-list\/(\d+)$/);
     document.querySelectorAll('.menu-link').forEach(item=>item.classList.toggle('active',item.dataset.route==='/users-list'));
-    if(detailMatch) return loadStudentDetail(Number(detailMatch[1]));
+    if(detailMatch) return loadStudentDetail(detailMatch[1]);
     document.querySelector('#breadcrumb').textContent='شاگرد های من';
     const content=document.querySelector('#content');content.innerHTML=renderListShell();
     document.querySelector('#addStudentButton').onclick=openAddStudent;

@@ -177,7 +177,7 @@ function getStudentFullData(db, studentId, options={}){
 function getPendingSubmissions(db){
   // Coach view: assessments with status SUBMITTED or UNDER_REVIEW
   return db.prepare(`
-    SELECT ba.*, s.full_name, s.mobile, s.goal,
+    SELECT ba.*, s.full_name, s.mobile, s.goal, s.case_number,
            (SELECT COUNT(*) FROM assessment_photos WHERE assessment_id=ba.id AND deleted_at IS NULL) as photo_count,
            (SELECT COUNT(*) FROM body_assessments WHERE student_id=ba.student_id AND deleted_at IS NULL) as total_assessments
     FROM body_assessments ba
@@ -347,7 +347,7 @@ const MANAGEMENT_CTE = `
   ),
   student_management AS (
     SELECT
-      s.id, s.stable_id, s.full_name, s.mobile, s.goal, s.status AS student_record_status,
+      s.id, s.stable_id, s.case_number, s.full_name, s.mobile, s.goal, s.status AS student_record_status,
       s.profile_status, s.weight, s.height, s.training_level, s.preferred_location,
       s.created_at, s.updated_at,
       la.id AS current_assessment_id,
@@ -408,11 +408,11 @@ function getManagedStudents(db,options={}){
   const normalized=normalizeManagementOptions(options);
   const searchLike=`%${normalized.search}%`;
   const filters=`
-    WHERE (?='' OR full_name LIKE ? COLLATE NOCASE OR COALESCE(mobile,'') LIKE ?)
+    WHERE (?='' OR full_name LIKE ? COLLATE NOCASE OR COALESCE(mobile,'') LIKE ? OR COALESCE(case_number,'') LIKE ?)
       AND (?='ALL' OR management_status=?)
       AND (? IS NULL OR id=?)
   `;
-  const params=[normalized.search,searchLike,searchLike,normalized.status,normalized.status,normalized.studentId,normalized.studentId];
+  const params=[normalized.search,searchLike,searchLike,searchLike,normalized.status,normalized.status,normalized.studentId,normalized.studentId];
   const total=db.prepare(`${MANAGEMENT_CTE} SELECT COUNT(*) AS total FROM student_management ${filters}`).get(...params).total;
   const items=db.prepare(`${MANAGEMENT_CTE}
     SELECT * FROM student_management ${filters}

@@ -30,7 +30,7 @@ function inspectInvitation(db,rawToken){
   if(!TOKEN_PATTERN.test(String(rawToken||''))) return {error:'invalid'};
   const invitation=db.prepare(`
     SELECT si.id,si.student_id,si.status,si.expires_at,si.used_at,si.revoked_at,
-           si.use_count,si.max_uses,si.opened_at,s.full_name,s.profile_status
+           si.use_count,si.max_uses,si.opened_at,s.full_name,s.case_number,s.profile_status
     FROM student_invites si
     JOIN students s ON s.id=si.student_id AND s.deleted_at IS NULL
     WHERE si.token_hash=? AND si.deleted_at IS NULL
@@ -56,7 +56,7 @@ function inspectInvitation(db,rawToken){
       max_uses:invitation.max_uses,
       remaining_uses:Math.max(0,invitation.max_uses-invitation.use_count)
     },
-    student:{full_name:invitation.full_name,profile_status:invitation.profile_status}
+    student:{full_name:invitation.full_name,case_number:invitation.case_number,profile_status:invitation.profile_status}
   };
 }
 

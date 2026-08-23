@@ -58,7 +58,7 @@
     loading('در حال بررسی لینک...');
     try{
       const result=await api(`/api/student/join/${encodeURIComponent(token)}`);
-      root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>دعوت به پنل شخصی شما</h1><p>سلام <span class="student-name">${esc(result.student_name||'')}</span> 👋</p><p>مربی شما یک پنل اختصاصی در Yasnafit برایتان ایجاد کرده است.</p><button class="primary" id="acceptInvitation">شروع</button><small class="join-meta">اطلاعات و تصاویر شما خصوصی و فقط در اختیار خودتان و مربی است.</small></div></section>`;
+      root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>دعوت به پنل شخصی شما</h1><p>سلام <span class="student-name">${esc(result.student_name||'')}</span> 👋</p>${result.case_number?`<div class="created-case-number"><span>شماره پرونده شما</span><b>${esc(result.case_number)}</b></div>`:''}<p>مربی شما یک پنل اختصاصی در Yasnafit برایتان ایجاد کرده است.</p><button class="primary" id="acceptInvitation">شروع</button><small class="join-meta">اطلاعات و تصاویر شما خصوصی و فقط در اختیار خودتان و مربی است.</small></div></section>`;
       document.querySelector('#acceptInvitation').onclick=async event=>{
         event.currentTarget.disabled=true;event.currentTarget.textContent='در حال ساخت پنل امن...';
         try{const accepted=await api(`/api/student/join/${encodeURIComponent(token)}/accept`,{method:'POST'});location.replace(accepted.next_route);}

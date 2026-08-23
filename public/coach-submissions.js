@@ -46,7 +46,7 @@
       }
       host.innerHTML = list.map(item=>`
         <div class="program-card">
-          <h3>${esc(item.full_name)} <small style="color:var(--text-muted)">#${item.assessment_number}</small></h3>
+          <h3>${esc(item.full_name)} <span class="case-chip">پرونده ${esc(item.case_number||'------')}</span> <small style="color:var(--text-muted)">ارزیابی ${item.assessment_number}</small></h3>
           <p>وزن: ${item.weight||'—'}kg • قد: ${item.height||'—'} • ${esc(item.goal||'')}</p>
           <div class="program-meta">
             <span>📅 ${new Date(item.submitted_at||item.created_at).toLocaleDateString('fa-IR')}</span>
@@ -56,7 +56,7 @@
           </div>
           <div class="program-actions">
             <a class="btn btn-primary btn-small" href="/assessments/${item.id}">مشاهده ارزیابی</a>
-            <button class="btn btn-secondary btn-small" onclick="location.href='/students/${item.student_id}/timeline'">📜 تاریخچه شاگرد</button>
+            <button class="btn btn-secondary btn-small" onclick="location.href='/students/${item.case_number||item.student_id}/timeline'">📜 تاریخچه شاگرد</button>
           </div>
         </div>
       `).join('');
@@ -116,7 +116,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
         <div class="coach-review-page">
           <header class="coach-review-hero">
             <div class="coach-review-heading"><a href="/students/submissions" class="review-back" aria-label="بازگشت">→</a><div><p class="eyebrow">بررسی ارزیابی ${ass.assessment_number}</p><h1>${esc(student.full_name)}</h1><div class="review-meta"><span class="case-chip">پرونده <b>${esc(student.case_number||'------')}</b></span><span>${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'تاریخ ارسال ثبت نشده'}</span><span class="review-status ${esc(lifecycle.toLowerCase())}">${esc(lifecycleLabels[lifecycle]||lifecycle)}</span></div></div></div>
-            <div class="review-header-links"><a class="secondary" href="/students/${student.id}/timeline">تاریخچه شاگرد</a><a class="secondary" href="/users-list/${student.id}">پروفایل شاگرد</a></div>
+            <div class="review-header-links"><a class="secondary" href="/students/${student.case_number||student.id}/timeline">تاریخچه شاگرد</a><a class="secondary" href="/users-list/${student.case_number||student.id}">پروفایل شاگرد</a></div>
           </header>
 
           <div class="coach-review-layout">
@@ -145,7 +145,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
                   <button class="review-action approve" id="btnApprove" ${reviewable?'':'disabled'}>✓ <span>تأیید</span></button>
                   <button class="review-action revise" id="btnRequestChanges" ${reviewable?'':'disabled'}>↻ <span>درخواست اصلاح</span></button>
                   <button class="review-action reject" id="btnReject" ${reviewable?'':'disabled'}>× <span>رد</span></button>
-                  <a class="review-action message" href="/users-list/${student.id}">✉ <span>پیام به شاگرد</span></a>
+                  <a class="review-action message" href="/users-list/${student.case_number||student.id}">✉ <span>پیام به شاگرد</span></a>
                 </div>
                 <p class="review-action-feedback" id="reviewActionFeedback" role="alert"></p>
                 ${lifecycle==='APPROVED'?`<a class="primary review-program-link" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}">ساخت برنامه ۳۰ روزه</a>`:''}
@@ -174,7 +174,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
 
   window.renderStudentTimeline = async (label, route) => {
     const match=route.match(/\/students\/(\d+)\/(?:timeline|assessments)/);
-    const studentId=match?Number(match[1]):null;
+    const studentId=match?match[1]:null;
     if(!studentId) return;
     document.querySelector('#breadcrumb').textContent='تایم‌لاین شاگرد';
     const content=document.querySelector('#content');
@@ -184,7 +184,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
       const student=data.student;
       content.innerHTML=`
         <div class="program-builder">
-          <div class="page-head"><div><h1>📜 تایم‌لاین ${esc(student.full_name)}</h1><p>ارزیابی‌ها و برنامه‌های ماهانه</p></div><button class="btn btn-secondary" onclick="history.back()">← بازگشت</button></div>
+          <div class="page-head"><div><h1>📜 تایم‌لاین ${esc(student.full_name)}</h1><p><span class="case-chip">پرونده ${esc(student.case_number||'------')}</span> • ارزیابی‌ها و برنامه‌های ماهانه</p></div><button class="btn btn-secondary" onclick="history.back()">← بازگشت</button></div>
           <div style="display:flex;flex-direction:column;gap:16px">
             ${(data.timeline||[]).map(item=>{
               if(item.type==='assessment'){

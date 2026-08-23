@@ -80,6 +80,13 @@ assert.ok(reviewSource.includes('const match=route.match(')&&reviewSource.includ
 for(const action of ['btnApprove','btnReject','btnRequestChanges'])assert.match(reviewSource,new RegExp(`id="${action}"`),`review action is missing: ${action}`);
 assert.match(reviewSource,/پیام به شاگرد/,'student message action is missing');
 assert.match(reviewSource,/case_number/,'case number is missing from coach review');
+assert.match(reviewSource,/item\.case_number/,'case number is missing from pending submissions');
+const studentsSource=fs.readFileSync(path.join(publicDir,'students.js'),'utf8');
+assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
+assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
+assert.match(studentsSource,/شماره پرونده یکتا/,'new-student case number confirmation is missing');
+assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
+assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
 assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
 assert.match(wizardSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
 assert.match(wizardSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');

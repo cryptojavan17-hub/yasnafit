@@ -233,3 +233,9 @@ tbody tr:hover{background:var(--accent-surface)}
   :is(.primary,.secondary,.danger,.btn,.review-action){min-height:40px;padding-inline:10px}
   .review-actions{grid-template-columns:1fr}
 }
+
+/* Permanent six-digit business identity */
+.case-number-inline{display:block;margin-top:3px;color:var(--accent-hover);font-size:8px;font-weight:750;direction:rtl}
+.student-case-chip,.created-case-number{width:max-content;padding:5px 9px;border:1px solid var(--accent-border);border-radius:var(--component-control-radius);background:var(--accent-surface);color:var(--accent-hover)}
+.student-case-chip{margin:5px 0 6px;font-size:9px}.student-case-chip b,.case-number-value{font-size:12px;letter-spacing:.08em;direction:ltr}
+.created-case-number{margin:12px auto;text-align:center}.created-case-number span,.created-case-number b{display:block}.created-case-number span{color:var(--text-muted);font-size:8px}.created-case-number b{margin-top:2px;color:var(--accent-hover);font-size:20px;letter-spacing:.12em;direction:ltr}

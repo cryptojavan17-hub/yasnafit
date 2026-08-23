@@ -733,7 +733,7 @@
       const students = await api('/api/students');
       const sel=document.getElementById('progStudent');
       if(sel){
-        sel.innerHTML = `<option value="">بدون شاگرد</option>` + students.map(s=>`<option value="${s.id}">${esc(s.full_name)} - ${esc(s.goal||'')}</option>`).join('');
+        sel.innerHTML = `<option value="">بدون شاگرد</option>` + students.map(s=>`<option value="${s.id}">پرونده ${esc(s.case_number||'------')} • ${esc(s.full_name)} • ${esc(s.goal||'بدون هدف')}</option>`).join('');
         if(currentProgram.student_id) sel.value = currentProgram.student_id;
       }
     } catch(e){}
@@ -1000,7 +1000,7 @@
             <span>📆 ${daysCount} روز</span>
             <span>🏋️ ${movementsCount} حرکت</span>
             <span>🔁 ${setsCount} ست</span>
-            <span>👤 ${esc(p.student_name||'بدون شاگرد')}</span>
+            <span>👤 ${esc(p.student_name||'بدون شاگرد')}${p.student_case_number?` • پرونده ${esc(p.student_case_number)}`:''}</span>
             <span>📋 ${p.assessment_number?`ارزیابی #${p.assessment_number} • ${esc(p.assessment_type||'')}`:'بدون ارزیابی'}</span>
             <span>🗓 ${p.start_date?new Date(`${p.start_date}T00:00:00`).toLocaleDateString('fa-IR',{month:'long',year:'numeric'}):'—'}</span>
             <span>🔑 ${esc(p.status||'پیش‌نویس')}</span>

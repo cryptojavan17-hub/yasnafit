@@ -23,7 +23,8 @@ try{
   db.prepare('UPDATE students SET deleted_at=CURRENT_TIMESTAMP WHERE id=?').run(deleted);
 
   result=studentService.getManagedStudents(db,{page:1,pageSize:20});
-  assert.equal(result.items.length,3);assert.equal(result.items.find(item=>item.id===first).management_status,'NEW');
+  assert.equal(result.items.length,3);const firstItem=result.items.find(item=>item.id===first);assert.equal(firstItem.management_status,'NEW');assert.match(firstItem.case_number,/^\d{6}$/);
+  const byCase=studentService.getManagedStudents(db,{search:firstItem.case_number,page:1,pageSize:20});assert.equal(byCase.items.length,1);assert.equal(byCase.items[0].id,first);
   studentService.createInvite(db,first,30);
   result=studentService.getManagedStudents(db,{search:'091211',page:1,pageSize:20});
   assert.equal(result.items.length,1);assert.equal(result.items[0].id,first);assert.equal(result.items[0].management_status,'PROFILE_PENDING');
