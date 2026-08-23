@@ -102,9 +102,9 @@ assert.match(addStudentBlock,/name=\\?"full_name\\?"/,'student creation name fie
 assert.match(addStudentBlock,/name=\\?"mobile\\?"/,'student creation mobile field is missing');
 assert.doesNotMatch(addStudentBlock,/name=\\?"(?:goal|status|weight|height)\\?"/,'student creation form contains extra fields');
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
-for(const heading of ['ردیف','شماره پرونده / نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
-assert.match(studentsSource,/student-identity-cell[^\n]+student\.case_number[^\n]+student\.full_name/,'case number and student name are not compactly merged');
-assert.doesNotMatch(studentsSource,/<th>شماره پرونده<\/th><th>نام و نام خانوادگی<\/th>/,'case number and name still use separate columns');
+for(const heading of ['ردیف','نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
+assert.match(studentsSource,/student-identity-cell[^\n]+student\.full_name[^\n]+شماره پرونده[^\n]+student\.case_number/,'case number is not placed below the student name');
+assert.doesNotMatch(studentsSource,/<th>شماره پرونده<\/th>|شماره پرونده \/ نام و نام خانوادگی/,'case number still has a separate or wide table heading');
 assert.match(studentsSource,/listState\.page-1\)\*listState\.pageSize\+index\+1/,'student row number does not respect pagination');
 assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
 assert.match(studentsSource,/data-copy-url/,'invitation dialog has no dedicated link-copy action');

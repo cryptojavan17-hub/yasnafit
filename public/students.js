@@ -103,10 +103,10 @@
       return;
     }
     host.innerHTML=`<div class="students-table-wrap"><table class="students-table"><thead><tr>
-      <th class="student-row-number">ردیف</th><th>شماره پرونده / نام و نام خانوادگی</th><th>شماره همراه</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
+      <th class="student-row-number">ردیف</th><th>نام و نام خانوادگی</th><th>شماره همراه</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
     </tr></thead><tbody>${items.map((student,index)=>`<tr>
       <td class="student-row-number">${((listState.page-1)*listState.pageSize+index+1).toLocaleString('fa-IR')}</td>
-      <td><button class="student-identity-cell" data-open-student="${student.case_number}"><span>${esc(student.case_number)}</span><b>${esc(student.full_name)}</b></button></td>
+      <td><button class="student-identity-cell" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b><span>شماره پرونده <bdi>${esc(student.case_number)}</bdi></span></button></td>
       <td class="student-mobile" dir="ltr">${esc(student.mobile||'—')}</td>
       <td>${statusBadge(student.management_status)}<small class="record-status">${esc(fa(student.student_record_status||''))}</small></td>
       <td>${student.current_assessment_id?`<b>ارزیابی ${student.current_assessment_number}</b><small>${esc(assessmentLabels[student.current_assessment_status]||fa(student.current_assessment_status))}</small>`:'<span class="muted">ثبت نشده</span>'}</td>
