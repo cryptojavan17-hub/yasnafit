@@ -66,9 +66,10 @@ assert.equal((wizardSource.match(/data-step=\"\d\"/g)||[]).length,8,'assessment 
 assert.match(wizardSource,/segmented-control/,'fast segmented controls are missing');
 assert.match(wizardSource,/saveCurrent\(true\)/,'step-change autosave is missing');
 assert.doesNotMatch(wizardSource,/name="bodyPhotoPreference"/,'optional photos still force a preference choice');
-assert.match(wizardSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
+assert.match(wizardSource,/\['front_flex','back_flex','side'\]/,'three optional photo slots are missing');
 assert.match(wizardSource,/بدون هیچ فایلی می‌توانید ادامه دهید/,'optional photo wording is missing');
-assert.match(css['student-app.css'],/guides\/body-front\.svg/,'educational pose guides are missing');
+for(const guide of ['female-front-flex.png','female-back-flex.png','female-side.png'])assert.match(css['student-app.css'],new RegExp(`guides/${guide.replace('.', '\\.')}`),`educational guide is missing: ${guide}`);
+assert.match(wizardSource,/id="skipPhotos"/,'photo step cannot be skipped');
 assert.doesNotMatch(wizardSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
 console.log(JSON.stringify({ok:true,css_files:cssFiles.length,tokens:true,no_light_overrides:true,no_colorful_legacy_palette:true,components:true,stylesheet_order:true,dedicated_student_shell:true}));

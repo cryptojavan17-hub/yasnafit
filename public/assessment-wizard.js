@@ -9,7 +9,7 @@
   const number=value=>{const normalized=normalize(value);return normalized===''?null:Number(normalized);};
   const bool=value=>value===undefined||value===null?null:value==='yes';
   const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
-  const photoLabels={front:'نمای جلو',side:'نمای بغل',back:'نمای پشت',front_flex:'جلو با حالت بازو',back_flex:'پشت با حالت بازو'};
+  const photoLabels={front_flex:'جلو با حالت بازو',back_flex:'پشت با حالت بازو',side:'نمای بغل'};
   const steps=[
     {title:'اطلاعات شخصی',hint:'مشخصات پایه شما'},
     {title:'هدف‌ها',hint:'انتخاب هدف این دوره'},
@@ -273,7 +273,7 @@
         if(state.step===6)return ensurePhotoReady();
       }
 
-      const photoSlots=['front','side','back','front_flex','back_flex'];
+      const photoSlots=['front_flex','back_flex','side'];
       function photoCards(){
         const grid=document.querySelector('#uploadGrid');
         grid.innerHTML=photoSlots.map((type,index)=>{const photo=state.photos[type];return `<article class="upload-card ${photo?'has-photo':''}" data-card="${type}">${photo?`<img src="/api/student-photos/${photo.id}" alt="${photoLabels[type]}"><div class="upload-card-overlay"><span class="upload-success">✓ ارسال شد</span><b>${photoLabels[type]}</b><button type="button" class="danger" data-delete="${type}">حذف</button></div>`:`<span class="photo-number">${index+1}</span><div class="upload-copy"><b>${photoLabels[type]}</b><small>اختیاری</small></div><button type="button" class="secondary" data-pick="${type}">انتخاب تصویر</button>`}<input hidden type="file" accept="image/jpeg,image/png,image/webp" data-file="${type}"></article>`;}).join('');
@@ -313,7 +313,7 @@
           {icon:'＋',title:'سوابق پزشکی',value:[checked('has_disease'),checked('has_medication'),checked('has_injury'),checked('has_surgery')].includes('yes')?'جزئیات پزشکی ثبت شده':'مورد خاصی ثبت نشده',step:3},
           {icon:'↗',title:'سابقه ورزشی',value:`${field('sessionsPerWeek')||'—'} جلسه در هفته • ${field('practicePlace')==='home'?'منزل':'باشگاه'}`,step:4},
           {icon:'◐',title:'تغذیه و سبک زندگی',value:`${field('dietType')==='professional'?'رژیم حرفه‌ای':'سفره ایرانی'} • ${statusText(checked('smoking'),'مصرف دخانیات ثبت شده','بدون دخانیات')}`,step:5},
-          {icon:'▧',title:'تصاویر و مدارک',value:`${Object.keys(state.photos).length} تصویر • ${state.documents.length} مدرک خصوصی`,step:6}
+          {icon:'▧',title:'تصاویر و مدارک',value:`${photoSlots.filter(type=>state.photos[type]).length} تصویر • ${state.documents.length} مدرک خصوصی`,step:6}
         ];
         document.querySelector('#reviewSections').innerHTML=review.map(item=>`<article><span class="review-icon">${item.icon}</span><div><b>${item.title}</b><small>${esc(item.value)}</small></div><button type="button" data-edit-step="${item.step}">ویرایش</button></article>`).join('');
         document.querySelectorAll('[data-edit-step]').forEach(button=>button.onclick=()=>goTo(Number(button.dataset.editStep),false));
