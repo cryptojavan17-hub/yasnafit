@@ -1,5 +1,6 @@
 (() => {
   const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
+  const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const listState={search:'',status:'ALL',page:1,pageSize:20};
   const generatedLinks=new Map();
@@ -136,11 +137,12 @@
   }
   function openAddStudent(){
     const modal=createModal(`<form id="addStudentForm"><div class="student-modal-head"><h2>افزودن شاگرد</h2><button type="button" data-close-modal>×</button></div>
-      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100" autocomplete="name"></label><label>شماره همراه *<input name="mobile" required maxlength="20" inputmode="tel" autocomplete="tel"></label></div>
+      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100" autocomplete="name"></label><label>شماره همراه *<div class="prefixed-input" dir="ltr"><span>09-</span><input name="mobile" required maxlength="10" inputmode="tel" autocomplete="tel" placeholder="0000000000"></div></label></div>
       <div class="student-modal-actions"><button type="button" class="secondary" data-close-modal>انصراف</button><button class="primary">ثبت شاگرد</button></div></form>`);
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
     modal.querySelector('form').onsubmit=async event=>{
-      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget));
+      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),rawMobile=asciiDigits(body.mobile),mobileSuffix=rawMobile.startsWith('09')?rawMobile.slice(2):rawMobile;body.mobile=`09${mobileSuffix}`;
+      if(mobileSuffix.length<9)return alert('شماره همراه را کامل وارد کنید.');
       try{
         const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();showInvitation(created.id,created,'شاگرد و دسترسی ورود ایجاد شد');
       }catch(error){alert(error.message);}

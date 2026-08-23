@@ -101,6 +101,12 @@ const addStudentStart=studentsSource.indexOf('addStudentForm'),addStudentBlock=s
 assert.match(addStudentBlock,/name=\\?"full_name\\?"/,'student creation name field is missing');
 assert.match(addStudentBlock,/name=\\?"mobile\\?"/,'student creation mobile field is missing');
 assert.doesNotMatch(addStudentBlock,/name=\\?"(?:goal|status|weight|height)\\?"/,'student creation form contains extra fields');
+assert.match(addStudentBlock,/prefixed-input[^\n]+<span>09-<\/span>/,'student mobile prefix is missing');
+assert.match(addStudentBlock,/placeholder=\\?"0000000000\\?"/,'student mobile placeholder is missing');
+assert.match(css['unified-components.css'],/\.student-mobile\{font-weight:850/,'student mobile numbers are not bold');
+assert.match(wizardSource,/prefixed-input[^\n]+<span>09-<\/span>/,'assessment mobile prefix is missing');
+assert.equal((wizardSource.match(/<span>@<\/span>/g)||[]).length,2,'Telegram and Instagram prefixes are missing');
+assert.match(wizardSource,/socialHandle\('personalTelegram'\).*socialHandle\('personalInstagram'\)/,'social prefixes are not normalized before save');
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
 for(const heading of ['ردیف','نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
 assert.match(studentsSource,/student-identity-cell[^\n]+student\.full_name[^\n]+شماره پرونده[^\n]+student\.case_number/,'case number is not placed below the student name');
