@@ -132,6 +132,8 @@ assert.match(wizardSource,/const button=event\.currentTarget/,'next-step button 
 assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async handler can leave the next-step button disabled');
 assert.doesNotMatch(wizardSource,/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still visible');
 assert.match(studentAppSource,/\/student\/login/,'student login page is missing');
+assert.match(studentAppSource,/studentLoginForm[^\n]+prefixed-input[^\n]+<span>09-<\/span>/,'student login mobile prefix is missing');
+assert.match(studentAppSource,/mobile:completeMobile\(form\.get\('mobile'\)\)/,'student login does not rebuild the full mobile number');
 assert.match(studentAppSource,/\/api\/student\/auth\/login/,'student password login API is not wired');
 assert.match(studentAppSource,/\/student\/change-password/,'optional password-change route is missing');
 assert.match(studentAppSource,/password-recommendation/,'non-blocking password recommendation is missing');
