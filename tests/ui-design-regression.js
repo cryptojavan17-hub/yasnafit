@@ -87,6 +87,9 @@ assert.match(reviewSource,/case_number/,'case number is missing from coach revie
 assert.match(reviewSource,/item\.case_number/,'case number is missing from pending submissions');
 const studentsSource=fs.readFileSync(path.join(publicDir,'students.js'),'utf8');
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
+for(const heading of ['ردیف','شماره پرونده','نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
+assert.doesNotMatch(studentsSource,/شاگرد \/ پرونده/,'student and case columns are still combined');
+assert.match(studentsSource,/listState\.page-1\)\*listState\.pageSize\+index\+1/,'student row number does not respect pagination');
 assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
 assert.match(studentsSource,/شماره پرونده یکتا/,'new-student case number confirmation is missing');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');

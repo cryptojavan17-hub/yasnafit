@@ -99,9 +99,12 @@
       return;
     }
     host.innerHTML=`<div class="students-table-wrap"><table class="students-table"><thead><tr>
-      <th>شاگرد / پرونده</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
-    </tr></thead><tbody>${items.map(student=>`<tr>
-      <td><button class="student-name-link" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b><small class="case-number-inline">پرونده ${esc(student.case_number)} • ${esc(student.mobile||'بدون موبایل')}</small></button></td>
+      <th class="student-row-number">ردیف</th><th>شماره پرونده</th><th>نام و نام خانوادگی</th><th>شماره همراه</th><th>وضعیت</th><th>ارزیابی فعلی</th><th>برنامه فعلی</th><th>آخرین ارزیابی</th><th>ارزیابی بعدی</th><th>تاریخ ثبت</th><th>عملیات</th>
+    </tr></thead><tbody>${items.map((student,index)=>`<tr>
+      <td class="student-row-number">${((listState.page-1)*listState.pageSize+index+1).toLocaleString('fa-IR')}</td>
+      <td><button class="case-number-button" data-open-student="${student.case_number}">${esc(student.case_number)}</button></td>
+      <td><button class="student-name-link" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b></button></td>
+      <td class="student-mobile" dir="ltr">${esc(student.mobile||'—')}</td>
       <td>${statusBadge(student.management_status)}<small class="record-status">${esc(student.student_record_status||'')}</small></td>
       <td>${student.current_assessment_id?`<b>ارزیابی ${student.current_assessment_number}</b><small>${esc(assessmentLabels[student.current_assessment_status]||student.current_assessment_status)}</small>`:'<span class="muted">ثبت نشده</span>'}</td>
       <td>${student.current_program_id?`<b>${esc(programLabels[student.current_program_status]||student.current_program_status)}</b><small>${formatDate(student.current_program_start_date)} تا ${formatDate(student.current_program_end_date)}</small>`:'<span class="muted">بدون برنامه</span>'}</td>
