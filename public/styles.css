@@ -42,7 +42,7 @@ select option { background: var(--surface-2); color: var(--text); }
 input:focus, select:focus, textarea:focus {
   border-color: var(--border-focus);
   background: var(--surface-3);
-  box-shadow: 0 0 0 3px rgba(255,255,255,.09);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.16);
 }
 input:disabled, select:disabled, textarea:disabled { color: var(--text-disabled); opacity: .62; cursor: not-allowed; }
 input[type="checkbox"], input[type="radio"] { width: 17px; min-height: 17px; accent-color: var(--white); }
@@ -208,7 +208,7 @@ tbody tr:last-child td { border-bottom: 0; }
   font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   transition: transform var(--transition), filter var(--transition), background var(--transition), border-color var(--transition), color var(--transition);
 }
-.primary, .btn-primary { background: var(--white); color: var(--black); border-color: var(--white); box-shadow: 0 10px 30px rgba(255,255,255,.08); }
+.primary, .btn-primary { background: var(--accent); color: var(--white); border-color: var(--accent); box-shadow: 0 12px 34px rgba(59,130,246,.24); }
 .secondary, .btn-secondary { background: var(--glass); color: var(--text-secondary); border-color: var(--border); }
 .danger, .btn-danger { background: var(--danger-surface); color: var(--danger); border-color: var(--danger-border); }
 .primary:hover, .btn-primary:hover { filter: brightness(.88); transform: translateY(-1px); }

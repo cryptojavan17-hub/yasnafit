@@ -61,10 +61,13 @@ assert.match(wizardSource,/around_the_belly_from_the_navel/,'normalized measurem
 assert.match(studentAppSource,/\/student\/workouts/,'student workout UI route is missing');
 assert.match(studentAppSource,/\/student\/messages/,'student messaging UI route is missing');
 assert.match(studentAppSource,/data-start-day/,'active program cannot start a real workout');
-assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از 10/,'ten-step progress indicator is missing');
+assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از \$\{steps\.length\}/,'eight-step progress indicator is missing');
+assert.equal((wizardSource.match(/data-step=\"\d\"/g)||[]).length,8,'assessment wizard must have exactly eight main steps');
+assert.match(wizardSource,/segmented-control/,'fast segmented controls are missing');
+assert.match(wizardSource,/saveCurrent\(true\)/,'step-change autosave is missing');
 assert.doesNotMatch(wizardSource,/name="bodyPhotoPreference"/,'optional photos still force a preference choice');
 assert.match(wizardSource,/\['front','side','back','front_flex','back_flex'\]/,'five optional photo slots are missing');
-assert.match(wizardSource,/بدون انتخاب فایل می‌توانید ادامه دهید/,'optional photo wording is missing');
+assert.match(wizardSource,/بدون هیچ فایلی می‌توانید ادامه دهید/,'optional photo wording is missing');
 assert.match(css['student-app.css'],/guides\/body-front\.svg/,'educational pose guides are missing');
 assert.doesNotMatch(wizardSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');

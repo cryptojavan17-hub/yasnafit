@@ -1,68 +1,390 @@
 (() => {
+  'use strict';
+
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت',muscle_gain:'حجم و عضله سازی',fat_loss:'چربی سوزی',competition:'مسابقه‌ای'};
-  const photoLabels={front:'جلو',side:'بغل',back:'پشت',front_flex:'جلو با فیگور بازو',back_flex:'پشت با فیگور بازو'};
-  const normalize=value=>String(value||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'');
-  function formObject(container){return Object.fromEntries(new FormData(container));}
-  function bool(value){return value===undefined||value===null?null:value==='yes';}
-  function nullableNumber(value){const text=normalize(value);return text===''?null:Number(text);}
-  function selectedValues(name){return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input=>input.value);}
-  function field(id){return document.querySelector(`#${id}`)?.value?.trim()||'';}
-  function setConditional(){document.querySelectorAll('[data-show-if]').forEach(element=>{const [name,value]=element.dataset.showIf.split(':');element.hidden=document.querySelector(`[name="${name}"]:checked`)?.value!==value;});}
+  const normalize=value=>String(value||'')
+    .replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'');
+  const number=value=>{const normalized=normalize(value);return normalized===''?null:Number(normalized);};
+  const bool=value=>value===undefined||value===null?null:value==='yes';
+  const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
+  const photoLabels={front:'نمای جلو',side:'نمای بغل',back:'نمای پشت',front_flex:'جلو با حالت بازو',back_flex:'پشت با حالت بازو'};
+  const steps=[
+    {title:'اطلاعات شخصی',hint:'مشخصات پایه شما'},
+    {title:'هدف‌ها',hint:'انتخاب هدف این دوره'},
+    {title:'اندازه‌های بدن',hint:'ثبت وضعیت فعلی'},
+    {title:'سوابق پزشکی',hint:'ایمن‌سازی برنامه'},
+    {title:'سابقه ورزشی',hint:'تنظیم سطح تمرین'},
+    {title:'تغذیه و سبک زندگی',hint:'عادت‌های روزمره'},
+    {title:'تصاویر و مدارک',hint:'کاملاً اختیاری'},
+    {title:'بازبینی و ارسال',hint:'کنترل نهایی اطلاعات'}
+  ];
+
+  const field=id=>document.querySelector(`#${id}`)?.value?.trim()||'';
+  const checked=name=>document.querySelector(`[name="${name}"]:checked`)?.value;
+  const selected=name=>[...document.querySelectorAll(`[name="${name}"]:checked`)].map(input=>input.value);
+  const option=(value,label,current)=>`<option value="${value}" ${String(current)===String(value)?'selected':''}>${label}</option>`;
+  const segment=(name,label,current,yes='بله',no='خیر')=>`
+    <fieldset class="choice-card">
+      <legend>${label}</legend>
+      <div class="segmented-control">
+        <label><input type="radio" name="${name}" value="no" ${current===0?'checked':''}><span>${no}</span></label>
+        <label><input type="radio" name="${name}" value="yes" ${current===1?'checked':''}><span>${yes}</span></label>
+      </div>
+    </fieldset>`;
+  const textArea=(id,label,value='',placeholder='در صورت نیاز کوتاه توضیح دهید')=>`
+    <label class="field-control"><span>${label}</span><textarea id="${id}" rows="2" placeholder="${placeholder}">${esc(value)}</textarea></label>`;
+
+  function setConditional(){
+    document.querySelectorAll('[data-show-if]').forEach(element=>{
+      const [name,value]=element.dataset.showIf.split(':');
+      element.hidden=checked(name)!==value;
+    });
+  }
+
   window.YasnafitAssessmentWizard={
     async mount({root,api,me,toast,renderSuccess}){
-      const initial=await api('/api/student/onboarding'),catalogResponse=await api('/api/student/assessment/catalogs');
+      const [initial,catalogResponse]=await Promise.all([
+        api('/api/student/onboarding'),
+        api('/api/student/assessment/catalogs')
+      ]);
       if(me.next_route!=='/student/onboarding'&&!initial.assessment){location.replace('/student/dashboard');return;}
-      const state={step:0,student:initial.student,assessment:initial.assessment||{},details:initial.details||{},preference:initial.assessment?.body_photos_preference||'willing',photos:Object.fromEntries((initial.assessment?.photos||[]).map(photo=>[photo.photo_type,photo])),documents:initial.assessment?.documents||[],lastSaved:initial.assessment?.draft_saved_at||null};
-      const steps=['اطلاعات کلی','اندازه‌های بدنی','سوابق پزشکی','سوابق ورزشی','سوابق تغذیه','عادات شخصی','سوابق بارداری','تصاویر و مدارک','بازبینی','ارسال'];
-      const d=state.details,student=state.student,medical=d.medical||{},sports=d.sports||{},nutrition=d.nutrition||{},habits=d.habits||{},pregnancy=d.pregnancy||{},measure=d.measurements||{};
-      const radio=(name,label,yesValue,noValue,current)=>`<fieldset class="wizard-question"><legend>${label}</legend><label><input type="radio" name="${name}" value="yes" ${current===1?'checked':''}> ${yesValue}</label><label><input type="radio" name="${name}" value="no" ${current===0?'checked':''}> ${noValue}</label></fieldset>`;
-      const catalogItems=[];for(const [category,items] of Object.entries(catalogResponse.catalogs.injuries))for(const name of items)catalogItems.push({kind:'injury',category,name});for(const [category,items] of Object.entries(catalogResponse.catalogs.surgeries))for(const name of items)catalogItems.push({kind:'surgery',category,name});for(const [category,items] of Object.entries(catalogResponse.catalogs.diseases))for(const name of items)catalogItems.push({kind:'disease',category,name});for(const name of catalogResponse.catalogs.corrective)catalogItems.push({kind:'corrective',category:'ناهنجاری اصلاحی',name});
-      const savedItems=new Set((d.medical_items||[]).map(item=>`${item.kind}|${item.category}|${item.name}`));
-      root.innerHTML=`<div class="onboarding-shell"><div class="onboarding-wrap assessment-wizard"><header class="onboarding-head"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>${state.assessment.assessment_type==='MONTHLY'?'ارزیابی ماهانه':'پرونده اولیه'}</small></div></div><div><span class="onboarding-progress-label" id="progressLabel"></span><small class="last-saved" id="lastSaved">${state.lastSaved?`آخرین ذخیره: ${new Date(state.lastSaved).toLocaleString('fa-IR')}`:'هنوز ذخیره نشده'}</small></div></header><div class="progress-track"><div class="progress-value" id="progressValue"></div></div><div class="wizard-top-error" data-wizard-error role="alert"></div><main class="onboarding-card">
-      <section class="onboarding-step" data-step="0"><h1>اطلاعات کلی</h1><p>هدف‌های این دوره را انتخاب کنید. انتخاب مسابقه‌ای سایر هدف‌ها را پاک می‌کند.</p><div class="goal-grid">${Object.entries(goalLabels).map(([code,label])=>`<label><input type="checkbox" name="goals" value="${code}" ${(d.goals||[]).includes(code)?'checked':''}>${label}</label>`).join('')}</div><div class="student-profile-grid"><label>جنسیت<select id="wizardGender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label class="wide">توضیحات اضافه<textarea id="generalNotes">${esc(state.assessment.student_note||'')}</textarea></label></div></section>
-      <section class="onboarding-step" data-step="1"><h1>اندازه‌های بدنی</h1><p>مقادیر فعلی را با سانتی‌متر و کیلوگرم وارد کنید.</p><div class="student-profile-grid measurement-grid">${[['height','قد','cm',measure.height??state.assessment.height],['weight','وزن','kg',measure.weight??state.assessment.weight],['around_the_arm','دور بازو','cm',measure.around_the_arm],['around_the_chest','دور سینه','cm',measure.around_the_chest],['around_the_belly','دور شکم بین سینه و ناف','cm',measure.around_the_belly],['around_the_belly_from_the_navel','دور شکم از روی ناف','cm',measure.around_the_belly_from_the_navel],['around_the_hips','دور باسن','cm',measure.around_the_hips],['around_the_thigh','دور ران','cm',measure.around_the_thigh],['around_the_leg','دور ساق پا','cm',measure.around_the_leg],['around_the_wrist','دور مچ دست','cm',measure.around_the_wrist]].map(([id,label,unit,value])=>`<label>${label}${['height','weight'].includes(id)?' *':''}<div class="unit-input"><input id="m_${id}" inputmode="decimal" dir="ltr" value="${esc(value??'')}"><span>${unit}</span></div></label>`).join('')}</div></section>
-      <section class="onboarding-step" data-step="2"><h1>سوابق پزشکی</h1><p>این بخش فقط ثبت سابقه خوداظهاری است و ابزار تشخیص پزشکی نیست.</p>${radio('has_disease','آیا سابقه بیماری دارید؟','دارم','ندارم',medical.has_disease)}<label data-show-if="has_disease:yes">نوع و مدت بیماری<textarea id="diseaseDetails">${esc(medical.disease_details||'')}</textarea></label>${radio('has_medication','آیا سابقه مصرف دارو دارید؟','دارم','ندارم',medical.has_medication)}<label data-show-if="has_medication:yes">نوع و مدت مصرف دارو<textarea id="medicationDetails">${esc(medical.medication_details||'')}</textarea></label>${radio('has_injury','آیا سابقه آسیب‌دیدگی دارید؟','دارم','ندارم',medical.has_injury)}<label data-show-if="has_injury:yes">شرح آسیب‌دیدگی<textarea id="injuryDetails">${esc(medical.injury_details||'')}</textarea></label>${radio('has_surgery','آیا سابقه عمل جراحی دارید؟','دارم','ندارم',medical.has_surgery)}<label data-show-if="has_surgery:yes">شرح عمل جراحی<textarea id="surgeryDetails">${esc(medical.surgery_details||'')}</textarea></label><div class="student-profile-grid"><label class="wide">آخرین آزمایش خون<textarea id="bloodTestNotes">${esc(medical.last_blood_test_notes||'')}</textarea></label><label class="wide">ناهنجاری‌های برنامه اصلاحی<textarea id="correctiveNotes">${esc(medical.corrective_notes||'')}</textarea></label></div><div class="catalog"><input id="catalogSearch" placeholder="جستجو در آسیب‌ها، بیماری‌ها و جراحی‌ها"><div class="catalog-items" id="catalogItems">${catalogItems.map((item,index)=>`<label data-catalog-text="${esc(`${item.category} ${item.name}`)}"><input type="checkbox" name="medicalItem" value="${index}" ${savedItems.has(`${item.kind}|${item.category}|${item.name}`)?'checked':''}><b>${esc(item.name)}</b><small>${esc(item.category)}</small></label>`).join('')}</div></div></section>
-      <section class="onboarding-step" data-step="3"><h1>سوابق ورزشی</h1><div class="student-profile-grid"><label>فعالیت روزانه<select id="dailyActivity"><option value="low">کم</option><option value="medium">متوسط</option><option value="high">زیاد</option></select></label><label>محل تمرین<select id="practicePlace"><option value="gym">باشگاه</option><option value="home">منزل</option></select></label><label>تعداد جلسات<select id="sessionsPerWeek"><option value="3">۳ جلسه</option><option value="4">۴ جلسه</option><option value="5">۵ جلسه</option></select></label><label>تجهیزات منزل<input id="homeEquipment" placeholder="دمبل، کش" value="${esc(sports.home_equipment||'')}"></label></div>${radio('practice_history','سابقه تمرین دارید؟','دارم','ندارم',sports.practice_history)}<div data-show-if="practice_history:yes" class="student-profile-grid"><label>مدت تمرین<input id="practiceDuration" value="${esc(sports.practice_duration||'')}"></label><label>رشته ورزشی<input id="sportDiscipline" value="${esc(sports.sport_discipline||'')}"></label><label class="wide">شرح سابقه<textarea id="practiceHistoryDetails">${esc(sports.practice_history_details||'')}</textarea></label></div>${radio('practice_now','اکنون تمرین می‌کنید؟','دارم','ندارم',sports.practice_now)}<label data-show-if="practice_now:yes">شرح تمرین فعلی<textarea id="currentPracticeDetails">${esc(sports.current_practice_details||'')}</textarea></label>${radio('supplement_history','سابقه مکمل دارید؟','دارم','ندارم',sports.supplement_history)}<label data-show-if="supplement_history:yes">نوع و مقدار مصرف<textarea id="supplementDetails">${esc(sports.supplement_details||'')}</textarea></label><label>سابقه دوپینگ<textarea id="dopingHistory">${esc(sports.doping_history||'')}</textarea></label></section>
-      <section class="onboarding-step" data-step="4"><h1>سوابق تغذیه</h1><div class="student-profile-grid"><label>نوع رژیم<select id="dietType"><option value="iranian">رژیم سفره ایرانی</option><option value="professional">رژیم حرفه‌ای</option></select></label><label>وضعیت اشتها<select id="appetiteStatus"><option value="low_eating">کم خوری</option><option value="grazing">ریز خوری</option><option value="overeating">پر خوری</option><option value="emotional_overeating">پر خوری عصبی</option><option value="anorexia">بی اشتهایی عصبی</option></select></label><label>مشکل دفع<select id="defecationProblem"><option value="none">خیر</option><option value="constipation">یبوست</option><option value="diarrhea">اسهال</option><option value="difficult_defecation">سندروم دفع سخت</option></select></label></div>${radio('previous_diet','قبلاً رژیم داشته‌اید؟','بله','خیر',nutrition.previous_diet)}<div data-show-if="previous_diet:yes" class="student-profile-grid"><label>مدت زمان<input id="previousDietDuration" value="${esc(nutrition.previous_diet_duration||'')}"></label><label>نوع رژیم<input id="previousDietType" value="${esc(nutrition.previous_diet_type||'')}"></label><label class="wide">توضیحات<textarea id="previousDietNotes">${esc(nutrition.previous_diet_notes||'')}</textarea></label></div><div class="student-profile-grid"><label class="wide">حساسیت یا عدم تحمل غذایی<textarea id="foodAllergies">${esc(nutrition.food_allergies||'')}</textarea></label><label class="wide">تغییرات وزن<textarea id="weightChanges">${esc(nutrition.weight_changes||'')}</textarea></label><label class="wide">توضیحات اشتها<textarea id="appetiteNotes">${esc(nutrition.appetite_notes||'')}</textarea></label><label>صبحانه<textarea id="breakfast" placeholder="مثلاً نان، پنیر، چای">${esc(nutrition.breakfast||'')}</textarea></label><label>نهار<textarea id="lunch" placeholder="مثلاً برنج و خورشت">${esc(nutrition.lunch||'')}</textarea></label><label>شام<textarea id="dinner" placeholder="مثلاً غذای سبک">${esc(nutrition.dinner||'')}</textarea></label></div></section>
-      <section class="onboarding-step" data-step="5"><h1>عادات شخصی</h1>${radio('smoking','مصرف دخانیات دارید؟','دارم','ندارم',habits.smoking)}<label data-show-if="smoking:yes">توضیحات مصرف دخانیات<textarea id="smokingDetails">${esc(habits.smoking_details||'')}</textarea></label>${radio('alcohol','مصرف الکل دارید؟','دارم','ندارم',habits.alcohol)}<label data-show-if="alcohol:yes">توضیحات مصرف الکل<textarea id="alcoholDetails">${esc(habits.alcohol_details||'')}</textarea></label></section>
-      <section class="onboarding-step" data-step="6"><h1>سوابق بارداری و زایمان</h1><div id="pregnancyContent"></div></section>
-      <section class="onboarding-step" data-step="7"><div class="optional-section-title"><div><h1>تصاویر و مدارک</h1><span>اختیاری</span></div></div><div class="privacy-notice">ارسال تصاویر و مدارک کاملاً اختیاری است؛ بدون انتخاب فایل می‌توانید ادامه دهید. راهنماها فقط نحوه ایستادن را نشان می‌دهند و تصویر واقعی شما فقط برای مربی قابل مشاهده است.</div><div id="photoPreferenceResult"></div><div class="upload-grid" id="uploadGrid"></div><div class="optional-documents"><div><b>آزمایش خون</b><span>PDF یا تصویر • اختیاری</span><button class="secondary" data-pick-document="blood_test">انتخاب فایل</button><input hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-document-input="blood_test"></div><div><b>آنالیز بدن</b><span>PDF یا تصویر • اختیاری</span><button class="secondary" data-pick-document="body_analysis">انتخاب فایل</button><input hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-document-input="body_analysis"></div><div><b>گالری تکمیلی</b><span>تصویر • اختیاری</span><button class="secondary" data-pick-document="additional_image">انتخاب تصویر</button><input hidden type="file" accept="image/jpeg,image/png,image/webp" data-document-input="additional_image"></div></div><div class="document-list" id="documentList"></div></section>
-      <section class="onboarding-step" data-step="8"><h1>بازبینی پرونده</h1><p>برای ویرایش هر بخش از دکمه همان بخش استفاده کنید.</p><div class="review-sections" id="reviewSections"></div></section>
-      <section class="onboarding-step" data-step="9"><h1>ارسال پرونده برای مربی</h1><p>پس از ارسال، پرونده بدون درخواست اصلاح مربی قابل تغییر نیست.</p><label class="review-confirm"><input type="checkbox" id="confirmAssessment"> آیا از صحت اطلاعات وارد شده اطمینان دارید؟</label></section>
-      <div class="onboarding-error" id="onboardingError" data-wizard-error role="alert"></div><div class="student-actions"><button class="secondary" id="prevStep">مرحله قبل</button><button class="secondary" id="saveDraft">ذخیره موقت</button><button class="primary" id="nextStep">مرحله بعد</button></div></main></div></div>`;
-      const setSelect=(id,value)=>{const element=document.querySelector(`#${id}`);if(element&&value!==null&&value!==undefined)element.value=String(value);};
-      setSelect('dailyActivity',sports.average_daily_activity||'medium');setSelect('practicePlace',sports.practice_place||'gym');setSelect('sessionsPerWeek',sports.sessions_per_week||3);setSelect('dietType',nutrition.diet_type||'iranian');setSelect('appetiteStatus',nutrition.appetite_status||'low_eating');setSelect('defecationProblem',nutrition.defecation_problem||'none');
-      function showError(message=''){document.querySelectorAll('[data-wizard-error]').forEach(box=>{box.textContent=message;box.classList.toggle('visible',Boolean(message))});if(message)document.querySelector('.wizard-top-error')?.scrollIntoView({behavior:'smooth',block:'nearest'});}
-      function updateSaved(value){state.lastSaved=value||new Date().toISOString();document.querySelector('#lastSaved').textContent=`آخرین ذخیره: ${new Date(state.lastSaved).toLocaleString('fa-IR')}`;}
-      async function save(section,payload,silent=false){try{const response=await api(`/api/student/assessment/sections/${section}`,{method:'PUT',body:JSON.stringify(payload)});state.assessment=response.assessment;state.details=response.details;updateSaved(response.last_saved_at);if(!silent)toast('پیش‌نویس ذخیره شد.');return response;}catch(error){if(!silent)showError(error.message);throw error;}}
-      function sectionPayload(index){
-        if(index===0)return {goals:selectedValues('goals'),additional_notes:field('generalNotes'),gender:field('wizardGender')};
-        if(index===1)return {height:nullableNumber(field('m_height')),weight:nullableNumber(field('m_weight')),around_the_arm:nullableNumber(field('m_around_the_arm')),around_the_chest:nullableNumber(field('m_around_the_chest')),around_the_belly:nullableNumber(field('m_around_the_belly')),around_the_belly_from_the_navel:nullableNumber(field('m_around_the_belly_from_the_navel')),around_the_hips:nullableNumber(field('m_around_the_hips')),around_the_leg:nullableNumber(field('m_around_the_leg')),around_the_thigh:nullableNumber(field('m_around_the_thigh')),around_the_wrist:nullableNumber(field('m_around_the_wrist'))};
-        if(index===2)return {has_disease:bool(document.querySelector('[name="has_disease"]:checked')?.value),disease_details:field('diseaseDetails'),has_medication:bool(document.querySelector('[name="has_medication"]:checked')?.value),medication_details:field('medicationDetails'),has_injury:bool(document.querySelector('[name="has_injury"]:checked')?.value),injury_details:field('injuryDetails'),has_surgery:bool(document.querySelector('[name="has_surgery"]:checked')?.value),surgery_details:field('surgeryDetails'),last_blood_test_notes:field('bloodTestNotes'),corrective_notes:field('correctiveNotes'),items:[...document.querySelectorAll('[name="medicalItem"]:checked')].map(input=>catalogItems[Number(input.value)])};
-        if(index===3)return {average_daily_activity:field('dailyActivity'),practice_history:bool(document.querySelector('[name="practice_history"]:checked')?.value),practice_history_details:field('practiceHistoryDetails'),practice_duration:field('practiceDuration'),sport_discipline:field('sportDiscipline'),practice_now:bool(document.querySelector('[name="practice_now"]:checked')?.value),current_practice_details:field('currentPracticeDetails'),practice_place:field('practicePlace'),home_equipment:field('homeEquipment'),sessions_per_week:Number(field('sessionsPerWeek')),supplement_history:bool(document.querySelector('[name="supplement_history"]:checked')?.value),supplement_details:field('supplementDetails'),doping_history:field('dopingHistory')};
-        if(index===4)return {diet_type:field('dietType'),previous_diet:bool(document.querySelector('[name="previous_diet"]:checked')?.value),previous_diet_duration:field('previousDietDuration'),previous_diet_type:field('previousDietType'),previous_diet_notes:field('previousDietNotes'),food_allergies:field('foodAllergies'),weight_changes:field('weightChanges'),appetite_status:field('appetiteStatus'),appetite_notes:field('appetiteNotes'),defecation_problem:field('defecationProblem'),breakfast:field('breakfast'),lunch:field('lunch'),dinner:field('dinner')};
-        if(index===5)return {smoking:bool(document.querySelector('[name="smoking"]:checked')?.value),smoking_details:field('smokingDetails'),alcohol:bool(document.querySelector('[name="alcohol"]:checked')?.value),alcohol_details:field('alcoholDetails')};
-        if(index===6&&field('wizardGender')==='female')return {childbirth_history:bool(document.querySelector('[name="childbirth_history"]:checked')?.value),childbirth_count:nullableNumber(field('childbirthCount')),childbirth_type:field('childbirthType'),childbirth_notes:field('childbirthNotes'),breastfeeding:bool(document.querySelector('[name="breastfeeding"]:checked')?.value),breastfeeding_notes:field('breastfeedingNotes'),child_age_months:nullableNumber(field('childAgeMonths')),formula_use:bool(document.querySelector('[name="formula_use"]:checked')?.value),formula_type:field('formulaType'),formula_amount:field('formulaAmount'),formula_frequency:field('formulaFrequency'),child_food_allergy:bool(document.querySelector('[name="child_food_allergy"]:checked')?.value),child_food_allergy_notes:field('childFoodAllergyNotes')};
-        return null;
+
+      const student=initial.student||{};
+      const assessment=initial.assessment||{};
+      const details=initial.details||{};
+      const measurements=details.measurements||{};
+      const medical=details.medical||{};
+      const sports=details.sports||{};
+      const nutrition=details.nutrition||{};
+      const habits=details.habits||{};
+      const pregnancy=details.pregnancy||{};
+      const state={
+        step:0,
+        assessment,
+        details,
+        student,
+        photos:Object.fromEntries((assessment.photos||[]).map(photo=>[photo.photo_type,photo])),
+        documents:assessment.documents||[],
+        lastSaved:assessment.draft_saved_at||null,
+        saving:false
+      };
+
+      const catalogItems=[];
+      for(const [category,items] of Object.entries(catalogResponse.catalogs.injuries))for(const name of items)catalogItems.push({kind:'injury',category,name});
+      for(const [category,items] of Object.entries(catalogResponse.catalogs.surgeries))for(const name of items)catalogItems.push({kind:'surgery',category,name});
+      for(const [category,items] of Object.entries(catalogResponse.catalogs.diseases))for(const name of items)catalogItems.push({kind:'disease',category,name});
+      for(const name of catalogResponse.catalogs.corrective)catalogItems.push({kind:'corrective',category:'ناهنجاری اصلاحی',name});
+      const savedItems=new Set((details.medical_items||[]).map(item=>`${item.kind}|${item.category}|${item.name}`));
+
+      const measureFields=[
+        ['height','قد','cm',measurements.height??assessment.height,true],
+        ['weight','وزن','kg',measurements.weight??assessment.weight,true],
+        ['around_the_arm','دور بازو','cm',measurements.around_the_arm],
+        ['around_the_chest','دور سینه','cm',measurements.around_the_chest],
+        ['around_the_belly','دور شکم','cm',measurements.around_the_belly],
+        ['around_the_belly_from_the_navel','دور ناف','cm',measurements.around_the_belly_from_the_navel],
+        ['around_the_hips','دور باسن','cm',measurements.around_the_hips],
+        ['around_the_thigh','دور ران','cm',measurements.around_the_thigh],
+        ['around_the_leg','دور ساق','cm',measurements.around_the_leg],
+        ['around_the_wrist','دور مچ','cm',measurements.around_the_wrist]
+      ];
+      const measureInput=([id,label,unit,value,required])=>`
+        <label class="metric-input"><span>${label}${required?' <i>ضروری</i>':''}</span><div><input id="m_${id}" inputmode="decimal" dir="ltr" value="${esc(value??'')}" placeholder="0"><b>${unit}</b></div></label>`;
+
+      root.innerHTML=`
+        <div class="onboarding-shell assessment-page">
+          <div class="onboarding-wrap assessment-wizard">
+            <header class="wizard-header">
+              <a class="wizard-brand" href="/student/dashboard" aria-label="بازگشت به پنل"><span>Y</span><div><b>YASNAFIT</b><small>${assessment.assessment_type==='MONTHLY'?'ارزیابی ماهانه':'ارزیابی اولیه'}</small></div></a>
+              <div class="save-state" id="saveState" aria-live="polite"><span></span><b>${state.lastSaved?'ذخیره شده':'آماده تکمیل'}</b><small id="lastSaved">${state.lastSaved?new Date(state.lastSaved).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}):'ذخیره خودکار فعال است'}</small></div>
+            </header>
+
+            <section class="wizard-progress" aria-label="پیشرفت ارزیابی">
+              <div class="wizard-progress-copy"><div><span id="stepCount"></span><h1 id="stepTitle"></h1></div><strong id="progressPercent"></strong></div>
+              <div class="progress-track"><div class="progress-value" id="progressValue"></div></div>
+              <div class="step-dots">${steps.map((step,index)=>`<button type="button" data-step-dot="${index}" aria-label="${step.title}"><span>${index+1}</span><small>${step.title}</small></button>`).join('')}</div>
+            </section>
+
+            <div class="wizard-top-error" data-wizard-error role="alert"></div>
+            <main class="onboarding-card">
+              <section class="onboarding-step" data-step="0">
+                <div class="step-heading"><span class="step-icon">01</span><div><h2>اول خودتان را معرفی کنید</h2><p>این اطلاعات فقط برای پرونده خصوصی شما استفاده می‌شود.</p></div></div>
+                <div class="form-grid compact-grid">
+                  <label class="field-control wide"><span>نام و نام خانوادگی <i>ضروری</i></span><input id="personalName" maxlength="100" autocomplete="name" value="${esc(student.full_name||'')}" placeholder="نام کامل شما"></label>
+                  <label class="field-control"><span>شماره موبایل</span><input id="personalMobile" inputmode="tel" dir="ltr" maxlength="20" autocomplete="tel" value="${esc(student.mobile||'')}" placeholder="09xxxxxxxxx"></label>
+                  <label class="field-control"><span>تاریخ تولد</span><input id="personalBirthDate" type="date" dir="ltr" value="${esc(student.date_of_birth||'')}"></label>
+                </div>
+                <fieldset class="option-group"><legend>جنسیت</legend><div class="select-cards three"><label><input type="radio" name="wizardGender" value="female" ${student.gender==='female'?'checked':''}><span>خانم</span></label><label><input type="radio" name="wizardGender" value="male" ${student.gender==='male'?'checked':''}><span>آقا</span></label><label><input type="radio" name="wizardGender" value="unspecified" ${!['female','male'].includes(student.gender)?'checked':''}><span>ترجیح می‌دهم نگویم</span></label></div></fieldset>
+                <fieldset class="option-group"><legend>محل اصلی تمرین</legend><div class="select-cards two"><label><input type="radio" name="preferredLocation" value="gym" ${student.preferred_location!=='home'?'checked':''}><span>باشگاه</span></label><label><input type="radio" name="preferredLocation" value="home" ${student.preferred_location==='home'?'checked':''}><span>منزل</span></label></div></fieldset>
+              </section>
+
+              <section class="onboarding-step" data-step="1">
+                <div class="step-heading"><span class="step-icon">02</span><div><h2>از این دوره چه می‌خواهید؟</h2><p>یک یا چند هدف را انتخاب کنید؛ انتخاب مسابقه مستقل است.</p></div></div>
+                <div class="goal-grid">${Object.entries(goalLabels).map(([code,label])=>`<label><input type="checkbox" name="goals" value="${code}" ${(details.goals||[]).includes(code)?'checked':''}><span><b>${label}</b><small>${code==='competition'?'برنامه‌ریزی تخصصی':'انتخاب هدف'}</small></span></label>`).join('')}</div>
+                ${textArea('generalNotes','نکته‌ای که مربی باید بداند',assessment.student_note||'','اختیاری؛ کوتاه و کاربردی بنویسید')}
+              </section>
+
+              <section class="onboarding-step" data-step="2">
+                <div class="step-heading"><span class="step-icon">03</span><div><h2>اندازه‌های فعلی بدن</h2><p>فقط قد و وزن ضروری است؛ سایر اندازه‌ها دقت برنامه را بیشتر می‌کنند.</p></div></div>
+                <div class="metric-grid essentials">${measureFields.slice(0,2).map(measureInput).join('')}</div>
+                <details class="optional-disclosure" ${measureFields.slice(2).some(item=>item[3]!=null)?'open':''}>
+                  <summary><span><b>اندازه‌های تکمیلی</b><small>اختیاری • ۸ مورد</small></span><i>＋</i></summary>
+                  <div class="metric-grid">${measureFields.slice(2).map(measureInput).join('')}</div>
+                </details>
+                <div class="measurement-tip"><span>◎</span><p>متر را بدون فشار و موازی زمین نگه دارید. اعداد فارسی و اعشاری پذیرفته می‌شوند.</p></div>
+              </section>
+
+              <section class="onboarding-step" data-step="3">
+                <div class="step-heading"><span class="step-icon">04</span><div><h2>سوابق پزشکی</h2><p>چهار پاسخ سریع برای طراحی تمرین ایمن‌تر.</p></div></div>
+                <div class="question-grid">
+                  ${segment('has_disease','سابقه بیماری دارید؟',medical.has_disease,'دارم','ندارم')}
+                  ${segment('has_medication','دارو مصرف می‌کنید؟',medical.has_medication,'مصرف می‌کنم','خیر')}
+                  ${segment('has_injury','آسیب‌دیدگی داشته‌اید؟',medical.has_injury,'داشته‌ام','خیر')}
+                  ${segment('has_surgery','سابقه جراحی دارید؟',medical.has_surgery,'دارم','ندارم')}
+                </div>
+                <div class="conditional-stack">
+                  <div data-show-if="has_disease:yes">${textArea('diseaseDetails','نوع و مدت بیماری',medical.disease_details)}</div>
+                  <div data-show-if="has_medication:yes">${textArea('medicationDetails','نام دارو و مدت مصرف',medical.medication_details)}</div>
+                  <div data-show-if="has_injury:yes">${textArea('injuryDetails','محل و شرح آسیب',medical.injury_details)}</div>
+                  <div data-show-if="has_surgery:yes">${textArea('surgeryDetails','نوع و زمان جراحی',medical.surgery_details)}</div>
+                </div>
+                <details class="optional-disclosure medical-picker" ${savedItems.size?'open':''}>
+                  <summary><span><b>انتخاب سریع سابقه‌ها</b><small>${savedItems.size?`${savedItems.size} مورد انتخاب شده`:'اختیاری • جستجو در فهرست'}</small></span><i>＋</i></summary>
+                  <div class="catalog"><input id="catalogSearch" type="search" placeholder="نام آسیب، بیماری یا جراحی را بنویسید"><div class="catalog-items" id="catalogItems">${catalogItems.map((item,index)=>`<label data-catalog-text="${esc(`${item.category} ${item.name}`)}"><input type="checkbox" name="medicalItem" value="${index}" ${savedItems.has(`${item.kind}|${item.category}|${item.name}`)?'checked':''}><span><b>${esc(item.name)}</b><small>${esc(item.category)}</small></span></label>`).join('')}</div></div>
+                </details>
+                <details class="optional-disclosure"><summary><span><b>یادداشت‌های تکمیلی پزشکی</b><small>اختیاری</small></span><i>＋</i></summary><div class="form-grid">${textArea('bloodTestNotes','نکته مهم از آخرین آزمایش خون',medical.last_blood_test_notes)}${textArea('correctiveNotes','ناهنجاری یا تمرین اصلاحی',medical.corrective_notes)}</div></details>
+              </section>
+
+              <section class="onboarding-step" data-step="4">
+                <div class="step-heading"><span class="step-icon">05</span><div><h2>سابقه و شرایط تمرین</h2><p>پاسخ‌های کوتاه برای انتخاب حجم و شدت مناسب.</p></div></div>
+                <div class="quick-select-grid">
+                  <label class="field-control"><span>فعالیت روزانه</span><select id="dailyActivity">${option('low','کم',sports.average_daily_activity||'medium')}${option('medium','متوسط',sports.average_daily_activity||'medium')}${option('high','زیاد',sports.average_daily_activity||'medium')}</select></label>
+                  <label class="field-control"><span>محل تمرین</span><select id="practicePlace">${option('gym','باشگاه',sports.practice_place||student.preferred_location||'gym')}${option('home','منزل',sports.practice_place||student.preferred_location||'gym')}</select></label>
+                  <label class="field-control"><span>جلسه در هفته</span><select id="sessionsPerWeek">${[3,4,5].map(value=>option(value,`${value} جلسه`,sports.sessions_per_week||3)).join('')}</select></label>
+                </div>
+                <div class="question-grid">
+                  ${segment('practice_history','سابقه تمرین منظم دارید؟',sports.practice_history,'دارم','ندارم')}
+                  ${segment('practice_now','اکنون تمرین می‌کنید؟',sports.practice_now,'بله','خیر')}
+                  ${segment('supplement_history','سابقه مصرف مکمل دارید؟',sports.supplement_history,'دارم','ندارم')}
+                </div>
+                <div class="conditional-stack">
+                  <div data-show-if="practice_history:yes" class="form-grid"><label class="field-control"><span>مدت سابقه</span><select id="practiceDuration">${sports.practice_duration&&!['less_than_6_months','6_to_12_months','1_to_3_years','more_than_3_years'].includes(sports.practice_duration)?option(sports.practice_duration,sports.practice_duration,sports.practice_duration):''}${option('less_than_6_months','کمتر از ۶ ماه',sports.practice_duration)}${option('6_to_12_months','۶ تا ۱۲ ماه',sports.practice_duration)}${option('1_to_3_years','۱ تا ۳ سال',sports.practice_duration)}${option('more_than_3_years','بیشتر از ۳ سال',sports.practice_duration)}</select></label><label class="field-control"><span>رشته اصلی</span><input id="sportDiscipline" value="${esc(sports.sport_discipline||'')}" placeholder="مثلاً بدنسازی"></label>${textArea('practiceHistoryDetails','شرح کوتاه سابقه',sports.practice_history_details)}</div>
+                  <div data-show-if="practice_now:yes">${textArea('currentPracticeDetails','تمرین فعلی شما',sports.current_practice_details)}</div>
+                  <div data-show-if="supplement_history:yes">${textArea('supplementDetails','نوع و مقدار مکمل',sports.supplement_details)}</div>
+                </div>
+                <details class="optional-disclosure"><summary><span><b>اطلاعات تکمیلی تمرین</b><small>اختیاری</small></span><i>＋</i></summary><div class="form-grid"><label class="field-control"><span>تجهیزات موجود در منزل</span><input id="homeEquipment" value="${esc(sports.home_equipment||'')}" placeholder="دمبل، کش، نیمکت"></label>${textArea('dopingHistory','سابقه دوپینگ',sports.doping_history,'در صورت وجود توضیح دهید')}</div></details>
+              </section>
+
+              <section class="onboarding-step" data-step="5">
+                <div class="step-heading"><span class="step-icon">06</span><div><h2>تغذیه و سبک زندگی</h2><p>سه بخش کوتاه؛ بین آن‌ها جابه‌جا شوید.</p></div></div>
+                <div class="substep-tabs" role="tablist"><button type="button" class="active" data-lifestyle-tab="nutrition">تغذیه</button><button type="button" data-lifestyle-tab="habits">عادت‌ها</button><button type="button" data-lifestyle-tab="pregnancy" ${student.gender==='female'?'':'hidden'}>بارداری و زایمان</button></div>
+                <div class="lifestyle-panel active" data-lifestyle-panel="nutrition">
+                  <div class="quick-select-grid"><label class="field-control"><span>الگوی غذایی</span><select id="dietType">${option('iranian','سفره ایرانی',nutrition.diet_type||'iranian')}${option('professional','رژیم حرفه‌ای',nutrition.diet_type||'iranian')}</select></label><label class="field-control"><span>وضعیت اشتها</span><select id="appetiteStatus">${option('low_eating','کم‌خوری',nutrition.appetite_status||'low_eating')}${option('grazing','ریز‌خوری',nutrition.appetite_status||'low_eating')}${option('overeating','پرخوری',nutrition.appetite_status||'low_eating')}${option('emotional_overeating','پرخوری عصبی',nutrition.appetite_status||'low_eating')}${option('anorexia','بی‌اشتهایی عصبی',nutrition.appetite_status||'low_eating')}</select></label><label class="field-control"><span>وضعیت دفع</span><select id="defecationProblem">${option('none','بدون مشکل',nutrition.defecation_problem||'none')}${option('constipation','یبوست',nutrition.defecation_problem||'none')}${option('diarrhea','اسهال',nutrition.defecation_problem||'none')}${option('difficult_defecation','دفع سخت',nutrition.defecation_problem||'none')}</select></label></div>
+                  ${segment('previous_diet','قبلاً رژیم داشته‌اید؟',nutrition.previous_diet)}
+                  <div data-show-if="previous_diet:yes" class="form-grid"><label class="field-control"><span>مدت رژیم</span><input id="previousDietDuration" value="${esc(nutrition.previous_diet_duration||'')}"></label><label class="field-control"><span>نوع رژیم</span><input id="previousDietType" value="${esc(nutrition.previous_diet_type||'')}"></label>${textArea('previousDietNotes','نتیجه یا توضیح رژیم',nutrition.previous_diet_notes)}</div>
+                  <details class="optional-disclosure"><summary><span><b>جزئیات بیشتر تغذیه</b><small>اختیاری</small></span><i>＋</i></summary><div class="form-grid">${textArea('foodAllergies','حساسیت یا عدم تحمل غذایی',nutrition.food_allergies)}${textArea('weightChanges','تغییرات اخیر وزن',nutrition.weight_changes)}${textArea('appetiteNotes','توضیح اشتها',nutrition.appetite_notes)}${textArea('breakfast','صبحانه معمول',nutrition.breakfast)}${textArea('lunch','ناهار معمول',nutrition.lunch)}${textArea('dinner','شام معمول',nutrition.dinner)}</div></details>
+                </div>
+                <div class="lifestyle-panel" data-lifestyle-panel="habits">
+                  <div class="question-grid">${segment('smoking','مصرف دخانیات دارید؟',habits.smoking,'دارم','ندارم')}${segment('alcohol','مصرف الکل دارید؟',habits.alcohol,'دارم','ندارم')}</div>
+                  <div class="conditional-stack"><div data-show-if="smoking:yes">${textArea('smokingDetails','نوع و میزان مصرف دخانیات',habits.smoking_details)}</div><div data-show-if="alcohol:yes">${textArea('alcoholDetails','نوع و میزان مصرف الکل',habits.alcohol_details)}</div></div>
+                </div>
+                <div class="lifestyle-panel" data-lifestyle-panel="pregnancy">
+                  <div class="question-grid">${segment('childbirth_history','سابقه زایمان دارید؟',pregnancy.childbirth_history)}${segment('breastfeeding','در حال شیردهی هستید؟',pregnancy.breastfeeding)}${segment('formula_use','کودک شیر خشک مصرف می‌کند؟',pregnancy.formula_use)}${segment('child_food_allergy','کودک حساسیت غذایی دارد؟',pregnancy.child_food_allergy)}</div>
+                  <div class="conditional-stack"><div data-show-if="childbirth_history:yes" class="form-grid"><label class="field-control"><span>تعداد زایمان</span><input id="childbirthCount" inputmode="numeric" value="${esc(pregnancy.childbirth_count??'')}"></label><label class="field-control"><span>نوع زایمان</span><select id="childbirthType">${option('natural','طبیعی',pregnancy.childbirth_type||'natural')}${option('cesarean','سزارین',pregnancy.childbirth_type||'natural')}</select></label>${textArea('childbirthNotes','توضیحات زایمان',pregnancy.childbirth_notes)}</div><div data-show-if="breastfeeding:yes" class="form-grid"><label class="field-control"><span>سن کودک به ماه</span><input id="childAgeMonths" inputmode="numeric" value="${esc(pregnancy.child_age_months??'')}"></label>${textArea('breastfeedingNotes','توضیحات شیردهی',pregnancy.breastfeeding_notes)}</div><div data-show-if="formula_use:yes" class="form-grid"><label class="field-control"><span>نوع شیر خشک</span><input id="formulaType" value="${esc(pregnancy.formula_type||'')}"></label><label class="field-control"><span>مقدار</span><input id="formulaAmount" value="${esc(pregnancy.formula_amount||'')}"></label><label class="field-control"><span>دفعات</span><input id="formulaFrequency" value="${esc(pregnancy.formula_frequency||'')}"></label></div><div data-show-if="child_food_allergy:yes">${textArea('childFoodAllergyNotes','شرح حساسیت کودک',pregnancy.child_food_allergy_notes)}</div></div>
+                </div>
+              </section>
+
+              <section class="onboarding-step" data-step="6">
+                <div class="step-heading"><span class="step-icon">07</span><div><h2>تصاویر و مدارک</h2><p>این مرحله کاملاً اختیاری است و بدون هیچ فایلی می‌توانید ادامه دهید.</p></div><span class="optional-badge">اختیاری</span></div>
+                <div class="privacy-notice"><span>⌾</span><div><b>حریم خصوصی محفوظ است</b><p>تصاویر واقعی فقط برای مربی قابل مشاهده‌اند. راهنماها صرفاً حالت ایستادن را نشان می‌دهند.</p></div></div>
+                <div class="upload-grid" id="uploadGrid"></div>
+                <details class="optional-disclosure document-disclosure"><summary><span><b>مدارک تکمیلی</b><small>آزمایش خون، آنالیز بدن یا تصویر اضافی</small></span><i>＋</i></summary><div class="optional-documents"><div><b>آزمایش خون</b><span>PDF یا تصویر</span><button type="button" class="secondary" data-pick-document="blood_test">انتخاب فایل</button><input hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-document-input="blood_test"></div><div><b>آنالیز بدن</b><span>PDF یا تصویر</span><button type="button" class="secondary" data-pick-document="body_analysis">انتخاب فایل</button><input hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp" data-document-input="body_analysis"></div><div><b>تصویر تکمیلی</b><span>تصویر خصوصی</span><button type="button" class="secondary" data-pick-document="additional_image">انتخاب تصویر</button><input hidden type="file" accept="image/jpeg,image/png,image/webp" data-document-input="additional_image"></div></div><div class="document-list" id="documentList"></div></details>
+                <button type="button" class="skip-photos" id="skipPhotos">بدون تصویر ادامه می‌دهم <span>←</span></button>
+              </section>
+
+              <section class="onboarding-step" data-step="7">
+                <div class="step-heading"><span class="step-icon success">✓</span><div><h2>همه‌چیز آماده است</h2><p>خلاصه اطلاعات را بررسی کنید و برای مربی بفرستید.</p></div></div>
+                <div class="review-hero"><div class="review-score"><span>100%</span><small>آماده ارسال</small></div><div><b>${esc(student.full_name||'پرونده شما')}</b><p>اطلاعات پس از ارسال قفل می‌شود و فقط با درخواست اصلاح مربی قابل ویرایش خواهد بود.</p></div></div>
+                <div class="review-sections" id="reviewSections"></div>
+                <label class="review-confirm"><input type="checkbox" id="confirmAssessment"><span><b>اطلاعات را بررسی کردم</b><small>صحت اطلاعات واردشده را تأیید می‌کنم.</small></span></label>
+              </section>
+
+              <div class="onboarding-error" data-wizard-error role="alert"></div>
+              <footer class="wizard-actions"><button type="button" class="secondary back-button" id="prevStep">مرحله قبل</button><button type="button" class="ghost-save" id="saveDraft">ذخیره پیش‌نویس</button><button type="button" class="primary next-button" id="nextStep"><span>مرحله بعد</span><b>←</b></button></footer>
+            </main>
+          </div>
+        </div>`;
+
+      const saveState=document.querySelector('#saveState');
+      function showError(message=''){
+        document.querySelectorAll('[data-wizard-error]').forEach(box=>{box.textContent=message;box.classList.toggle('visible',Boolean(message));});
+        if(message)document.querySelector('.wizard-top-error')?.scrollIntoView({behavior:'smooth',block:'center'});
       }
-      const sections=['general','measurements','medical','sports','nutrition','habits','pregnancy'];
-      async function saveCurrent(silent=false){const payload=sectionPayload(state.step);if(payload&&sections[state.step])return save(sections[state.step],payload,silent);if(state.step===7&&state.assessment?.body_photos_preference!=='willing')await setPreference('willing');return null;}
-      function pregnancyForm(){const host=document.querySelector('#pregnancyContent');if(field('wizardGender')!=='female'){host.innerHTML='<div class="student-empty"><p>این بخش با توجه به اطلاعات عمومی شما نیاز نیست.</p></div>';return;}host.innerHTML=`${radio('childbirth_history','آیا سابقه زایمان دارید؟','بله','خیر',pregnancy.childbirth_history)}<div data-show-if="childbirth_history:yes" class="student-profile-grid"><label>تعداد<input id="childbirthCount" inputmode="numeric" value="${esc(pregnancy.childbirth_count||'')}"></label><label>نوع زایمان<select id="childbirthType"><option value="natural">طبیعی</option><option value="cesarean">سزارین</option></select></label><label class="wide">توضیحات<textarea id="childbirthNotes">${esc(pregnancy.childbirth_notes||'')}</textarea></label></div>${radio('breastfeeding','در حال حاضر شیردهی دارید؟','بله','خیر',pregnancy.breastfeeding)}<div data-show-if="breastfeeding:yes" class="student-profile-grid"><label>سن کودک به ماه<input id="childAgeMonths" inputmode="numeric" value="${esc(pregnancy.child_age_months||'')}"></label><label>توضیحات<input id="breastfeedingNotes" value="${esc(pregnancy.breastfeeding_notes||'')}"></label></div>${radio('formula_use','فرزند از شیر خشک استفاده می‌کند؟','بله','خیر',pregnancy.formula_use)}<div data-show-if="formula_use:yes" class="student-profile-grid"><label>نوع<input id="formulaType" value="${esc(pregnancy.formula_type||'')}"></label><label>مقدار<input id="formulaAmount" value="${esc(pregnancy.formula_amount||'')}"></label><label>دفعات<input id="formulaFrequency" value="${esc(pregnancy.formula_frequency||'')}"></label></div>${radio('child_food_allergy','کودک حساسیت غذایی دارد؟','بله','خیر',pregnancy.child_food_allergy)}<label data-show-if="child_food_allergy:yes">شرح حساسیت<textarea id="childFoodAllergyNotes">${esc(pregnancy.child_food_allergy_notes||'')}</textarea></label>`;host.querySelectorAll('input[type="radio"]').forEach(input=>input.onchange=setConditional);setConditional();}
-      const photoSlots=['front','side','back','front_flex','back_flex'];let preferencePromise=Promise.resolve();
-      function photoCards(){const grid=document.querySelector('#uploadGrid');grid.innerHTML=photoSlots.map(type=>{const photo=state.photos[type];return `<article class="upload-card ${photo?'has-photo':''}" data-card="${type}">${photo?`<img src="/api/student-photos/${photo.id}"><div class="upload-card-overlay"><b>${photoLabels[type]}</b><span>ارسال شد ✓</span><button class="danger" data-delete="${type}">حذف</button></div>`:`<b>${photoLabels[type]}</b><span>ارسال نشده • اختیاری</span><button class="secondary" data-pick="${type}">انتخاب</button>`}<input hidden type="file" accept="image/jpeg,image/png,image/webp" data-file="${type}"></article>`}).join('');grid.querySelectorAll('[data-pick]').forEach(button=>button.onclick=()=>grid.querySelector(`[data-file="${button.dataset.pick}"]`).click());grid.querySelectorAll('[data-file]').forEach(input=>input.onchange=()=>input.files[0]&&uploadPhoto(input.dataset.file,input.files[0]));grid.querySelectorAll('[data-delete]').forEach(button=>button.onclick=()=>deletePhoto(button.dataset.delete));}
-      function preferenceView(){const host=document.querySelector('#photoPreferenceResult');host.innerHTML='<div class="privacy-choice-confirmed"><b>تصاویر اختیاری</b><span>می‌توانید هیچ، بخشی یا همه تصاویر را ارسال کنید.</span></div>';photoCards();}
-      async function setPreference(value){state.preference=value;const response=await api('/api/student/assessment',{method:'POST',body:JSON.stringify({body_photos_preference:value})});state.assessment=response.assessment;state.photos=Object.fromEntries((response.assessment.photos||[]).map(photo=>[photo.photo_type,photo]));preferenceView();}
-      function uploadPhoto(type,file){if(file.size>5*1024*1024)return toast('حجم فایل بیش از ۵ مگابایت است.','error');const form=new FormData();form.append('photo',file);form.append('photo_type',type);const xhr=new XMLHttpRequest();xhr.open('POST','/api/student/assessment/photos');xhr.withCredentials=true;xhr.onload=()=>{let response={};try{response=JSON.parse(xhr.responseText)}catch(error){}if(xhr.status>=200&&xhr.status<300){state.photos[type]=response.photo;photoCards();toast('تصویر ارسال شد.')}else toast(response.error||'خطا در ارسال','error')};xhr.send(form);}
-      async function deletePhoto(type){await api(`/api/student/assessment/photos/${state.photos[type].id}`,{method:'DELETE'});delete state.photos[type];photoCards();}
-      function documentList(){const host=document.querySelector('#documentList');host.innerHTML=state.documents.length?state.documents.map(document=>`<article><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><span>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</span></a><button class="danger" data-delete-document="${document.id}">حذف</button></article>`).join(''):'<p class="muted">مدرکی ارسال نشده است؛ این بخش اختیاری است.</p>';host.querySelectorAll('[data-delete-document]').forEach(button=>button.onclick=()=>deleteDocument(Number(button.dataset.deleteDocument)));}
-      function uploadDocument(type,file){if(file.size>8*1024*1024)return toast('حجم فایل بیش از ۸ مگابایت است.','error');const form=new FormData();form.append('file',file);form.append('document_type',type);const xhr=new XMLHttpRequest();xhr.open('POST','/api/student/assessment/documents');xhr.withCredentials=true;xhr.onload=()=>{let response={};try{response=JSON.parse(xhr.responseText)}catch(error){}if(xhr.status>=200&&xhr.status<300){state.documents.push(response.document);documentList();toast('مدرک خصوصی ارسال شد.')}else toast(response.error||'خطا در ارسال مدرک','error')};xhr.send(form);}
-      async function deleteDocument(id){await api(`/api/student/assessment/documents/${id}`,{method:'DELETE'});state.documents=state.documents.filter(document=>document.id!==id);documentList();}
-      function review(){const completed=[['اطلاعات کلی',selectedValues('goals').map(code=>goalLabels[code]).join('، ')],['اندازه‌ها',`${field('m_height')} cm • ${field('m_weight')} kg`],['سوابق پزشکی','ثبت شده'],['سوابق ورزشی','ثبت شده'],['تغذیه','ثبت شده'],['عادات','ثبت شده'],['تصاویر',`${Object.keys(state.photos).length} تصویر اختیاری`],['مدارک',state.documents.length?`${state.documents.length} مدرک خصوصی`:'ارسال نشده • اختیاری']];document.querySelector('#reviewSections').innerHTML=completed.map(([title,value],index)=>`<article><div><b>${title}</b><span>${esc(value||'—')}</span></div>${index<7?`<button class="secondary" data-edit-step="${index}">ویرایش</button>`:''}</article>`).join('');document.querySelectorAll('[data-edit-step]').forEach(button=>button.onclick=()=>{state.step=Number(button.dataset.editStep);draw()});}
-      function draw(){showError();document.querySelectorAll('.onboarding-step').forEach((element,index)=>element.classList.toggle('active',index===state.step));document.querySelector('#progressLabel').textContent=`مرحله ${state.step+1} از 10 — ${steps[state.step]}`;document.querySelector('#progressValue').style.width=`${(state.step+1)*10}%`;document.querySelector('#prevStep').style.visibility=state.step===0?'hidden':'visible';document.querySelector('#nextStep').textContent=state.step===9?'ارسال پرونده برای مربی':'مرحله بعد';document.querySelector('#saveDraft').style.display=state.step>=8?'none':'inline-flex';if(state.step===2||state.step===3||state.step===5||state.step===6)setConditional();if(state.step===6)pregnancyForm();if(state.step===7){preferenceView();documentList()}if(state.step===8)review();}
-      document.querySelectorAll('input[type="radio"]').forEach(input=>input.onchange=setConditional);document.querySelectorAll('input[name="goals"]').forEach(input=>input.onchange=()=>{if(input.value==='competition'&&input.checked)document.querySelectorAll('input[name="goals"]').forEach(other=>{if(other!==input)other.checked=false});else if(input.checked)document.querySelector('input[name="goals"][value="competition"]').checked=false});document.querySelector('#catalogSearch').oninput=event=>document.querySelectorAll('[data-catalog-text]').forEach(item=>item.hidden=!item.dataset.catalogText.includes(event.target.value.trim()));document.querySelectorAll('[data-pick-document]').forEach(button=>button.onclick=()=>document.querySelector(`[data-document-input="${button.dataset.pickDocument}"]`).click());document.querySelectorAll('[data-document-input]').forEach(input=>input.onchange=()=>input.files[0]&&uploadDocument(input.dataset.documentInput,input.files[0]));
-      let autoTimer;document.querySelector('.onboarding-card').addEventListener('input',()=>{if(state.step>6)return;clearTimeout(autoTimer);autoTimer=setTimeout(()=>saveCurrent(true).catch(()=>{}),1200)});
-      document.querySelector('#saveDraft').onclick=()=>saveCurrent(false).catch(error=>showError(error.message));document.querySelector('#prevStep').onclick=()=>{if(state.step>0){state.step--;draw()}};document.querySelector('#nextStep').onclick=async event=>{const button=event.currentTarget;if(button.dataset.busy==='1')return;button.dataset.busy='1';button.disabled=true;try{if(state.step===9){if(!document.querySelector('#confirmAssessment').checked)throw new Error('صحت اطلاعات را تأیید کنید.');await api('/api/student/assessment/submit',{method:'POST'});renderSuccess();return;}if(state.step<8)await saveCurrent(false);state.step++;draw()}catch(error){showError(error.message);toast(error.message,'error')}finally{delete button.dataset.busy;if(button.isConnected)button.disabled=false}};
+      function saving(active,error=false){
+        state.saving=active;
+        saveState.classList.toggle('saving',active);
+        saveState.classList.toggle('failed',error);
+        saveState.querySelector('b').textContent=error?'ذخیره نشد':active?'در حال ذخیره…':'ذخیره شد';
+        if(!active&&!error)saveState.querySelector('#lastSaved').textContent='همین حالا';
+      }
+      function saved(response){state.lastSaved=response?.last_saved_at||new Date().toISOString();saving(false);}
+      async function saveSection(section,payload,silent=false){
+        saving(true);showError();
+        try{const response=await api(`/api/student/assessment/sections/${section}`,{method:'PUT',body:JSON.stringify(payload)});state.assessment=response.assessment;state.details=response.details;saved(response);if(!silent)toast('پیش‌نویس ذخیره شد.');return response;}
+        catch(error){saving(false,true);if(!silent)showError(error.message);throw error;}
+      }
+      async function saveProfile(silent=false){
+        const full_name=field('personalName');if(!full_name)throw new Error('نام و نام خانوادگی را وارد کنید.');
+        saving(true);
+        try{const response=await api('/api/student/profile',{method:'PUT',body:JSON.stringify({full_name,mobile:field('personalMobile'),date_of_birth:field('personalBirthDate'),gender:checked('wizardGender')||'unspecified',preferred_location:checked('preferredLocation')||'gym'})});state.student=response.student;student.full_name=response.student.full_name;student.gender=response.student.gender;saved();if(!silent)toast('اطلاعات شخصی ذخیره شد.');return response;}
+        catch(error){saving(false,true);if(!silent)showError(error.message);throw error;}
+      }
+
+      const payloads={
+        general:()=>({goals:selected('goals'),additional_notes:field('generalNotes'),gender:checked('wizardGender')||state.student.gender||'unspecified'}),
+        measurements:()=>Object.fromEntries(measureFields.map(([id])=>[id,number(field(`m_${id}`))])),
+        medical:()=>({has_disease:bool(checked('has_disease')),disease_details:field('diseaseDetails'),has_medication:bool(checked('has_medication')),medication_details:field('medicationDetails'),has_injury:bool(checked('has_injury')),injury_details:field('injuryDetails'),has_surgery:bool(checked('has_surgery')),surgery_details:field('surgeryDetails'),last_blood_test_notes:field('bloodTestNotes'),corrective_notes:field('correctiveNotes'),items:[...document.querySelectorAll('[name="medicalItem"]:checked')].map(input=>catalogItems[Number(input.value)])}),
+        sports:()=>({average_daily_activity:field('dailyActivity'),practice_history:bool(checked('practice_history')),practice_history_details:field('practiceHistoryDetails'),practice_duration:field('practiceDuration'),sport_discipline:field('sportDiscipline'),practice_now:bool(checked('practice_now')),current_practice_details:field('currentPracticeDetails'),practice_place:field('practicePlace'),home_equipment:field('homeEquipment'),sessions_per_week:Number(field('sessionsPerWeek')),supplement_history:bool(checked('supplement_history')),supplement_details:field('supplementDetails'),doping_history:field('dopingHistory')}),
+        nutrition:()=>({diet_type:field('dietType'),previous_diet:bool(checked('previous_diet')),previous_diet_duration:field('previousDietDuration'),previous_diet_type:field('previousDietType'),previous_diet_notes:field('previousDietNotes'),food_allergies:field('foodAllergies'),weight_changes:field('weightChanges'),appetite_status:field('appetiteStatus'),appetite_notes:field('appetiteNotes'),defecation_problem:field('defecationProblem'),breakfast:field('breakfast'),lunch:field('lunch'),dinner:field('dinner')}),
+        habits:()=>({smoking:bool(checked('smoking')),smoking_details:field('smokingDetails'),alcohol:bool(checked('alcohol')),alcohol_details:field('alcoholDetails')}),
+        pregnancy:()=>({childbirth_history:bool(checked('childbirth_history')),childbirth_count:number(field('childbirthCount')),childbirth_type:field('childbirthType'),childbirth_notes:field('childbirthNotes'),breastfeeding:bool(checked('breastfeeding')),breastfeeding_notes:field('breastfeedingNotes'),child_age_months:number(field('childAgeMonths')),formula_use:bool(checked('formula_use')),formula_type:field('formulaType'),formula_amount:field('formulaAmount'),formula_frequency:field('formulaFrequency'),child_food_allergy:bool(checked('child_food_allergy')),child_food_allergy_notes:field('childFoodAllergyNotes')})
+      };
+
+      async function ensurePhotoReady(){
+        if(state.assessment?.body_photos_preference==='willing')return;
+        saving(true);
+        const response=await api('/api/student/assessment',{method:'POST',body:JSON.stringify({body_photos_preference:'willing'})});
+        state.assessment=response.assessment;state.photos=Object.fromEntries((response.assessment.photos||[]).map(photo=>[photo.photo_type,photo]));saved();
+      }
+      async function saveCurrent(silent=false){
+        if(state.step===0)return saveProfile(silent);
+        if(state.step===1)return saveSection('general',payloads.general(),silent);
+        if(state.step===2)return saveSection('measurements',payloads.measurements(),silent);
+        if(state.step===3)return saveSection('medical',payloads.medical(),silent);
+        if(state.step===4)return saveSection('sports',payloads.sports(),silent);
+        if(state.step===5){
+          await saveSection('nutrition',payloads.nutrition(),true);
+          await saveSection('habits',payloads.habits(),true);
+          if((checked('wizardGender')||state.student.gender)==='female')await saveSection('pregnancy',payloads.pregnancy(),true);
+          if(!silent)toast('تغذیه و سبک زندگی ذخیره شد.');return;
+        }
+        if(state.step===6)return ensurePhotoReady();
+      }
+
+      const photoSlots=['front','side','back','front_flex','back_flex'];
+      function photoCards(){
+        const grid=document.querySelector('#uploadGrid');
+        grid.innerHTML=photoSlots.map((type,index)=>{const photo=state.photos[type];return `<article class="upload-card ${photo?'has-photo':''}" data-card="${type}">${photo?`<img src="/api/student-photos/${photo.id}" alt="${photoLabels[type]}"><div class="upload-card-overlay"><span class="upload-success">✓ ارسال شد</span><b>${photoLabels[type]}</b><button type="button" class="danger" data-delete="${type}">حذف</button></div>`:`<span class="photo-number">${index+1}</span><div class="upload-copy"><b>${photoLabels[type]}</b><small>اختیاری</small></div><button type="button" class="secondary" data-pick="${type}">انتخاب تصویر</button>`}<input hidden type="file" accept="image/jpeg,image/png,image/webp" data-file="${type}"></article>`;}).join('');
+        grid.querySelectorAll('[data-pick]').forEach(button=>button.onclick=async()=>{await ensurePhotoReady();grid.querySelector(`[data-file="${button.dataset.pick}"]`).click();});
+        grid.querySelectorAll('[data-file]').forEach(input=>input.onchange=()=>input.files[0]&&uploadPhoto(input.dataset.file,input.files[0]));
+        grid.querySelectorAll('[data-delete]').forEach(button=>button.onclick=()=>deletePhoto(button.dataset.delete));
+      }
+      function uploadPhoto(type,file){
+        if(file.size>5*1024*1024)return toast('حجم تصویر باید کمتر از ۵ مگابایت باشد.','error');
+        const card=document.querySelector(`[data-card="${type}"]`);card?.classList.add('uploading');
+        const form=new FormData();form.append('photo',file);form.append('photo_type',type);
+        const xhr=new XMLHttpRequest();xhr.open('POST','/api/student/assessment/photos');xhr.withCredentials=true;
+        xhr.onload=()=>{let response={};try{response=JSON.parse(xhr.responseText)}catch(error){}if(xhr.status>=200&&xhr.status<300){state.photos[type]=response.photo;photoCards();toast('تصویر با موفقیت ارسال شد.')}else{card?.classList.remove('uploading');toast(response.error||'ارسال تصویر انجام نشد.','error');}};
+        xhr.onerror=()=>{card?.classList.remove('uploading');toast('ارتباط برای ارسال تصویر قطع شد.','error');};xhr.send(form);
+      }
+      async function deletePhoto(type){try{await api(`/api/student/assessment/photos/${state.photos[type].id}`,{method:'DELETE'});delete state.photos[type];photoCards();toast('تصویر حذف شد.');}catch(error){toast(error.message,'error');}}
+      function documentList(){
+        const host=document.querySelector('#documentList');
+        host.innerHTML=state.documents.length?state.documents.map(document=>`<article><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><span>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</span></a><button type="button" class="danger" data-delete-document="${document.id}">حذف</button></article>`).join(''):'<div class="document-empty">هنوز مدرکی انتخاب نشده است.</div>';
+        host.querySelectorAll('[data-delete-document]').forEach(button=>button.onclick=()=>deleteDocument(Number(button.dataset.deleteDocument)));
+      }
+      function uploadDocument(type,file){
+        if(file.size>8*1024*1024)return toast('حجم فایل باید کمتر از ۸ مگابایت باشد.','error');
+        const form=new FormData();form.append('file',file);form.append('document_type',type);
+        const xhr=new XMLHttpRequest();xhr.open('POST','/api/student/assessment/documents');xhr.withCredentials=true;
+        xhr.onload=()=>{let response={};try{response=JSON.parse(xhr.responseText)}catch(error){}if(xhr.status>=200&&xhr.status<300){state.documents.push(response.document);documentList();toast('مدرک خصوصی ارسال شد.')}else toast(response.error||'ارسال مدرک انجام نشد.','error');};xhr.send(form);
+      }
+      async function deleteDocument(id){try{await api(`/api/student/assessment/documents/${id}`,{method:'DELETE'});state.documents=state.documents.filter(document=>document.id!==id);documentList();}catch(error){toast(error.message,'error');}}
+
+      const statusText=(value,yes='ثبت شده',no='موردی ثبت نشده')=>value==='yes'?yes:no;
+      function renderReview(){
+        const goals=selected('goals').map(code=>goalLabels[code]).join('، ')||'انتخاب نشده';
+        const review=[
+          {icon:'●',title:'اطلاعات شخصی',value:`${field('personalName')} • ${checked('wizardGender')==='female'?'خانم':checked('wizardGender')==='male'?'آقا':'ثبت نشده'}`,step:0},
+          {icon:'◆',title:'هدف‌های دوره',value:goals,step:1},
+          {icon:'↕',title:'اندازه‌های بدن',value:`قد ${field('m_height')||'—'} سانتی‌متر • وزن ${field('m_weight')||'—'} کیلوگرم`,step:2},
+          {icon:'＋',title:'سوابق پزشکی',value:[checked('has_disease'),checked('has_medication'),checked('has_injury'),checked('has_surgery')].includes('yes')?'جزئیات پزشکی ثبت شده':'مورد خاصی ثبت نشده',step:3},
+          {icon:'↗',title:'سابقه ورزشی',value:`${field('sessionsPerWeek')||'—'} جلسه در هفته • ${field('practicePlace')==='home'?'منزل':'باشگاه'}`,step:4},
+          {icon:'◐',title:'تغذیه و سبک زندگی',value:`${field('dietType')==='professional'?'رژیم حرفه‌ای':'سفره ایرانی'} • ${statusText(checked('smoking'),'مصرف دخانیات ثبت شده','بدون دخانیات')}`,step:5},
+          {icon:'▧',title:'تصاویر و مدارک',value:`${Object.keys(state.photos).length} تصویر • ${state.documents.length} مدرک خصوصی`,step:6}
+        ];
+        document.querySelector('#reviewSections').innerHTML=review.map(item=>`<article><span class="review-icon">${item.icon}</span><div><b>${item.title}</b><small>${esc(item.value)}</small></div><button type="button" data-edit-step="${item.step}">ویرایش</button></article>`).join('');
+        document.querySelectorAll('[data-edit-step]').forEach(button=>button.onclick=()=>goTo(Number(button.dataset.editStep),false));
+      }
+
+      function draw(){
+        showError();
+        document.querySelectorAll('.onboarding-step').forEach((element,index)=>element.classList.toggle('active',index===state.step));
+        const percent=Math.round(((state.step+1)/steps.length)*100);
+        document.querySelector('#stepCount').textContent=`مرحله ${state.step+1} از ${steps.length}`;
+        document.querySelector('#stepTitle').textContent=steps[state.step].title;
+        document.querySelector('#progressPercent').textContent=`${percent}٪`;
+        document.querySelector('#progressValue').style.width=`${percent}%`;
+        document.querySelectorAll('[data-step-dot]').forEach((dot,index)=>{dot.classList.toggle('active',index===state.step);dot.classList.toggle('done',index<state.step);dot.disabled=index>state.step;});
+        document.querySelector('#prevStep').style.visibility=state.step===0?'hidden':'visible';
+        document.querySelector('#saveDraft').style.display=state.step>=6?'none':'inline-flex';
+        const next=document.querySelector('#nextStep');next.classList.toggle('submit',state.step===7);next.querySelector('span').textContent=state.step===7?'ارسال برای مربی':'ذخیره و ادامه';next.querySelector('b').textContent=state.step===7?'✓':'←';
+        setConditional();
+        if(state.step===6){photoCards();documentList();}
+        if(state.step===7)renderReview();
+        window.scrollTo({top:0,behavior:'smooth'});
+      }
+      async function goTo(step,saveFirst=true){
+        if(step===state.step)return;
+        if(saveFirst&&step>state.step)await saveCurrent(true);
+        state.step=Math.max(0,Math.min(steps.length-1,step));draw();
+      }
+
+      document.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{setConditional();if(input.name==='wizardGender'){const pregnancyTab=document.querySelector('[data-lifestyle-tab="pregnancy"]');pregnancyTab.hidden=input.value!=='female';if(input.value!=='female'&&pregnancyTab.classList.contains('active'))document.querySelector('[data-lifestyle-tab="nutrition"]').click();}}));
+      document.querySelectorAll('input[name="goals"]').forEach(input=>input.addEventListener('change',()=>{if(input.value==='competition'&&input.checked)document.querySelectorAll('input[name="goals"]').forEach(other=>{if(other!==input)other.checked=false;});else if(input.checked){const competition=document.querySelector('input[name="goals"][value="competition"]');if(competition)competition.checked=false;}}));
+      document.querySelector('#catalogSearch').addEventListener('input',event=>{const query=event.target.value.trim();document.querySelectorAll('[data-catalog-text]').forEach(item=>item.hidden=!item.dataset.catalogText.includes(query));});
+      document.querySelectorAll('[data-lifestyle-tab]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-lifestyle-tab]').forEach(item=>item.classList.toggle('active',item===button));document.querySelectorAll('[data-lifestyle-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.lifestylePanel===button.dataset.lifestyleTab));setConditional();});
+      document.querySelectorAll('[data-pick-document]').forEach(button=>button.onclick=async()=>{await ensurePhotoReady();document.querySelector(`[data-document-input="${button.dataset.pickDocument}"]`).click();});
+      document.querySelectorAll('[data-document-input]').forEach(input=>input.onchange=()=>input.files[0]&&uploadDocument(input.dataset.documentInput,input.files[0]));
+      document.querySelector('#skipPhotos').onclick=()=>goTo(7,true).catch(error=>{showError(error.message);toast(error.message,'error');});
+      document.querySelector('#prevStep').onclick=()=>goTo(state.step-1,false);
+      document.querySelector('#saveDraft').onclick=()=>saveCurrent(false).catch(error=>showError(error.message));
+      document.querySelector('#nextStep').onclick=async event=>{
+        const button=event.currentTarget;if(button.dataset.busy==='1')return;button.dataset.busy='1';button.disabled=true;
+        try{
+          if(state.step===7){if(!document.querySelector('#confirmAssessment').checked)throw new Error('برای ارسال، تأیید نهایی اطلاعات را فعال کنید.');await api('/api/student/assessment/submit',{method:'POST'});renderSuccess();return;}
+          await goTo(state.step+1,true);
+        }catch(error){showError(error.message);toast(error.message,'error');}
+        finally{delete button.dataset.busy;if(button.isConnected)button.disabled=false;}
+      };
+      document.querySelectorAll('[data-step-dot]').forEach(button=>button.onclick=()=>goTo(Number(button.dataset.stepDot),false));
+
+      function readyForAutosave(){
+        if(state.step===0)return Boolean(field('personalName'));
+        if(state.step===1)return selected('goals').length>0;
+        if(state.step===2)return Boolean(field('m_height')&&field('m_weight'));
+        if(state.step===3)return ['has_disease','has_medication','has_injury','has_surgery'].every(name=>checked(name));
+        if(state.step===4)return ['practice_history','practice_now','supplement_history'].every(name=>checked(name));
+        if(state.step===5){const base=['previous_diet','smoking','alcohol'].every(name=>checked(name));const female=(checked('wizardGender')||state.student.gender)==='female';return base&&(!female||['childbirth_history','breastfeeding','formula_use','child_food_allergy'].every(name=>checked(name)));}
+        return false;
+      }
+      let autoTimer;
+      document.querySelector('.onboarding-card').addEventListener('input',()=>{
+        if(state.step>=6||!readyForAutosave())return;
+        clearTimeout(autoTimer);
+        autoTimer=setTimeout(()=>saveCurrent(true).catch(()=>{}),1400);
+      });
+
+      if(assessment.id){
+        if(!(details.goals||[]).length)state.step=1;
+        else if(!details.measurements)state.step=2;
+        else if(!details.medical)state.step=3;
+        else if(!details.sports)state.step=4;
+        else if(!details.nutrition||!details.habits||(student.gender==='female'&&!details.pregnancy))state.step=5;
+        else state.step=7;
+      }
       draw();
     }
   };
