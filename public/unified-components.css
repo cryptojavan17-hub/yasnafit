@@ -21,7 +21,7 @@ body{font-variant-emoji:text}
 
 /* One glass recipe for every application surface */
 :is(
-  .panel,.page-intro,.placeholder-grid article,.stat-grid article,
+  .panel,.stat-grid article,
   .students-panel,.detail-section,.student-stat-grid article,.student-modal,
   .program-card,.builder-header,.builder-form,.order-header,.day-card,.system-card,.movement-card,.bottom-toolbar,
   .exercise-controls,.exercise-scroll,.exercise-card,.category-menu,.pagination,
@@ -136,8 +136,8 @@ input[type="checkbox"],input[type="radio"]{min-height:17px;accent-color:var(--ac
 }
 
 /* Dashboard, lists and data tables */
-.stat-grid,.student-stat-grid,.placeholder-grid{gap:var(--component-gap)}
-.stat-grid article,.student-stat-grid article,.placeholder-grid article{min-height:82px;padding:12px 14px}
+.stat-grid,.student-stat-grid{gap:var(--component-gap)}
+.stat-grid article,.student-stat-grid article{min-height:82px;padding:12px 14px}
 .stat-grid strong,.student-stat-grid strong{color:var(--text);font-size:21px}
 .stat-grid span,.student-stat-grid span{color:var(--text-muted);font-size:9px}
 .table-wrap,.students-table-wrap{
@@ -220,7 +220,7 @@ tbody tr:hover{background:var(--accent-surface)}
 }
 @media(max-width:620px){
   :is(.panel,.students-panel,.detail-section,.student-card,.program-card,.release-card,.sp-card,.coach-review-group,.review-decision-card){padding:11px}
-  .stat-grid,.student-stat-grid,.placeholder-grid,.student-grid{grid-template-columns:1fr}
+  .stat-grid,.student-stat-grid,.student-grid{grid-template-columns:1fr}
   .page-head{align-items:stretch}
   .page-head :is(.primary,.secondary,.btn){width:100%}
   .form-grid,.form-row,.student-profile-grid,.sp-row{grid-template-columns:1fr}

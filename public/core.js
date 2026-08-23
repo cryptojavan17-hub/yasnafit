@@ -74,12 +74,13 @@ async function render(label,route){
       document.querySelector('#backupBtn').onclick=back;
       return;
     }
-    content.innerHTML=`${head.replace('＋ افزودن','در دست ساخت')}<section class="panel"><h2>ماژول ${label}</h2><p>ساختار این صفحه و مسیر آن آماده است. قابلیت‌های عملیاتی آن در مرحله‌های بعدی به API داخلی و SQLite متصل می‌شوند.</p><div class="module-route">${esc(route||'بدون مسیر')}</div></section>`;
-    document.querySelector('#addBtn').style.display='none';
+    history.replaceState({},'','/coach/dashboard');
+    return render('داشبورد','/coach/dashboard');
   }catch(e){
     content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
   }
 }
+window.renderCoreRoute=render;
 async function updateCoachReviewBell(){
   const bell=document.querySelector('#coachReviewBell'),text=document.querySelector('#coachReviewBellText'),badge=document.querySelector('#coachReviewBellCount');
   if(!bell||!text||!badge)return;

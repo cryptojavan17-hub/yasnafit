@@ -35,6 +35,12 @@ for(const [file,selectors] of Object.entries(requiredSelectors)) for(const selec
   assert.ok(css[file].includes(selector),`${file} missing redesigned selector ${selector}`);
 }
 
+const appSource=fs.readFileSync(path.join(publicDir,'app.js'),'utf8');
+const operationalMenuRoutes=['/coach/dashboard','/users-list','/students/submissions','/programs/exercise/form','/templates/exercise/list','/programs/exercise/movements-list','/coach/settings','/coach/releases'];
+for(const route of operationalMenuRoutes)assert.match(appSource,new RegExp(route.replaceAll('/','\\/')),`operational menu route is missing: ${route}`);
+for(const removed of ['/coach/manage-landing','/products/my','/coach/assists','/templates/diet/list','/templates/supplement/list','/templates/corrective/list','/reports/coach/general','/coach/profile'])assert.doesNotMatch(appSource,new RegExp(removed.replaceAll('/','\\/')),`dead menu route remains: ${removed}`);
+assert.doesNotMatch(appSource,/آماده طراحی|پیاده‌سازی امکانات|محتوای عملیاتی آن در مرحله بعد/,'dead placeholder page remains in the coach router');
+assert.match(appSource,/window\.renderCoreRoute/,'operational core routes are not delegated from the sidebar router');
 const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
 assert.doesNotMatch(inlineSources,/background\s*:\s*#(?:fff(?:fff)?|f[0-9a-f]{5}|e[0-9a-f]{5})/i,'light inline background can override dark theme');
 assert.doesNotMatch(inlineSources,/var\(--[^)]+\)[0-9a-f]+/i,'malformed CSS variable found in inline styles');
