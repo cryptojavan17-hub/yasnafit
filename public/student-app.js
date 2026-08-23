@@ -3,7 +3,7 @@
   const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const faList=value=>String(value??'').split(',').filter(Boolean).map(fa).join('، ')||'—';
   const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
-  const completeMobile=value=>{const digits=asciiDigits(value),suffix=digits.startsWith('09')?digits.slice(2):digits;return `09${suffix}`;};
+  const completeMobile=value=>{const digits=asciiDigits(value);if(digits.startsWith('09'))return digits;if(digits.startsWith('9'))return `0${digits}`;return `09${digits}`;};
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const statusLabels={PROFILE_INCOMPLETE:'در حال تکمیل',ASSESSMENT_PENDING:'در حال تکمیل',DRAFT:'پیش‌نویس',SUBMITTED:'ارسال‌شده',PENDING_REVIEW:'در انتظار بررسی',UNDER_REVIEW:'در حال بررسی',CHANGES_REQUESTED:'نیاز به اصلاح',APPROVED:'تأیید شده',REJECTED:'رد شده',PROGRAM_ASSIGNED:'برنامه اختصاص داده شد',ACTIVE:'فعال',COMPLETED:'تکمیل‌شده',ARCHIVED:'آرشیو'};
   const photoLabels={front:'جلو',side:'بغل',back:'پشت',front_flex:'جلو با فیگور بازو',back_flex:'پشت با فیگور بازو'};

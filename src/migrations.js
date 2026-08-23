@@ -1095,6 +1095,20 @@ const migrations = [
       }
       db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_students_mobile_normalized_unique ON students(mobile_normalized) WHERE mobile_normalized IS NOT NULL AND mobile_normalized<>''");
     }
+  },
+  {
+    id: '022_mobile_prefix_repair',
+    description: 'Repair accidental duplicated 09 prefixes and canonicalize stored mobile values',
+    up: (db) => {
+      for(const student of db.prepare('SELECT id,mobile,mobile_normalized FROM students WHERE deleted_at IS NULL ORDER BY id').all()){
+        try{
+          const corrected=studentAuth.normalizeMobile(student.mobile);
+          if(corrected===student.mobile&&corrected===student.mobile_normalized)continue;
+          const duplicate=db.prepare('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL').get(corrected,student.id);
+          if(!duplicate)db.prepare('UPDATE students SET mobile=?,mobile_normalized=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(corrected,corrected,student.id);
+        }catch(error){}
+      }
+    }
   }
 ];
 

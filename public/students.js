@@ -141,7 +141,7 @@
       <div class="student-modal-actions"><button type="button" class="secondary" data-close-modal>انصراف</button><button class="primary">ثبت شاگرد</button></div></form>`);
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
     modal.querySelector('form').onsubmit=async event=>{
-      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),rawMobile=asciiDigits(body.mobile),mobileSuffix=rawMobile.startsWith('09')?rawMobile.slice(2):rawMobile;body.mobile=`09${mobileSuffix}`;
+      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),rawMobile=asciiDigits(body.mobile),mobileSuffix=rawMobile.startsWith('09')?rawMobile.slice(2):rawMobile;body.mobile=rawMobile.startsWith('09')?rawMobile:rawMobile.startsWith('9')?`0${rawMobile}`:`09${rawMobile}`;
       if(mobileSuffix.length<9)return alert('شماره همراه را کامل وارد کنید.');
       try{
         const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();showInvitation(created.id,created,'شاگرد و دسترسی ورود ایجاد شد');

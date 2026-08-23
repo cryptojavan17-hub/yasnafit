@@ -34,7 +34,7 @@ try {
   // must preserve rows, soft-delete the superseded slot, seed releases, and remain idempotent.
   const upgrade=new DatabaseSync(path.join(dir,'upgrade.db'));
   upgrade.exec('PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases','009_my_students_crm_release','010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix','013_optional_body_photos_preference','014_professional_assessment_profile','015_private_assessment_documents','016_measurement_input_compatibility','017_onboarding_next_button_recovery','018_engagement_audit_workouts','019_core_journey_stabilization','020_assessment_social_profiles','021_student_password_authentication'].includes(m.id))){
+  for(const migration of migrations.filter(m=>!['007_monthly_workflow_integrity','008_application_releases','009_my_students_crm_release','010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix','013_optional_body_photos_preference','014_professional_assessment_profile','015_private_assessment_documents','016_measurement_input_compatibility','017_onboarding_next_button_recovery','018_engagement_audit_workouts','019_core_journey_stabilization','020_assessment_social_profiles','021_student_password_authentication','022_mobile_prefix_repair'].includes(m.id))){
     upgrade.exec('BEGIN');
     migration.up(upgrade);
     upgrade.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(migration.id);
@@ -43,6 +43,7 @@ try {
   const student=upgrade.prepare("INSERT INTO students(full_name,stable_id) VALUES('upgrade','student-upgrade')").run().lastInsertRowid;
   const assessment=upgrade.prepare("INSERT INTO body_assessments(stable_id,student_id,assessment_number) VALUES('assessment-upgrade',?,1)").run(student).lastInsertRowid;
   const noPhotoStudent=upgrade.prepare("INSERT INTO students(full_name,stable_id) VALUES('no photo legacy','student-no-photo')").run().lastInsertRowid;
+  upgrade.prepare("INSERT INTO students(full_name,stable_id,mobile) VALUES('prefix repair','student-prefix-repair','099123456789')").run();
   const noPhotoAssessment=upgrade.prepare("INSERT INTO body_assessments(stable_id,student_id,assessment_number) VALUES('assessment-no-photo',?,1)").run(noPhotoStudent).lastInsertRowid;
   upgrade.prepare("INSERT INTO assessment_photos(stable_id,assessment_id,student_id,photo_type,storage_path) VALUES('photo-old',?,?,'front','/tmp/old')").run(assessment,student);
   upgrade.prepare("INSERT INTO assessment_photos(stable_id,assessment_id,student_id,photo_type,storage_path) VALUES('photo-new',?,?,'front','/tmp/new')").run(assessment,student);
@@ -53,6 +54,7 @@ try {
   assert.equal(photos[1].deleted_at,null,'latest photo was not retained');
   assert.equal(upgrade.prepare('SELECT body_photos_preference FROM body_assessments WHERE id=?').get(assessment).body_photos_preference,'willing');
   assert.equal(upgrade.prepare('SELECT body_photos_preference FROM body_assessments WHERE id=?').get(noPhotoAssessment).body_photos_preference,null,'legacy no-photo assessment was incorrectly inferred as declined');
+  assert.deepEqual(upgrade.prepare("SELECT mobile,mobile_normalized FROM students WHERE stable_id='student-prefix-repair'").get(),Object.assign(Object.create(null),{mobile:'09123456789',mobile_normalized:'09123456789'}));
   assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,14);
   assert.ok(upgrade.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
   assert.equal(upgrade.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
@@ -63,7 +65,7 @@ try {
   // non-constant CURRENT_TIMESTAMP default.
   const legacy=new DatabaseSync(path.join(dir,'legacy-missing-updated-at.db'));
   legacy.exec('PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-  for(const migration of migrations.filter(m=>!['010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix','013_optional_body_photos_preference','014_professional_assessment_profile','015_private_assessment_documents','016_measurement_input_compatibility','017_onboarding_next_button_recovery','018_engagement_audit_workouts','019_core_journey_stabilization','020_assessment_social_profiles','021_student_password_authentication'].includes(m.id))){
+  for(const migration of migrations.filter(m=>!['010_repair_legacy_student_timestamps','011_student_sessions_portal','012_onboarding_body_input_fix','013_optional_body_photos_preference','014_professional_assessment_profile','015_private_assessment_documents','016_measurement_input_compatibility','017_onboarding_next_button_recovery','018_engagement_audit_workouts','019_core_journey_stabilization','020_assessment_social_profiles','021_student_password_authentication','022_mobile_prefix_repair'].includes(m.id))){
     legacy.exec('BEGIN');migration.up(legacy);
     legacy.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(migration.id);
     legacy.exec('COMMIT');
@@ -80,7 +82,7 @@ try {
   assert.ok(legacy.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
   assert.equal(legacy.prepare('SELECT COUNT(*) AS c FROM releases').get().c,14);
   legacy.close();
-  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->021',releases:14,legacy_missing_updated_at:'repaired',student_sessions:true,integrity:'ok'}));
+  console.log(JSON.stringify({ok:true,clean_migrations:migrations.length,upgrade:'006->022',releases:14,legacy_missing_updated_at:'repaired',student_sessions:true,integrity:'ok'}));
 } finally {
   fs.rmSync(dir,{recursive:true,force:true});
 }

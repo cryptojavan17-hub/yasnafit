@@ -320,7 +320,7 @@ async function handleStudents(req,res,url){
         INSERT INTO students
           (full_name,mobile,mobile_normalized,goal,status,weight,height,stable_id,password_hash,password_state,version,created_at,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-      `).run(b.full_name.trim(),String(b.mobile).trim(),auth.mobile_normalized,'','فعال',null,null,stableId,auth.password_hash,auth.password_state);
+      `).run(b.full_name.trim(),auth.mobile_normalized,auth.mobile_normalized,'','فعال',null,null,stableId,auth.password_hash,auth.password_state);
       const studentId=Number(r.lastInsertRowid),invite=studentService.createInvite(db,studentId,30),created=one('SELECT id,stable_id,case_number,mobile FROM students WHERE id=?',studentId),temporaryPassword=studentAuthService.temporaryPassword(created.mobile);
       db.exec('COMMIT');
       log('شاگرد جدید ثبت شد',`${created.case_number} - ${b.full_name}`);
@@ -924,7 +924,8 @@ function updateStudentProfileFromSession(studentId,body){
     const current=one('SELECT mobile,password_state FROM students WHERE id=? AND deleted_at IS NULL',studentId),normalized=studentAuthService.normalizeMobile(updates.mobile),duplicate=one('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL',normalized,studentId);
     if(duplicate)throw Object.assign(new Error('این شماره همراه قبلاً ثبت شده است'),{statusCode:409});
     updates.mobile_normalized=normalized;
-    if(current?.password_state==='TEMPORARY'&&String(current.mobile)!==String(updates.mobile)){updates.password_hash=studentAuthService.hashPassword(studentAuthService.temporaryPassword(normalized));updates.temporary_login_at=null;}
+    if(current?.password_state==='TEMPORARY'&&String(current.mobile)!==normalized){updates.password_hash=studentAuthService.hashPassword(studentAuthService.temporaryPassword(normalized));updates.temporary_login_at=null;}
+    updates.mobile=normalized;
   }
   for(const key of ['telegram_id','instagram_id']){
     if(updates[key]!==undefined && (typeof updates[key]!=='string'||updates[key].length>100)){const error=new Error('شناسه شبکه اجتماعی نامعتبر است');error.statusCode=400;throw error;}

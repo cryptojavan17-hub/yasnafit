@@ -24,7 +24,7 @@
   const field=id=>document.querySelector(`#${id}`)?.value?.trim()||'';
   const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
   const mobileSuffix=value=>{const digits=asciiDigits(value);return digits.startsWith('09')?digits.slice(2):digits;};
-  const completeMobile=value=>`09${mobileSuffix(value)}`;
+  const completeMobile=value=>{const digits=asciiDigits(value);if(digits.startsWith('09'))return digits;if(digits.startsWith('9'))return `0${digits}`;return `09${digits}`;};
   const socialHandle=id=>{const value=field(id).replace(/^@+/, '').trim();return value?`@${value}`:'';};
   const checked=name=>document.querySelector(`[name="${name}"]:checked`)?.value;
   const selected=name=>[...document.querySelectorAll(`[name="${name}"]:checked`)].map(input=>input.value);

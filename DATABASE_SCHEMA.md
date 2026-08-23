@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `021_student_password_authentication` stored in `settings` table and `schema_migrations`
+Current: `022_mobile_prefix_repair` stored in `settings` table and `schema_migrations`
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -27,6 +27,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `019_core_journey_stabilization` - Coach ownership, six-digit case identity and three-entry invitations
 - `020_assessment_social_profiles` - Optional Telegram and Instagram profile fields
 - `021_student_password_authentication` - Unique normalized mobile identity, scrypt password authentication and optional personal-password lifecycle
+- `022_mobile_prefix_repair` - Repair duplicated 09 prefixes and canonicalize stored mobile values
 
 ## Full Schema
 
