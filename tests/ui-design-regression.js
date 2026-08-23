@@ -139,7 +139,8 @@ assert.match(builderSource,/requestId!==drawerCategoryRequest/,'stale category r
 assert.match(builderSource,/ابتدا محل تمرین را انتخاب کنید/,'drawer exposes exercises before location selection');
 assert.match(builderSource,/data-bank-location="gym"[^\n]+data-bank-location="home"/,'gym/home selection is missing');
 assert.match(builderSource,/drawer-filter-accordion/,'search and category controls are not accordion-based');
-assert.match(builderSource,/drawerTabAdd'\)\.style\.display=tab==='add'\?'flex':'none'/,'exercise results do not have a visible flex viewport');
+assert.match(builderSource,/id="drawerTabAdd" style="display:flex"/,'exercise bank content is not visible by default');
+assert.doesNotMatch(builderSource,/class="drawer-tabs"|drawerTabHistory|drawerTabCompare/,'obsolete drawer tabs can hide the exercise bank');
 assert.match(css['program-builder.css'],/#drawerTabAdd\{flex:1;min-height:0/,'exercise drawer result viewport is not scrollable');
 assert.match(builderSource,/querySelectorAll\('\[data-cat-summary\]'\)[^\n]+loadDrawerExercises\(currentDrawerCat,'all',''\)/,'category heading does not load its exercises');
 assert.match(builderSource,/searchVal\.length<2/,'drawer search does not wait for an intentional query');

@@ -193,7 +193,7 @@
       </div>
     </div>
 
-    <!-- Drawer with 3 tabs: سوابق, افزودن حرکت, مقایسه -->
+    <!-- Dedicated exercise-bank drawer -->
     <div class="drawer" id="exerciseDrawer">
       <div class="drawer-backdrop" id="drawerBackdrop"></div>
       <div class="drawer-panel">
@@ -201,12 +201,7 @@
           <h3 id="drawerTitle">افزودن حرکت</h3>
           <button class="btn-icon" id="closeDrawer">×</button>
         </div>
-        <div class="drawer-tabs">
-          <button data-tab="add" class="active">🏋️ افزودن حرکت</button>
-          <button data-tab="history">🕘 سوابق</button>
-          <button data-tab="compare">📊 مقایسه</button>
-        </div>
-        <div id="drawerTabAdd">
+        <div id="drawerTabAdd" style="display:flex">
           <div class="drawer-bank-flow">
             <section class="drawer-bank-step active" id="drawerLocationStep">
               <header><span>۱</span><div><b>محل تمرین</b><small>ابتدا یکی را انتخاب کنید</small></div></header>
@@ -226,14 +221,7 @@
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
-        <div id="drawerTabHistory" style="display:none;padding:16px">
-          <p style="color:var(--text-muted);font-size:13px">سوابق برنامه‌های قبلی کاربر اینجا نمایش داده می‌شود</p>
-          <div id="historyList"></div>
-        </div>
-        <div id="drawerTabCompare" style="display:none;padding:16px">
-          <p style="color:var(--text-muted);font-size:13px">مقایسه با اطرافیان و میانگین‌ها</p>
-          <div id="compareContent">در دست ساخت</div>
-        </div>
+
       </div>
     </div>
     `;
@@ -596,13 +584,6 @@
 
   // Drawer
   let drawerSearchTimeout,drawerCategoryRequest=0,currentDrawerCat=null,currentDrawerSub=null,currentDrawerLocation=null;
-  function showDrawerTab(tab='add'){
-    document.querySelectorAll('.drawer-tabs button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
-    document.getElementById('drawerTabAdd').style.display=tab==='add'?'flex':'none';
-    document.getElementById('drawerTabHistory').style.display=tab==='history'?'block':'none';
-    document.getElementById('drawerTabCompare').style.display=tab==='compare'?'block':'none';
-    document.getElementById('drawerTitle').textContent=tab==='add'?'افزودن حرکت از بانک':tab==='history'?'سوابق برنامه‌های قبلی':'مقایسه';
-  }
   function resetDrawerBankFlow(){
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
     document.querySelectorAll('[data-bank-location]').forEach(button=>{button.classList.remove('active');button.disabled=false;});
@@ -610,13 +591,12 @@
     if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';if(searchSection)searchSection.open=false;if(categorySection)categorySection.open=false;
     if(list)list.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';
   }
-  async function openExerciseDrawer(tab='add'){
+  function openExerciseDrawer(){
     const drawer=document.getElementById('exerciseDrawer'),list=document.getElementById('drawerList');
     if(!drawer||!list)return;
-    showDrawerTab(tab);drawer.classList.add('open');
-    if(tab==='history'){await loadHistory();return;}
-    if(tab!=='add')return;
-    resetDrawerBankFlow();document.getElementById('drawerCats').innerHTML='';
+    document.getElementById('drawerTitle').textContent='افزودن حرکت از بانک';
+    document.getElementById('drawerTabAdd').style.display='flex';
+    resetDrawerBankFlow();document.getElementById('drawerCats').innerHTML='';drawer.classList.add('open');
   }
   function closeDrawer(){
     document.getElementById('exerciseDrawer').classList.remove('open');
@@ -857,7 +837,7 @@
     document.getElementById('btnLoadTemplate').onclick=()=>{
       alert('📂 بارگزاری از نمونه: لیست نمونه برنامه‌ها (getExerciseTemplateRequest) نمایش داده می‌شود');
     };
-    document.getElementById('btnLoadPrev').onclick=()=>{selectedSystemForAdd=null;openExerciseDrawer('history');};
+    document.getElementById('btnLoadPrev').onclick=()=>{location.href='/templates/exercise/list';};
     document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
     document.getElementById('btnCalorie').onclick=()=> alert('🧮 محاسبه‌گر کالری: ابزار محاسبه کالری مورد نیاز شاگرد');
     document.getElementById('btnAssist').onclick=()=> alert('👥 دستیارها: مدیریت دستیارها (deleteOrderAssistDeleteRequest, putOrderAssistPassRequest)');
@@ -874,13 +854,6 @@
     document.getElementById('progNote').oninput=(e)=>{ currentProgram.coach_note=e.target.value; dirty=true; };
     document.getElementById('closeDrawer').onclick=closeDrawer;
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
-    document.querySelectorAll('.drawer-tabs button').forEach(btn=>{
-      btn.onclick=()=>{
-        const tab=btn.dataset.tab;showDrawerTab(tab);
-        if(tab==='add')openExerciseDrawer('add');
-        else if(tab==='history')loadHistory();
-      };
-    });
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
