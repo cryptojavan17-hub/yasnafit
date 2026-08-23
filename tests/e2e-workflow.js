@@ -62,7 +62,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const a=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student A ${suffix}`,mobile:mobileA,goal:'فیتنس'}});
   const b=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student B ${suffix}`,mobile:mobileB,goal:'فیتنس'}});await expectStatus(409,'/api/students',{method:'POST',coach:true,body:{full_name:'Duplicate Mobile',mobile:mobileA,goal:'test'}});assert.match(a.case_number,/^\d{6}$/);assert.match(b.case_number,/^\d{6}$/);assert.notEqual(a.case_number,b.case_number);
   await expectStatus(400,'/api/student-invites',{method:'POST',coach:true,body:{student_id:`${a.id} OR 1=1`}});
-  const byCase=await ok(`/api/students?view=management&search=${a.case_number}`,{coach:true});assert.equal(byCase.items.length,1);assert.equal(byCase.items[0].case_number,a.case_number);
+  const byCase=await ok(`/api/students?view=management&search=${a.case_number}`,{coach:true});assert.equal(byCase.items.length,1);assert.equal(byCase.items[0].case_number,a.case_number);assert.equal(byCase.items[0].goal,'');assert.equal(byCase.items[0].student_record_status,'فعال');
   const inviteA=a,inviteB=b;assert.equal(inviteA.temporary_password,mobileA.slice(-4));assert.equal(inviteB.temporary_password,mobileB.slice(-4));
   await expectStatus(404,'/api/student/join/not-a-valid-token-value');
   await expectStatus(404,`/api/student/join/${encodeURIComponent("' OR 1=1 --")}`);

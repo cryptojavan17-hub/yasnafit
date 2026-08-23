@@ -1,4 +1,5 @@
 (() => {
+  const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   async function api(url, opt={}) {
     const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opt });
@@ -52,7 +53,7 @@
             <span>📅 ${new Date(item.submitted_at||item.created_at).toLocaleDateString('fa-IR')}</span>
             <span>${item.body_photos_preference==='declined'?'— عدم تمایل به تصاویر':`📸 ${item.photo_count||0} عکس`}</span>
             <span>📚 ${item.total_assessments||0} ارزیابی کل</span>
-            <span>🔑 ${esc(item.status)}</span>
+            <span>🔑 ${esc(fa(item.status))}</span>
           </div>
           <div class="program-actions">
             <a class="btn btn-primary btn-small" href="/assessments/${item.id}">مشاهده ارزیابی</a>
@@ -115,7 +116,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
       content.innerHTML=`
         <div class="coach-review-page">
           <header class="coach-review-hero">
-            <div class="coach-review-heading"><a href="/students/submissions" class="review-back" aria-label="بازگشت">→</a><div><p class="eyebrow">بررسی ارزیابی ${ass.assessment_number}</p><h1>${esc(student.full_name)}</h1><div class="review-meta"><span class="case-chip">پرونده <b>${esc(student.case_number||'------')}</b></span><span>${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'تاریخ ارسال ثبت نشده'}</span><span class="review-status ${esc(lifecycle.toLowerCase())}">${esc(lifecycleLabels[lifecycle]||lifecycle)}</span></div></div></div>
+            <div class="coach-review-heading"><a href="/students/submissions" class="review-back" aria-label="بازگشت">→</a><div><p class="eyebrow">بررسی ارزیابی ${ass.assessment_number}</p><h1>${esc(student.full_name)}</h1><div class="review-meta"><span class="case-chip">پرونده <b>${esc(student.case_number||'------')}</b></span><span>${ass.submitted_at?new Date(ass.submitted_at).toLocaleString('fa-IR'):'تاریخ ارسال ثبت نشده'}</span><span class="review-status ${esc(lifecycle.toLowerCase())}">${esc(lifecycleLabels[lifecycle]||fa(lifecycle))}</span></div></div></div>
             <div class="review-header-links"><a class="secondary" href="/students/${student.case_number||student.id}/timeline">تاریخچه شاگرد</a><a class="secondary" href="/users-list/${student.case_number||student.id}">پروفایل شاگرد</a></div>
           </header>
 
@@ -139,7 +140,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
 
             <aside class="coach-review-sidebar">
               <section class="review-decision-card">
-                <div><p class="eyebrow">تصمیم مربی</p><h2>${reviewable?'نتیجه بررسی را ثبت کنید':esc(lifecycleLabels[lifecycle]||lifecycle)}</h2></div>
+                <div><p class="eyebrow">تصمیم مربی</p><h2>${reviewable?'نتیجه بررسی را ثبت کنید':esc(lifecycleLabels[lifecycle]||fa(lifecycle))}</h2></div>
                 <label>یادداشت برای شاگرد<textarea id="coachNote" maxlength="4000" placeholder="توضیح کوتاه و روشن…">${esc(ass.coach_note||'')}</textarea></label>
                 <div class="review-actions">
                   <button class="review-action approve" id="btnApprove" ${reviewable?'':'disabled'}>✓ <span>تأیید</span></button>
@@ -193,7 +194,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
                 <div style="display:flex;gap:16px">
                   <div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">📋</div>
                   <div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px">
-                    <h3 style="margin:0 0 8px">ارزیابی #${a.assessment_number} - ${esc(a.status)}</h3>
+                    <h3 style="margin:0 0 8px">ارزیابی #${a.assessment_number} - ${esc(fa(a.status))}</h3>
                     <p style="font-size:12px;color:var(--text-secondary)">وزن: ${a.weight}kg • ${new Date(a.date).toLocaleDateString('fa-IR')}</p>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">${(a.photos||[]).map(p=>`<img src="/api/student-photos/${p.id}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`).join('')}</div>
                     <button class="btn btn-secondary btn-small" onclick="location.href='/assessments/${a.id}'" style="margin-top:8px">بررسی</button>
@@ -201,7 +202,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
                 </div>
                 `;
               } else if(item.type==='workout'){
-                const workout=item.data;return `<div style="display:flex;gap:16px"><div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">✓</div><div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px"><h3 style="margin:0 0 8px">تمرین ${esc(workout.program_title)} • روز ${workout.day_number}</h3><p>${esc(workout.status)} • ${new Date(item.date).toLocaleDateString('fa-IR')}</p></div></div>`;
+                const workout=item.data;return `<div style="display:flex;gap:16px"><div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">✓</div><div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px"><h3 style="margin:0 0 8px">تمرین ${esc(workout.program_title)} • روز ${workout.day_number}</h3><p>${esc(fa(workout.status))} • ${new Date(item.date).toLocaleDateString('fa-IR')}</p></div></div>`;
               } else {
                 const p=item.data;
                 return `
@@ -209,7 +210,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
                   <div style="width:40px;height:40px;border-radius:50%;background:var(--glass-hover);display:grid;place-items:center;flex:0 0 40px">💪</div>
                   <div style="flex:1;background:var(--surface-3);border:1px solid var(--border);border-radius:12px;padding:16px">
                     <h3 style="margin:0 0 8px">${esc(p.title)}</h3>
-                    <p style="font-size:12px;color:var(--text-secondary)">📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')} • ${esc(p.status||'')}</p>
+                    <p style="font-size:12px;color:var(--text-secondary)">📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')} • ${esc(fa(p.status))}</p>
                     <button class="btn btn-primary btn-small" onclick="location.href='/programs/exercise/form?id=${p.id}'">ویرایش برنامه</button>
                   </div>
                 </div>
@@ -223,7 +224,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
               ${(data.assessments||[]).map(a=>`
                 <div class="program-card">
                   <h3>ارزیابی #${a.assessment_number}</h3>
-                  <p>وزن: ${a.weight}kg • وضعیت: ${esc(a.status)}</p>
+                  <p>وزن: ${a.weight}kg • وضعیت: ${esc(fa(a.status))}</p>
                   <button class="btn btn-secondary btn-small" onclick="location.href='/assessments/${a.id}'">بررسی</button>
                 </div>
               `).join('')}

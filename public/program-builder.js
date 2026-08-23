@@ -1,4 +1,5 @@
 (() => {
+  const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const genHash = () => Math.random().toString(36).substring(2,10) + Date.now().toString(36);
   
@@ -12,7 +13,7 @@
     { id: 'REPEAT', label: 'تکرار', placeholder: '12', icon: '🔁' },
     { id: 'TIME', label: 'زمان', placeholder: '30 ثانیه', icon: '⏱️' },
     { id: 'FAILURE', label: 'تا خستگی', placeholder: '-', icon: '💥' },
-    { id: 'AMRAP', label: 'AMRAP', placeholder: 'تا حد توان', icon: '♾️' },
+    { id: 'AMRAP', label: 'بیشترین تکرار', placeholder: 'تا حد توان', icon: '♾️' },
     { id: 'DROPSET', label: 'دراپ‌ست', placeholder: '12-10-8', icon: '📉' },
     { id: 'SUPERSET', label: 'سوپرست', placeholder: 'سوپرست', icon: '⚡' },
     { id: 'GIANT_SET', label: 'جاینت‌ست', placeholder: 'جاینت', icon: '🔥' },
@@ -241,7 +242,7 @@
           <h3>
             <span class="day-number">${day.day_number}</span>
             روز ${day.day_number} ${isRest ? '🌙 استراحت' : `💪 ${esc(day.focus||'بدون تمرکز')}`}
-            <small style="color:var(--text-muted);font-size:11px">(${vol.movs} حرکت • ${vol.sets} ست) • Hash: ${esc((day.dayHash||'').substring(0,6))}</small>
+            <small style="color:var(--text-muted);font-size:11px">(${vol.movs} حرکت • ${vol.sets} ست)</small>
           </h3>
           <div class="day-actions">
             <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="تمرکز: بالاتنه، پا، فول بادی...">
@@ -259,8 +260,7 @@
               <div class="system-header">
                 <h4>
                   ${systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.icon||'1️⃣'} سیستم ${sysIdx+1}
-                  <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')} - ${esc(sys.system_type||'normal')}</span>
-                  <small style="color:var(--text-muted)">Hash: ${(sys.exerciseSystemHash||'').substring(0,6)}</small>
+                  <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')} - ${esc(fa(sys.system_type||'normal'))}</span>
                 </h4>
                 <div class="system-actions">
                   <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:140px">
@@ -277,13 +277,13 @@
                       ${mov.exercise_id ? `<img src="/api/exercise-image/${mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
                     </div>
                     <div class="movement-info">
-                      <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')} <small style="color:var(--text-secondary)">${mov.exercise_id?`ID:${mov.exercise_id}`:''} • ${esc(mov.movementHash||'').substring(0,6)}</small></b>
+                      <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
                       <div class="movement-desc" style="margin-top:6px">
                         <input data-mov-desc="${dayIdx}-${sysIdx}-${movIdx}" value="${esc(mov.description||'')}" placeholder="توضیح: مثلاً 3 ثانیه مکث در پایین، تمرکز روی انقباض">
                       </div>
                       <div class="sets-list">
                         <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);padding:4px 0">
-                          <span style="min-width:80px">نوع ست (ESetType)</span>
+                          <span style="min-width:80px">نوع ست</span>
                           <span style="min-width:80px">تعداد (count)</span>
                           <span>وزن</span>
                           <span>استراحت</span>
@@ -1001,9 +1001,9 @@
             <span>🏋️ ${movementsCount} حرکت</span>
             <span>🔁 ${setsCount} ست</span>
             <span>👤 ${esc(p.student_name||'بدون شاگرد')}${p.student_case_number?` • پرونده ${esc(p.student_case_number)}`:''}</span>
-            <span>📋 ${p.assessment_number?`ارزیابی #${p.assessment_number} • ${esc(p.assessment_type||'')}`:'بدون ارزیابی'}</span>
+            <span>📋 ${p.assessment_number?`ارزیابی #${p.assessment_number} • ${esc(fa(p.assessment_type))}`:'بدون ارزیابی'}</span>
             <span>🗓 ${p.start_date?new Date(`${p.start_date}T00:00:00`).toLocaleDateString('fa-IR',{month:'long',year:'numeric'}):'—'}</span>
-            <span>🔑 ${esc(p.status||'پیش‌نویس')}</span>
+            <span>🔑 ${esc(fa(p.status||'DRAFT'))}</span>
           </div>
           <div class="program-actions">
             <button class="btn btn-primary btn-small" onclick="location.href='/programs/exercise/form?id=${p.id}'">✏️ ویرایش</button>

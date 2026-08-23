@@ -4,6 +4,7 @@ async function api(url, options={}) {
   if(!r.ok) throw new Error(d.error||'خطا در ارتباط با سرور');
   return d;
 }
+const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function table(h,rows,row){
   return `<div class="table-wrap"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row).join(''):`<tr><td colspan="${h.length}" class="empty">اطلاعاتی برای نمایش وجود ندارد.</td></tr>`}</tbody></table></div>`;
@@ -49,7 +50,7 @@ async function render(label,route){
           <article><span>سفارش‌های در انتظار</span><strong>${d.stats.waiting}</strong></article>
           <article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article>
         </div>
-        <div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام / پرونده','هدف','وضعیت'],d.students,x=>`<tr><td><b>${esc(x.full_name)}</b><small class="case-number-inline">پرونده ${esc(x.case_number||'------')}</small></td><td>${esc(x.goal||'—')}</td><td><b class="badge">${esc(x.profile_status||x.status)}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
+        <div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام / پرونده','هدف','وضعیت'],d.students,x=>`<tr><td><b>${esc(x.full_name)}</b><small class="case-number-inline">پرونده ${esc(x.case_number||'------')}</small></td><td>${esc(fa(x.goal||'—'))}</td><td><b class="badge">${esc(fa(x.profile_status||x.status))}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
       return;
     }
     if(route==='/programs/exercise/movements-list'){
@@ -60,7 +61,7 @@ async function render(label,route){
     }
     if(route==='/programs/exercise/list'||route==='/programs/diet/list'||route==='/programs/supplement/list'||route==='/programs/corrective/list'){
       const list=await api('/api/programs');
-      content.innerHTML=head.replace('＋ افزودن','＋ افزودن برنامه')+table(['عنوان','شاگرد / پرونده','نوع','وضعیت','بازه'],list,x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.student_name||'—')}${x.student_case_number?`<small class="case-number-inline">پرونده ${esc(x.student_case_number)}</small>`:''}</td><td>${esc(x.type)}</td><td><b class="badge">${esc(x.status)}</b></td><td>${esc(x.start_date||'—')} تا ${esc(x.end_date||'—')}</td></tr>`);
+      content.innerHTML=head.replace('＋ افزودن','＋ افزودن برنامه')+table(['عنوان','شاگرد / پرونده','نوع','وضعیت','بازه'],list,x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.student_name||'—')}${x.student_case_number?`<small class="case-number-inline">پرونده ${esc(x.student_case_number)}</small>`:''}</td><td>${esc(fa(x.type))}</td><td><b class="badge">${esc(fa(x.status))}</b></td><td>${esc(x.start_date||'—')} تا ${esc(x.end_date||'—')}</td></tr>`);
       document.querySelector('#addBtn').onclick=()=>modal('ایجاد برنامه جدید',[{label:'عنوان برنامه',name:'title',required:true},{label:'نوع برنامه',name:'type',required:true,placeholder:'تمرینی، غذایی، مکمل یا اصلاحی'},{label:'شناسه شاگرد',name:'student_id',type:'number'},{label:'تاریخ شروع',name:'start_date',type:'date'},{label:'تاریخ پایان',name:'end_date',type:'date'}],b=>api('/api/programs',{method:'POST',body:JSON.stringify(b)}));
       return;
     }

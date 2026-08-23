@@ -1,4 +1,5 @@
 (() => {
+  const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   async function api(url, opt={}) {
@@ -42,7 +43,7 @@
           <div><strong>Yasnafit</strong><span>پرتال شاگرد</span></div>
         </div>
         <div class="sp-status">
-          <span class="status-badge">${esc(statusLabels[status]||status)}</span>
+          <span class="status-badge">${esc(statusLabels[status]||fa(status))}</span>
           <small>${esc(student.full_name||'شاگرد')}</small>
         </div>
       </div>
@@ -167,7 +168,7 @@
             <div class="timeline">
               ${timeline.length===0 ? `<p style="color:var(--text-muted);font-size:12px">تاریخچه‌ای نیست</p>` : timeline.map(item=>{
                 if(item.type==='assessment'){
-                  return `<div class="tl-item"><span class="tl-dot assessment">📋</span><div><b>ارزیابی #${item.data.assessment_number}</b><br><small>${esc(item.data.status)} • ${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div></div>`;
+                  return `<div class="tl-item"><span class="tl-dot assessment">📋</span><div><b>ارزیابی #${item.data.assessment_number}</b><br><small>${esc(fa(item.data.status))} • ${item.data.weight||''}kg • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div></div>`;
                 } else {
                   return `<div class="tl-item"><span class="tl-dot program">💪</span><div><b>${esc(item.data.title||'برنامه')}</b><br><small>${esc(item.data.start_date||'')} • ${new Date(item.date).toLocaleDateString('fa-IR')}</small></div></div>`;
                 }
@@ -314,7 +315,7 @@
                       <b style="font-size:12px">${esc(mov.nameFa||mov.name||'حرکت')}</b>
                       <div style="font-size:11px;color:var(--text-secondary)">${esc(mov.description||'')}</div>
                       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-                        ${(mov.sets||[]).map(s=>`<span style="background:var(--glass-hover);padding:2px 6px;border-radius:10px;font-size:10px">${esc(s.type||s.set_type)}: ${esc(s.count??s.count_value??'—')} • وزن ${esc(s.weight??'—')} • استراحت ${esc(s.restSeconds??s.rest_seconds??'—')} ثانیه</span>`).join('')}
+                        ${(mov.sets||[]).map(s=>`<span style="background:var(--glass-hover);padding:2px 6px;border-radius:10px;font-size:10px">${esc(fa(s.type||s.set_type))}: ${esc(s.count??s.count_value??'—')} • وزن ${esc(s.weight??'—')} • استراحت ${esc(s.restSeconds??s.rest_seconds??'—')} ثانیه</span>`).join('')}
                       </div>
                     </div>
                   `).join('')}

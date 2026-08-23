@@ -309,9 +309,6 @@ async function handleStudents(req,res,url){
     const b=await readBody(req);
     const errors = validateStudentPayload(b);
     if(errors.length) return sendError(res,400, errors[0], errors);
-    const initialStatuses=['فعال','در انتظار','غیرفعال'];
-    if(b.status && !initialStatuses.includes(b.status)) return sendError(res,400,'وضعیت اولیه نامعتبر است');
-
     if(!String(b.mobile||'').trim())return sendError(res,400,'شماره همراه الزامی است');
     let auth;
     try{auth=studentAuthService.authColumnsForMobile(b.mobile);}catch(error){return sendError(res,error.statusCode||400,error.message);}
@@ -323,7 +320,7 @@ async function handleStudents(req,res,url){
         INSERT INTO students
           (full_name,mobile,mobile_normalized,goal,status,weight,height,stable_id,password_hash,password_state,version,created_at,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-      `).run(b.full_name.trim(),String(b.mobile).trim(),auth.mobile_normalized,String(b.goal||'').trim(),b.status||'فعال',Number(b.weight)||null,Number(b.height)||null,stableId,auth.password_hash,auth.password_state);
+      `).run(b.full_name.trim(),String(b.mobile).trim(),auth.mobile_normalized,'','فعال',null,null,stableId,auth.password_hash,auth.password_state);
       const studentId=Number(r.lastInsertRowid),invite=studentService.createInvite(db,studentId,30),created=one('SELECT id,stable_id,case_number,mobile FROM students WHERE id=?',studentId),temporaryPassword=studentAuthService.temporaryPassword(created.mobile);
       db.exec('COMMIT');
       log('شاگرد جدید ثبت شد',`${created.case_number} - ${b.full_name}`);

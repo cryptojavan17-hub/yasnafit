@@ -58,6 +58,10 @@ for(const file of coachCssFiles){
   previous=current;
 }
 const studentHtml=fs.readFileSync(path.join(publicDir,'student.html'),'utf8');
+const localizationSource=fs.readFileSync(path.join(publicDir,'localization.js'),'utf8');
+assert.match(index,/\/localization\.js/,'coach shell misses Persian localization layer');
+assert.match(studentHtml,/\/localization\.js/,'student shell misses Persian localization layer');
+for(const code of ['INVITED','PROFILE_INCOMPLETE','SUBMITTED','PENDING_REVIEW','APPROVED','REJECTED','DRAFT','ACTIVE','COMPLETED','ARCHIVED'])assert.match(localizationSource,new RegExp(`${code}:'[^']+'`),`Persian label is missing for ${code}`);
 assert.match(index,/id="coachReviewBell"/,'coach header review bell is missing');
 assert.match(index,/href="\/students\/submissions"/,'coach review bell does not link to pending assessments');
 assert.match(fs.readFileSync(path.join(publicDir,'core.js'),'utf8'),/ارزیابی در انتظار بررسی/,'pending assessment count is not loaded into the coach header');
@@ -86,6 +90,10 @@ assert.match(reviewSource,/پیام به شاگرد/,'student message action is 
 assert.match(reviewSource,/case_number/,'case number is missing from coach review');
 assert.match(reviewSource,/item\.case_number/,'case number is missing from pending submissions');
 const studentsSource=fs.readFileSync(path.join(publicDir,'students.js'),'utf8');
+const addStudentStart=studentsSource.indexOf('addStudentForm'),addStudentBlock=studentsSource.slice(addStudentStart,studentsSource.indexOf("modal.querySelectorAll('[data-close-modal]')",addStudentStart));
+assert.match(addStudentBlock,/name=\\?"full_name\\?"/,'student creation name field is missing');
+assert.match(addStudentBlock,/name=\\?"mobile\\?"/,'student creation mobile field is missing');
+assert.doesNotMatch(addStudentBlock,/name=\\?"(?:goal|status|weight|height)\\?"/,'student creation form contains extra fields');
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
 for(const heading of ['ردیف','شماره پرونده','نام و نام خانوادگی','شماره همراه'])assert.match(studentsSource,new RegExp(`<th[^>]*>${heading}<\\/th>`),`student table column is missing: ${heading}`);
 assert.doesNotMatch(studentsSource,/شاگرد \/ پرونده/,'student and case columns are still combined');
@@ -97,6 +105,9 @@ assert.doesNotMatch(studentsSource,/لینک ورود Yasnafit:|شماره پر�
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
 assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
+assert.doesNotMatch(coreSource,/esc\(x\.profile_status\|\|x\.status\)/,'dashboard exposes an English profile status');
+assert.doesNotMatch(reviewSource,/esc\(item\.status\)/,'submissions list exposes an English status');
+assert.match(studentAppSource,/const fa=value=>/,'student portal is not using centralized Persian labels');
 assert.match(wizardSource,/inputmode="decimal"/,'body inputs are not mobile-decimal compatible');
 assert.match(wizardSource,/\[۰-۹\]/,'Persian numeric input normalization is missing');
 assert.match(wizardSource,/\[٫,\\\/\]/,'slash/Persian decimal normalization is missing');
