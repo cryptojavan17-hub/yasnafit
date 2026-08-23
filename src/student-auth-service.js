@@ -18,6 +18,7 @@ function normalizeMobile(value){
   return digits;
 }
 function temporaryPassword(mobile){const normalized=normalizeMobile(mobile);return normalized.slice(-4);}
+function normalizeTemporaryPasswordInput(value){return String(value??'').trim().replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));}
 function hashPassword(password,salt=crypto.randomBytes(16)){
   const value=String(password??'');
   const derived=crypto.scryptSync(value,salt,KEY_LENGTH,{N:16384,r:8,p:1,maxmem:64*1024*1024});
@@ -53,14 +54,22 @@ function authenticate(db,mobile,password){
   const student=db.prepare('SELECT * FROM students WHERE mobile_normalized=? AND deleted_at IS NULL').get(normalized);
   if(!student){verifyPassword(password,DUMMY_HASH);return {error:'INVALID_CREDENTIALS'};}
   if(student.auth_locked_until&&new Date(student.auth_locked_until)>new Date())return {error:'AUTH_LOCKED'};
-  if(!student.password_hash||!PASSWORD_STATES.has(student.password_state))return {error:'AUTH_SETUP_REQUIRED'};
-  if(!verifyPassword(password,student.password_hash)){
+  if(!PASSWORD_STATES.has(student.password_state))return {error:'AUTH_SETUP_REQUIRED'};
+  const candidate=student.password_state==='TEMPORARY'?normalizeTemporaryPasswordInput(password):String(password??'');
+  let valid=student.password_hash?verifyPassword(candidate,student.password_hash):false,repairedHash=null;
+  // Compatibility repair: older installations may have an absent/stale temporary
+  // hash. The defined temporary credential is still the mobile's final four digits.
+  if(!valid&&student.password_state==='TEMPORARY'&&candidate===temporaryPassword(student.mobile)){
+    repairedHash=hashPassword(candidate);valid=true;
+  }
+  if(!valid){
+    if(!student.password_hash&&student.password_state!=='TEMPORARY')return {error:'AUTH_SETUP_REQUIRED'};
     const failures=Number(student.auth_failed_attempts||0)+1,lockUntil=failures>=MAX_FAILURES?new Date(Date.now()+LOCK_MS).toISOString():null;
     db.prepare('UPDATE students SET auth_failed_attempts=?,auth_locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(failures>=MAX_FAILURES?0:failures,lockUntil,student.id);
     return {error:lockUntil?'AUTH_LOCKED':'INVALID_CREDENTIALS'};
   }
-  db.prepare('UPDATE students SET auth_failed_attempts=0,auth_locked_until=NULL,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(student.id);
-  return {student:{...student,auth_failed_attempts:0,auth_locked_until:null}};
+  db.prepare('UPDATE students SET password_hash=COALESCE(?,password_hash),auth_failed_attempts=0,auth_locked_until=NULL,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(repairedHash,student.id);
+  return {student:{...student,password_hash:repairedHash||student.password_hash,auth_failed_attempts:0,auth_locked_until:null}};
 }
 function setPersonalPassword(db,studentId,newPassword){
   const student=db.prepare('SELECT id,mobile,password_state FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
@@ -70,4 +79,4 @@ function setPersonalPassword(db,studentId,newPassword){
   return {password_state:'PERSONAL',password_changed_at:new Date().toISOString()};
 }
 
-module.exports={normalizeMobile,temporaryPassword,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword};
+module.exports={normalizeMobile,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword};
