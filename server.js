@@ -366,13 +366,15 @@ async function handleExercises(req,res,url){
   }
 
   if(p==='/api/categories/grouped' && req.method==='GET'){
+    const location=url.searchParams.get('location')||'both';
+    if(!['gym','home','both'].includes(location))return sendError(res,400,'محل تمرین نامعتبر است');
     const cats = rows('SELECT * FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order');
     const subs = rows('SELECT * FROM exercise_subcategories WHERE deleted_at IS NULL ORDER BY sort_order');
-    const counts = {};
-    rows('SELECT category_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL GROUP BY category_id').forEach(r=>counts[r.category_id]=r.cnt);
-    const subCounts = {};
-    rows('SELECT subcategory_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL AND subcategory_id IS NOT NULL GROUP BY subcategory_id').forEach(r=>subCounts[r.subcategory_id]=r.cnt);
-    const grouped = cats.map(c=>{
+    const counts = {},countSql=location==='both'?'SELECT category_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL GROUP BY category_id':"SELECT category_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL AND (location=? OR location='both') GROUP BY category_id";
+    rows(countSql,...(location==='both'?[]:[location])).forEach(r=>counts[r.category_id]=r.cnt);
+    const subCounts = {},subCountSql=location==='both'?'SELECT subcategory_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL AND subcategory_id IS NOT NULL GROUP BY subcategory_id':"SELECT subcategory_id, COUNT(*) as cnt FROM exercises WHERE deleted_at IS NULL AND subcategory_id IS NOT NULL AND (location=? OR location='both') GROUP BY subcategory_id";
+    rows(subCountSql,...(location==='both'?[]:[location])).forEach(r=>subCounts[r.subcategory_id]=r.cnt);
+    const grouped = cats.filter(c=>location==='both'||Number(counts[c.id]||0)>0).map(c=>{
       return {
         id: c.id,
         name: c.name,
@@ -381,7 +383,7 @@ async function handleExercises(req,res,url){
         stable_id: c.stable_id,
         version: c.version,
         count: counts[c.id]||0,
-        subs: subs.filter(s=>s.category_id===c.id).map(s=>({
+        subs: subs.filter(s=>s.category_id===c.id&&(location==='both'||Number(subCounts[s.id]||0)>0)).map(s=>({
           id: s.id,
           name: s.name,
           sort_order: s.sort_order,

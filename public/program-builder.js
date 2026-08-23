@@ -616,24 +616,19 @@
     showDrawerTab(tab);drawer.classList.add('open');
     if(tab==='history'){await loadHistory();return;}
     if(tab!=='add')return;
-    resetDrawerBankFlow();
-    try{
-      if(exerciseCategories.length===0)exerciseCategories=await api('/api/categories/grouped');
-      if(!exerciseCategories.length)throw new Error('دسته‌ای در بانک حرکات پیدا نشد');
-      renderDrawerCats();
-    }catch(error){list.innerHTML=`<div class="drawer-error">اتصال به بانک حرکات انجام نشد: ${esc(error.message)}</div>`;}
+    resetDrawerBankFlow();document.getElementById('drawerCats').innerHTML='';
   }
   function closeDrawer(){
     document.getElementById('exerciseDrawer').classList.remove('open');
     selectedSystemForAdd=null;
   }
-  function selectDrawerLocation(location){
-    currentDrawerLocation=location;currentDrawerCat=null;currentDrawerSub=null;
+  async function selectDrawerLocation(location){
+    currentDrawerLocation=location;currentDrawerCat=null;currentDrawerSub=null;exerciseCategories=[];
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.classList.toggle('active',button.dataset.bankLocation===location));
-    const filter=document.getElementById('drawerFilterStep'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
-    filter.hidden=false;filter.classList.remove('locked');searchSection.open=true;categorySection.open=false;
-    list.innerHTML='<div class="drawer-guidance">نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.</div>';
-    document.getElementById('drawerSearch').focus();
+    const filter=document.getElementById('drawerFilterStep'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList'),cats=document.getElementById('drawerCats');
+    filter.hidden=false;filter.classList.remove('locked');searchSection.open=true;categorySection.open=false;cats.innerHTML='<div class="drawer-loading">در حال دریافت دسته‌بندی‌ها…</div>';list.innerHTML='<div class="drawer-guidance">نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.</div>';
+    try{exerciseCategories=await api(`/api/categories/grouped?location=${encodeURIComponent(location)}`);if(!exerciseCategories.length)throw new Error('حرکتی برای این محل ثبت نشده است');renderDrawerCats();document.getElementById('drawerSearch').focus();}
+    catch(error){cats.innerHTML=`<div class="drawer-error">${esc(error.message)}</div>`;list.innerHTML='<div class="drawer-guidance">محل تمرین دیگری را انتخاب کنید.</div>';}
   }
   function renderDrawerCats(){
     const host=document.getElementById('drawerCats');

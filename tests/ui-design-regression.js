@@ -132,7 +132,7 @@ assert.match(builderSource,/makeAssessmentDays\(sports\.sessions_per_week\)/,'tr
 for(const field of ['progLevel','progLocation','progTarget','progInjury'])assert.match(builderSource,new RegExp(`getElementById\\('${field}'\\)\\.value`),`assessment does not prefill ${field}`);
 assert.match(builderSource,/sel\.disabled=true/,'assessment-selected student is not locked in Program Builder');
 assert.match(builderSource,/selectedSystemForAdd = \{dayIdx, sysIdx\};\s*openExerciseDrawer\(\)/,'add-movement button is not connected to the exercise drawer');
-assert.match(builderSource,/api\('\/api\/categories\/grouped'\)/,'drawer does not load real exercise categories');
+assert.match(builderSource,/api\(`\/api\/categories\/grouped\?location=\$\{encodeURIComponent\(location\)\}`\)/,'drawer categories are not filtered by selected location');
 assert.match(builderSource,/resetDrawerBankFlow\(\)/,'drawer does not reset before each movement selection');
 assert.match(builderSource,/ابتدا محل تمرین را انتخاب کنید/,'drawer exposes exercises before location selection');
 assert.match(builderSource,/data-bank-location="gym"[^\n]+data-bank-location="home"/,'gym/home selection is missing');
