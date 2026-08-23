@@ -54,13 +54,14 @@
   function showInvitation(studentId,result,title='لینک شاگرد ایجاد شد'){
     const absolute=`${location.origin}${result.join_url}`;
     generatedLinks.set(Number(studentId),absolute);
-    const shareText=result.temporary_password?`لینک ورود Yasnafit: ${absolute}\nشماره پرونده: ${result.case_number}\nرمز موقت: ${result.temporary_password}`:absolute;
+    const shareText=result.temporary_password?`لینک ورود:\n${absolute}\n\nرمز موقت:\n${result.temporary_password}`:absolute;
     const modal=createModal(`<div class="student-modal-head"><h2>🔐 ${esc(title)}</h2><button data-close-modal>×</button></div>
-      <p>این لینک امن فقط همین بار از API برگردانده شده است. آن را برای شاگرد ارسال کنید.</p>
-      ${result.case_number?`<div class="created-case-number"><span>شماره پرونده</span><b>${esc(result.case_number)}</b></div>`:''}
-      ${result.temporary_password?`<div class="temporary-password"><span>رمز موقت ورود</span><b>${esc(result.temporary_password)}</b><small>چهار رقم آخر شماره همراه؛ فقط تا تعیین رمز شخصی معتبر است.</small></div>`:''}
-      <div class="generated-link"><code>${esc(absolute)}</code></div>
-      <div class="student-modal-actions"><button class="primary" data-copy-link>${result.temporary_password?'کپی لینک و رمز':'کپی لینک'}</button><button class="secondary" data-close-modal>بستن</button></div>`);
+      <p>این دو مورد را برای شاگرد بفرستید.</p>
+      <span class="credential-label">لینک ورود</span>
+      <div class="credential-link-row"><div class="generated-link"><code>${esc(absolute)}</code></div><button class="secondary" data-copy-url>کپی لینک</button></div>
+      ${result.temporary_password?`<div class="temporary-password"><span>رمز موقت</span><b>${esc(result.temporary_password)}</b><small>چهار رقم آخر شماره همراه؛ فقط تا تعیین رمز شخصی معتبر است.</small></div>`:''}
+      <div class="student-modal-actions"><button class="primary" data-copy-link>${result.temporary_password?'کپی اطلاعات ورود':'کپی لینک'}</button><button class="secondary" data-close-modal>بستن</button></div>`);
+    modal.querySelector('[data-copy-url]').onclick=async()=>{await copyText(absolute);modal.querySelector('[data-copy-url]').textContent='کپی شد ✓';};
     modal.querySelector('[data-copy-link]').onclick=async()=>{ await copyText(shareText); modal.querySelector('[data-copy-link]').textContent='کپی شد ✓'; };
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
   }

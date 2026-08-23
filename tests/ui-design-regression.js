@@ -91,7 +91,9 @@ for(const heading of ['ردیف','شماره پرونده','نام و نام خ�
 assert.doesNotMatch(studentsSource,/شاگرد \/ پرونده/,'student and case columns are still combined');
 assert.match(studentsSource,/listState\.page-1\)\*listState\.pageSize\+index\+1/,'student row number does not respect pagination');
 assert.match(studentsSource,/جستجو با نام، موبایل یا شماره پرونده/,'case-number search is missing');
-assert.match(studentsSource,/created-case-number/,'new-student case number confirmation is missing');
+assert.match(studentsSource,/data-copy-url/,'invitation dialog has no dedicated link-copy action');
+assert.match(studentsSource,/`لینک ورود:\\n\$\{absolute\}\\n\\nرمز موقت:\\n/,'shared login template is not simple and ordered');
+assert.doesNotMatch(studentsSource,/لینک ورود Yasnafit:|شماره پرونده: \$\{result\.case_number\}/,'shared login text still contains removed labels');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
 assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
