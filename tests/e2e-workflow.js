@@ -57,6 +57,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const accessToken=process.env.YASNAFIT_COACH_TOKEN||fs.readFileSync(path.join(__dirname,'..','data','coach-access-token'),'utf8').trim();
   const access=await fetch(`${BASE}/coach-access/${accessToken}`,{redirect:'manual'});assert.equal(access.status,303);coachCookie=(access.headers.get('set-cookie')||'').split(';')[0];
   await expectStatus(401,'/api/student/me',{coach:true});
+  const bankCategories=await ok('/api/categories/grouped',{coach:true});assert.ok(bankCategories.length>=1);const bankExercises=await ok(`/api/exercises?categoryId=${encodeURIComponent(bankCategories[0].id)}&status=active&page=0&pageSize=5`,{coach:true});assert.ok(bankExercises.items.length>=1);assert.ok(bankExercises.items[0].id);assert.ok(bankExercises.items[0].name_fa);
 
   const suffix=Date.now(),tail=String(suffix).slice(-8),mobileA=`091${tail}`,mobileB=`081${tail}`,mobileZero=`071${tail}`,mobileChange=`072${tail}`,mobileReject=`073${tail}`,mobileRevoke=`070${tail}`;
   const a=await ok('/api/students',{method:'POST',coach:true,body:{full_name:`Student A ${suffix}`,mobile:mobileA,goal:'فیتنس'}});

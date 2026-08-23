@@ -279,7 +279,7 @@
                 ${(sys.movement_list||[]).map((mov, movIdx) => `
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-image">
-                      ${mov.exercise_id ? `<img src="/api/exercise-image/${mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
+                      ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
                     </div>
                     <div class="movement-info">
                       <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
@@ -583,16 +583,27 @@
 
   // Drawer
   let drawerSearchTimeout;
-  async function openExerciseDrawer(){
-    document.getElementById('exerciseDrawer').classList.add('open');
-    if(exerciseCategories.length===0){
-      try {
-        exerciseCategories = await api('/api/categories/grouped');
-        renderDrawerCats();
-      } catch(e){ console.error(e); }
-    }
-    loadDrawerExercises();
-    loadHistory();
+  function showDrawerTab(tab='add'){
+    document.querySelectorAll('.drawer-tabs button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+    document.getElementById('drawerTabAdd').style.display=tab==='add'?'block':'none';
+    document.getElementById('drawerTabHistory').style.display=tab==='history'?'block':'none';
+    document.getElementById('drawerTabCompare').style.display=tab==='compare'?'block':'none';
+    document.getElementById('drawerTitle').textContent=tab==='add'?'افزودن حرکت از بانک':tab==='history'?'سوابق برنامه‌های قبلی':'مقایسه';
+  }
+  async function openExerciseDrawer(tab='add'){
+    const drawer=document.getElementById('exerciseDrawer'),list=document.getElementById('drawerList');
+    if(!drawer||!list)return;
+    showDrawerTab(tab);drawer.classList.add('open');
+    if(tab==='history'){await loadHistory();return;}
+    if(tab!=='add')return;
+    list.innerHTML='<div class="drawer-loading">در حال اتصال به بانک حرکات…</div>';
+    try{
+      if(exerciseCategories.length===0)exerciseCategories=await api('/api/categories/grouped');
+      if(!exerciseCategories.length)throw new Error('دسته‌ای در بانک حرکات پیدا نشد');
+      if(currentDrawerCat==='all'||!exerciseCategories.some(category=>category.id===currentDrawerCat))currentDrawerCat=exerciseCategories[0].id;
+      renderDrawerCats();
+      await loadDrawerExercises(currentDrawerCat);
+    }catch(error){list.innerHTML=`<div class="drawer-error">اتصال به بانک حرکات انجام نشد: ${esc(error.message)}</div>`;}
   }
   function closeDrawer(){
     document.getElementById('exerciseDrawer').classList.remove('open');
@@ -600,7 +611,7 @@
   }
   function renderDrawerCats(){
     const host=document.getElementById('drawerCats');
-    host.innerHTML = `<button data-cat="all" class="active">همه</button>` + exerciseCategories.map(c=>`<button data-cat="${c.id}">${esc(c.name)} (${c.count})</button>`).join('');
+    host.innerHTML = `<button data-cat="all" class="${currentDrawerCat==='all'?'active':''}">همه</button>` + exerciseCategories.map(c=>`<button data-cat="${c.id}" class="${currentDrawerCat===c.id?'active':''}">${esc(c.name)} (${c.count})</button>`).join('');
     host.querySelectorAll('button').forEach(b=>{
       b.onclick=()=>{
         host.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
@@ -622,7 +633,7 @@
       }
       let allItems=[];
       if(catId==='all' && searchVal){
-        const catsToSearch=['chest','back','shoulders','legs','biceps','triceps','abs'];
+        const catsToSearch=exerciseCategories.map(category=>category.id);
         for(const c of catsToSearch){
           try{
             const res=await api(`/api/exercises?categoryId=${c}&status=active&page=0&pageSize=15&query=${encodeURIComponent(searchVal)}`);
@@ -648,11 +659,11 @@
       return;
     }
     host.innerHTML = items.map(ex=>`
-      <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id}" data-ex-name="${esc(ex.name_fa)}">
-        <img src="/api/exercise-image/${ex.original_id}" onerror="this.style.display='none'" loading="lazy">
+      <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}">
+        <img src="/api/exercise-image/${ex.original_id||ex.id}" onerror="this.style.display='none'" loading="lazy">
         <div>
           <b>${esc(ex.name_fa)}</b>
-          <small>${esc(ex.category_id)} • ${esc(ex.subcategory_id||'')} • اولویت ${ex.priority||5}</small>
+          <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
         </div>
         <span style="margin-left:auto;color:var(--text-secondary)">＋</span>
       </div>
@@ -665,8 +676,9 @@
         if(selectedSystemForAdd){
           const {dayIdx, sysIdx}=selectedSystemForAdd;
           currentProgram.days[dayIdx].data[sysIdx].movement_list.push({
-            exercise_id: origId,
+            exercise_id: exId,
             exerciseId: exId,
+            original_exercise_id:origId?Number(origId):null,
             nameFa: name,
             name: name,
             movementHash: genHash(),
@@ -839,16 +851,7 @@
     document.getElementById('btnLoadTemplate').onclick=()=>{
       alert('📂 بارگزاری از نمونه: لیست نمونه برنامه‌ها (getExerciseTemplateRequest) نمایش داده می‌شود');
     };
-    document.getElementById('btnLoadPrev').onclick=()=>{
-      selectedSystemForAdd=null;
-      document.getElementById('drawerTitle').textContent='سوابق برنامه‌های قبلی';
-      document.querySelectorAll('.drawer-tabs button').forEach(b=>b.classList.remove('active'));
-      document.querySelector('[data-tab="history"]').classList.add('active');
-      document.getElementById('drawerTabAdd').style.display='none';
-      document.getElementById('drawerTabHistory').style.display='block';
-      document.getElementById('drawerTabCompare').style.display='none';
-      openExerciseDrawer();
-    };
+    document.getElementById('btnLoadPrev').onclick=()=>{selectedSystemForAdd=null;openExerciseDrawer('history');};
     document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
     document.getElementById('btnCalorie').onclick=()=> alert('🧮 محاسبه‌گر کالری: ابزار محاسبه کالری مورد نیاز شاگرد');
     document.getElementById('btnAssist').onclick=()=> alert('👥 دستیارها: مدیریت دستیارها (deleteOrderAssistDeleteRequest, putOrderAssistPassRequest)');
@@ -867,13 +870,9 @@
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
     document.querySelectorAll('.drawer-tabs button').forEach(btn=>{
       btn.onclick=()=>{
-        document.querySelectorAll('.drawer-tabs button').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const tab=btn.dataset.tab;
-        document.getElementById('drawerTabAdd').style.display = tab==='add'?'block':'none';
-        document.getElementById('drawerTabHistory').style.display = tab==='history'?'block':'none';
-        document.getElementById('drawerTabCompare').style.display = tab==='compare'?'block':'none';
-        if(tab==='history') loadHistory();
+        const tab=btn.dataset.tab;showDrawerTab(tab);
+        if(tab==='add')openExerciseDrawer('add');
+        else if(tab==='history')loadHistory();
       };
     });
     const drawerSearch=document.getElementById('drawerSearch');

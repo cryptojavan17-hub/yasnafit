@@ -131,6 +131,12 @@ assert.match(builderSource,/assessment-program-context/,'Program Builder assessm
 assert.match(builderSource,/makeAssessmentDays\(sports\.sessions_per_week\)/,'training-day count is not initialized from the assessment');
 for(const field of ['progLevel','progLocation','progTarget','progInjury'])assert.match(builderSource,new RegExp(`getElementById\\('${field}'\\)\\.value`),`assessment does not prefill ${field}`);
 assert.match(builderSource,/sel\.disabled=true/,'assessment-selected student is not locked in Program Builder');
+assert.match(builderSource,/selectedSystemForAdd = \{dayIdx, sysIdx\};\s*openExerciseDrawer\(\)/,'add-movement button is not connected to the exercise drawer');
+assert.match(builderSource,/api\('\/api\/categories\/grouped'\)/,'drawer does not load real exercise categories');
+assert.match(builderSource,/currentDrawerCat=exerciseCategories\[0\]\.id/,'drawer does not open with a real category');
+assert.match(builderSource,/api\(`\/api\/exercises\?\$\{q\}`\)/,'drawer does not read exercises from the bank API');
+assert.match(builderSource,/exercise_id: exId[\s\S]{0,120}original_exercise_id:origId/,'selected bank exercise IDs are not preserved correctly');
+assert.match(css['program-builder.css'],/inset: 0 auto 0 0/,'exercise drawer is not anchored to the left');
 assert.doesNotMatch(coreSource,/esc\(x\.profile_status\|\|x\.status\)/,'dashboard exposes an English profile status');
 assert.doesNotMatch(reviewSource,/esc\(item\.status\)/,'submissions list exposes an English status');
 assert.match(studentAppSource,/const fa=value=>/,'student portal is not using centralized Persian labels');
