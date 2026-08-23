@@ -818,7 +818,7 @@
     document.getElementById('btnPreview').onclick=()=>{
       const preview = JSON.stringify(currentProgram, null, 2);
       const w=window.open();
-      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><pre style="font-family:monospace;white-space:pre-wrap;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px">${esc(preview)}</pre></body></html>`);
+      w.document.write(`<html dir="ltr"><head><meta charset="UTF-8"><title>JSON Preview</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/unified-components.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><pre style="font-family:monospace;white-space:pre-wrap;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px">${esc(preview)}</pre></body></html>`);
     };
     document.getElementById('btnStats').onclick=()=>{
       const vol=calculateVolume(currentProgram);
@@ -1028,7 +1028,7 @@
           const id=b.dataset.preview;
           const prog=await api(`/api/training-programs/${id}/full`);
           const w=window.open();
-          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:var(--card);border:1px solid var(--border);padding:18px;border-radius:12px;color:var(--text-secondary)">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
+          w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>${esc(prog.title)}</title><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/unified-components.css"></head><body style="margin:0;padding:24px;background:var(--bg);color:var(--text-primary)"><h2>${esc(prog.title)}</h2><pre dir="ltr" style="text-align:left;background:var(--card);border:1px solid var(--border);padding:18px;border-radius:12px;color:var(--text-secondary)">${esc(JSON.stringify(prog.program_data, null, 2))}</pre></body></html>`);
         };
       });
       host.querySelectorAll('[data-pdf]').forEach(b=>{

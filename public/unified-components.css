@@ -1,0 +1,235 @@
+/*
+ * Yasnafit unified component layer
+ * Visual source: Assessment Wizard — compact controls, dark glass surfaces,
+ * soft borders, restrained shadows, and semantic blue / green / red accents.
+ * Loaded last by both coach and student shells.
+ */
+
+/* Shared page canvas and typography */
+body,.student-body,.student-portal{
+  background:
+    radial-gradient(circle at 50% -18%,rgba(59,130,246,.1),transparent 32%),
+    var(--bg);
+  color:var(--text-primary);
+}
+body{font-variant-emoji:text}
+.content,.student-main{min-width:0}
+.page-head,.student-page-head{margin-bottom:14px;align-items:center}
+.page-head h1,.student-page-head h1{margin:0 0 4px;color:var(--text);font-size:clamp(19px,2.4vw,24px);letter-spacing:-.02em}
+.page-head p,.student-page-head p{margin:0;color:var(--text-muted);font-size:10px;line-height:1.8}
+.eyebrow{color:var(--accent-hover);font-size:9px}
+
+/* One glass recipe for every application surface */
+:is(
+  .panel,.page-intro,.placeholder-grid article,.stat-grid article,
+  .students-panel,.detail-section,.student-stat-grid article,.student-modal,
+  .program-card,.builder-header,.builder-form,.order-header,.day-card,.system-card,.movement-card,.bottom-toolbar,
+  .exercise-controls,.exercise-scroll,.exercise-card,.category-menu,.pagination,
+  .current-version-box,.release-card,.release-change-group,
+  .sp-card,.sp-welcome,.sp-sidebar,.sp-alert,.invite-card,.generated-link,.photo-upload-box,
+  .student-card,.student-stat,.student-assessment-data>div,.student-review-item,.history-item,.history-card,.student-movement,.student-set,.workout-set-row,.message,.notification-item,
+  .profile-data>div,.student-photo-grid button,.document-list article,
+  .readonly-program,.program-day,.program-system,.readonly-movement,
+  .assessment-detail-group,.measurement-comparison span,
+  .coach-review-hero,.coach-review-group,.review-decision-card,
+  .exercise-form,.form-preview,.modal,.join-card,.onboarding-card
+){
+  border:1px solid var(--component-border);
+  border-radius:var(--component-radius);
+  background:var(--component-card);
+  box-shadow:var(--shadow-sm);
+  backdrop-filter:blur(var(--component-blur));
+}
+:is(
+  .panel,.students-panel,.detail-section,.program-card,.exercise-card,.release-card,
+  .student-card,.history-item,.coach-review-group
+){transition:border-color var(--transition),background var(--transition),transform var(--transition),box-shadow var(--transition)}
+:is(.panel,.program-card,.exercise-card,.release-card,.student-card,.history-item):hover{
+  border-color:var(--accent-border);
+  background:var(--component-card-hover);
+  box-shadow:var(--shadow);
+}
+
+/* Unified shell chrome */
+.sidebar,.topbar,.student-header,.student-nav,.student-bottom-nav,.sp-header{
+  border-color:var(--component-border);
+  background:var(--component-header);
+  box-shadow:var(--shadow-sm);
+  backdrop-filter:blur(var(--component-blur)) saturate(115%);
+}
+.sidebar{padding:0}.brand{padding:16px 15px}.brand-mark,.student-brand-mark,.join-logo,.sp-logo,.avatar{
+  border-color:var(--accent-border);
+  background:var(--accent);
+  color:var(--on-accent);
+  box-shadow:var(--accent-shadow);
+}
+.menu-link,.student-nav a,.student-nav button{
+  min-height:38px;
+  border-radius:var(--component-control-radius);
+  color:var(--text-muted);
+}
+.menu-link:hover,.menu-link.active,.student-nav a:hover,.student-nav a.active{
+  border-color:var(--accent-border);
+  background:var(--accent-surface);
+  color:var(--text);
+}
+.topbar{height:60px}.student-header{height:60px}
+
+/* Inputs and compact interaction targets */
+input,select,textarea,
+.student-search,.day-focus-input,.sort-select,.category-toggle{
+  min-height:var(--component-control-height);
+  border:1px solid var(--component-border);
+  border-radius:var(--component-control-radius);
+  background:var(--component-control);
+  color:var(--text);
+  font-size:11px;
+}
+textarea{min-height:72px}
+input:hover,select:hover,textarea:hover{border-color:var(--border-strong)}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--accent);
+  background:var(--surface-2);
+  box-shadow:0 0 0 3px var(--accent-surface);
+}
+input::placeholder,textarea::placeholder{color:var(--text-placeholder)}
+input[type="checkbox"],input[type="radio"]{min-height:17px;accent-color:var(--accent)}
+
+:is(.primary,.secondary,.danger,.btn,.review-action,.skip-photos,.location-btn,.category-toggle,.chip,.tab,.page-btn,.sort-select,.drawer-tabs button,.drawer-cats button){
+  min-height:var(--component-control-height);
+  padding:7px 12px;
+  border-radius:var(--component-control-radius);
+  font-size:10px;
+  font-weight:750;
+}
+:is(.primary,.btn-primary){border-color:var(--accent);background:var(--accent);color:var(--on-accent);box-shadow:var(--accent-shadow)}
+:is(.secondary,.btn-secondary){border-color:var(--component-border);background:var(--glass);color:var(--text-secondary);box-shadow:none}
+:is(.danger,.btn-danger){border-color:var(--danger-border);background:var(--danger-surface);color:var(--danger);box-shadow:none}
+:is(.primary,.secondary,.danger,.btn,.review-action):hover{transform:translateY(-1px)}
+:is(.primary,.btn-primary):hover{background:var(--accent-hover);filter:none}
+:is(.secondary,.btn-secondary):hover{border-color:var(--accent-border);background:var(--accent-surface);color:var(--text)}
+:is(.danger,.btn-danger):hover{border-color:var(--danger);background:var(--danger-surface);filter:none}
+.btn-small{min-height:34px;padding:5px 9px;border-radius:7px;font-size:9px}
+.btn-icon,.icon-button,.mobile-menu,.student-header-logout{border-color:var(--component-border);background:var(--glass);color:var(--text-secondary)}
+.btn-icon:hover,.icon-button:hover,.mobile-menu:hover,.student-header-logout:hover{border-color:var(--accent-border);background:var(--accent-surface);color:var(--text)}
+
+/* Semantic states */
+:is(.badge,.status-badge,.student-status,.program-status,.next-assessment,.student-status-pill,.release-badge,.release-version){
+  border:1px solid var(--component-border);
+  background:var(--glass);
+  color:var(--text-secondary);
+}
+:is(.current-release-badge,.location-btn.active,.chip.selected,.tab.active,.page-btn.active,.drawer-tabs button.active,.drawer-cats button.active){
+  border-color:var(--accent);
+  background:var(--accent);
+  color:var(--on-accent);
+}
+:is(.student-status.active,.program-status.active,.next-assessment.not_due,.review-status.approved){
+  border-color:var(--success-border);
+  background:var(--success-surface);
+  color:var(--success);
+}
+:is(.student-status.warning,.student-status.due,.next-assessment.due,.next-assessment.required,.review-status.rejected,.error-state,.students-error){
+  border-color:var(--danger-border);
+  background:var(--danger-surface);
+  color:var(--danger);
+}
+
+/* Dashboard, lists and data tables */
+.stat-grid,.student-stat-grid,.placeholder-grid{gap:var(--component-gap)}
+.stat-grid article,.student-stat-grid article,.placeholder-grid article{min-height:82px;padding:12px 14px}
+.stat-grid strong,.student-stat-grid strong{color:var(--text);font-size:21px}
+.stat-grid span,.student-stat-grid span{color:var(--text-muted);font-size:9px}
+.table-wrap,.students-table-wrap{
+  overflow:auto;
+  border:1px solid var(--component-border);
+  border-radius:var(--component-radius);
+  background:var(--component-card);
+  box-shadow:var(--shadow-sm);
+}
+table{font-size:10px}thead,th{background:var(--surface-2)}th{color:var(--text-secondary)}
+th,td{padding:10px;border-color:var(--component-border)}
+tbody tr,tbody tr:nth-child(even){background:transparent}
+tbody tr:hover{background:var(--accent-surface)}
+
+/* Forms, modals and drawers */
+.modal-backdrop,.student-modal-backdrop,.drawer-backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(10px)}
+.modal,.student-modal{padding:var(--component-padding);border-radius:var(--component-radius-lg)}
+.modal-head,.student-modal-head,.drawer-header{min-height:44px;padding:8px 0 10px;border-color:var(--component-border)}
+.form-grid,.form-row{gap:var(--component-gap)}
+.modal-actions,.student-modal-actions,.header-actions,.program-actions,.student-actions{gap:7px}
+.drawer-panel{border-color:var(--component-border);background:var(--component-card);box-shadow:var(--shadow-deep);backdrop-filter:blur(24px)}
+.drawer-tabs,.drawer-cats,.drawer-search{border-color:var(--component-border);background:var(--surface-inset)}
+
+/* Program Builder hierarchy */
+.program-builder,.exercise-page,.students-page,.student-detail-page,.release-page,.coach-review-page{width:100%;max-width:1360px;margin-inline:auto}
+.builder-header,.builder-form{padding:var(--component-padding);border-radius:var(--component-radius-lg)}
+.days-container,.systems-list{gap:var(--component-gap)}
+.day-card{border-radius:var(--component-radius-lg)}
+.day-header,.system-header{padding:10px 12px;border-color:var(--component-border);background:var(--glass)}
+.day-number{background:var(--accent);color:var(--on-accent);box-shadow:var(--accent-shadow)}
+.systems-list{padding:11px}.movements-list{padding:9px}.movement-card{padding:9px;border-radius:var(--component-control-radius)}
+.set-row{padding:6px 8px;border-radius:8px;background:var(--surface-inset)}
+.set-row :is(input,select){min-height:34px}
+.program-list,.exercise-grid,.release-list{gap:var(--component-gap)}
+.program-card,.release-card,.exercise-card{padding:var(--component-padding);border-radius:var(--component-radius)}
+
+/* Student portal and student application */
+.student-layout{gap:12px}.student-main{max-width:1040px}
+.student-card{padding:var(--component-padding);border-radius:var(--component-radius)}
+.student-grid{gap:var(--component-gap)}
+.student-stat{min-height:92px;padding:12px}
+.student-assessment-data{gap:7px}.student-assessment-data>div,.student-review-item{padding:9px;border-radius:8px}
+.history-list{gap:7px}.history-item{padding:10px;border-radius:var(--component-control-radius)}
+.student-movement{padding:9px;border-radius:var(--component-control-radius)}
+.student-set{background:var(--surface-inset)}
+.message{border-radius:var(--component-control-radius);background:var(--component-card)}
+.message.student{border-color:var(--accent-border);background:var(--accent-surface)}
+.message.coach{border-color:var(--component-border)}
+.sp-grid{gap:12px}.sp-card,.sp-welcome,.sp-sidebar{padding:var(--component-padding);border-radius:var(--component-radius)}
+
+/* Submission list and coach review */
+.coach-review-hero{padding:var(--component-padding);border-radius:var(--component-radius-lg)}
+.coach-review-layout,.coach-review-main{gap:var(--component-gap)}
+.coach-review-group,.review-decision-card{border-radius:var(--component-radius);background:var(--component-card)}
+.coach-review-group>header{min-height:42px;padding:8px 10px;background:var(--glass);border-color:var(--component-border)}
+.coach-review-group dl{padding:4px 10px}.coach-review-group dl>div{padding:6px 0}
+.review-decision-card{padding:var(--component-padding)}
+.review-action.approve{border-color:var(--success-border);background:var(--success-surface);color:var(--success)}
+.review-action.revise{border-color:var(--accent-border);background:var(--accent-surface);color:var(--accent-hover)}
+.review-action.reject{border-color:var(--danger-border);background:var(--danger-surface);color:var(--danger)}
+
+/* Empty, loading and error states */
+:is(.empty-state,.student-empty,.loading-state,.students-loading,.release-loading,.coach-review-loading){
+  padding:28px 14px;
+  border:1px dashed var(--component-border);
+  border-radius:var(--component-radius);
+  background:var(--glass);
+  color:var(--text-muted);
+  text-align:center;
+}
+:is(.spinner,.student-spinner,.coach-review-loading span){border-color:var(--component-border);border-top-color:var(--accent)}
+
+/* Mobile: preserve touch targets while keeping the assessment form's compact rhythm */
+@media(max-width:850px){
+  .content{padding:14px 12px 38px}
+  .topbar{padding-inline:12px}
+  .sidebar{background:var(--component-card)}
+  .student-layout{padding:12px}
+  .coach-review-layout{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  :is(.panel,.students-panel,.detail-section,.student-card,.program-card,.release-card,.sp-card,.coach-review-group,.review-decision-card){padding:11px}
+  .stat-grid,.student-stat-grid,.placeholder-grid,.student-grid{grid-template-columns:1fr}
+  .page-head{align-items:stretch}
+  .page-head :is(.primary,.secondary,.btn){width:100%}
+  .form-grid,.form-row,.student-profile-grid,.sp-row{grid-template-columns:1fr}
+  .review-actions{grid-template-columns:1fr 1fr}
+  th,td{padding:9px 8px}
+}
+@media(max-width:420px){
+  .content{padding-inline:9px}
+  .student-layout{padding:9px}
+  :is(.primary,.secondary,.danger,.btn,.review-action){min-height:40px;padding-inline:10px}
+  .review-actions{grid-template-columns:1fr}
+}

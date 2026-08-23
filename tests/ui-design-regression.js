@@ -5,11 +5,11 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const publicDir=path.join(root,'public');
-const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','student-portal.css','releases.css','students.css','student-app.css'];
+const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','student-portal.css','releases.css','students.css','student-app.css','unified-components.css'];
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
 
-for(const token of ['--bg: #050505','--card: rgba(18, 18, 22, .78)','--surface: #101010','--glass: rgba(255, 255, 255, .045)','--border: rgba(255, 255, 255, .085)','--text: #fff','--accent: #3b82f6','--success: #34d399','--danger: #f87171','--radius-lg: 16px','--transition: 180ms ease']){
+for(const token of ['--bg: #050505','--card: rgba(18, 18, 22, .78)','--surface: #101010','--glass: rgba(255, 255, 255, .045)','--border: rgba(255, 255, 255, .085)','--text: #fff','--accent: #3b82f6','--success: #34d399','--danger: #f87171','--component-control-height: 42px','--component-radius: 13px','--component-padding: 14px','--radius-lg: 16px','--transition: 180ms ease']){
   assert.ok(css['theme.css'].includes(token),`missing central design token: ${token}`);
 }
 for(const [file,source] of Object.entries(css)){
@@ -28,7 +28,8 @@ const requiredSelectors={
   'student-portal.css':['.student-portal {','.sp-card {','.photo-upload-box {'],
   'students.css':['.students-panel, .detail-section {','.students-table-wrap {','.student-modal {'],
   'releases.css':['.release-card {','.current-version-box {'],
-  'student-app.css':['.student-auth-page{','.onboarding-card{','.student-bottom-nav{','.upload-card{']
+  'student-app.css':['.student-auth-page{','.onboarding-card{','.student-bottom-nav{','.upload-card{'],
+  'unified-components.css':['.sidebar,.topbar','.student-card{padding:var(--component-padding)','.program-builder,.exercise-page','.coach-review-hero{padding:var(--component-padding)']
 };
 for(const [file,selectors] of Object.entries(requiredSelectors)) for(const selector of selectors){
   assert.ok(css[file].includes(selector),`${file} missing redesigned selector ${selector}`);
@@ -37,6 +38,7 @@ for(const [file,selectors] of Object.entries(requiredSelectors)) for(const selec
 const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
 assert.doesNotMatch(inlineSources,/background\s*:\s*#(?:fff(?:fff)?|f[0-9a-f]{5}|e[0-9a-f]{5})/i,'light inline background can override dark theme');
 assert.doesNotMatch(inlineSources,/var\(--[^)]+\)[0-9a-f]+/i,'malformed CSS variable found in inline styles');
+assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/unified-components\.css/,'Program Builder preview does not use the global component layer');
 
 const index=fs.readFileSync(path.join(publicDir,'index.html'),'utf8');
 let previous=-1;
@@ -53,6 +55,8 @@ assert.doesNotMatch(fs.readFileSync(path.join(publicDir,'coach-submissions.js'),
 assert.match(studentHtml,/dir="rtl"/,'student shell is not RTL');
 assert.match(studentHtml,/\/theme\.css/,'student shell misses central design tokens');
 assert.match(studentHtml,/\/student-app\.css/,'student shell misses dedicated responsive styles');
+assert.match(studentHtml,/\/unified-components\.css/,'student shell misses unified component layer');
+assert.ok(studentHtml.indexOf('/unified-components.css')>studentHtml.indexOf('/student-app.css'),'student unified component layer must load last');
 assert.match(studentHtml,/\/assessment-wizard\.js/,'student shell misses professional assessment wizard');
 assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewport');
 assert.match(css['student-app.css'],/@media\(max-width:800px\)/,'student portal misses tablet/mobile layout');
