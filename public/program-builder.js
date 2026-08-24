@@ -96,100 +96,143 @@
     return {totalSets, totalMovs, totalDays: program.days?.length||0};
   }
 
+  let activeDayIdx=0;
+  const expandedMovements={};
+  function setDirty(value){ dirty=value; refreshDirtyUI(); }
+  function refreshDirtyUI(){
+    const badge=document.getElementById('dirtyBadge'),inline=document.getElementById('dirtyInline');
+    if(badge)badge.hidden=!dirty;
+    if(inline)inline.hidden=!dirty;
+  }
+  function closeAllMenus(){document.querySelectorAll('.builder-menu').forEach(menu=>menu.hidden=true);}
+  function toggleBuilderMenu(button){
+    const wrap=button.closest('.builder-menu-wrap');
+    const menu=wrap?wrap.querySelector('.builder-menu'):null;
+    if(!menu)return;
+    const willOpen=menu.hidden;
+    closeAllMenus();
+    menu.hidden=!willOpen;
+  }
+  function movementSummary(mov){
+    const sets=mov.sets||[];
+    const reps=sets.reduce((sum,set)=>sum+(Number(set.count)||0),0);
+    const rests=(sets.map(set=>Number(set.restSeconds)||0)).filter(Boolean);
+    const avgRest=rests.length?Math.round(rests.reduce((a,b)=>a+b,0)/rests.length):0;
+    return `${sets.length.toLocaleString('fa-IR')} ست${reps?` • ${reps.toLocaleString('fa-IR')} تکرار`:''}${avgRest?` • استراحت ~${avgRest.toLocaleString('fa-IR')} ثانیه`:''}`;
+  }
+  function updateTopbar(){
+    const titleEl=document.getElementById('topbarTitle');
+    if(titleEl)titleEl.textContent=currentProgram?.title||'برنامه جدید';
+    const sub=document.getElementById('topbarSub');
+    if(sub){
+      const vol=currentProgram?calculateVolume(currentProgram):{totalSets:0,totalMovs:0,totalDays:0};
+      const select=document.getElementById('progStudent');
+      let studentLabel='';
+      if(select&&select.selectedOptions&&select.selectedOptions[0]&&select.value)studentLabel=(select.selectedOptions[0].textContent.split(' • ')[1]||'').trim();
+      sub.textContent=`${vol.totalDays.toLocaleString('fa-IR')} روز • ${vol.totalMovs.toLocaleString('fa-IR')} حرکت • ${vol.totalSets.toLocaleString('fa-IR')} ست${studentLabel?` • برای: ${studentLabel}`:''}${currentProgram?.version?` • نسخه ${currentProgram.version}`:''}`;
+    }
+  }
+
   function root() {
     const vol = currentProgram ? calculateVolume(currentProgram) : {totalSets:0, totalMovs:0, totalDays:0};
     return `
     <div class="program-builder">
-      <div class="order-header">
-        <div>
-          <h2>ویرایش برنامه ${esc(currentProgram?.title||'جدید')} ${currentProgram?.start_date?` - ${esc(currentProgram.start_date)}`:''}</h2>
-          <small>مسیر: /programs/exercise/form • موضوع مجوز: PRG-EXR • نسخه: ${currentProgram?.version||2} • ${dirty?'⚠️ تغییرات ذخیره نشده':''}</small>
+      <div class="builder-topbar">
+        <div class="topbar-id">
+          <p class="eyebrow">🏋️ ساخت برنامه تمرینی</p>
+          <h2 class="topbar-title" id="topbarTitle">${esc(currentProgram?.title||'برنامه جدید')}</h2>
+          <small class="topbar-sub" id="topbarSub">${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</small>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-small" onclick="history.back()">← بازگشت به سفارشات</button>
-        </div>
-      </div>
-
-      <div class="builder-header">
-        <div>
-          <h1>🏋️ ساخت برنامه تمرینی</h1>
-          <p>ساختار برنامه: روز → سیستم تمرینی → حرکت → ست</p>
-        </div>
-        <div class="header-actions">
-          <span class="volume-badge">📊 ${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</span>
-          <button class="btn btn-secondary" id="btnList">📋 لیست برنامه‌ها</button>
-          <button class="btn btn-secondary" id="btnPreview">👁 JSON</button>
-          <button class="btn btn-secondary" id="btnStats">📈 آمار</button>
+        <span class="dirty-badge" id="dirtyBadge" hidden>⚠️ تغییرات ذخیره نشده</span>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary btn-small" onclick="history.back()">← بازگشت</button>
         </div>
       </div>
 
       <div id="assessmentContext"></div>
 
-      <div class="builder-form">
-        <div class="form-row">
-          <label>عنوان برنامه *
-            <input id="progTitle" placeholder="مثلاً برنامه چربی‌سوزی شهریور - ماه اول">
-          </label>
-          <label>شاگرد
-            <select id="progStudent"><option value="">بدون شاگرد</option></select>
-          </label>
+      <details class="panel-section" id="programInfoPanel" open>
+        <summary>
+          <span class="section-num">۱</span>
+          <span class="section-titles"><b>مشخصات برنامه و شاگرد</b><small>عنوان، شاگرد، سطح، هدف، آسیب‌دیدگی و بازه زمانی</small></span>
+          <i class="chev" aria-hidden="true">⌄</i>
+        </summary>
+        <div class="builder-form">
+          <div class="form-row">
+            <label>عنوان برنامه *
+              <input id="progTitle" placeholder="مثلاً برنامه چربی‌سوزی شهریور - ماه اول">
+            </label>
+            <label>شاگرد
+              <select id="progStudent"><option value="">بدون شاگرد</option></select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>سطح تمرین
+              <select id="progLevel">
+                ${levels.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
+              </select>
+            </label>
+            <label>محل تمرین
+              <select id="progLocation">
+                ${locations.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>هدف اصلی
+              <select id="progTarget">${Object.entries(goalLabels).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select>
+            </label>
+            <label>وضعیت آسیب
+              <select id="progInjury">
+                ${injuries.map(i=>`<option value="${i.id}">${i.label}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>تاریخ شروع
+              <input type="date" id="progStart">
+            </label>
+            <label>تاریخ پایان
+              <input type="date" id="progEnd">
+            </label>
+          </div>
+          <div class="form-row full">
+            <label>توضیحات مربی
+              <textarea id="progNote" placeholder="توضیحات کلی برنامه، نکات تغذیه، استراحت..."></textarea>
+            </label>
+          </div>
         </div>
-        <div class="form-row">
-          <label>سطح تمرین
-            <select id="progLevel">
-              ${levels.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
-            </select>
-          </label>
-          <label>محل تمرین
-            <select id="progLocation">
-              ${locations.map(l=>`<option value="${l.id}">${l.label}</option>`).join('')}
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label>هدف اصلی
-            <select id="progTarget">${Object.entries(goalLabels).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select>
-          </label>
-          <label>وضعیت آسیب
-            <select id="progInjury">
-              ${injuries.map(i=>`<option value="${i.id}">${i.label}</option>`).join('')}
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label>تاریخ شروع
-            <input type="date" id="progStart">
-          </label>
-          <label>تاریخ پایان
-            <input type="date" id="progEnd">
-          </label>
-        </div>
-        <div class="form-row full">
-          <label>توضیحات مربی
-            <textarea id="progNote" placeholder="توضیحات کلی برنامه، نکات تغذیه، استراحت..."></textarea>
-          </label>
-        </div>
-      </div>
+      </details>
 
-      <div class="days-container" id="daysContainer"></div>
-
-      <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" id="btnAddDay">＋ افزودن روز تمرینی</button>
-        <button class="btn btn-secondary" id="btnAddRestDay">🌙 روز استراحت</button>
-        <button class="btn btn-secondary" id="btnCopyLastDay">📋 کپی آخرین روز</button>
-      </div>
+      <section class="panel-section days-section">
+        <header class="days-section-head">
+          <span class="section-num">۲</span>
+          <div><b>روزهای تمرین</b><small id="daysSummary"></small></div>
+        </header>
+        <div class="day-chips">
+          <div class="chips-scroll" id="dayChipsList"></div>
+          <button class="day-chip add-chip" id="btnAddDay" type="button" title="افزودن روز تمرینی جدید">＋ روز تمرینی</button>
+          <button class="day-chip add-chip ghost" id="btnAddRestDay" type="button" title="افزودن روز استراحت">🌙 روز استراحت</button>
+          <button class="day-chip add-chip ghost" id="btnCopyLastDay" type="button" title="کپی کامل آخرین روز به انتهای برنامه">📋 کپی آخرین روز</button>
+        </div>
+        <div class="days-container" id="daysContainer"></div>
+      </section>
 
       <div class="bottom-toolbar">
+        <span class="dirty-inline" id="dirtyInline" hidden>⚠️ ذخیره نشده</span>
+        <span class="volume-badge" id="volBadge">${vol.totalSets} ست • ${vol.totalMovs} حرکت • ${vol.totalDays} روز</span>
+        <div class="spacer"></div>
         <button class="btn btn-secondary" id="btnSaveReturn">💾 ذخیره و بازگشت</button>
         <button class="btn btn-primary" id="btnSave">💾 ذخیره پیش‌نویس</button>
-        <button class="btn btn-primary" id="btnAssign">✅ ذخیره و اختصاص به شاگرد</button>
-        <button class="btn btn-secondary" id="btnSaveTemplate">📄 ذخیره به عنوان نمونه</button>
-        <button class="btn btn-secondary" id="btnLoadTemplate">📂 بارگزاری از نمونه</button>
-        <button class="btn btn-secondary" id="btnLoadPrev">🕘 برنامه قبلی</button>
-        <div class="spacer"></div>
-        <button class="btn btn-secondary" id="btnCalorie">🧮 محاسبه‌گر کالری</button>
-        <button class="btn btn-secondary" id="btnAssist">👥 دستیارها</button>
-        <span class="volume-badge" id="volBadge">${vol.totalSets} ست • ${vol.totalMovs} حرکت</span>
+        <button class="btn btn-assign" id="btnAssign">✅ ذخیره و اختصاص به شاگرد</button>
+        <div class="builder-menu-wrap">
+          <button class="btn-icon" id="moreMenuBtn" type="button" data-menu title="ابزارهای بیشتر">⋮</button>
+          <div class="builder-menu" id="moreMenu" hidden>
+            <button type="button" id="btnPreview">👁 پیش‌نمایش JSON</button>
+            <button type="button" id="btnStats">📈 آمار برنامه</button>
+            <button type="button" id="btnList">📋 لیست برنامه‌ها</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -228,117 +271,148 @@
   }
 
   function renderDays() {
+    const chipsHost=document.getElementById('dayChipsList');
     const host = document.getElementById('daysContainer');
     if(!host) return;
     const days = currentProgram.days || [];
+    if(activeDayIdx<0||activeDayIdx>=days.length)activeDayIdx=Math.max(0,days.length-1);
+    if(chipsHost){
+      chipsHost.innerHTML = days.map((day,idx)=>`
+        <button type="button" class="day-chip ${idx===activeDayIdx?'active':''} ${day.isRestDay?'rest':''}" data-day-chip="${idx}">
+          <b>روز ${day.day_number.toLocaleString('fa-IR')}</b>
+          <small>${day.isRestDay?'🌙 استراحت':esc(day.focus||'بدون تمرکز')}</small>
+        </button>`).join('');
+    }
+    const summary=document.getElementById('daysSummary');
+    if(summary)summary.textContent=days.length?`${days.length.toLocaleString('fa-IR')} روز در برنامه`:'هنوز روزی اضافه نشده';
 
     if(days.length===0){
-      host.innerHTML = `<div class="empty-day"><p>هنوز روزی اضافه نشده. یک روز تمرینی اضافه کنید.</p></div>`;
+      host.innerHTML = `<div class="empty-day"><p>هنوز روزی اضافه نشده. با دکمه «＋ روز تمرینی» اولین روز را بسازید.</p></div>`;
+      updateVolume();updateTopbar();
       return;
     }
 
-    host.innerHTML = days.map((day, dayIdx) => {
-      const isRest = day.isRestDay;
-      const vol = {movs:0, sets:0};
-      (day.data||[]).forEach(sys=>{ vol.movs += (sys.movement_list||[]).length; (sys.movement_list||[]).forEach(m=> vol.sets += (m.sets||[]).length); });
+    const dayIdx=activeDayIdx, day=days[dayIdx];
+    const isRest = day.isRestDay;
+    const vol = {movs:0, sets:0};
+    (day.data||[]).forEach(sys=>{ vol.movs += (sys.movement_list||[]).length; (sys.movement_list||[]).forEach(m=> vol.sets += (m.sets||[]).length); });
 
-      return `
-      <div class="day-card" data-day-idx="${dayIdx}">
+    host.innerHTML = `
+      <div class="day-card active-day" data-day-idx="${dayIdx}">
         <div class="day-header">
           <h3>
-            <span class="day-number">${day.day_number}</span>
-            روز ${day.day_number} ${isRest ? '🌙 استراحت' : `💪 ${esc(day.focus||'بدون تمرکز')}`}
-            <small style="color:var(--text-muted);font-size:11px">(${vol.movs} حرکت • ${vol.sets} ست)</small>
+            <span class="day-number">${day.day_number.toLocaleString('fa-IR')}</span>
+            <span>${isRest ? '🌙 روز استراحت' : `💪 ${esc(day.focus||'بدون تمرکز')}`}</span>
+            <small class="day-vol">${vol.movs.toLocaleString('fa-IR')} حرکت • ${vol.sets.toLocaleString('fa-IR')} ست</small>
           </h3>
           <div class="day-actions">
-            <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="تمرکز: بالاتنه، پا، فول بادی...">
-            <label style="font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" data-rest="${dayIdx}" ${isRest?'checked':''}> استراحت</label>
-            <button class="btn btn-secondary btn-small" data-move-day-up="${dayIdx}" ${dayIdx===0?'disabled':''}>↑</button>
-            <button class="btn btn-secondary btn-small" data-move-day-down="${dayIdx}" ${dayIdx===days.length-1?'disabled':''}>↓</button>
-            <button class="btn btn-secondary btn-small" data-copy-day="${dayIdx}">📋 کپی</button>
-            <button class="btn btn-danger btn-small" data-del-day="${dayIdx}">🗑 حذف روز</button>
+            <label class="rest-toggle"><input type="checkbox" data-rest="${dayIdx}" ${isRest?'checked':''}> 🌙 روز استراحت</label>
+            <div class="builder-menu-wrap">
+              <button class="btn btn-secondary btn-small" type="button" data-menu title="تنظیمات این روز">⚙️ تنظیمات روز</button>
+              <div class="builder-menu" hidden>
+                <button type="button" data-copy-day="${dayIdx}">📋 کپی این روز</button>
+                <button type="button" data-move-day-up="${dayIdx}" ${dayIdx===0?'disabled':''}>⬆️ انتقال روز به بالا</button>
+                <button type="button" data-move-day-down="${dayIdx}" ${dayIdx===days.length-1?'disabled':''}>⬇️ انتقال روز به پایین</button>
+                <div class="menu-sep"></div>
+                <button type="button" class="menu-danger" data-del-day="${dayIdx}">🗑 حذف روز ${day.day_number.toLocaleString('fa-IR')}</button>
+              </div>
+            </div>
           </div>
         </div>
         ${isRest ? `<div style="padding:20px;text-align:center;color:var(--text-muted)">🌙 روز استراحت - ریکاوری و تغذیه • ${esc(day.coachNote||'')}</div>` : `
-        <div class="systems-list">
-          ${(day.data||[]).map((sys, sysIdx) => `
-            <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
-              <div class="system-header">
-                <h4>
-                  ${systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.icon||'1️⃣'} سیستم ${sysIdx+1}
-                  <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')} - ${esc(fa(sys.system_type||'normal'))}</span>
-                </h4>
-                <div class="system-actions">
-                  <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:140px">
-                    ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - ${t.desc}</option>`).join('')}
-                  </select>
-                  <button class="btn btn-danger btn-small" data-del-sys="${dayIdx}-${sysIdx}">حذف سیستم</button>
+        <div class="day-body">
+          <label class="day-focus-label">تمرکز این روز
+            <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="مثلاً بالاتنه، پا، فول‌بادی…">
+          </label>
+          <div class="systems-list">
+            ${(day.data||[]).map((sys, sysIdx) => `
+              <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
+                <div class="system-header">
+                  <h4>
+                    ${systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.icon||'1️⃣'} سیستم ${(sysIdx+1).toLocaleString('fa-IR')}
+                    <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')}</span>
+                  </h4>
+                  <div class="system-actions">
+                    <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:170px" title="نوع سیستم تمرینی">
+                      ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - ${t.desc}</option>`).join('')}
+                    </select>
+                    <button class="btn btn-danger btn-small" data-del-sys="${dayIdx}-${sysIdx}">حذف سیستم</button>
+                  </div>
                 </div>
-              </div>
-              <div class="movements-list">
-                ${(sys.movement_list||[]).length===0 ? `<div class="empty-system">هنوز حرکتی اضافه نشده. از بانک 2707 تایی انتخاب کنید. تصویر و ویدیو نمایش داده می‌شود.</div>` : ''}
-                ${(sys.movement_list||[]).map((mov, movIdx) => `
+                <div class="movements-list">
+                  ${(sys.movement_list||[]).length===0 ? `<div class="empty-system">هنوز حرکتی اضافه نشده. با دکمه «افزودن حرکت» از بانک ۲۷۰۷ تایی انتخاب کنید.</div>` : ''}
+                  ${(sys.movement_list||[]).map((mov, movIdx) => {
+                    const movKey=`${dayIdx}-${sysIdx}-${movIdx}`;
+                    const isExpanded=expandedMovements[movKey]===true;
+                    return `
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
-                    <div class="movement-image">
-                      ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
+                    <div class="movement-summary-row">
+                      <div class="movement-image">
+                        ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
+                      </div>
+                      <button type="button" class="movement-head" data-mov-toggle="${movKey}" title="باز/بستن جزئیات حرکت">
+                        <span class="mov-chevron" aria-hidden="true">${isExpanded?'⌃':'⌄'}</span>
+                        <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
+                        <small>${movementSummary(mov)}</small>
+                      </button>
+                      <div class="builder-menu-wrap">
+                        <button class="btn-icon" type="button" data-menu title="عملیات حرکت">⋮</button>
+                        <div class="builder-menu" hidden>
+                          <button type="button" data-move-mov-up="${movKey}">⬆️ انتقال حرکت به بالا</button>
+                          <button type="button" data-move-mov-down="${movKey}">⬇️ انتقال حرکت به پایین</button>
+                          <div class="menu-sep"></div>
+                          <button type="button" class="menu-danger" data-del-mov="${movKey}">🗑 حذف حرکت</button>
+                        </div>
+                      </div>
                     </div>
-                    <div class="movement-info">
-                      <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
-                      <div class="movement-desc" style="margin-top:6px">
-                        <input data-mov-desc="${dayIdx}-${sysIdx}-${movIdx}" value="${esc(mov.description||'')}" placeholder="توضیح: مثلاً 3 ثانیه مکث در پایین، تمرکز روی انقباض">
+                    <div class="movement-details" ${isExpanded?'':'hidden'}>
+                      <div class="movement-desc">
+                        <input data-mov-desc="${movKey}" value="${esc(mov.description||'')}" placeholder="توضیح مربی: مثلاً ۳ ثانیه مکث در پایین، تمرکز روی انقباض">
                       </div>
                       <div class="sets-list">
-                        <div style="display:flex;gap:6px;font-size:10px;color:var(--text-muted);padding:4px 0">
-                          <span style="min-width:80px">نوع ست</span>
-                          <span style="min-width:80px">تعداد (count)</span>
-                          <span>وزن</span>
-                          <span>استراحت</span>
-                          <span>عملیات</span>
+                        <div class="sets-head">
+                          <span>نوع ست</span><span>تعداد / مدت</span><span>وزن</span><span>استراحت</span><span></span>
                         </div>
                         ${(mov.sets||[]).map((s, setIdx) => `
                           <div class="set-row" data-set-idx="${setIdx}">
                             <span class="set-type">${esc(setTypes.find(t=>t.id===s.type)?.icon||'🔁')} ${esc(setTypes.find(t=>t.id===s.type)?.label||s.type)}</span>
-                            <select data-set-type="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" style="min-width:110px">
+                            <select data-set-type="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}">
                               ${setTypes.map(t=>`<option value="${t.id}" ${t.id===s.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
                             </select>
-                            <input data-set-count="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="text" value="${esc(s.count||'')}" placeholder="12 یا 30 ثانیه" style="min-width:90px">
-                            <input data-set-weight="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.weight||''}" placeholder="وزن" style="width:70px">
-                            <input data-set-rest="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.restSeconds||60}" placeholder="استراحت" style="width:70px">
+                            <input data-set-count="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="text" value="${esc(s.count||'')}" placeholder="12 یا 30 ثانیه">
+                            <input data-set-weight="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.weight||''}" placeholder="وزن">
+                            <input data-set-rest="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.restSeconds||60}" placeholder="ثانیه">
                             <div class="set-actions">
                               <button class="btn-icon" data-del-set="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" title="حذف ست">×</button>
                             </div>
                           </div>
                         `).join('')}
-                        <div style="display:flex;gap:8px;margin-top:6px">
-                          <button class="btn btn-secondary btn-small" data-add-set="${dayIdx}-${sysIdx}-${movIdx}">＋ ست (REPEAT)</button>
+                        <div class="set-add-row">
+                          <button class="btn btn-secondary btn-small" data-add-set="${dayIdx}-${sysIdx}-${movIdx}">＋ ست تکراری</button>
                           <button class="btn btn-secondary btn-small" data-add-set-time="${dayIdx}-${sysIdx}-${movIdx}">⏱️ ست زمان‌دار</button>
                           <button class="btn btn-secondary btn-small" data-add-set-fail="${dayIdx}-${sysIdx}-${movIdx}">💥 تا خستگی</button>
                         </div>
                       </div>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                      <button class="btn-icon" data-move-mov-up="${dayIdx}-${sysIdx}-${movIdx}" title="بالا">↑</button>
-                      <button class="btn-icon" data-move-mov-down="${dayIdx}-${sysIdx}-${movIdx}" title="پایین">↓</button>
-                      <button class="btn-icon" data-del-mov="${dayIdx}-${sysIdx}-${movIdx}" title="حذف حرکت">🗑</button>
-                    </div>
                   </div>
-                `).join('')}
-                <div class="add-movement-bar">
-                  <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکت از بانک (2707)</button>
-                  <button class="btn btn-secondary btn-small" data-suggest-mov="${dayIdx}-${sysIdx}">💡 پیشنهاد جایگزین</button>
+                  `;}).join('')}
+                  <div class="add-movement-bar">
+                    <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکت از بانک (۲۷۰۷)</button>
+                    <button class="btn btn-secondary btn-small" data-suggest-mov="${dayIdx}-${sysIdx}">💡 پیشنهاد جایگزین</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          `).join('')}
-          <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی (ExerciseSystem)</button>
+            `).join('')}
+            <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی</button>
+          </div>
         </div>
         `}
       </div>
-      `;
-    }).join('');
+    `;
 
     bindDayEvents();
     updateVolume();
+    updateTopbar();
   }
 
   function updateVolume(){
@@ -348,16 +422,13 @@
     // Warning for high volume
     if(vol.totalSets > 100){
       if(!document.getElementById('volWarning')){
-        const header = document.querySelector('.builder-header .header-actions');
-        if(header){
-          const warn = document.createElement('span');
+        const bar=document.querySelector('.bottom-toolbar');
+        if(bar){
+          const warn=document.createElement('span');
           warn.id='volWarning';
-          warn.className='volume-badge';
-          warn.style.background='var(--danger-surface)';
-          warn.style.color='var(--danger)';
-          warn.style.borderColor='var(--danger-border)';
-          warn.textContent = `⚠️ حجم بالا: ${vol.totalSets} ست`;
-          header.append(warn);
+          warn.className='volume-badge vol-warning';
+          warn.textContent=`⚠️ حجم بالا: ${vol.totalSets.toLocaleString('fa-IR')} ست`;
+          bar.insertBefore(warn,bar.firstChild);
         }
       }
     } else {
@@ -367,13 +438,26 @@
   }
 
   function bindDayEvents(){
+    document.querySelectorAll('[data-day-chip]').forEach(b=>{
+      b.onclick=()=>{activeDayIdx=Number(b.dataset.dayChip);closeAllMenus();renderDays();};
+    });
+    document.querySelectorAll('[data-menu]').forEach(b=>{
+      b.onclick=event=>{event.stopPropagation();toggleBuilderMenu(b);};
+    });
+    document.querySelectorAll('[data-mov-toggle]').forEach(b=>{
+      b.onclick=()=>{
+        const key=b.dataset.movToggle;
+        expandedMovements[key]=expandedMovements[key]!==true;
+        renderDays();
+      };
+    });
     document.querySelectorAll('[data-del-day]').forEach(b=>{
       b.onclick=()=>{
         const idx=Number(b.dataset.delDay);
         if(confirm(`روز ${currentProgram.days[idx].day_number} حذف شود؟`)){
           currentProgram.days.splice(idx,1);
           currentProgram.days.forEach((d,i)=>d.day_number=i+1);
-          dirty=true;
+          setDirty(true);
           renderDays();
         }
       };
@@ -392,7 +476,8 @@
           });
         });
         currentProgram.days.push(dayToCopy);
-        dirty=true;
+        activeDayIdx=currentProgram.days.length-1;
+        setDirty(true);
         renderDays();
       };
     });
@@ -402,7 +487,7 @@
         if(idx>0){
           [currentProgram.days[idx-1], currentProgram.days[idx]] = [currentProgram.days[idx], currentProgram.days[idx-1]];
           currentProgram.days.forEach((d,i)=>d.day_number=i+1);
-          dirty=true;
+          setDirty(true);
           renderDays();
         }
       };
@@ -413,7 +498,7 @@
         if(idx < currentProgram.days.length-1){
           [currentProgram.days[idx+1], currentProgram.days[idx]] = [currentProgram.days[idx], currentProgram.days[idx+1]];
           currentProgram.days.forEach((d,i)=>d.day_number=i+1);
-          dirty=true;
+          setDirty(true);
           renderDays();
         }
       };
@@ -422,14 +507,14 @@
       inp.onchange=()=>{
         const idx=Number(inp.dataset.focus);
         currentProgram.days[idx].focus = inp.value;
-        dirty=true;
+        setDirty(true);
       };
     });
     document.querySelectorAll('[data-rest]').forEach(chk=>{
       chk.onchange=()=>{
         const idx=Number(chk.dataset.rest);
         currentProgram.days[idx].isRestDay = chk.checked;
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -442,7 +527,7 @@
           system_type: 'normal',
           movement_list: []
         });
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -450,7 +535,7 @@
       b.onclick=()=>{
         const [dayIdx, sysIdx]=b.dataset.delSys.split('-').map(Number);
         currentProgram.days[dayIdx].data.splice(sysIdx,1);
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -461,7 +546,7 @@
         currentProgram.days[dayIdx].data[sysIdx].exercise_system_id = val;
         const typeObj = systemTypes.find(t=>t.id===val);
         if(typeObj) currentProgram.days[dayIdx].data[sysIdx].system_type = typeObj.type;
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -481,7 +566,7 @@
       b.onclick=()=>{
         const [dayIdx, sysIdx, movIdx]=b.dataset.delMov.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list.splice(movIdx,1);
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -491,7 +576,7 @@
         const list=currentProgram.days[dayIdx].data[sysIdx].movement_list;
         if(movIdx>0){
           [list[movIdx-1], list[movIdx]]=[list[movIdx], list[movIdx-1]];
-          dirty=true;
+          setDirty(true);
           renderDays();
         }
       };
@@ -502,7 +587,7 @@
         const list=currentProgram.days[dayIdx].data[sysIdx].movement_list;
         if(movIdx < list.length-1){
           [list[movIdx+1], list[movIdx]]=[list[movIdx], list[movIdx+1]];
-          dirty=true;
+          setDirty(true);
           renderDays();
         }
       };
@@ -511,7 +596,7 @@
       inp.onchange=()=>{
         const [dayIdx, sysIdx, movIdx]=inp.dataset.movDesc.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].description = inp.value;
-        dirty=true;
+        setDirty(true);
       };
     });
     const addSet = (dayIdx, sysIdx, movIdx, type) => {
@@ -522,7 +607,7 @@
       if(type==='FAILURE') count=null;
       if(type==='AMRAP') count=null;
       mov.sets.push({type, count, restSeconds:60, setHash: genHash()});
-      dirty=true;
+      setDirty(true);
       renderDays();
     };
     document.querySelectorAll('[data-add-set]').forEach(b=>{
@@ -547,7 +632,7 @@
       b.onclick=()=>{
         const [dayIdx, sysIdx, movIdx, setIdx]=b.dataset.delSet.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].sets.splice(setIdx,1);
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -555,7 +640,7 @@
       sel.onchange=()=>{
         const [dayIdx, sysIdx, movIdx, setIdx]=sel.dataset.setType.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].sets[setIdx].type = sel.value;
-        dirty=true;
+        setDirty(true);
         renderDays();
       };
     });
@@ -563,21 +648,21 @@
       inp.onchange=()=>{
         const [dayIdx, sysIdx, movIdx, setIdx]=inp.dataset.setCount.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].sets[setIdx].count = inp.value||null;
-        dirty=true;
+        setDirty(true);
       };
     });
     document.querySelectorAll('[data-set-weight]').forEach(inp=>{
       inp.onchange=()=>{
         const [dayIdx, sysIdx, movIdx, setIdx]=inp.dataset.setWeight.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].sets[setIdx].weight = Number(inp.value)||0;
-        dirty=true;
+        setDirty(true);
       };
     });
     document.querySelectorAll('[data-set-rest]').forEach(inp=>{
       inp.onchange=()=>{
         const [dayIdx, sysIdx, movIdx, setIdx]=inp.dataset.setRest.split('-').map(Number);
         currentProgram.days[dayIdx].data[sysIdx].movement_list[movIdx].sets[setIdx].restSeconds = Number(inp.value)||60;
-        dirty=true;
+        setDirty(true);
       };
     });
   }
@@ -687,7 +772,8 @@
             description: '',
             sets: [{type:'REPEAT', count:12, restSeconds:60, setHash: genHash()}]
           });
-          dirty=true;
+          expandedMovements[`${dayIdx}-${sysIdx}-${currentProgram.days[dayIdx].data[sysIdx].movement_list.length-1}`]=true;
+          setDirty(true);
           renderDays();
           closeDrawer();
         }
@@ -740,7 +826,8 @@
           })
         };
         document.getElementById('progTitle').value = currentProgram.title;
-        dirty=true;
+        activeDayIdx=0;
+        setDirty(true);
         renderDays();
         closeDrawer();
       }
@@ -786,6 +873,7 @@
         sel.innerHTML = `<option value="">بدون شاگرد</option>` + students.map(s=>`<option value="${s.id}">پرونده ${esc(s.case_number||'------')} • ${esc(s.full_name)} • ${esc(s.goal||'بدون هدف')}</option>`).join('');
         if(currentProgram.student_id) sel.value = currentProgram.student_id;
         if(assessmentContext){sel.disabled=true;sel.title='شاگرد از ارزیابی تأییدشده انتخاب شده است';}
+        updateTopbar();
       }
     } catch(e){}
   }
@@ -801,7 +889,8 @@
         isRestDay: false,
         data: [{exercise_system_id:1, exerciseSystemHash: genHash(), system_type:'normal', movement_list:[]}]
       });
-      dirty=true;
+      activeDayIdx=currentProgram.days.length-1;
+      setDirty(true);
       renderDays();
     };
     document.getElementById('btnAddRestDay').onclick=()=>{
@@ -813,7 +902,8 @@
         isRestDay: true,
         data: []
       });
-      dirty=true;
+      activeDayIdx=currentProgram.days.length-1;
+      setDirty(true);
       renderDays();
     };
     document.getElementById('btnCopyLastDay').onclick=()=>{
@@ -830,7 +920,8 @@
         });
       });
       currentProgram.days.push(copy);
-      dirty=true;
+      activeDayIdx=currentProgram.days.length-1;
+      setDirty(true);
       renderDays();
     };
     document.getElementById('btnSave').onclick=()=> saveProgram(false);
@@ -842,21 +933,12 @@
       if(!saved) return;
       try{
         await api(`/api/training-programs/${currentProgram.id}/activate`, {method:'POST'});
-        dirty=false;
+        setDirty(false);
         alert('✅ برنامه فعال و به شاگرد اختصاص داده شد');
         location.href=`/students/${currentProgram.student_id}/timeline`;
       }catch(e){ alert('خطا در اختصاص برنامه: '+e.message); }
     };
-    document.getElementById('btnSaveTemplate').onclick=()=>{
-      alert('📄 ذخیره به عنوان نمونه برنامه: در نسخه کامل، برنامه به بانک نمونه‌ها ذخیره می‌شود (EExerciseTemplate)');
-    };
-    document.getElementById('btnLoadTemplate').onclick=()=>{
-      alert('📂 بارگزاری از نمونه: لیست نمونه برنامه‌ها (getExerciseTemplateRequest) نمایش داده می‌شود');
-    };
-    document.getElementById('btnLoadPrev').onclick=()=>{location.href='/templates/exercise/list';};
     document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
-    document.getElementById('btnCalorie').onclick=()=> alert('🧮 محاسبه‌گر کالری: ابزار محاسبه کالری مورد نیاز شاگرد');
-    document.getElementById('btnAssist').onclick=()=> alert('👥 دستیارها: مدیریت دستیارها (deleteOrderAssistDeleteRequest, putOrderAssistPassRequest)');
     document.getElementById('btnPreview').onclick=()=>{
       const preview = JSON.stringify(currentProgram, null, 2);
       const w=window.open();
@@ -866,8 +948,9 @@
       const vol=calculateVolume(currentProgram);
       alert(`📈 آمار برنامه:\n${vol.totalDays} روز\n${vol.totalMovs} حرکت\n${vol.totalSets} ست\n\nحجم تمرینی: ${vol.totalSets * 12} تکرار تقریبی`);
     };
-    document.getElementById('progTitle').oninput=(e)=>{ currentProgram.title=e.target.value; dirty=true; };
-    document.getElementById('progNote').oninput=(e)=>{ currentProgram.coach_note=e.target.value; dirty=true; };
+    document.getElementById('progTitle').oninput=(e)=>{ currentProgram.title=e.target.value; setDirty(true); updateTopbar(); };
+    document.getElementById('progNote').oninput=(e)=>{ currentProgram.coach_note=e.target.value; setDirty(true); };
+    document.getElementById('progStudent').onchange=(e)=>{ currentProgram.student_id=e.target.value?Number(e.target.value):null; setDirty(true); updateTopbar(); };
     document.getElementById('closeDrawer').onclick=closeDrawer;
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
@@ -876,6 +959,10 @@
       clearTimeout(drawerSearchTimeout);
       drawerSearchTimeout=setTimeout(()=>loadDrawerExercises(null,null,drawerSearch.value),400);
     };
+
+    // Close contextual menus when clicking outside or pressing Escape
+    document.addEventListener('click',event=>{ if(!event.target.closest('.builder-menu-wrap')) closeAllMenus(); });
+    document.addEventListener('keydown',event=>{ if(event.key==='Escape') closeAllMenus(); });
 
     // Dirty state warning
     window.addEventListener('beforeunload', (e)=>{
@@ -918,7 +1005,7 @@
         res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
         currentProgram.id=res.id;
       }
-      dirty=false;
+      setDirty(false);
       localStorage.removeItem('yasnafit_program_stash');
       if(!silent) alert('✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
       if(returnAfter) location.href='/templates/exercise/list';
@@ -985,10 +1072,11 @@
     document.getElementById('progNote').value = currentProgram.coach_note||'';
     document.getElementById('progStart').value = currentProgram.start_date||'';
     document.getElementById('progEnd').value = currentProgram.end_date||'';
+    activeDayIdx=0;
   }
 
   window.renderProgramBuilder = async (label, route) => {
-    window.current=route;currentProgram=null;assessmentContext=null;dirty=false;
+    window.current=route;currentProgram=null;assessmentContext=null;setDirty(false);activeDayIdx=0;Object.keys(expandedMovements).forEach(key=>delete expandedMovements[key]);
     document.querySelector('#breadcrumb').textContent=label;
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
     const previousDrawer=document.querySelector('body > #exerciseDrawer');
