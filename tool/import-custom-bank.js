@@ -181,7 +181,10 @@ function main() {
   const input = resolveInput(explicit);
   if (!input) { console.error('❌ فایل پیدا نشد. مسیر بده:\n   node tool/import-custom-bank.js "C:\\Users\\MAHDI\\Desktop\\bodybuilding\\exercises.json"'); process.exit(1); }
   console.log('📄 فایل:', input);
-  let parsed; try { parsed = toItems(JSON.parse(fs.readFileSync(input, 'utf8'))); }
+  let parsed; try {
+    const raw = fs.readFileSync(input, 'utf8').replace(/^\uFEFF/, ''); // حذف BOM
+    parsed = toItems(JSON.parse(raw));
+  }
   catch (e) { console.error('❌ پارس JSON:', e.message); process.exit(1); }
   if (!parsed) { console.error('❌ ساختار شناسایی نشد'); process.exit(1); }
   if (isRichBank(parsed.items)) { console.log('🧠 حالت تغذیه (بانک غنی با شناسه/دسته) شناسایی شد'); runEnrich(parsed.items, parsed.meta, dryRun); }
