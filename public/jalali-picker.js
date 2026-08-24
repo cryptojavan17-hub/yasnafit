@@ -40,8 +40,8 @@
       event.stopPropagation();
       if (!b) return;
       if (b.dataset.day !== undefined) return pick(state.jy, state.jm, Number(b.dataset.day));
-      if (b.dataset.month !== undefined) { state.jm = Number(b.dataset.month); state.view = 'days'; return render(); }
-      if (b.dataset.year !== undefined) { state.jy = Number(b.dataset.year); state.view = 'months'; return render(); }
+      if (b.dataset.month !== undefined) { state.jm = Number(b.dataset.month); state.view = 'years'; state.yearBase = null; return render(); } // بعد از ماه، انتخاب سال
+      if (b.dataset.year !== undefined) { state.jy = Number(b.dataset.year); state.view = 'days'; return render(); } // بعد از سال، انتخاب روز
       if (b.dataset.view !== undefined) { state.view = b.dataset.view; if (state.view === 'years') state.yearBase = null; return render(); }
       if (b.dataset.nav !== undefined) {
         state.jm += Number(b.dataset.nav);
@@ -87,9 +87,9 @@
     }
     return `
       <header class="jdp-head">
-        <button type="button" class="jdp-nav" data-nav="-1" title="ماه قبل">‹</button>
+        <button type="button" class="jdp-nav" data-nav="-1" title="ماه قبل">›</button>
         <button type="button" class="jdp-title" data-view="months">${J().monthNames[state.jm - 1]} ${fa(state.jy)}</button>
-        <button type="button" class="jdp-nav" data-nav="1" title="ماه بعد">›</button>
+        <button type="button" class="jdp-nav" data-nav="1" title="ماه بعد">‹</button>
       </header>
       <div class="jdp-week">${weekdays.map(w => `<span>${w}</span>`).join('')}</div>
       <div class="jdp-grid">${cells}</div>
@@ -103,18 +103,18 @@
     const t = todayJalali();
     return `
       <header class="jdp-head">
-        <button type="button" class="jdp-nav" data-yearnav="-1" title="سال قبل">‹</button>
+        <button type="button" class="jdp-nav" data-yearnav="-1" title="سال قبل">›</button>
         <button type="button" class="jdp-title" data-view="years">${fa(state.jy)}</button>
-        <button type="button" class="jdp-nav" data-yearnav="1" title="سال بعد">›</button>
+        <button type="button" class="jdp-nav" data-yearnav="1" title="سال بعد">‹</button>
       </header>
-      <div class="jdp-grid months">${J().monthNames.map((m, i) =>
+      <div class="jdp-hint">ماه را انتخاب کنید، سپس سال</div><div class="jdp-grid months">${J().monthNames.map((m, i) =>
         `<button type="button" class="jdp-month${state.jm === i + 1 ? ' selected' : ''}${t.jy === state.jy && t.jm === i + 1 ? ' today' : ''}" data-month="${i + 1}">${m}</button>`).join('')}</div>
       <footer class="jdp-foot"><button type="button" class="jdp-today" data-today>امروز</button></footer>`;
   }
   // ---------- نمای سال‌ها ----------
   function renderYears() {
     const t = todayJalali();
-    if (state.yearBase == null) state.yearBase = state.jy - 5;
+    if (state.yearBase == null) state.yearBase = Math.max(1201, Math.min(1488, state.jy - 5));
     const base = state.yearBase;
     let cells = '';
     for (let y = base; y < base + 12; y++) {
@@ -123,9 +123,9 @@
     }
     return `
       <header class="jdp-head">
-        <button type="button" class="jdp-nav" data-yearpage="-12" title="۱۲ سال قبل">‹‹</button>
+        <button type="button" class="jdp-nav" data-yearpage="-12" title="۱۲ سال قبل">»</button>
         <button type="button" class="jdp-title" data-view="months">${fa(base)} – ${fa(base + 11)}</button>
-        <button type="button" class="jdp-nav" data-yearpage="12" title="۱۲ سال بعد">››</button>
+        <button type="button" class="jdp-nav" data-yearpage="12" title="۱۲ سال بعد">«</button>
       </header>
       <div class="jdp-grid years">${cells}</div>
       <footer class="jdp-foot"><button type="button" class="jdp-today" data-today>امروز</button></footer>`;

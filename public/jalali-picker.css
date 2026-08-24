@@ -21,13 +21,13 @@
   background: var(--glass); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: var(--transition);
 }
 .jdp-nav:hover { border-color: var(--border-strong); color: var(--text); background: var(--glass-hover); }
-.jdp-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.jdp-week { direction: rtl; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .jdp-week span { display: grid; place-items: center; color: var(--text-muted); font-size: 8px; font-weight: 750; }
-.jdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.jdp-grid { direction: rtl; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .jdp-grid.months, .jdp-grid.years { grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .jdp-day {
-  min-height: 31px; display: grid; place-items: center;
-  border: 1px solid transparent; border-radius: 9px;
+  min-height: 31px; width: 100%; box-sizing: border-box; padding: 0; display: grid; place-items: center;
+  line-height: 1; border: 1px solid transparent; border-radius: 9px;
   background: transparent; color: var(--text-secondary);
   font: inherit; font-size: 10px; cursor: pointer; transition: var(--transition);
 }
@@ -36,8 +36,8 @@
 .jdp-day.today { border-color: var(--accent-border); color: var(--accent-hover); font-weight: 800; }
 .jdp-day.selected { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 800; }
 .jdp-month, .jdp-year {
-  min-height: 38px; display: grid; place-items: center;
-  border: 1px solid var(--border); border-radius: 10px;
+  min-height: 38px; width: 100%; box-sizing: border-box; padding: 0; display: grid; place-items: center;
+  line-height: 1; border: 1px solid var(--border); border-radius: 10px;
   background: var(--glass); color: var(--text-secondary);
   font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: var(--transition);
 }
@@ -56,3 +56,5 @@
 .jdp.sheet::before { /* پوشش کلیک بیرون در حالت شیت موبایل */
   content: ''; position: fixed; inset: 0; z-index: -1; background: rgba(0, 0, 0, .35);
 }
+
+.jdp-hint { color: var(--text-muted); font-size: 8px; text-align: center; }
