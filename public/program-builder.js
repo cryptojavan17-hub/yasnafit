@@ -22,13 +22,24 @@
     { id: 'GIANT_SET', label: 'جاینت‌ست', placeholder: 'جاینت', icon: '🔥' },
   ];
 
+  // کاتالوگ سیستم‌های تمرینی (BR-14 — لیست کانونی ۱۲گانه مالک)
+  // idهای ۱-۵ تاریخی و دست‌نخورده؛ idهای ۶-۱۲ جدید. ترتیب = ترتیب نمایش مالک.
   const systemTypes = [
-    { id: 1, label: 'عادی', type: 'normal', desc: 'حرکت تکی', icon: '1️⃣' },
-    { id: 2, label: 'سوپرست', type: 'superset', desc: 'دو حرکت پشت سر هم', icon: '⚡' },
-    { id: 3, label: 'تری‌ست', type: 'triset', desc: 'سه حرکت', icon: '🔺' },
-    { id: 4, label: 'جاینت‌ست', type: 'giant', desc: 'چهار+ حرکت', icon: '🔥' },
-    { id: 5, label: 'دراپ‌ست', type: 'drop', desc: 'کاهش وزن تدریجی', icon: '📉' },
+    { id: 1,  label: 'معمولی',                  type: 'normal',          movements: 1, icon: '1️⃣' },
+    { id: 6,  label: 'سیستم تمرینی رست پاز',    type: 'rest_pause',      movements: 1, icon: '⏸️' },
+    { id: 5,  label: 'سیستم تمرینی دراپ ست',    type: 'drop',            movements: 1, icon: '📉' },
+    { id: 7,  label: 'سیستم تمرینی پس خستگی',   type: 'post_exhaustion', movements: 1, icon: '🧯' },
+    { id: 8,  label: 'سیستم تمرینی FST7',       type: 'fst7',            movements: 1, icon: '7️⃣' },
+    { id: 9,  label: 'سیستم تمرینی ۲۱',         type: 'twenty_one',      movements: 1, icon: '🔢' },
+    { id: 2,  label: 'سیستم تمرینی سوپر ست',    type: 'superset',        movements: 2, icon: '⚡' },
+    { id: 10, label: 'سیستم تمرینی تکرار نیمه', type: 'partial_reps',    movements: 2, icon: '✂️' },
+    { id: 3,  label: 'سیستم تمرینی تری ست',     type: 'triset',          movements: 3, icon: '🔺' },
+    { id: 11, label: 'سیستم تمرینی ۲۰-۱۰-۵',    type: 'ladder_20_10_5',  movements: 3, icon: '🪜' },
+    { id: 4,  label: 'سیستم تمرینی جاينت ست',   type: 'giant',           movements: 4, icon: '🔥' },
+    { id: 12, label: 'سیستم تمرینی ماموت ست',   type: 'mammoth',         movements: 5, icon: '🦣' },
   ];
+  const systemById = id => systemTypes.find(t=>t.id===Number(id));
+  const systemRequired = sys => (systemById(sys?.exercise_system_id)||systemById(1)).movements;
 
   const levels = [
     { id: 'Beginner', label: 'مبتدی' },
@@ -105,6 +116,44 @@
     if(inline)inline.hidden=!dirty;
   }
   function closeAllMenus(){document.querySelectorAll('.builder-menu').forEach(menu=>menu.hidden=true);}
+  let pickerDayIdx=null;
+  function mountSystemPicker(){
+    const picker=document.getElementById('systemPicker');
+    if(!picker)return null;
+    if(picker.parentElement!==document.body)document.body.appendChild(picker);
+    return picker;
+  }
+  function openSystemPicker(dayIdx){
+    const picker=mountSystemPicker();
+    if(!picker)return;
+    pickerDayIdx=dayIdx;
+    const grid=picker.querySelector('#systemPickerGrid');
+    if(grid){
+      grid.innerHTML=systemTypes.map(t=>`
+        <button type="button" class="picker-system" data-pick-system="${t.id}">
+          <span class="picker-icon" aria-hidden="true">${t.icon}</span>
+          <b>${esc(t.label)}</b>
+          <small>شامل ${t.movements.toLocaleString('fa-IR')} حرکت</small>
+        </button>`).join('');
+      grid.querySelectorAll('[data-pick-system]').forEach(btn=>{
+        btn.onclick=()=>{
+          const meta=systemById(btn.dataset.pickSystem);
+          if(pickerDayIdx==null||!meta)return;
+          currentProgram.days[pickerDayIdx].data.push({
+            exercise_system_id: meta.id,
+            exerciseSystemHash: genHash(),
+            system_type: meta.type,
+            movement_list: []
+          });
+          closeSystemPicker();
+          setDirty(true);
+          renderDays();
+        };
+      });
+    }
+    picker.hidden=false;
+  }
+  function closeSystemPicker(){const picker=document.getElementById('systemPicker');if(picker)picker.hidden=true;pickerDayIdx=null;}
   function toggleBuilderMenu(button){
     const wrap=button.closest('.builder-menu-wrap');
     const menu=wrap?wrap.querySelector('.builder-menu'):null;
@@ -236,13 +285,32 @@
       </div>
     </div>
 
+    <!-- Training-system picker (12 systems — BR-14) -->
+    <div class="system-picker" id="systemPicker" hidden>
+      <div class="system-picker-backdrop" id="systemPickerBackdrop"></div>
+      <div class="system-picker-panel" role="dialog" aria-modal="true" aria-label="انتخاب سیستم تمرینی">
+        <header>
+          <h3>انتخاب سیستم تمرینی</h3>
+          <button class="btn-icon" id="closeSystemPicker" type="button" title="بستن">×</button>
+        </header>
+        <p class="picker-hint">هر سیستم تعداد حرکت مشخصی لازم دارد — بعد از انتخاب، «افزودن حرکات تمرینی» ظاهر می‌شود.</p>
+        <div class="system-picker-grid" id="systemPickerGrid"></div>
+      </div>
+    </div>
+
     <!-- Dedicated exercise-bank drawer -->
     <div class="drawer" id="exerciseDrawer">
       <div class="drawer-backdrop" id="drawerBackdrop"></div>
       <div class="drawer-panel">
         <div class="drawer-header">
-          <h3 id="drawerTitle">افزودن حرکت</h3>
-          <button class="btn-icon" id="closeDrawer">×</button>
+          <div class="drawer-header-titles">
+            <h3 id="drawerTitle">بانک حرکات تمرینی</h3>
+            <div class="drawer-context" id="drawerContext" hidden></div>
+          </div>
+          <div class="drawer-header-actions">
+            <button class="btn btn-primary btn-small" id="drawerDone" type="button" hidden>اتمام و بستن</button>
+            <button class="btn-icon" id="closeDrawer" title="بستن">×</button>
+          </div>
         </div>
         <div id="drawerTabAdd" style="display:flex">
           <div class="drawer-bank-flow">
@@ -313,8 +381,6 @@
                 <button type="button" data-copy-day="${dayIdx}">📋 کپی این روز</button>
                 <button type="button" data-move-day-up="${dayIdx}" ${dayIdx===0?'disabled':''}>⬆️ انتقال روز به بالا</button>
                 <button type="button" data-move-day-down="${dayIdx}" ${dayIdx===days.length-1?'disabled':''}>⬇️ انتقال روز به پایین</button>
-                <div class="menu-sep"></div>
-                <button type="button" class="menu-danger" data-del-day="${dayIdx}">🗑 حذف روز ${day.day_number.toLocaleString('fa-IR')}</button>
               </div>
             </div>
           </div>
@@ -325,22 +391,27 @@
             <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="مثلاً بالاتنه، پا، فول‌بادی…">
           </label>
           <div class="systems-list">
-            ${(day.data||[]).map((sys, sysIdx) => `
+            ${(day.data||[]).map((sys, sysIdx) => {
+              const sysMeta=systemById(sys.exercise_system_id)||systemById(1);
+              const sysMovs=(sys.movement_list||[]).length;
+              const remaining=sysMeta.movements-sysMovs;
+              const full=remaining<=0;
+              return `
               <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                 <div class="system-header">
                   <h4>
-                    ${systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.icon||'1️⃣'} سیستم ${(sysIdx+1).toLocaleString('fa-IR')}
-                    <span class="system-type">${esc(systemTypes.find(t=>t.id===(sys.exercise_system_id||1))?.label||'عادی')}</span>
+                    ${sysMeta.icon} ${esc(sysMeta.label)}
+                    <span class="system-progress ${full?'done':''}">${sysMovs.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')} حرکت</span>
                   </h4>
                   <div class="system-actions">
-                    <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:170px" title="نوع سیستم تمرینی">
-                      ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - ${t.desc}</option>`).join('')}
+                    <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:190px" title="تغییر نوع سیستم تمرینی">
+                      ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - شامل ${t.movements.toLocaleString('fa-IR')} حرکت</option>`).join('')}
                     </select>
                     <button class="btn btn-danger btn-small" data-del-sys="${dayIdx}-${sysIdx}">حذف سیستم</button>
                   </div>
                 </div>
                 <div class="movements-list">
-                  ${(sys.movement_list||[]).length===0 ? `<div class="empty-system">هنوز حرکتی اضافه نشده. با دکمه «افزودن حرکت» از بانک ۲۷۰۷ تایی انتخاب کنید.</div>` : ''}
+                  ${sysMovs===0 ? `<div class="empty-system">این سیستم به ${sysMeta.movements.toLocaleString('fa-IR')} حرکت نیاز دارد — «افزودن حرکات تمرینی» را بزنید.</div>` : ''}
                   ${(sys.movement_list||[]).map((mov, movIdx) => {
                     const movKey=`${dayIdx}-${sysIdx}-${movIdx}`;
                     const isExpanded=expandedMovements[movKey]===true;
@@ -396,13 +467,15 @@
                     </div>
                   </div>
                   `;}).join('')}
-                  <div class="add-movement-bar">
-                    <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکت از بانک (۲۷۰۷)</button>
-                    <button class="btn btn-secondary btn-small" data-suggest-mov="${dayIdx}-${sysIdx}">💡 پیشنهاد جایگزین</button>
-                  </div>
+                  ${full
+                    ? `<div class="system-complete">✓ حرکات این سیستم تکمیل است (${sysMeta.movements.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')})</div>`
+                    : `<div class="add-movement-bar">
+                        <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکات تمرینی (${remaining.toLocaleString('fa-IR')} حرکت باقی‌مانده)</button>
+                        <button class="btn btn-secondary btn-small" data-suggest-mov="${dayIdx}-${sysIdx}">💡 پیشنهاد جایگزین</button>
+                      </div>`}
                 </div>
               </div>
-            `).join('')}
+              `;}).join('')}
             <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی</button>
           </div>
         </div>
@@ -449,17 +522,6 @@
         const key=b.dataset.movToggle;
         expandedMovements[key]=expandedMovements[key]!==true;
         renderDays();
-      };
-    });
-    document.querySelectorAll('[data-del-day]').forEach(b=>{
-      b.onclick=()=>{
-        const idx=Number(b.dataset.delDay);
-        if(confirm(`روز ${currentProgram.days[idx].day_number} حذف شود؟`)){
-          currentProgram.days.splice(idx,1);
-          currentProgram.days.forEach((d,i)=>d.day_number=i+1);
-          setDirty(true);
-          renderDays();
-        }
       };
     });
     document.querySelectorAll('[data-copy-day]').forEach(b=>{
@@ -519,17 +581,7 @@
       };
     });
     document.querySelectorAll('[data-add-sys]').forEach(b=>{
-      b.onclick=()=>{
-        const dayIdx=Number(b.dataset.addSys);
-        currentProgram.days[dayIdx].data.push({
-          exercise_system_id: 1,
-          exerciseSystemHash: genHash(),
-          system_type: 'normal',
-          movement_list: []
-        });
-        setDirty(true);
-        renderDays();
-      };
+      b.onclick=()=>{ openSystemPicker(Number(b.dataset.addSys)); };
     });
     document.querySelectorAll('[data-del-sys]').forEach(b=>{
       b.onclick=()=>{
@@ -686,6 +738,20 @@
     if(drawer.parentElement!==document.body)document.body.appendChild(drawer);
     return drawer;
   }
+  function refreshDrawerContext(){
+    const ctx=document.getElementById('drawerContext'),list=document.getElementById('drawerList');
+    if(!ctx)return;
+    if(!selectedSystemForAdd){ctx.hidden=true;if(list)list.classList.remove('full');return;}
+    const {dayIdx,sysIdx}=selectedSystemForAdd;
+    const sys=currentProgram?.days?.[dayIdx]?.data?.[sysIdx];
+    if(!sys){ctx.hidden=true;return;}
+    const meta=systemById(sys.exercise_system_id)||systemById(1);
+    const selected=(sys.movement_list||[]).length;
+    const full=selected>=meta.movements;
+    ctx.hidden=false;
+    ctx.innerHTML=`<b>${meta.icon} ${esc(meta.label)}</b><span class="drawer-progress ${full?'done':''}">حرکات انتخاب شده: ${selected.toLocaleString('fa-IR')} از ${meta.movements.toLocaleString('fa-IR')}</span>${full?'<span class="drawer-full-note">تکمیل شد — حرکت بیشتری برای این سیستم قابل افزودن نیست</span>':`<span class="drawer-remaining">${(meta.movements-selected).toLocaleString('fa-IR')} حرکت باقی‌مانده</span>`}`;
+    if(list)list.classList.toggle('full',full);
+  }
   function openExerciseDrawer(){
     const drawer=mountExerciseDrawer();
     if(!drawer)return;
@@ -694,13 +760,19 @@
       console.error('Exercise drawer markup is incomplete');
       return;
     }
-    title.textContent='افزودن حرکت از بانک';
+    title.textContent='بانک حرکات تمرینی';
     tab.style.display='flex';
-    resetDrawerBankFlow();cats.innerHTML='';drawer.classList.add('open');
+    const done=drawer.querySelector('#drawerDone');
+    if(done)done.hidden=false;
+    resetDrawerBankFlow();cats.innerHTML='';drawer.classList.add('open');refreshDrawerContext();
   }
   function closeDrawer(){
     const drawer=document.getElementById('exerciseDrawer');
     if(drawer)drawer.classList.remove('open');
+    const ctx=document.getElementById('drawerContext'),done=document.getElementById('drawerDone'),list=document.getElementById('drawerList');
+    if(ctx)ctx.hidden=true;
+    if(done)done.hidden=true;
+    if(list)list.classList.remove('full');
     selectedSystemForAdd=null;
   }
   async function selectDrawerLocation(location){
@@ -745,7 +817,7 @@
       host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">حرکتی پیدا نشد</div>`;
       return;
     }
-    host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت کلیک کنید</span></div>` + items.map(ex=>`
+    host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت بزنید — بانک باز می‌ماند</span></div>` + items.map(ex=>`
       <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}">
         <img src="/api/exercise-image/${ex.original_id||ex.id}" onerror="this.style.display='none'" loading="lazy">
         <div>
@@ -757,26 +829,30 @@
     `).join('');
     host.querySelectorAll('.drawer-item').forEach(el=>{
       el.onclick=()=>{
+        if(!selectedSystemForAdd)return;
         const exId=Number(el.dataset.exId);
         const origId=el.dataset.exOrig;
         const name=el.dataset.exName;
-        if(selectedSystemForAdd){
-          const {dayIdx, sysIdx}=selectedSystemForAdd;
-          currentProgram.days[dayIdx].data[sysIdx].movement_list.push({
-            exercise_id: exId,
-            exerciseId: exId,
-            original_exercise_id:origId?Number(origId):null,
-            nameFa: name,
-            name: name,
-            movementHash: genHash(),
-            description: '',
-            sets: [{type:'REPEAT', count:12, restSeconds:60, setHash: genHash()}]
-          });
-          expandedMovements[`${dayIdx}-${sysIdx}-${currentProgram.days[dayIdx].data[sysIdx].movement_list.length-1}`]=true;
-          setDirty(true);
-          renderDays();
-          closeDrawer();
-        }
+        const {dayIdx, sysIdx}=selectedSystemForAdd;
+        const sys=currentProgram.days[dayIdx].data[sysIdx];
+        const meta=systemById(sys.exercise_system_id)||systemById(1);
+        // سقف حرکت سیستم تمرینی (BR-14): بیش از تعداد لازم اضافه نمی‌شود
+        if((sys.movement_list||[]).length>=meta.movements)return;
+        sys.movement_list.push({
+          exercise_id: exId,
+          exerciseId: exId,
+          original_exercise_id:origId?Number(origId):null,
+          nameFa: name,
+          name: name,
+          movementHash: genHash(),
+          description: '',
+          sets: [{type:'REPEAT', count:12, restSeconds:60, setHash: genHash()}]
+        });
+        expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
+        setDirty(true);
+        renderDays();
+        // بانک عمداً بسته نمی‌شود — انتخاب چند حرکت پشت‌سرهم ممکن است (BR-14)
+        refreshDrawerContext();
       };
     });
   }
@@ -836,7 +912,8 @@
 
   function makeAssessmentDays(count){
     const total=Math.min(7,Math.max(1,Number(count)||3));
-    return Array.from({length:total},(_,index)=>({day_number:index+1,dayHash:genHash(),focus:`جلسه ${index+1}`,coachNote:'',isRestDay:false,data:[{exercise_system_id:1,exerciseSystemHash:genHash(),system_type:'normal',movement_list:[]}]}));
+    // روزها بدون سیستم پیش‌فرض ساخته می‌شوند؛ مربی سیستم را از کاتالوگ ۱۲گانه انتخاب می‌کند (BR-14)
+    return Array.from({length:total},(_,index)=>({day_number:index+1,dayHash:genHash(),focus:`جلسه ${index+1}`,coachNote:'',isRestDay:false,data:[]}));
   }
   function renderAssessmentContext(){
     const host=document.getElementById('assessmentContext');if(!host)return;
@@ -887,7 +964,7 @@
         focus: '',
         coachNote: '',
         isRestDay: false,
-        data: [{exercise_system_id:1, exerciseSystemHash: genHash(), system_type:'normal', movement_list:[]}]
+        data: []
       });
       activeDayIdx=currentProgram.days.length-1;
       setDirty(true);
@@ -953,6 +1030,8 @@
     document.getElementById('progStudent').onchange=(e)=>{ currentProgram.student_id=e.target.value?Number(e.target.value):null; setDirty(true); updateTopbar(); };
     document.getElementById('closeDrawer').onclick=closeDrawer;
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
+    const drawerDoneButton=document.getElementById('drawerDone');
+    if(drawerDoneButton)drawerDoneButton.onclick=closeDrawer;
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
@@ -962,7 +1041,9 @@
 
     // Close contextual menus when clicking outside or pressing Escape
     document.addEventListener('click',event=>{ if(!event.target.closest('.builder-menu-wrap')) closeAllMenus(); });
-    document.addEventListener('keydown',event=>{ if(event.key==='Escape') closeAllMenus(); });
+    document.addEventListener('keydown',event=>{ if(event.key==='Escape'){ closeAllMenus(); closeSystemPicker(); } });
+    document.getElementById('closeSystemPicker').onclick=closeSystemPicker;
+    document.getElementById('systemPickerBackdrop').onclick=closeSystemPicker;
 
     // Dirty state warning
     window.addEventListener('beforeunload', (e)=>{
@@ -1081,6 +1162,8 @@
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
     const previousDrawer=document.querySelector('body > #exerciseDrawer');
     if(previousDrawer)previousDrawer.remove();
+    const previousPicker=document.querySelector('body > #systemPicker');
+    if(previousPicker)previousPicker.remove();
     document.querySelector('#content').innerHTML = root();
     mountExerciseDrawer();
     bindMainEvents();
