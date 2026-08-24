@@ -33,6 +33,30 @@
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'انتخاب تاریخ شمسی');
     el.hidden = true;
+    // مدیریت همه کلیک‌ها با delegation روی خود پنل — با stopPropagation تا
+    // رندر مجدد (جداشدن دکمه از DOM) باعث «کلیک بیرون» تلقی نشود
+    el.addEventListener('click', event => {
+      const b = event.target && event.target.closest ? event.target.closest('[data-day],[data-month],[data-year],[data-view],[data-nav],[data-yearnav],[data-yearpage],[data-today],[data-clear]') : null;
+      event.stopPropagation();
+      if (!b) return;
+      if (b.dataset.day !== undefined) return pick(state.jy, state.jm, Number(b.dataset.day));
+      if (b.dataset.month !== undefined) { state.jm = Number(b.dataset.month); state.view = 'days'; return render(); }
+      if (b.dataset.year !== undefined) { state.jy = Number(b.dataset.year); state.view = 'months'; return render(); }
+      if (b.dataset.view !== undefined) { state.view = b.dataset.view; if (state.view === 'years') state.yearBase = null; return render(); }
+      if (b.dataset.nav !== undefined) {
+        state.jm += Number(b.dataset.nav);
+        if (state.jm > 12) { state.jm = 1; state.jy = clampYear(state.jy + 1); }
+        if (state.jm < 1) { state.jm = 12; state.jy = clampYear(state.jy - 1); }
+        return render();
+      }
+      if (b.dataset.yearnav !== undefined) { state.jy = clampYear(state.jy + Number(b.dataset.yearnav)); return render(); }
+      if (b.dataset.yearpage !== undefined) { state.yearBase += Number(b.dataset.yearpage); return render(); }
+      if (b.dataset.today !== undefined) { const t = todayJalali(); return pick(t.jy, t.jm, t.jd); }
+      if (b.dataset.clear !== undefined) {
+        if (state.input) { state.input.value = ''; state.input.dataset.iso = ''; J().attach(state.input); state.input.dispatchEvent(new Event('change', { bubbles: true })); }
+        return close();
+      }
+    });
     document.body.appendChild(el);
     state.picker = el;
     return el;
@@ -110,21 +134,6 @@
   function render() {
     const el = state.picker;
     el.innerHTML = state.view === 'days' ? renderDays() : state.view === 'months' ? renderMonths() : renderYears();
-    el.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => {
-      const dir = Number(b.dataset.nav);
-      state.jm += dir;
-      if (state.jm > 12) { state.jm = 1; state.jy = clampYear(state.jy + 1); }
-      if (state.jm < 1) { state.jm = 12; state.jy = clampYear(state.jy - 1); }
-      state.view = 'days'; render();
-    });
-    el.querySelectorAll('[data-yearnav]').forEach(b => b.onclick = () => { state.jy = clampYear(state.jy + Number(b.dataset.yearnav)); render(); });
-    el.querySelectorAll('[data-yearpage]').forEach(b => b.onclick = () => { state.yearBase += Number(b.dataset.yearpage); render(); });
-    el.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { state.view = b.dataset.view; if (state.view === 'years') state.yearBase = null; render(); });
-    el.querySelectorAll('[data-day]').forEach(b => b.onclick = () => pick(state.jy, state.jm, Number(b.dataset.day)));
-    el.querySelectorAll('[data-month]').forEach(b => b.onclick = () => { state.jm = Number(b.dataset.month); state.view = 'days'; render(); });
-    el.querySelectorAll('[data-year]').forEach(b => b.onclick = () => { state.jy = Number(b.dataset.year); state.view = 'months'; render(); });
-    el.querySelectorAll('[data-today]').forEach(b => b.onclick = () => { const t = todayJalali(); pick(t.jy, t.jm, t.jd); });
-    el.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { if (state.input) { state.input.value = ''; state.input.dataset.iso = ''; J().attach(state.input); state.input.dispatchEvent(new Event('change', { bubbles: true })); } close(); });
   }
 
   function position(input) {
