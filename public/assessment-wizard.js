@@ -119,7 +119,7 @@
                 <div class="form-grid compact-grid">
                   <label class="field-control wide"><span>نام و نام خانوادگی <i>ضروری</i></span><input id="personalName" maxlength="100" autocomplete="name" value="${esc(student.full_name||'')}" placeholder="نام کامل شما"></label>
                   <label class="field-control"><span>شماره همراه <i>ضروری</i></span><div class="prefixed-input" dir="ltr"><span>09-</span><input id="personalMobile" inputmode="tel" maxlength="10" autocomplete="tel" value="${esc(mobileSuffix(student.mobile))}" placeholder="0000000000"></div></label>
-                  <label class="field-control"><span>تاریخ تولد (شمسی)</span><input id="personalBirthDate" type="text" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
+                  <label class="field-control"><span>تاریخ تولد</span><input id="personalBirthDate" type="text" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
                   <label class="field-control"><span>شناسه تلگرام <i>اختیاری</i></span><div class="prefixed-input" dir="ltr"><span>@</span><input id="personalTelegram" maxlength="99" value="${esc(String(student.telegram_id||'').replace(/^@+/,''))}" placeholder="username"></div></label>
                   <label class="field-control"><span>اینستاگرام <i>اختیاری</i></span><div class="prefixed-input" dir="ltr"><span>@</span><input id="personalInstagram" maxlength="99" value="${esc(String(student.instagram_id||'').replace(/^@+/,''))}" placeholder="username"></div></label>
                 </div>

@@ -238,10 +238,10 @@
             </label>
           </div>
           <div class="form-row">
-            <label>تاریخ شروع (تقویم شمسی)
+            <label>تاریخ شروع
               <input type="text" id="progStart" data-jalali placeholder="مثلاً ۱۴۰۵/۰۶/۰۲">
             </label>
-            <label>تاریخ پایان (تقویم شمسی)
+            <label>تاریخ پایان
               <input type="text" id="progEnd" data-jalali placeholder="مثلاً ۱۴۰۵/۰۷/۰۱">
             </label>
           </div>

@@ -66,7 +66,7 @@
                 <label>موبایل<input id="spMobile" value="${esc(student.mobile||'')}"></label>
               </div>
               <div class="sp-row">
-                <label>تاریخ تولد (شمسی)<input type="text" id="spDob" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
+                <label>تاریخ تولد<input type="text" id="spDob" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
                 <label>قد (cm)<input type="number" id="spHeight" value="${student.height||''}"></label>
               </div>
               <div class="sp-row">
