@@ -1,0 +1,58 @@
+/* YasnaFit — انتخابگر تاریخ شمسی (Jalali Picker) — فقط توکن‌های تم مرکزی */
+.jdp {
+  position: fixed; z-index: 90; width: 308px; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  background: var(--surface); box-shadow: var(--shadow-deep);
+  animation: jdpIn 160ms ease;
+}
+.jdp[hidden] { display: none; }
+@keyframes jdpIn { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.jdp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.jdp-title {
+  flex: 1; min-height: 38px; border: 1px solid transparent; border-radius: 10px;
+  background: var(--accent-surface); color: var(--text);
+  font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: var(--transition);
+}
+.jdp-title:hover { border-color: var(--accent-border); }
+.jdp-nav {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--glass); color: var(--text-secondary); font-size: 15px; cursor: pointer; transition: var(--transition);
+}
+.jdp-nav:hover { border-color: var(--border-strong); color: var(--text); background: var(--glass-hover); }
+.jdp-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.jdp-week span { display: grid; place-items: center; color: var(--text-muted); font-size: 9px; font-weight: 750; }
+.jdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.jdp-grid.months, .jdp-grid.years { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.jdp-day {
+  min-height: 38px; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 11px; cursor: pointer; transition: var(--transition);
+}
+.jdp-day:not(.empty):hover { border-color: var(--border-strong); background: var(--glass-hover); color: var(--text); }
+.jdp-day.empty { pointer-events: none; }
+.jdp-day.today { border-color: var(--accent-border); color: var(--accent-hover); font-weight: 800; }
+.jdp-day.selected { border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 800; }
+.jdp-month, .jdp-year {
+  min-height: 46px; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--glass); color: var(--text-secondary);
+  font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; transition: var(--transition);
+}
+.jdp-month:hover, .jdp-year:hover { border-color: var(--border-strong); color: var(--text); background: var(--glass-hover); }
+.jdp-month.today, .jdp-year.today { border-color: var(--accent-border); color: var(--accent-hover); }
+.jdp-month.selected, .jdp-year.selected { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.jdp-year:disabled { opacity: .35; cursor: not-allowed; }
+.jdp-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; border-top: 1px solid var(--border); padding-top: 8px; }
+.jdp-foot button {
+  min-height: 34px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--glass); color: var(--text-secondary); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: var(--transition);
+}
+.jdp-foot button:hover { border-color: var(--border-strong); color: var(--text); background: var(--glass-hover); }
+.jdp-today { border-color: var(--accent-border); background: var(--accent-surface); color: var(--accent-hover); }
+.jdp.sheet { left: 50%; top: auto; bottom: 10px; transform: translateX(-50%); width: min(430px, 94vw); }
+.jdp.sheet::before { /* پوشش کلیک بیرون در حالت شیت موبایل */
+  content: ''; position: fixed; inset: 0; z-index: -1; background: rgba(0, 0, 0, .35);
+}

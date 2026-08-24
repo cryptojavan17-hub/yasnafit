@@ -65,10 +65,10 @@
 - **Status:** OPEN (KI-008) • **Reason:** ابزار بدون تست خودکار است. • **Dep:** — • **Next:** چند assert ساده روی خروجی info/search.
 
 ### T-16 | ویجت تقویم شمسی گرافیکی (بازشو)
-- **Status:** OPEN • **Reason:** ورودی فعلی متنی با placeholder است؛ تقویم بازشو UX بهتری دارد. • **Dep:** — • **Next:** گریل ماهانه سبک روی jalali.js فعلی.
+- **Status:** **DONE** (2026-08-24 — jalali-picker.js با نمای روز/ماه/سال و پرش سال؛ smoke اختصاصی) • **Reason:** ورودی فعلی متنی با placeholder است؛ تقویم بازشو UX بهتری دارد. • **Dep:** — • **Next:** گریل ماهانه سبک روی jalali.js فعلی.
 
 ### T-15 | افزودن ابزارهای smoke به npm test
-- **Status:** OPEN (KI-008/KI-011 مرتبط) • **Reason:** smoke-jalali و smoke-program-builder در زنجیره npm test نیستند. • **Dep:** — • **Next:** افزودن دو خط به package.json scripts و زنجیره test.
+- **Status:** OPEN (KI-008/KI-011 مرتبط؛ اکنون ۳ ابزار: jalali/jalali-picker/program-builder) • **Reason:** smoke-jalali و smoke-program-builder در زنجیره npm test نیستند. • **Dep:** — • **Next:** افزودن دو خط به package.json scripts و زنجیره test.
 - **Status:** OPEN • **Reason:** رگرسیون داخلی UI برنامه‌ساز ساخته شد ولی در زنجیره `npm test` نیست. • **Dep:** — • **Next:** خط `"test:builder": "node tool/smoke-program-builder.js"` + افزودن به test chain.
 
 ### T-13 | انتقال rate-limiter به پایدار (در صورت چندکاربره‌شدن)

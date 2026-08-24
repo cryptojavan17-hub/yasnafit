@@ -8,6 +8,13 @@
 
 ## 2026-08-24
 
+### Task 7 — انتخابگر تاریخ شمسی گرافیکی (Jalali Date Picker)
+
+- **FILES:** `public/jalali-picker.js` (جدید)، `public/jalali-picker.css` (جدید)، `index.html`، `student.html`، `tool/smoke-jalali-picker.js` (جدید)
+- **WHAT:** تقویم بازشوی تمام‌شمسی برای همه `input[data-jalali]` (اتصال خودکار): نمای روز/ماه/سال، ناوبری ماه (‹›)، پرش سریع سال (گرید ۱۲ ساله با ‹‹››)، هایلایت امروز (حاشیه آبی) و تاریخ انتخاب‌شده (پر)، دکمه «امروز» و «پاک کردن»، اعداد و ماه‌های فارسی، RTL کامل، پاپ‌اور زیر فیلد در دسکتاپ و شیت پایین در موبایل، بستن با کلیک بیرون/Escape. ورود متنی همچنان ممکن است.
+- **TESTS:** `tool/smoke-jalali-picker.js` ✅ ۱۰ چک (امروز/طول ماه‌ها/کبیسه ۱۴۰۳-۱۴۰۴/ستون‌های هفته/باز-بسته) • ui ✅ • term ✅ • smoke برنامه‌ساز ✅ • فایل‌ها 200 ✅
+- **RESULT:** PASS • **NOTES:** T-16 انجام شد؛ ذخیره‌سازی همچنان ISO (BR-15).
+
 ### Task 6 — تقویم شمسی + جستجوی پویای بانک حرکات + افزودن دستی حرکت
 
 - **FILES CHANGED:** `public/jalali.js` (جدید)، `public/index.html`، `public/student.html`، `public/program-builder.js`، `public/program-builder.css`، `public/assessment-wizard.js`، `public/student-app.js`، `public/student-portal.js`، `public/exercises.js`، `server.js`، `tool/smoke-jalali.js` (جدید)
