@@ -8,6 +8,13 @@
 
 ## 2026-08-24
 
+### Task 9 — ارتقای ابزار اتصال بانک: حالت «تغذیه» برای ساختار غنی مالک
+
+- **FILES:** `tool/import-custom-bank.js` (بازنویسی — حالت‌دار)
+- **WHAT:** با دیدن ساختار واقعی فایل مالک (`exercises.json` غنی: id/name_fa/name_en/category/equipment/difficulty/description/video/hasVideo — ۲۶۹۷ حرکت با همان شناسه‌های بانک ۲۷۰۷): حالت جدید «تغذیه» — تطبیق با original_id یا نام نرمال‌شده → پر کردن name_en/equipment/difficulty/description/video_path روی حرکات موجود (T-04 بدون مایگریشن!) + درج حرکات واقعاً جدید + ساخت خودکار دسته‌های نبود (trx/lats). حالت درج ساده قبلی حفظ شد.
+- **TESTS:** fixture دقیق مطابق ساختار مالک → dry-run + اجرا: ۲ تغذیه (تأیید DB + API) + ۱ درج با دسته trx ساخته‌شده ✅؛ سپس پاک‌سازی کامل (۲۷۰۷ برقرار).
+- **RESULT:** PASS — دیده شد equipment در نتایج درایور بانک خودکار نمایش داده می‌شود.
+
 ### Task 8 — اتصال بانک شخصی حرکات (داده + ویدیو)
 
 - **FILES:** `tool/import-custom-bank.js` (جدید)، `tool/import-videos.js` (جدید)
