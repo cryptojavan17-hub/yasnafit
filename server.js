@@ -232,6 +232,28 @@ function validateStudentPayload(data){
   const bodyErrs = validation.validateRequestBody(data);
   return [...errs, ...bodyErrs];
 }
+function normalizeFaText(value){
+  return String(value||'')
+    .replace(/[\u064A\u0649]/g,'\u06CC')           // ي/ى → ی
+    .replace(/\u0643/g,'\u06A9')                    // ك → ک
+    .replace(/[\u0623\u0625\u0622]/g,'\u0627')    // أ/إ/آ → ا
+    .replace(/\u0640/g,'')                           // کشیده
+    .replace(/[\u200c\u200f\u200e]/g,' ')          // نیم‌فاصله/نشانه‌ها → فاصله
+    .replace(/[\u064B-\u0652]/g,'')                 // اعراب
+    .replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function exerciseSearchScore(nameFa, term){
+  const name=normalizeFaText(nameFa), q=normalizeFaText(term);
+  if(!q||!name)return -1;
+  if(name===q)return 0;
+  if(name.startsWith(q))return 1;
+  if(name.split(' ').some(word=>word.startsWith(q)))return 2;
+  if(name.includes(q))return 3;
+  return -1;
+}
 function validateExercisePayload(data){
   const errs = validation.validateExercise(data);
   const bodyErrs = validation.validateRequestBody(data);
@@ -366,7 +388,8 @@ async function handleExercises(req,res,url){
   }
 
   if(p==='/api/categories/grouped' && req.method==='GET'){
-    const location=url.searchParams.get('location')||'both';
+    const locationRaw=url.searchParams.get('location')||'both';
+    const location=locationRaw==='all'?'both':locationRaw; // «همه محل‌ها» = both
     if(!['gym','home','both'].includes(location))return sendError(res,400,'محل تمرین نامعتبر است');
     const cats = rows('SELECT * FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order');
     const subs = rows('SELECT * FROM exercise_subcategories WHERE deleted_at IS NULL ORDER BY sort_order');
@@ -407,8 +430,25 @@ async function handleExercises(req,res,url){
     const pageSize = Math.min(parseInt(url.searchParams.get('pageSize')||'24'), 100); // limit max 100
     const sortBy = url.searchParams.get('sortBy')||'priority';
 
+    // جستجوی سراسری پویا: بدون دسته، همه محل‌ها، با نرمال‌سازی فارسی
     if(!categoryId) {
-      return send(res,200,{items:[], total:0, page, pageSize, totalPages:0});
+      if(!query) return send(res,200,{items:[], total:0, page, pageSize, totalPages:0});
+      const loc=url.searchParams.get('location')||'both';
+      const safeLoc=['gym','home','both','all'].includes(loc)?loc:'both';
+      let sql='SELECT * FROM exercises WHERE status=? AND deleted_at IS NULL';
+      const params=[status];
+      if(safeLoc==='gym'||safeLoc==='home'){
+        sql+=' AND (location=? OR location=\'both\')';
+        params.push(safeLoc);
+      }
+      const candidates=rows(sql,...params);
+      const scored=candidates
+        .map(ex=>({ex,score:exerciseSearchScore(ex.name_fa,query)}))
+        .filter(item=>item.score>=0)
+        .sort((a,b)=>a.score-b.score||(a.ex.priority||5)-(b.ex.priority||5)||a.ex.name_fa.localeCompare(b.ex.name_fa,'fa'));
+      const total=scored.length;
+      const items=scored.slice(page*pageSize,page*pageSize+pageSize).map(item=>item.ex);
+      return send(res,200,{items, total, page, pageSize, totalPages:Math.ceil(total/pageSize)});
     }
 
     // Validate category exists
@@ -433,11 +473,11 @@ async function handleExercises(req,res,url){
       countParams.push(subCategoryId);
     }
     if(query){
-      // Prevent % and _ injection in LIKE by escaping? For now use parameterized LIKE
       sql+=' AND name_fa LIKE ?';
       countSql+=' AND name_fa LIKE ?';
-      params.push(`%${query}%`);
-      countParams.push(`%${query}%`);
+      const normalizedQuery=normalizeFaText(query);
+      params.push(`%${normalizedQuery}%`);
+      countParams.push(`%${normalizedQuery}%`);
     }
 
     const total = one(countSql,...countParams)?.total || 0;

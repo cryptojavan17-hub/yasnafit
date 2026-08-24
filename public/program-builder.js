@@ -238,11 +238,11 @@
             </label>
           </div>
           <div class="form-row">
-            <label>تاریخ شروع
-              <input type="date" id="progStart">
+            <label>تاریخ شروع (تقویم شمسی)
+              <input type="text" id="progStart" data-jalali placeholder="مثلاً ۱۴۰۵/۰۶/۰۲">
             </label>
-            <label>تاریخ پایان
-              <input type="date" id="progEnd">
+            <label>تاریخ پایان (تقویم شمسی)
+              <input type="text" id="progEnd" data-jalali placeholder="مثلاً ۱۴۰۵/۰۷/۰۱">
             </label>
           </div>
           <div class="form-row full">
@@ -316,7 +316,7 @@
           <div class="drawer-bank-flow">
             <section class="drawer-bank-step active" id="drawerLocationStep">
               <header><span>۱</span><div><b>محل تمرین</b><small>ابتدا یکی را انتخاب کنید</small></div></header>
-              <div class="drawer-location-options"><button type="button" data-bank-location="gym">باشگاه</button><button type="button" data-bank-location="home">منزل</button></div>
+              <div class="drawer-location-options"><button type="button" data-bank-location="gym">باشگاه</button><button type="button" data-bank-location="home">منزل</button><button type="button" data-bank-location="all" class="all-option">🌐 همه محل‌ها</button></div>
             </section>
             <section class="drawer-bank-step locked" id="drawerFilterStep" hidden>
               <header><span>۲</span><div><b>پیدا کردن حرکت</b><small>جستجو یا انتخاب دسته‌بندی</small></div></header>
@@ -331,8 +331,26 @@
             </section>
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
+          <div class="drawer-quickadd" id="drawerQuickAdd" hidden>
+            <b>افزودن حرکت دستی</b>
+            <div class="quickadd-grid">
+              <input id="quickAddName" placeholder="نام حرکت (فارسی) *" maxlength="120">
+              <select id="quickAddLocation">
+                <option value="gym">باشگاه</option>
+                <option value="home">منزل</option>
+                <option value="both">همه محل‌ها</option>
+              </select>
+              <select id="quickAddCategory"></select>
+            </div>
+            <div class="quickadd-actions">
+              <span class="quickadd-hint">حرکت شخصی به بانک اضافه و بلافاصله قابل انتخاب است.</span>
+              <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button">ثبت حرکت</button>
+            </div>
+          </div>
         </div>
-
+        <div class="drawer-footer">
+          <button class="btn btn-secondary btn-small" id="drawerManualToggle" type="button">＋ افزودن حرکت دستی</button>
+        </div>
       </div>
     </div>
     `;
@@ -738,6 +756,46 @@
     if(drawer.parentElement!==document.body)document.body.appendChild(drawer);
     return drawer;
   }
+  async function refreshQuickAddCategories(){
+    const host=document.getElementById('quickAddCategory');
+    if(!host||host.options.length>1)return;
+    try{
+      const cats=await api('/api/categories/grouped?location=both');
+      host.innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    }catch(error){}
+  }
+  function toggleQuickAddPanel(force){
+    const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
+    if(!panel)return;
+    panel.hidden=force!==undefined?!force:!panel.hidden;
+    if(button)button.textContent=panel.hidden?'＋ افزودن حرکت دستی':'× بستن افزودن دستی';
+    if(!panel.hidden){refreshQuickAddCategories();document.getElementById('quickAddName')?.focus();}
+  }
+  async function submitQuickAddExercise(){
+    const name=(document.getElementById('quickAddName')?.value||'').trim();
+    const location=document.getElementById('quickAddLocation')?.value||'gym';
+    const category=document.getElementById('quickAddCategory')?.value;
+    if(!name)return alert('نام حرکت الزامی است');
+    if(!category)return alert('دسته‌بندی را انتخاب کنید');
+    try{
+      const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,priority:5})});
+      alert('✅ حرکت «'+name+'» به بانک اضافه شد');
+      document.getElementById('quickAddName').value='';
+      toggleQuickAddPanel(false);
+      // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن
+      if(selectedSystemForAdd){
+        const {dayIdx,sysIdx}=selectedSystemForAdd;
+        const sys=currentProgram.days[dayIdx].data[sysIdx];
+        const meta=systemById(sys.exercise_system_id)||systemById(1);
+        if((sys.movement_list||[]).length<meta.movements){
+          sys.movement_list.push({exercise_id:created.id,exerciseId:created.id,original_exercise_id:null,nameFa:name,name:name,movementHash:genHash(),description:'',sets:[{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}]});
+          expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
+          setDirty(true);renderDays();refreshDrawerContext();
+        }
+      }
+      loadDrawerExercises(null,null,document.getElementById('drawerSearch')?.value||'');
+    }catch(error){alert('خطا در ثبت حرکت: '+error.message);}
+  }
   function refreshDrawerContext(){
     const ctx=document.getElementById('drawerContext'),list=document.getElementById('drawerList');
     if(!ctx)return;
@@ -795,9 +853,17 @@
   async function loadDrawerExercises(catId=null,subId=null,searchValue=null){
     const host=document.getElementById('drawerList'),searchVal=searchValue===null?document.getElementById('drawerSearch').value.trim():String(searchValue).trim();
     if(!currentDrawerLocation){host.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';return;}
-    if(!catId&&searchVal.length<2){host.innerHTML=`<div class="drawer-guidance">${searchVal?'حداقل دو حرف برای جستجو وارد کنید.':'نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.'}</div>`;return;}
+    if(!catId && searchVal.length<2 && currentDrawerLocation!=='all'){host.innerHTML=`<div class="drawer-guidance">${searchVal?'حداقل دو حرف برای جستجو وارد کنید.':'نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.'}</div>`;return;}
+    if(!catId && !searchVal && currentDrawerLocation!=='all'){host.innerHTML='<div class="drawer-guidance">نام حرکت را جستجو کنید یا یک دسته‌بندی انتخاب کنید.</div>';return;}
     host.innerHTML='<div class="drawer-loading">در حال خواندن بانک حرکات…</div>';
     try{
+      if(!catId&&currentDrawerLocation==='all'){
+        // جستجوی سراسری پویا: همه حرکات (باشگاه + منزل + هر دو) با نرمال‌سازی فارسی سمت سرور
+        const query=new URLSearchParams({query:searchVal,location:currentDrawerLocation,status:'active',page:0,pageSize:40});
+        const response=await api(`/api/exercises?${query}`);
+        renderDrawerList(response.items||[]);
+        return;
+      }
       if(!catId){
         let allItems=[];
         for(const category of exerciseCategories){
@@ -822,7 +888,7 @@
         <img src="/api/exercise-image/${ex.original_id||ex.id}" onerror="this.style.display='none'" loading="lazy">
         <div>
           <b>${esc(ex.name_fa)}</b>
-          <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
+          <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)} • ${ex.location==='gym'?'باشگاه':ex.location==='home'?'منزل':'همه محل‌ها'}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
         </div>
         <span style="margin-left:auto;color:var(--text-secondary)">＋</span>
       </div>
@@ -1032,11 +1098,15 @@
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
     const drawerDoneButton=document.getElementById('drawerDone');
     if(drawerDoneButton)drawerDoneButton.onclick=closeDrawer;
+    const manualToggle=document.getElementById('drawerManualToggle');
+    if(manualToggle)manualToggle.onclick=()=>toggleQuickAddPanel();
+    const quickAddSubmitButton=document.getElementById('quickAddSubmit');
+    if(quickAddSubmitButton)quickAddSubmitButton.onclick=submitQuickAddExercise;
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
       clearTimeout(drawerSearchTimeout);
-      drawerSearchTimeout=setTimeout(()=>loadDrawerExercises(null,null,drawerSearch.value),400);
+      drawerSearchTimeout=setTimeout(()=>loadDrawerExercises(null,null,drawerSearch.value),200);
     };
 
     // Close contextual menus when clicking outside or pressing Escape
@@ -1066,8 +1136,9 @@
   async function saveProgram(returnAfter, silent=false){
     const title=document.getElementById('progTitle').value.trim();
     const coachNote=document.getElementById('progNote').value.trim();
-    const start=document.getElementById('progStart').value;
-    const end=document.getElementById('progEnd').value;
+    const startEl=document.getElementById('progStart'),endEl=document.getElementById('progEnd');
+    const start=window.YasnaJalali?window.YasnaJalali.iso(startEl):startEl.value;
+    const end=window.YasnaJalali?window.YasnaJalali.iso(endEl):endEl.value;
     const studentId=document.getElementById('progStudent').value||null;
 
     if(!title) return alert('عنوان برنامه الزامی است');
@@ -1151,8 +1222,9 @@
     if(currentProgram.assessment_id)await loadAssessmentContext(currentProgram.assessment_id,currentProgram.student_id);
     document.getElementById('progTitle').value = currentProgram.title||'';
     document.getElementById('progNote').value = currentProgram.coach_note||'';
-    document.getElementById('progStart').value = currentProgram.start_date||'';
-    document.getElementById('progEnd').value = currentProgram.end_date||'';
+    const setISOField=(el,iso)=>{ if(window.YasnaJalali) window.YasnaJalali.set(el, iso||''); else el.value=iso||''; };
+    setISOField(document.getElementById('progStart'), currentProgram.start_date);
+    setISOField(document.getElementById('progEnd'), currentProgram.end_date);
     activeDayIdx=0;
   }
 
@@ -1165,6 +1237,7 @@
     const previousPicker=document.querySelector('body > #systemPicker');
     if(previousPicker)previousPicker.remove();
     document.querySelector('#content').innerHTML = root();
+    if(window.YasnaJalali)window.YasnaJalali.autoInit();
     mountExerciseDrawer();
     bindMainEvents();
     try{await loadProgramIfEditing();await loadStudents();renderAssessmentContext();renderDays();}
@@ -1200,7 +1273,7 @@
           <h3>${esc(p.title)} <small style="color:var(--text-muted)">v${p.program_data?.version||2}</small></h3>
           <p>${esc(p.coach_note||'بدون توضیح')}</p>
           <div class="program-meta">
-            <span>📅 ${esc(p.start_date||'')} تا ${esc(p.end_date||'')}</span>
+            <span>📅 ${window.YasnaJalali?window.YasnaJalali.formatSafe(p.start_date):esc(p.start_date||'—')} تا ${window.YasnaJalali?window.YasnaJalali.formatSafe(p.end_date):esc(p.end_date||'—')}</span>
             <span>📆 ${daysCount} روز</span>
             <span>🏋️ ${movementsCount} حرکت</span>
             <span>🔁 ${setsCount} ست</span>

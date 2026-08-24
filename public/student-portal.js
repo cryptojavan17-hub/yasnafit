@@ -66,7 +66,7 @@
                 <label>موبایل<input id="spMobile" value="${esc(student.mobile||'')}"></label>
               </div>
               <div class="sp-row">
-                <label>تاریخ تولد<input type="date" id="spDob" value="${esc(student.date_of_birth||'')}"></label>
+                <label>تاریخ تولد (شمسی)<input type="text" id="spDob" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
                 <label>قد (cm)<input type="number" id="spHeight" value="${student.height||''}"></label>
               </div>
               <div class="sp-row">
@@ -187,7 +187,7 @@
       const payload = {
         full_name: document.getElementById('spFullName').value.trim(),
         mobile: document.getElementById('spMobile').value.trim(),
-        date_of_birth: document.getElementById('spDob').value,
+        date_of_birth: window.YasnaJalali?(window.YasnaJalali.iso(document.getElementById('spDob'))||null):(document.getElementById('spDob').value||null),
         height: document.getElementById('spHeight').value ? Number(document.getElementById('spHeight').value) : null,
         weight: document.getElementById('spWeight').value ? Number(document.getElementById('spWeight').value) : null,
         goal: document.getElementById('spGoal').value,

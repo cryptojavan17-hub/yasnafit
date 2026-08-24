@@ -22,6 +22,7 @@
   ];
 
   const field=id=>document.querySelector(`#${id}`)?.value?.trim()||'';
+  const initJalaliInputs=()=>{if(window.YasnaJalali)window.YasnaJalali.autoInit();};
   const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
   const mobileSuffix=value=>{const digits=asciiDigits(value);return digits.startsWith('09')?digits.slice(2):digits;};
   const completeMobile=value=>{const digits=asciiDigits(value);if(digits.startsWith('09'))return digits;if(digits.startsWith('9'))return `0${digits}`;return `09${digits}`;};
@@ -118,7 +119,7 @@
                 <div class="form-grid compact-grid">
                   <label class="field-control wide"><span>نام و نام خانوادگی <i>ضروری</i></span><input id="personalName" maxlength="100" autocomplete="name" value="${esc(student.full_name||'')}" placeholder="نام کامل شما"></label>
                   <label class="field-control"><span>شماره همراه <i>ضروری</i></span><div class="prefixed-input" dir="ltr"><span>09-</span><input id="personalMobile" inputmode="tel" maxlength="10" autocomplete="tel" value="${esc(mobileSuffix(student.mobile))}" placeholder="0000000000"></div></label>
-                  <label class="field-control"><span>تاریخ تولد</span><input id="personalBirthDate" type="date" dir="ltr" value="${esc(student.date_of_birth||'')}"></label>
+                  <label class="field-control"><span>تاریخ تولد (شمسی)</span><input id="personalBirthDate" type="text" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label>
                   <label class="field-control"><span>شناسه تلگرام <i>اختیاری</i></span><div class="prefixed-input" dir="ltr"><span>@</span><input id="personalTelegram" maxlength="99" value="${esc(String(student.telegram_id||'').replace(/^@+/,''))}" placeholder="username"></div></label>
                   <label class="field-control"><span>اینستاگرام <i>اختیاری</i></span><div class="prefixed-input" dir="ltr"><span>@</span><input id="personalInstagram" maxlength="99" value="${esc(String(student.instagram_id||'').replace(/^@+/,''))}" placeholder="username"></div></label>
                 </div>
@@ -247,7 +248,7 @@
         const full_name=field('personalName');if(!full_name)throw new Error('نام و نام خانوادگی را وارد کنید.');
         const gender=checked('wizardGender');if(!gender)throw new Error('جنسیت را انتخاب کنید.');
         saving(true);
-        try{const response=await api('/api/student/profile',{method:'PUT',body:JSON.stringify({full_name,mobile:completeMobile(field('personalMobile')),telegram_id:socialHandle('personalTelegram'),instagram_id:socialHandle('personalInstagram'),date_of_birth:field('personalBirthDate'),gender,preferred_location:checked('preferredLocation')||'gym'})});state.student=response.student;student.full_name=response.student.full_name;student.gender=response.student.gender;saved();if(!silent)toast('اطلاعات شخصی ذخیره شد.');return response;}
+        try{const response=await api('/api/student/profile',{method:'PUT',body:JSON.stringify({full_name,mobile:completeMobile(field('personalMobile')),telegram_id:socialHandle('personalTelegram'),instagram_id:socialHandle('personalInstagram'),date_of_birth:(window.YasnaJalali&&document.getElementById('personalBirthDate'))?window.YasnaJalali.iso(document.getElementById('personalBirthDate'))||null:field('personalBirthDate')||null,gender,preferred_location:checked('preferredLocation')||'gym'})});state.student=response.student;student.full_name=response.student.full_name;student.gender=response.student.gender;saved();if(!silent)toast('اطلاعات شخصی ذخیره شد.');return response;}
         catch(error){saving(false,true);if(!silent)showError(error.message);throw error;}
       }
 
@@ -324,7 +325,7 @@
         add(personal,'شماره همراه',completeMobile(field('personalMobile')));
         add(personal,'تلگرام',socialHandle('personalTelegram'));
         add(personal,'اینستاگرام',socialHandle('personalInstagram'));
-        add(personal,'تاریخ تولد',field('personalBirthDate'));
+        add(personal,'تاریخ تولد',(window.YasnaJalali&&document.getElementById('personalBirthDate'))?window.YasnaJalali.formatSafe(window.YasnaJalali.iso(document.getElementById('personalBirthDate'))):field('personalBirthDate'));
         add(personal,'جنسیت',checked('wizardGender')==='female'?'خانم':checked('wizardGender')==='male'?'آقا':'');
         add(personal,'محل تمرین',checked('preferredLocation')==='home'?'منزل':checked('preferredLocation')==='gym'?'باشگاه':'');
         group('اطلاعات شخصی',0,personal);
@@ -376,6 +377,7 @@
 
       function draw(){
         showError();
+        initJalaliInputs();
         document.querySelectorAll('.onboarding-step').forEach((element,index)=>element.classList.toggle('active',index===state.step));
         const percent=Math.round(((state.step+1)/steps.length)*100);
         document.querySelector('#stepCount').textContent=`مرحله ${state.step+1} از ${steps.length}`;

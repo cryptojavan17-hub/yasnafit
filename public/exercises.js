@@ -479,6 +479,12 @@
             <select name="location">
               <option value="gym" ${item?.location==='gym'?'selected':''}>باشگاه</option>
               <option value="home" ${item?.location==='home'?'selected':''}>منزل</option>
+              <option value="both" ${item?.location==='both'?'selected':''}>همه محل‌ها</option>
+            </select>
+          </label>
+          <label>دسته‌بندی *
+            <select name="category_id" required>
+              ${(state.categories||[]).map(c=>`<option value="${esc(c.id)}" ${((item?.category_id)||state.categoryId)===c.id?'selected':''}>${esc(c.name)} (${c.count})</option>`).join('')}
             </select>
           </label>
           <label>زیردسته
@@ -516,7 +522,7 @@
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
       const b = Object.fromEntries(fd);
-      b.category_id = state.categoryId;
+      b.category_id = b.category_id || state.categoryId;
       b.priority = parseInt(b.priority)||5;
       if(!b.subcategory_id) b.subcategory_id = null;
       try {
@@ -571,7 +577,7 @@
         state.query = e.target.value;
         state.page = 0;
         if (state.categoryId) load();
-      }, 400);
+      }, 200);
     };
 
     $('#tabs').querySelectorAll('.tab').forEach(b => {

@@ -214,3 +214,18 @@
   .system-picker-grid { grid-template-columns: 1fr; }
   .drawer-header-actions .btn { min-height: 34px; }
 }
+
+/* ================= Jalali dates + drawer global search + quick-add ================= */
+input[data-jalali] { font-family: inherit; letter-spacing: .3px; }
+input.jalali-ok { border-color: var(--success); }
+input.jalali-bad { border-color: var(--danger); }
+.drawer-location-options button.all-option { grid-column: 1 / -1; min-height: 38px; }
+.drawer-footer { padding: 9px 11px; display: flex; align-items: center; justify-content: flex-start; border-top: 1px solid var(--border); background: var(--surface-inset); }
+.drawer-quickadd { padding: 11px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--accent-border); background: var(--accent-surface); }
+.drawer-quickadd[hidden] { display: none; }
+.drawer-quickadd > b { font-size: 10px; color: var(--accent-hover); }
+.quickadd-grid { display: grid; grid-template-columns: 1fr 110px 150px; gap: 6px; }
+.quickadd-grid input, .quickadd-grid select { min-height: 36px; margin: 0; font-size: 10px; }
+.quickadd-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.quickadd-hint { color: var(--text-muted); font-size: 8px; }
+@media (max-width: 640px) { .quickadd-grid { grid-template-columns: 1fr; } }
