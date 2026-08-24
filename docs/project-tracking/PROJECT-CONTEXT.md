@@ -316,3 +316,14 @@ DATABASE STATUS:    schema 022_mobile_prefix_repair؛ ۳۹ جدول؛ ۲۷۰۷ �
 ## فرایند به‌روزرسانی (پس از هر تسک توسعه)
 
 ۱) تسک را کامل کن ← ۲) تست را اجرا کن ← ۳) نتیجه را بازرسی کن ← ۴) تغییرات/اثر معماری/قواعد/باگ/TODO را تعیین کن ← ۵) `PROJECT-CONTEXT.md` (در صورت تغییر وضعیت دائمی)، `CHANGELOG.md` (همیشه)، `TODO.md`، `KNOWN-ISSUES.md`، `TECHNICAL-DECISIONS.md` (در صورت نیاز) را به‌روز کن. **این مرحله اختیاری نیست.**
+
+### قاعده مالک (BR-13 — 2026-08-24): راهنمای کوتاه به‌روزرسانی در پایان هر تسک
+در پایان **هر** تسک/جلسه، یک راهنمای کوتاه PowerShell برای دریافت آخرین تغییرات روی سیستم شخصی مالک ارائه شود (پیش‌فرض):
+```powershell
+cd <مسیر پوشه yasnafit روی سیستم شما>
+git fetch origin
+git checkout arena/01a02ff4-yasnafit
+git pull origin arena/01a02ff4-yasnafit
+npm start   # یا YASNAFIT-LAUNCHER.bat → گزینه 1
+```
+نکته‌ها: دیتابیس `data/` و عکس‌های ایمپورت‌شده gitignore هستند و با pull دست نمی‌خورند؛ وابستگی جدیدی اضافه نشده (npm install لازم نیست).
