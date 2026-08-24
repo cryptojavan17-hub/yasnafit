@@ -91,13 +91,34 @@ function main() {
     return;
   }
 
-  let copied = 0, skipped = 0;
+  // کپی با نام استاندارد {ID}.{ext} — تا مسیرهای استاتیکی برنامه (imported/4.png) پیدا کنند
+  const opts2 = parseArgs();
+  let copied = 0, skipped = 0, noId = 0;
+  const seen = new Map();
+  // اول: فایل‌هایی که با شناسه عددی شروع می‌شوند (مثل 4_پرس پا....png) اولویت دارند
+  const withId = [], rest = [];
   for (const imgPath of images) {
-    const fileName = path.basename(imgPath);
-    const destPath = path.join(dst, fileName);
+    const m = /^(\d+)[_\- ]/.exec(path.basename(imgPath).replace(/\s/g, ' '));
+    (m ? withId : rest).push({ imgPath, id: m ? m[1] : null });
+  }
+  for (const item of [...withId, ...rest]) {
+    const ext = path.extname(item.imgPath).toLowerCase();
+    const fileName = path.basename(item.imgPath);
+    let targetName = fileName;
+    if (item.id) {
+      if (seen.has(item.id + ext)) { skipped++; continue; }
+      seen.set(item.id + ext, true);
+      targetName = item.id + ext;
+    } else {
+      const m2 = /^(\d+)/.exec(fileName);
+      if (m2) { if (seen.has(m2[1] + ext)) { skipped++; continue; } seen.set(m2[1] + ext, true); targetName = m2[1] + ext; }
+      else noId++;
+    }
+    if (noId > 0 && !item.id && !/^(\d+)/.test(fileName)) continue;
+    const destPath = path.join(dst, targetName);
     if (!fs.existsSync(destPath)) {
       try {
-        fs.copyFileSync(imgPath, destPath);
+        fs.copyFileSync(item.imgPath, destPath);
         copied++;
       } catch(e){
         console.log(`Error copying ${fileName}: ${e.message}`);
