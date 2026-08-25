@@ -194,11 +194,11 @@ function saveProgramToDB(db, programId, programInput){
       }
     }
 
-    // Soft delete old children to preserve historical workout results integrity
-    db.prepare(`UPDATE movement_sets SET deleted_at=CURRENT_TIMESTAMP WHERE movement_id IN (SELECT pm.id FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
-    db.prepare(`UPDATE program_movements SET deleted_at=CURRENT_TIMESTAMP WHERE system_id IN (SELECT es.id FROM exercise_systems es JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
-    db.prepare(`UPDATE exercise_systems SET deleted_at=CURRENT_TIMESTAMP WHERE day_id IN (SELECT id FROM program_days WHERE program_id=?) AND deleted_at IS NULL`).run(programId);
-    db.prepare('UPDATE program_days SET deleted_at=CURRENT_TIMESTAMP WHERE program_id=? AND deleted_at IS NULL').run(programId);
+    // Soft delete old children and free unique hash constraints while preserving FK integrity
+    db.prepare(`UPDATE movement_sets SET set_hash=set_hash || '_del_' || hex(randomblob(4)), deleted_at=CURRENT_TIMESTAMP WHERE movement_id IN (SELECT pm.id FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare(`UPDATE program_movements SET movement_hash=movement_hash || '_del_' || hex(randomblob(4)), deleted_at=CURRENT_TIMESTAMP WHERE system_id IN (SELECT es.id FROM exercise_systems es JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare(`UPDATE exercise_systems SET system_hash=system_hash || '_del_' || hex(randomblob(4)), deleted_at=CURRENT_TIMESTAMP WHERE day_id IN (SELECT id FROM program_days WHERE program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare(`UPDATE program_days SET day_hash=day_hash || '_del_' || hex(randomblob(4)), deleted_at=CURRENT_TIMESTAMP WHERE program_id=? AND deleted_at IS NULL`).run(programId);
 
     // Insert new days
     for(const day of normalizedInput.days){
