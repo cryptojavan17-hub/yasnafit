@@ -830,8 +830,8 @@
   function openExerciseDrawer(){
     const drawer=mountExerciseDrawer();
     if(!drawer)return;
-    const list=drawer.querySelector('#drawerList'),title=drawer.querySelector('#drawerTitle'),tab=drawer.querySelector('#drawerTabAdd'),cats=drawer.querySelector('#drawerCats');
-    if(!list||!title||!tab||!cats){
+    const list=drawer.querySelector('#drawerList'),title=drawer.querySelector('#drawerTitle'),tab=drawer.querySelector('#drawerTabAdd');
+    if(!list||!title||!tab){
       console.error('Exercise drawer markup is incomplete');
       return;
     }
@@ -839,7 +839,7 @@
     tab.style.display='flex';
     const done=drawer.querySelector('#drawerDone');
     if(done)done.hidden=false;
-    resetDrawerBankFlow();cats.innerHTML='';drawer.classList.add('open');refreshDrawerContext();
+    resetDrawerBankFlow();drawer.classList.add('open');refreshDrawerContext();
   }
   function closeDrawer(){
     const drawer=document.getElementById('exerciseDrawer');

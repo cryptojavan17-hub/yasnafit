@@ -17,7 +17,7 @@ const mkEl = id => ({
   querySelectorAll: function(sel) { return (typeof this._qs === 'function' && this._qs(sel)) || []; },
 });
 const get = id => (els[id] = els[id] || mkEl(id));
-['exerciseDrawer', 'drawerList', 'drawerTitle', 'drawerTabAdd', 'drawerCats', 'drawerContext', 'drawerDone', 'drawerSearch', 'drawerFilterStep', 'drawerSearchSection', 'drawerCategorySection', 'systemPicker', 'systemPickerGrid'].forEach(get);
+['exerciseDrawer', 'drawerList', 'drawerTitle', 'drawerTabAdd', 'drawerContext', 'drawerDone', 'drawerSearch', 'drawerFilterStep', 'drawerSearchSection', 'drawerCategorySection', 'systemPicker', 'systemPickerGrid'].forEach(get);
 
 const registry = {};
 const btn = (ds) => ({ dataset: ds, onclick: null, classList: clsRec(), disabled: false, style: {} });
