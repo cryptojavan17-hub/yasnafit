@@ -304,10 +304,98 @@ async function handleDashboard(req,res){
   const movements = one('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL')?.total||0;
   const categories = one('SELECT COUNT(*) as total FROM exercise_categories WHERE deleted_at IS NULL')?.total||0;
   const trainingProgs = one('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL')?.total||0;
+
+  // ===== داشبورد v2 — داده واقعی، افزایشی (سازگار با پاسخ قبلی) =====
+  const isoDay=offset=>{const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10);};
+  const cnt=(sql,...params)=>one(sql,...params)?.total||0;
+  const today=isoDay(0), in3Days=isoDay(3), d7=isoDay(-7), d14=isoDay(-14), d30=isoDay(-30), d60=isoDay(-60);
+  const activePrograms=cnt("SELECT COUNT(*) total FROM training_programs WHERE status='ACTIVE' AND deleted_at IS NULL");
+  const activeStudents=cnt("SELECT COUNT(DISTINCT student_id) total FROM training_programs WHERE status='ACTIVE' AND deleted_at IS NULL AND student_id IS NOT NULL");
+  const trend={
+    newStudents:{now:cnt('SELECT COUNT(*) total FROM students WHERE deleted_at IS NULL AND created_at>=?',d30),prev:cnt('SELECT COUNT(*) total FROM students WHERE deleted_at IS NULL AND created_at>=? AND created_at<?',d60,d30)},
+    newPrograms:{now:cnt('SELECT COUNT(*) total FROM training_programs WHERE deleted_at IS NULL AND created_at>=?',d30),prev:cnt('SELECT COUNT(*) total FROM training_programs WHERE deleted_at IS NULL AND created_at>=? AND created_at<?',d60,d30)},
+    workouts:{now:cnt('SELECT COUNT(*) total FROM workout_sessions WHERE deleted_at IS NULL AND started_at>=?',d30),prev:cnt('SELECT COUNT(*) total FROM workout_sessions WHERE deleted_at IS NULL AND started_at>=? AND started_at<?',d60,d30)}
+  };
+  // --- نیازمند توجه (فقط وضعیت‌های واقعی مدل داده) ---
+  const attention=[];
+  rows(`SELECT tp.id tp_id, tp.title, tp.end_date, s.id student_id, s.full_name, s.case_number FROM training_programs tp JOIN students s ON s.id=tp.student_id
+        WHERE tp.status='ACTIVE' AND tp.deleted_at IS NULL AND tp.end_date IS NOT NULL AND tp.end_date<=? ORDER BY tp.end_date ASC LIMIT 6`,in3Days)
+    .forEach(r=>{
+      const ended=r.end_date<today;
+      attention.push({severity:ended?'red':'yellow',kind:ended?'program_ended':'program_ending',
+        name:r.full_name,case_number:r.case_number,text:ended?'برنامه تمرینی‌اش به پایان رسیده است':'برنامه تمرینی‌اش به‌زودی به پایان می‌رسد',
+        sub:ended?`پایان: ${r.end_date}`:`${Math.max(1,Math.round((new Date(r.end_date)-new Date(today))/86400000))} روز آینده • ${r.end_date}`,
+        action:`/users-list/${r.case_number}`,action_label:'مشاهده شاگرد'});
+    });
+  rows(`SELECT ba.id assessment_id, ba.assessment_number, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
+        WHERE ba.status IN ('SUBMITTED','PENDING_REVIEW') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 6`)
+    .forEach(r=>attention.push({severity:'yellow',kind:'assessment_review',name:r.full_name,case_number:r.case_number,
+      text:`ارزیابی شماره ${r.assessment_number} آماده بررسی شماست`,sub:'برای تأیید یا درخواست تغییر، پرونده را باز کنید',
+      action:`/assessments/${r.assessment_id}`,action_label:'باز کردن ارزیابی'}));
+  rows(`SELECT ba.id assessment_id, ba.status, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
+        WHERE ba.status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 5`)
+    .forEach(r=>attention.push({severity:'blue',kind:'assessment_incomplete',name:r.full_name,case_number:r.case_number,
+      text:r.status==='CHANGES_REQUESTED'?'درخواست تغییرات ارزیابی ارسال شده':'فرم ارزیابی هنوز تکمیل نشده است',sub:'شاگرد باید فرم را کامل کند',
+      action:`/users-list/${r.case_number}`,action_label:'مشاهده شاگرد'}));
+  rows(`SELECT si.id, si.student_id, si.expires_at, s.full_name, s.case_number FROM student_invites si LEFT JOIN students s ON s.id=si.student_id
+        WHERE si.used_at IS NULL AND si.revoked_at IS NULL ORDER BY si.id DESC LIMIT 5`)
+    .forEach(r=>attention.push({severity:'blue',kind:'invite_pending',name:r.full_name||'شاگرد جدید',case_number:r.case_number,
+      text:'دعوت ورود هنوز پذیرفته نشده است',sub:r.expires_at?`انقضا: ${String(r.expires_at).slice(0,10)}`:'',
+      action:r.case_number?`/users-list/${r.case_number}`:'/users-list',action_label:'مشاهده پرونده'}));
+  rows(`SELECT DISTINCT s.id student_id, s.full_name, s.case_number, tp.start_date FROM training_programs tp JOIN students s ON s.id=tp.student_id
+        WHERE tp.status='ACTIVE' AND tp.deleted_at IS NULL AND tp.start_date IS NOT NULL AND tp.start_date<=?
+          AND NOT EXISTS (SELECT 1 FROM workout_sessions ws WHERE ws.student_id=tp.student_id AND ws.deleted_at IS NULL AND ws.started_at>=?)`,d7,d14)
+    .forEach(r=>attention.push({severity:'yellow',kind:'inactive_student',name:r.full_name,case_number:r.case_number,
+      text:'بیش از ۱۴ روز است جلسه تمرینی ثبت نکرده است',sub:'با یک پیام او را به تمرین برگردانید',
+      action:`/users-list/${r.case_number}`,action_label:'پیام / مشاهده'}));
+  const severityRank={red:0,yellow:1,blue:2};
+  attention.sort((a,b)=>severityRank[a.severity]-severityRank[b.severity]);
+  const attentionTop=attention.slice(0,8);
+
+  // --- نمای شاگردها (واقعی: آخرین برنامه/تمرین/پیشرفت زمانی) ---
+  const students_overview=rows(`SELECT s.id, s.full_name, s.case_number, s.goal, s.created_at,
+      (SELECT title FROM training_programs tp WHERE tp.student_id=s.id AND tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 1) program_title,
+      (SELECT status FROM training_programs tp WHERE tp.student_id=s.id AND tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 1) program_status,
+      (SELECT start_date FROM training_programs tp WHERE tp.student_id=s.id AND tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 1) program_start,
+      (SELECT end_date FROM training_programs tp WHERE tp.student_id=s.id AND tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 1) program_end,
+      (SELECT MAX(ws.started_at) FROM workout_sessions ws WHERE ws.student_id=s.id AND ws.deleted_at IS NULL) last_workout,
+      (SELECT COUNT(*) FROM workout_sessions ws WHERE ws.student_id=s.id AND ws.deleted_at IS NULL AND ws.status='COMPLETED') completed_sessions
+    FROM students s WHERE s.deleted_at IS NULL ORDER BY (SELECT MAX(COALESCE(ws.started_at,'')) FROM workout_sessions ws WHERE ws.student_id=s.id) DESC, s.id DESC LIMIT 6`)
+    .map(r=>{
+      let progress=null;
+      if(r.program_status==='ACTIVE'&&r.program_start&&r.program_end){
+        const totalDays=Math.round((new Date(r.program_end)-new Date(r.program_start))/86400000)||1;
+        const passed=Math.round((new Date(today)-new Date(r.program_start))/86400000);
+        progress=Math.min(100,Math.max(0,Math.round(passed/totalDays*100)));
+      }
+      const lastDays=r.last_workout?Math.floor((new Date(today)-new Date(String(r.last_workout).slice(0,10)))/86400000):null;
+      const status=!r.program_title?'idle':(r.program_status==='ACTIVE'?(lastDays!=null&&lastDays>7?'attention':'active'):'idle');
+      return {...r,progress,last_days:lastDays,status};
+    });
+  const statusSummary={active:activeStudents,attention:students_overview.filter(x=>x.status==='attention').length+attentionTop.filter(a=>a.severity!=='blue').length,idle:Math.max(0,total-activeStudents)};
+
+  // --- تایم‌لاین واقعی (ادغام رویدادهای موجود) ---
+  const events=[];
+  rows('SELECT id, full_name, case_number, created_at FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').forEach(r=>events.push({type:'student',name:r.full_name,text:'به سیستم اضافه شد',at:r.created_at,route:`/users-list/${r.case_number}`}));
+  rows(`SELECT tp.id, tp.title, tp.status, tp.created_at, s.full_name, s.case_number FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 5`).forEach(r=>events.push({type:'program',name:r.full_name||r.title,text:`برنامه «${r.title}» ساخته شد`,at:r.created_at,route:r.case_number?`/users-list/${r.case_number}`:'/templates/exercise/list'}));
+  rows(`SELECT ba.id, ba.assessment_number, ba.submitted_at, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id WHERE ba.submitted_at IS NOT NULL AND ba.deleted_at IS NULL ORDER BY ba.submitted_at DESC LIMIT 4`).forEach(r=>events.push({type:'assessment',name:r.full_name,text:`ارزیابی شماره ${r.assessment_number} را ارسال کرد`,at:r.submitted_at,route:`/assessments/${r.id}`}));
+  rows(`SELECT ws.id, ws.completed_at, s.full_name, s.case_number FROM workout_sessions ws JOIN students s ON s.id=ws.student_id WHERE ws.status='COMPLETED' AND ws.deleted_at IS NULL ORDER BY ws.completed_at DESC LIMIT 4`).forEach(r=>events.push({type:'workout',name:r.full_name,text:'جلسه تمرینی را تکمیل کرد',at:r.completed_at,route:`/users-list/${r.case_number}`}));
+  events.sort((a,b)=>new Date(String(b.at).replace(' ','T')+(String(b.at).includes('Z')?'':'Z'))-new Date(String(a.at).replace(' ','T')+(String(a.at).includes('Z')?'':'Z')));
+  const timeline=events.slice(0,8);
+
+  // --- سری روند ۳۰ روزه (جلسات تمرین + برنامه‌های ساخته‌شده) ---
+  const workoutByDay={},programByDay={};
+  rows(`SELECT substr(started_at,1,10) d, COUNT(*) c FROM workout_sessions WHERE deleted_at IS NULL AND started_at>=? GROUP BY substr(started_at,1,10)`,d30).forEach(r=>workoutByDay[r.d]=r.c);
+  rows(`SELECT substr(created_at,1,10) d, COUNT(*) c FROM training_programs WHERE deleted_at IS NULL AND created_at>=? GROUP BY substr(created_at,1,10)`,d30).forEach(r=>programByDay[r.d]=r.c);
+  const series=[];for(let i=29;i>=0;i--){const day=isoDay(-i);series.push({day,workouts:workoutByDay[day]||0,programs:programByDay[day]||0});}
+
   return send(res,200,{
     stats:{total,active,waiting,movements,categories, trainingPrograms: trainingProgs},
     activities: rows('SELECT * FROM activity_log ORDER BY id DESC LIMIT 8'),
-    students: rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').map(safeCoachStudent)
+    students: rows('SELECT * FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').map(safeCoachStudent),
+    // v2 (افزایشی)
+    v2:{activePrograms,activeStudents,trend,attention:attentionTop,students_overview,statusSummary,timeline,series,
+        greeting:{attentionCount:attentionTop.filter(a=>a.severity!=='blue').length,endingSoon:attentionTop.filter(a=>a.kind==='program_ending').length,ended:attentionTop.filter(a=>a.kind==='program_ended').length}}
   });
 }
 

@@ -43,15 +43,127 @@ async function render(label,route){
     if(route==='/coach/dashboard'){
       const [d,versionInfo]=await Promise.all([api('/api/dashboard'),api('/api/version')]);
       if(!['/','/index.html','/coach/dashboard'].includes(location.pathname))return;
+      const v=d.v2||{trend:{},attention:[],students_overview:[],statusSummary:{active:0,attention:0,idle:0},timeline:[],series:[],greeting:{attentionCount:0,endingSoon:0,ended:0}};
+      const faNum=n=>Number(n||0).toLocaleString('fa-IR');
+      const relTime=ts=>{
+        if(!ts)return'';
+        const t=new Date(String(ts).replace(' ','T')+(String(ts).includes('Z')?'':'Z'));
+        if(Number.isNaN(t.getTime()))return String(ts).slice(0,10);
+        const mins=Math.floor((Date.now()-t.getTime())/60000);
+        if(mins<1)return'همین حالا';
+        if(mins<60)return `${faNum(mins)} دقیقه پیش`;
+        const hours=Math.floor(mins/60);
+        if(hours<24)return `${faNum(hours)} ساعت پیش`;
+        const days=Math.floor(hours/24);
+        if(days===1)return'دیروز';
+        if(days<7)return `${faNum(days)} روز پیش`;
+        return t.toLocaleDateString('fa-IR');
+      };
+      // جمله روزانه بر پایه داده واقعی
+      const g=v.greeting||{};
+      const dailyMessage = g.ended>0 ? `${faNum(g.ended)} برنامه به پایان رسیده و ${faNum(g.attentionCount)} مورد نیاز به پیگیری دارد.`
+        : g.endingSoon>0 ? `${faNum(g.endingSoon)} برنامه تمرینی در چند روز آینده به پایان می‌رسد.`
+        : (g.attentionCount>0 ? `${faNum(g.attentionCount)} مورد نیاز به پیگیری شما دارد.` : 'همه‌چیز مرتب است؛ شاگردهای شما در وضعیت خوبی هستند.');
+      const delta=(t)=>{if(!t||t.now==null)return'';const diff=t.now-t.prev;if(diff===0)return'بدون تغییر نسبت به ۳۰ روز قبل';const sign=diff>0?'+':'−';return `${sign}${faNum(Math.abs(diff))} نسبت به ۳۰ روز قبل`;};
+      const sevClass={red:'sev-red',yellow:'sev-yellow',blue:'sev-blue'};
+      const maxSeries=Math.max(1,...v.series.map(p=>p.workouts));
+      const chart=v.series.length?v.series.map(p=>`<span class="db-chart-col" style="--h:${Math.round(p.workouts/maxSeries*100)}%" title="${p.day} • ${faNum(p.workouts)} جلسه${p.programs?` • ${faNum(p.programs)} برنامه`:''}"></span>`).join(''):'';
+      const timelineIcon={student:'👤',program:'📋',assessment:'🧾',workout:'💪'};
       content.innerHTML=`
-        <div class="page-head dashboard-title"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1><p>خلاصه فعالیت‌های ثبت‌شده در سامانه محلی.</p><small class="dashboard-version">${esc(versionInfo.name)} v${esc(versionInfo.version)}</small></div></div>
-        <div class="stat-grid">
-          <article><span>کل شاگردها</span><strong>${d.stats.total}</strong></article>
-          <article><span>برنامه‌های فعال</span><strong>${d.stats.trainingPrograms||d.stats.active||0}</strong></article>
-          <article><span>سفارش‌های در انتظار</span><strong>${d.stats.waiting}</strong></article>
-          <article><span>حرکات ثبت‌شده</span><strong>${d.stats.movements}</strong></article>
+      <div class="db-hero">
+        <div class="db-hero-text">
+          <p class="eyebrow">مرکز کنترل مربی</p>
+          <h1>سلام، مربی 👋</h1>
+          <p class="db-daily">${esc(dailyMessage)}</p>
         </div>
-        <div class="split"><section class="panel"><h2>شاگردهای اخیر</h2>${table(['نام / پرونده','هدف','وضعیت'],d.students,x=>`<tr><td><b>${esc(x.full_name)}</b><small class="case-number-inline">پرونده ${esc(x.case_number||'------')}</small></td><td>${esc(fa(x.goal||'—'))}</td><td><b class="badge">${esc(fa(x.profile_status||x.status))}</b></td></tr>`)}</section><section class="panel"><h2>فعالیت‌های اخیر</h2><ul class="activity">${d.activities.map(x=>`<li><b>${esc(x.title)}</b><span>${esc(x.detail||'')}</span></li>`).join('')}</ul></section></div>`;
+        <small class="dashboard-version">${esc(versionInfo.name)} v${esc(versionInfo.version)}</small>
+      </div>
+
+      <div class="db-stats">
+        <article class="db-stat">
+          <span class="db-stat-icon db-ico-blue">👥</span>
+          <div><strong>${faNum(v.activeStudents||d.stats.total)}</strong><span>شاگرد فعال</span>
+          <small>${v.trend.newStudents?esc(delta(v.trend.newStudents)):`از مجموع ${faNum(d.stats.total)} شاگرد`}</small></div>
+        </article>
+        <article class="db-stat">
+          <span class="db-stat-icon db-ico-green">📋</span>
+          <div><strong>${faNum(v.activePrograms ?? (d.stats.trainingPrograms||d.stats.active||0))}</strong><span>برنامه فعال</span>
+          <small>${v.trend.newPrograms?esc(delta(v.trend.newPrograms)):`از ${faNum(d.stats.trainingPrograms)} برنامه ساخته‌شده`}</small></div>
+        </article>
+        <article class="db-stat">
+          <span class="db-stat-icon db-ico-orange">💪</span>
+          <div><strong>${faNum(v.trend.workouts?.now||0)}</strong><span>جلسه تمرین (۳۰ روز)</span>
+          <small>${v.trend.workouts?esc(delta(v.trend.workouts)):''}</small></div>
+        </article>
+        <article class="db-stat">
+          <span class="db-stat-icon db-ico-violet">🏋️</span>
+          <div><strong>${faNum(d.stats.movements)}</strong><span>حرکت ثبت‌شده</span>
+          <small>${d.stats.waiting>0?`${faNum(d.stats.waiting)} سفارش در انتظار`:'بانک حرکات آماده است'}</small></div>
+        </article>
+      </div>
+
+      <div class="db-mid">
+        <section class="db-panel db-attention">
+          <header><h2>نیازمند توجه شما</h2>${v.attention.length?`<b class="db-count">${faNum(v.attention.length)}</b>`:''}</header>
+          ${v.attention.length?v.attention.map(a=>`
+            <div class="db-attn ${sevClass[a.severity]||''}">
+              <i class="db-dot" aria-hidden="true"></i>
+              <div class="db-attn-body"><b>${esc(a.name)}</b><span>${esc(a.text)}</span>${a.sub?`<small>${esc(a.sub)}</small>`:''}</div>
+              <a class="btn btn-secondary btn-small" href="${esc(a.action)}">${esc(a.action_label)}</a>
+            </div>`).join(''):
+          `<div class="db-empty"><b>همه‌چیز مرتب است 🎉</b><span>در حال حاضر موردی برای پیگیری وجود ندارد.</span></div>`}
+        </section>
+        <section class="db-panel db-quick">
+          <header><h2>اقدامات سریع</h2></header>
+          <div class="db-quick-grid">
+            <a href="/users-list"><span>👤</span>افزودن شاگرد</a>
+            <a href="/programs/exercise/form"><span>📋</span>ساخت برنامه تمرینی</a>
+            <a href="/students/submissions"><span>🧾</span>بررسی ارزیابی‌ها</a>
+            <a href="/templates/exercise/list"><span>🗂</span>بانک برنامه‌ها</a>
+            <a href="/programs/exercise/movements-list"><span>🏋️</span>بانک حرکات</a>
+          </div>
+        </section>
+      </div>
+
+      <section class="db-panel">
+        <header class="db-row-head"><h2>شاگردهای شما</h2><a class="secondary" href="/users-list">مشاهده همه</a></header>
+        ${v.students_overview.length?v.students_overview.map(x=>`
+          <div class="db-student">
+            <span class="db-avatar" aria-hidden="true">${esc(String(x.full_name||'؟').trim().charAt(0))}</span>
+            <div class="db-student-main">
+              <b>${esc(x.full_name)}</b>
+              <small>پرونده ${esc(x.case_number||'------')}${x.goal?` • ${esc(fa(x.goal))}`:''}</small>
+            </div>
+            <div class="db-student-program">
+              ${x.program_title?`<b>${esc(x.program_title)}</b>${x.progress!=null?`<span class="db-progress"><i style="width:${Math.max(3,x.progress)}%"></i></span><small>${faNum(x.progress)}٪</small>`:`<small>${esc(fa(x.program_status||''))}</small>`}`:'<small>بدون برنامه</small>'}
+            </div>
+            <div class="db-student-activity">
+              <small>${x.last_days==null?'بدون ثبت تمرین':x.last_days===0?'آخرین فعالیت: امروز':x.last_days===1?'آخرین فعالیت: دیروز':`آخرین فعالیت: ${faNum(x.last_days)} روز پیش`}</small>
+            </div>
+            <span class="db-badge ${x.status==='active'?'ok':x.status==='attention'?'warn':''}">${x.status==='active'?'فعال':x.status==='attention'?'نیازمند پیگیری':'غیرفعال'}</span>
+            <a class="btn btn-secondary btn-small" href="/users-list/${esc(x.case_number)}">مشاهده</a>
+          </div>`).join(''):
+        `<div class="db-empty"><b>هنوز شاگردی ثبت نشده است.</b><span>با «افزودن شاگرد» اولین پرونده را بسازید.</span><a class="btn btn-primary" href="/users-list">افزودن شاگرد</a></div>`}
+      </section>
+
+      <div class="db-bottom">
+        <section class="db-panel db-status">
+          <header><h2>وضعیت شاگردان</h2></header>
+          ${(()=>{const tot=Math.max(1,d.stats.total);const bar=[['فعال',v.statusSummary.active,'ok'],['نیازمند پیگیری',v.statusSummary.attention,'warn'],['بدون برنامه فعال',v.statusSummary.idle,'idle']];
+            return d.stats.total?bar.map(([label,val,cls])=>`<div class="db-status-row"><span>${label}</span><div class="db-bar"><i class="${cls}" style="width:${Math.max(2,Math.round(val/tot*100))}%"></i></div><b>${faNum(val)}</b></div>`).join(''):
+            '<div class="db-empty"><span>داده‌ای برای نمایش وجود ندارد.</span></div>';})()}
+        </section>
+        <section class="db-panel db-trend">
+          <header><h2>روند جلسات تمرینی</h2><small>۳۰ روز اخیر</small></header>
+          ${v.trend.workouts&&(v.trend.workouts.now>0||v.trend.workouts.prev>0)?`<div class="db-chart" dir="ltr">${chart}</div><small class="db-chart-note">ستون‌ها: جلسات ثبت‌شده روزانه — با ماوس ببینید</small>`:
+          `<div class="db-empty"><span>اطلاعات کافی برای نمایش روند فعالیت وجود ندارد.</span><small>با ثبت اولین جلسات تمرینی توسط شاگردها، نمودار این‌جا فعال می‌شود.</small></div>`}
+        </section>
+        <section class="db-panel db-timeline">
+          <header><h2>فعالیت‌های اخیر</h2></header>
+          ${v.timeline.length?`<ul class="db-tl">${v.timeline.map(e=>`<li><span class="db-tl-ico">${timelineIcon[e.type]||'•'}</span><div><b>${esc(e.name)}</b> ${esc(e.text)}<small>${relTime(e.at)}</small></div></li>`).join('')}</ul>`:
+          `<div class="db-empty"><span>فعالیتی برای نمایش وجود ندارد.</span></div>`}
+        </section>
+      </div>`;
       return;
     }
     if(route==='/programs/exercise/movements-list'){
