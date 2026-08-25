@@ -166,8 +166,13 @@ function getStudentFullData(db, studentId, options={}){
   }catch(error){}
   timeline.sort((a,b)=> new Date(a.date) - new Date(b.date));
 
+  const studentSafe = studentAuth.safeStudent(student);
+  studentSafe.id = student.id;
+  studentSafe.temporary_password = student.mobile ? String(student.mobile).slice(-4) : '';
+  studentSafe.portal_url = '/student/login';
+
   return {
-    student:studentAuth.safeStudent(student),
+    student: studentSafe,
     assessments: assessmentsWithPhotos,
     programs,
     timeline,

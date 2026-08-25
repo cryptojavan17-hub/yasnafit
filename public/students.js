@@ -115,9 +115,15 @@
       <td>${formatDate(student.last_assessment_submitted_at||student.last_assessment_created_at)}</td>
       <td><span class="next-assessment ${String(student.next_assessment_status).toLowerCase()}">${esc(nextLabels[student.next_assessment_status]||fa(student.next_assessment_status))}</span></td>
       <td>${formatDate(student.created_at)}</td>
-      <td><div class="student-row-actions"><button class="secondary" data-open-student="${student.case_number}">مشاهده</button><button class="secondary" data-invite-student="${student.id}">ایجاد لینک</button></div></td>
+      <td><div class="student-row-actions"><button class="secondary" data-open-student="${student.case_number}">مشاهده</button><button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button></div></td>
     </tr>`).join('')}</tbody></table></div>`;
     host.querySelectorAll('[data-open-student]').forEach(button=>button.onclick=()=>{ location.href=`/users-list/${button.dataset.openStudent}`; });
+    host.querySelectorAll('[data-access-student]').forEach(button=>{
+      button.onclick=()=>{
+        const student=items[Number(button.dataset.accessStudent)];
+        if(student) showInvitation(student.id, {join_url:'/student/login', temporary_password:student.mobile?student.mobile.slice(-4):''}, `اطلاعات ورود ${student.full_name}`);
+      };
+    });
     host.querySelectorAll('[data-invite-student]').forEach(button=>button.onclick=async()=>{ try{await generateInvitation(button.dataset.inviteStudent);}catch(error){alert(error.message);} });
   }
   function renderPagination(pagination){
@@ -197,14 +203,46 @@
             <section class="detail-section"><div class="section-title"><h2>برنامه‌های ماهانه</h2><span>${data.programs.length.toLocaleString('fa-IR')} برنامه</span></div><div class="history-grid">${data.programs.length?data.programs.slice().reverse().map(programCard).join(''):'<p class="muted">هنوز برنامه‌ای ثبت نشده است.</p>'}</div></section>
           </main>
           <aside>
+            <section class="detail-section permanent-access-card" style="border:1px solid var(--accent-border);background:var(--accent-surface);">
+              <div class="section-title">
+                <h2>🔐 لینک و دسترسی دائمی شاگرد</h2>
+              </div>
+              <p style="margin:0 0 8px;font-size:9px;color:var(--text-secondary);">لینک دائمی ورود شاگرد به پرتال. نیازی به ایجاد مجدد لینک نیست.</p>
+              <div style="display:flex;flex-direction:column;gap:7px;">
+                <div>
+                  <span class="credential-label" style="font-size:8px;color:var(--text-muted);display:block;margin-bottom:2px;">لینک ورود به پرتال</span>
+                  <div class="credential-link-row" style="display:flex;gap:5px;">
+                    <div class="generated-link" style="flex:1;overflow:hidden;"><code style="font-size:10px;">${location.origin}/student/login</code></div>
+                    <button class="secondary" data-copy-perm-url style="min-height:28px;padding:2px 8px;font-size:9px;white-space:nowrap;">کپی لینک</button>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                  <div style="padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-inset);">
+                    <span style="font-size:8px;color:var(--text-muted);display:block;">شماره همراه</span>
+                    <b style="font-size:10px;color:var(--text);display:block;" dir="ltr">${esc(student.mobile||'—')}</b>
+                  </div>
+                  <div class="temporary-password" style="padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-inset);">
+                    <span style="font-size:8px;color:var(--text-muted);display:block;">رمز موقت</span>
+                    <b style="font-size:11px;color:var(--accent-hover);display:block;">${esc(student.temporary_password||(student.mobile?student.mobile.slice(-4):'—'))}</b>
+                  </div>
+                </div>
+                <button class="primary" data-copy-perm-all style="min-height:34px;font-size:9px;font-weight:750;margin-top:2px;">📋 کپی کامل مشخصات ورود شاگرد</button>
+              </div>
+            </section>
             <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div></dl>${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}">ساخت برنامه ماهانه</button>`:''}</section>
-            <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت</h2><button class="text-button" data-new-invite>＋ لینک جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted">لینکی ساخته نشده است.</p>'}</div></section>
+            <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت سریع</h2><button class="text-button" data-new-invite>＋ توکن جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted">توکنی ساخته نشده است.</p>'}</div></section>
             <section class="detail-section"><h2>عملکرد واقعی تمرین</h2><div class="profile-data"><div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div><div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div><div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div></div></section>
             <section class="detail-section"><h2>پیام‌های مربی و شاگرد</h2><div class="coach-message-list">${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}</b><span>${esc(message.body)}</span></div>`).join('')||'<p class="muted">پیامی ثبت نشده است.</p>'}</div><form id="coachMessageForm" class="coach-message-form"><textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea><button class="primary">ارسال</button></form></section>
             <section class="detail-section"><h2>تایم‌لاین شاگرد</h2><ol class="student-timeline">${data.timeline.length?data.timeline.map(timelineItem).join(''):'<li class="muted">رویدادی ثبت نشده است.</li>'}</ol></section>
           </aside>
         </div>
       </div>`;
+      content.querySelectorAll('[data-copy-perm-url]').forEach(button=>button.onclick=async()=>{await copyText(`${location.origin}/student/login`);button.textContent='کپی شد ✓';});
+      content.querySelectorAll('[data-copy-perm-all]').forEach(button=>button.onclick=async()=>{
+        const tempPass=student.temporary_password||(student.mobile?student.mobile.slice(-4):'—');
+        const shareMsg=`لینک ورود:\n${location.origin}/student/login\n\nرمز موقت:\n${tempPass}`;
+        await copyText(shareMsg);button.textContent='کپی شد ✓';
+      });
       content.querySelector('[data-back-students]').onclick=()=>{location.href='/users-list';};
       content.querySelectorAll('[data-new-invite]').forEach(button=>button.onclick=async()=>{try{await generateInvitation(internalStudentId);setTimeout(()=>loadStudentDetail(caseNumber),300);}catch(error){alert(error.message);}});
       content.querySelector('[data-request-assessment]').onclick=async()=>{try{await generateInvitation(internalStudentId,'لینک ارزیابی جدید ایجاد شد');}catch(error){alert(error.message);}};
