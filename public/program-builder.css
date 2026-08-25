@@ -323,3 +323,9 @@ input.jalali-bad { border-color: var(--danger); }
 .mov-set-boxes { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
 .mov-pill { padding: 2px 9px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--glass); color: var(--text-secondary); font-size: 8px; font-weight: 750; white-space: nowrap; }
 .movement-head:hover .mov-pill { border-color: var(--accent-border); }
+
+/* رفع بریدن منوی ⋮: خروج از overflow والد‌ها + z-index بالا */
+.day-card, .system-card { overflow: visible; }
+.day-header { border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; }
+.movement-card { position: relative; }
+.builder-menu { z-index: 85; }

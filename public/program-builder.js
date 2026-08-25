@@ -436,15 +436,6 @@
               const full=remaining<=0;
               return `
               <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
-                <div class="system-header">
-                  <h4>${sysMeta.icon} ${esc(sysMeta.label)}</h4>
-                  <div class="system-actions">
-                    <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:190px" title="تغییر نوع سیستم تمرینی">
-                      ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - شامل ${t.movements.toLocaleString('fa-IR')} حرکت</option>`).join('')}
-                    </select>
-                    <button class="btn btn-danger btn-small" data-del-sys="${dayIdx}-${sysIdx}">حذف سیستم</button>
-                  </div>
-                </div>
                 <div class="movements-list">
                   ${sysMovs===0 ? `<div class="empty-system">این سیستم به ${sysMeta.movements.toLocaleString('fa-IR')} حرکت نیاز دارد — «افزودن حرکات تمرینی» را بزنید.</div>` : ''}
                   ${(sys.movement_list||[]).map((mov, movIdx) => {
@@ -472,6 +463,7 @@
                           <button type="button" data-move-mov-down="${movKey}">⬇️ انتقال حرکت به پایین</button>
                           <div class="menu-sep"></div>
                           <button type="button" class="menu-danger" data-del-mov="${movKey}">🗑 حذف حرکت</button>
+                          <button type="button" class="menu-danger" data-del-sys="${dayIdx}-${sysIdx}">🗑 حذف کل سیستم</button>
                         </div>
                       </div>
                     </div>
