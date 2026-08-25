@@ -1127,6 +1127,13 @@
 
     const frontOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='front')).filter(Boolean);
     const backOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='back')).filter(Boolean);
+    const hasFront=frontOverlays.length>0;
+    const hasBack=backOverlays.length>0;
+    let showSides=[];
+    if(hasFront&&!hasBack) showSides=['front'];
+    else if(!hasFront&&hasBack) showSides=['back'];
+    else if(hasFront&&hasBack) showSides=['front','back'];
+    else showSides=['front'];
 
     document.getElementById('mvTitle').textContent=`ویرایش حرکت: ${mov.nameFa||mov.name||'حرکت'}`;
     const chip=document.getElementById('mvSystemChip');
@@ -1207,26 +1214,28 @@
             }).join('')}
           </div>
 
-          <div class="mv-figures">
+          <div class="mv-figures ${showSides.length===1?'single-view':'dual-view'}">
+            ${showSides.includes('front') ? `
             <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'155px':'125px'}; height: ${showSides.length===1?'215px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
                 <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${frontOverlays.map(m => `
                   <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
                 `).join('')}
               </div>
               <figcaption>نمای جلو</figcaption>
-            </figure>
+            </figure>` : ''}
 
+            ${showSides.includes('back') ? `
             <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'155px':'125px'}; height: ${showSides.length===1?'215px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
                 <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${backOverlays.map(m => `
                   <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
                 `).join('')}
               </div>
               <figcaption>نمای پشت</figcaption>
-            </figure>
+            </figure>` : ''}
           </div>
         </div>
 

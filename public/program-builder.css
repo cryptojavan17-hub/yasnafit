@@ -312,9 +312,12 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-muscle-chip button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 0; line-height: 1; }
 .mv-muscle-chip button:hover { color: var(--danger); }
 
-.mv-figures { flex: 1; display: flex; gap: 8px; justify-content: center; }
+.mv-figures { flex: 1; display: flex; gap: 8px; justify-content: center; align-items: center; }
+.mv-figures.single-view { justify-content: center; }
+.mv-figures.single-view .mv-body-figure { max-width: 170px; }
+.mv-figures.single-view .muscle-container, .mv-figures.single-view .mv-body-canvas-wrap { max-width: 160px; height: 215px; }
 .mv-body-figure { flex: 1; margin: 0; display: flex; flex-direction: column; gap: 3px; align-items: center; }
-.muscle-container, .mv-body-canvas-wrap { position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95); }
+.muscle-container, .mv-body-canvas-wrap { position: relative; width: 100%; max-width: 130px; height: 185px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95); }
 .base-body, .mv-base-body { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; display: block; }
 .muscle-overlay, .mv-muscle-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none; display: block; }
 .mv-figures figcaption { text-align: center; color: var(--text-muted); font-size: 8px; }
