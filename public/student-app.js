@@ -85,12 +85,155 @@
     const program=data.program,assessment=data.assessment;
     shell('/student/dashboard',`<div class="student-page-head"><h1>خانه</h1><p>وضعیت فعلی برنامه و ارزیابی شما</p></div><div class="student-grid"><article class="student-card"><h2>برنامه فعلی</h2>${program?`<div class="student-program-head"><div><h2>${esc(program.title)}</h2><span class="student-program-dates">${dateFa(program.start_date)} ← ${dateFa(program.end_date)}</span></div>${status(program.status)}</div>${program.coach_note?`<div class="coach-note"><b>یادداشت مربی</b><br>${esc(program.coach_note)}</div>`:''}<div class="student-actions"><a class="primary" href="/student/program">مشاهده برنامه</a></div>`:'<div class="student-empty"><span>▤</span><h2>هنوز برنامه فعالی برای شما ثبت نشده است.</h2><p>پس از بررسی مربی، برنامه در این بخش نمایش داده می‌شود.</p></div>'}</article><article class="student-card"><h2>آخرین ارزیابی</h2>${assessment?`<div class="student-stat"><span>ارزیابی ${assessment.assessment_number}</span><strong>${assessment.weight??'—'} کیلوگرم</strong>${status(assessment.status)}</div>${assessment.coach_note?`<div class="coach-note">${esc(assessment.coach_note)}</div>`:''}<div class="student-actions"><a class="secondary" href="/student/assessment">مشاهده ارزیابی</a></div>`:'<div class="student-empty"><span>◫</span><p>هنوز ارزیابی ثبت نشده است.</p></div>'}</article></div><div class="student-grid" style="margin-top:13px"><article class="student-card"><h2>عملکرد تمرین</h2><div class="student-assessment-data"><div><span>جلسات تکمیل‌شده</span><b>${data.performance.sessions_completed}</b></div><div><span>نرخ تکمیل</span><b>${data.performance.completion_rate==null?'داده‌ای نیست':`${data.performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${dateFa(data.performance.last_workout)}</b></div></div><div class="student-actions"><a class="secondary" href="/student/workouts">ثبت و مشاهده تمرین‌ها</a></div></article><article class="student-card"><h2>اعلان‌ها ${data.unread_notifications?`(${data.unread_notifications})`:''}</h2>${data.notifications.length?data.notifications.slice(0,3).map(item=>`<div class="notification-item"><b>${esc(item.title)}</b><small>${esc(item.body)} • ${dateFa(item.created_at)}</small></div>`).join(''):'<p class="muted">اعلان جدیدی ندارید.</p>'}<div class="student-actions"><a class="secondary" href="/student/notifications">همه اعلان‌ها</a></div></article></div>`);
   }
+  const studentMuscleCatalog=[
+    {id:'front_deltoid_anterior',label:'دلتوئید قدامی (سرشانه جلو)',side:'front',file:'front_deltoid_anterior.webp'},
+    {id:'front_deltoid_lateral',label:'دلتوئید جانبی (سرشانه میانی)',side:'front',file:'front_deltoid_lateral.webp'},
+    {id:'front_chest',label:'سینه (پکتورالیس)',side:'front',file:'front_chest.webp'},
+    {id:'front_biceps',label:'جلو بازو (دوسر بازویی)',side:'front',file:'front_biceps.webp'},
+    {id:'front_brachialis',label:'براکیالیس',side:'front',file:'front_brachialis.webp'},
+    {id:'front_brachioradialis',label:'ساعد (براکیورادیالیس)',side:'front',file:'front_brachioradialis.webp'},
+    {id:'front_rectus_abdominis',label:'راست شکمی (سیکس‌پک)',side:'front',file:'front_rectus_abdominis.webp'},
+    {id:'front_obliques',label:'مورب شکمی (پهلو)',side:'front',file:'front_obliques.webp'},
+    {id:'front_serratus_anterior',label:'دندانه‌ای قدامی',side:'front',file:'front_serratus_anterior.webp'},
+    {id:'front_quadriceps',label:'چهارسر ران (جلو پا)',side:'front',file:'front_quadriceps.webp'},
+    {id:'front_iliopsoas',label:'ایلیوپسواس (عضلات ران)',side:'front',file:'front_iliopsoas.webp'},
+    {id:'back_trapezius',label:'کول (ذوزنقه‌ای)',side:'back',file:'back_trapezius.webp'},
+    {id:'back_latissimus_dorsi',label:'زیربغل (پشتی بزرگ)',side:'back',file:'back_latissimus_dorsi.webp'},
+    {id:'back_triceps',label:'پشت بازو (سه‌سر بازویی)',side:'back',file:'back_triceps.webp'},
+    {id:'back_teres_major',label:'گرد بزرگ',side:'back',file:'back_teres_major.webp'},
+    {id:'back_teres_minor',label:'گرد کوچک',side:'back',file:'back_teres_minor.webp'},
+    {id:'back_infraspinatus',label:'تحت‌خاری',side:'back',file:'back_infraspinatus.webp'},
+    {id:'back_gluteus_maximus',label:'باسن (سرینی بزرگ)',side:'back',file:'back_gluteus_maximus.webp'},
+    {id:'back_hamstrings',label:'همسترینگ (پشت پا)',side:'back',file:'back_hamstrings.webp'},
+    {id:'back_gastrocnemius',label:'ساق پا (دوقلو)',side:'back',file:'back_gastrocnemius.webp'},
+    {id:'back_soleus',label:'نعلی ساق',side:'back',file:'back_soleus.webp'}
+  ];
+
+  function getStudentMovementMuscles(movement){
+    if(movement.target_muscles&&Array.isArray(movement.target_muscles)&&movement.target_muscles.length>0){
+      return movement.target_muscles;
+    }
+    const name=String(movement.name||'').toLowerCase();
+    if(name.includes('سینه'))return ['front_chest'];
+    if(name.includes('سرشانه')||name.includes('نشر')||name.includes('دلتوئید')){
+      if(name.includes('خلفی')||name.includes('پشت'))return ['back_infraspinatus','back_teres_minor'];
+      if(name.includes('بغل')||name.includes('جانبی'))return ['front_deltoid_lateral'];
+      return ['front_deltoid_anterior','front_deltoid_lateral'];
+    }
+    if(name.includes('جلو بازو')||name.includes('دوسر'))return ['front_biceps'];
+    if(name.includes('پشت بازو')||name.includes('سه‌سر'))return ['back_triceps'];
+    if(name.includes('زیربغل')||name.includes('پشت')||name.includes('لت')||name.includes('قایقی'))return ['back_latissimus_dorsi'];
+    if(name.includes('کول')||name.includes('شراگ'))return ['back_trapezius'];
+    if(name.includes('شکم')||name.includes('کرانچ')||name.includes('پلانک')){
+      if(name.includes('پهلو')||name.includes('مورب'))return ['front_obliques'];
+      return ['front_rectus_abdominis'];
+    }
+    if(name.includes('پا')||name.includes('اسکوات')||name.includes('پرس پا')){
+      if(name.includes('پشت پا')||name.includes('همسترینگ')||name.includes('ددلیفت'))return ['back_hamstrings'];
+      if(name.includes('باسن')||name.includes('سرینی')||name.includes('هیپ'))return ['back_gluteus_maximus'];
+      if(name.includes('ساق'))return ['back_gastrocnemius','back_soleus'];
+      return ['front_quadriceps'];
+    }
+    if(name.includes('ساعد')||name.includes('مچ'))return ['front_brachioradialis'];
+    return ['front_chest'];
+  }
+
+  function openStudentMovementModal(movement){
+    let modal=document.getElementById('studentLearningModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='studentLearningModal';
+      modal.className='student-modal-overlay';
+      document.body.appendChild(modal);
+    }
+    const exId=movement.original_exercise_id||movement.exercise_id;
+    const videoSrc=movement.video_path||(exId?`/files/exercise/videos/${exId}.mp4`:'');
+    const activeMuscleIds=getStudentMovementMuscles(movement);
+    const frontOverlays=activeMuscleIds.map(id=>studentMuscleCatalog.find(m=>m.id===id&&m.side==='front')).filter(Boolean);
+    const backOverlays=activeMuscleIds.map(id=>studentMuscleCatalog.find(m=>m.id===id&&m.side==='back')).filter(Boolean);
+    const hasFront=frontOverlays.length>0;
+    const hasBack=backOverlays.length>0;
+    let showSides=[];
+    if(hasFront&&!hasBack)showSides=['front'];
+    else if(!hasFront&&hasBack)showSides=['back'];
+    else if(hasFront&&hasBack)showSides=['front','back'];
+    else showSides=['front'];
+
+    modal.innerHTML=`
+      <div class="student-modal-backdrop" id="studentModalBackdrop"></div>
+      <div class="student-modal-panel" role="dialog" aria-modal="true" aria-label="آموزش حرکت">
+        <header class="student-modal-head">
+          <h3>🏋️ آموزش حرکت: ${esc(movement.name)}</h3>
+          <button type="button" class="student-modal-close-x" id="studentModalCloseX" title="بستن">×</button>
+        </header>
+        <div class="student-modal-body">
+          <div class="student-modal-anatomy">
+            <b>عضله هدف</b>
+            <div class="mv-figures ${showSides.length===1?'single-view':'dual-view'}" style="display:flex;gap:8px;justify-content:center;align-items:center;">
+              ${showSides.includes('front')?`
+              <figure class="mv-body-figure" style="flex:1;margin:0;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div class="muscle-container mv-body-canvas-wrap" style="position:relative;width:100%;max-width:${showSides.length===1?'160px':'125px'};height:${showSides.length===1?'225px':'185px'};margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:rgba(5,5,5,.95);">
+                  <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" style="width:100%;height:100%;object-fit:contain;display:block;position:relative;z-index:1;" loading="lazy">
+                  ${frontOverlays.map(m=>`
+                    <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:2;pointer-events:none;" loading="lazy">
+                  `).join('')}
+                </div>
+                <figcaption style="text-align:center;color:var(--text-muted);font-size:8px;margin-top:3px">نمای جلو</figcaption>
+              </figure>`:''}
+              ${showSides.includes('back')?`
+              <figure class="mv-body-figure" style="flex:1;margin:0;display:flex;flex-direction:column;align-items:center;gap:3px;">
+                <div class="muscle-container mv-body-canvas-wrap" style="position:relative;width:100%;max-width:${showSides.length===1?'160px':'125px'};height:${showSides.length===1?'225px':'185px'};margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:rgba(5,5,5,.95);">
+                  <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" style="width:100%;height:100%;object-fit:contain;display:block;position:relative;z-index:1;" loading="lazy">
+                  ${backOverlays.map(m=>`
+                    <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:2;pointer-events:none;" loading="lazy">
+                  `).join('')}
+                </div>
+                <figcaption style="text-align:center;color:var(--text-muted);font-size:8px;margin-top:3px">نمای پشت</figcaption>
+              </figure>`:''}
+            </div>
+          </div>
+          <div class="student-modal-video">
+            <b>فیلم آموزش حرکت</b>
+            <div class="mv-player" style="position:relative;flex:1;min-height:185px;max-height:225px;border-radius:8px;overflow:hidden;background:var(--surface-inset);">
+              <video controls playsinline preload="metadata" src="${esc(videoSrc)}" onerror="this.closest('.mv-player').classList.add('no-video')" style="width:100%;height:100%;min-height:185px;max-height:225px;object-fit:contain;display:block;"></video>
+              <div class="mv-video-placeholder" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-muted);background:var(--surface-inset);">
+                <span style="width:44px;height:44px;display:grid;place-items:center;border:2px solid var(--accent);border-radius:50%;color:var(--accent);font-size:16px;">▶</span>
+                <small style="font-size:8px;">ویدیو برای این حرکت ثبت نشده است</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="student-modal-foot">
+          <button type="button" class="secondary" id="studentModalCloseBtn" style="min-height:36px;padding:5px 14px;font-size:10px;">بستن</button>
+        </footer>
+      </div>
+    `;
+    modal.hidden=false;
+    const close=()=>{modal.hidden=true;};
+    document.getElementById('studentModalCloseX').onclick=close;
+    document.getElementById('studentModalCloseBtn').onclick=close;
+    document.getElementById('studentModalBackdrop').onclick=close;
+  }
+
   async function renderProgram(){
     loading();if(!await loadMe())return;const {program}=await api('/api/student/program');
     if(!program)return shell('/student/program',`<div class="student-page-head"><h1>برنامه من</h1></div><div class="student-empty"><span>▤</span><h2>هنوز برنامه فعالی برای شما ثبت نشده است.</h2><p>برنامه‌های پیش‌نویس در پنل شما نمایش داده نمی‌شوند.</p></div>`);
     const days=program.program_data?.days||[];
-    const body=days.map(day=>`<article class="program-day"><header><h2>روز ${day.day_number} — ${esc(day.focus||'تمرین')}</h2><span>${day.is_rest_day?'روز استراحت':`${day.systems?.length||0} سیستم`}</span>${day.is_rest_day?'':`<button class="primary" data-start-day="${esc(day.day_ref)}">شروع تمرین</button>`}</header>${day.coach_note?`<div class="coach-note">${esc(day.coach_note)}</div>`:''}${day.is_rest_day?'<div class="student-empty"><p>استراحت، ریکاوری و تغذیه مناسب</p></div>':(day.systems||[]).map(system=>`<section class="program-system"><header>سیستم ${esc(fa(system.system_type||'normal'))}</header>${(system.movements||[]).map(movement=>`<article class="student-movement"><div class="student-movement-image">${movement.image_path?`<img src="${esc(movement.image_path)}" alt="${esc(movement.name)}" onerror="this.remove()">`:'◇'}</div><div><h3>${esc(movement.name)}</h3>${movement.description?`<p>${esc(movement.description)}</p>`:''}<div class="student-sets">${(movement.sets||[]).map((set,index)=>`<div class="student-set"><b>ست ${index+1}</b> • ${esc(fa(set.type||'REPEAT'))}<br>تعداد/زمان: ${esc(set.count??'—')} • وزن: ${esc(set.weight??'—')} • استراحت: ${esc(set.rest_seconds??'—')} ثانیه</div>`).join('')}</div></div></article>`).join('')}</section>`).join('')}</article>`).join('');
-    shell('/student/program',`<div class="student-page-head"><h1>برنامه من</h1><p>برنامه فقط‌خواندنی اختصاص داده‌شده توسط مربی</p></div><article class="student-card"><div class="student-program-head"><div><h2>${esc(program.title)}</h2><span class="student-program-dates">${dateFa(program.start_date)} ← ${dateFa(program.end_date)}</span></div>${status(program.status)}</div>${program.coach_note?`<div class="coach-note"><b>یادداشت مربی</b><br>${esc(program.coach_note)}</div>`:''}</article>${body}`);document.querySelectorAll('[data-start-day]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{const {workout}=await api('/api/student/workouts',{method:'POST',body:jsonBody({day_ref:button.dataset.startDay})});location.href=`/student/workouts?session=${encodeURIComponent(workout.stable_id)}`}catch(error){toast(error.message,'error');button.disabled=false}});
+    const body=days.map(day=>`<article class="program-day"><header><h2>روز ${day.day_number} — ${esc(day.focus||'تمرین')}</h2><span>${day.is_rest_day?'روز استراحت':`${day.systems?.length||0} سیستم`}</span>${day.is_rest_day?'':`<button class="primary" data-start-day="${esc(day.day_ref)}">شروع تمرین</button>`}</header>${day.coach_note?`<div class="coach-note">${esc(day.coach_note)}</div>`:''}${day.is_rest_day?'<div class="student-empty"><p>استراحت، ریکاوری و تغذیه مناسب</p></div>':(day.systems||[]).map(system=>`<section class="program-system"><header>سیستم ${esc(fa(system.system_type||'normal'))}</header>${(system.movements||[]).map((movement,mIdx)=>`<article class="student-movement" data-view-mov="${day.day_number}-${system.exercise_system_id||1}-${mIdx}" title="برای مشاهده ویدیو و عضله هدف کلیک کنید"><div class="student-movement-image">${movement.image_path?`<img src="${esc(movement.image_path)}" alt="${esc(movement.name)}" onerror="this.remove()">`:'🏋️'}</div><div class="student-movement-content"><div class="student-mov-head"><span class="student-mov-title">نام حرکت: <b>${esc(movement.name)}</b></span><span class="student-system-pill">سیستم ${esc(fa(system.system_type||'normal'))}</span></div>${movement.description?`<p class="student-mov-desc">${esc(movement.description)}</p>`:''}<div class="student-mov-spacer"></div><div class="student-set-boxes">${(movement.sets||[]).map((set,index)=>{let unitLabel='تکرار';if(set.type==='TIME')unitLabel='ثانیه';else if(set.type==='MINUTE')unitLabel='دقیقه';else if(set.type==='DROPSET')unitLabel='دراپ';else if(set.type==='FAILURE')unitLabel='توان';const val=set.type==='FAILURE'?'MAX':(set.count??'—');return `<div class="student-set-sq" title="ست ${(index+1).toLocaleString('fa-IR')}: ${esc(String(set.count??''))} ${unitLabel}"><span class="student-set-val">${esc(String(val))}</span><span class="student-set-unit">${unitLabel}</span></div>`;}).join('')}</div></div></article>`).join('')}</section>`).join('')}</article>`).join('');
+    shell('/student/program',`<div class="student-page-head"><h1>برنامه من</h1><p>برنامه فقط‌خواندنی اختصاص داده‌شده توسط مربی • برای مشاهده ویدیو و عضله هدف روی هر حرکت بزنید</p></div><article class="student-card"><div class="student-program-head"><div><h2>${esc(program.title)}</h2><span class="student-program-dates">${dateFa(program.start_date)} ← ${dateFa(program.end_date)}</span></div>${status(program.status)}</div>${program.coach_note?`<div class="coach-note"><b>یادداشت مربی</b><br>${esc(program.coach_note)}</div>`:''}</article>${body}`);
+    document.querySelectorAll('[data-start-day]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{const {workout}=await api('/api/student/workouts',{method:'POST',body:jsonBody({day_ref:button.dataset.startDay})});location.href=`/student/workouts?session=${encodeURIComponent(workout.stable_id)}`}catch(error){toast(error.message,'error');button.disabled=false}});
+    document.querySelectorAll('[data-view-mov]').forEach(card=>{
+      card.onclick=()=>{
+        const [dayNum,sysId,mIdx]=card.dataset.viewMov.split('-').map(Number);
+        const day=days.find(d=>d.day_number===dayNum);
+        if(!day)return;
+        const sys=(day.systems||[]).find(s=>(s.exercise_system_id||1)===sysId)||day.systems?.[0];
+        if(!sys)return;
+        const mov=sys.movements?.[mIdx];
+        if(!mov)return;
+        openStudentMovementModal(mov);
+      };
+    });
   }
   async function renderAssessment(){
     loading();if(!await loadMe())return;const {assessment,details}=await api('/api/student/assessment');

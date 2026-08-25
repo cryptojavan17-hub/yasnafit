@@ -202,8 +202,13 @@ function studentProgramData(programData={}){
       systems:(day.data||[]).map(system=>({
         system_type:system.system_type||'normal',exercise_system_id:system.exercise_system_id,
         movements:(system.movement_list||[]).map(movement=>({
-          name:movement.nameFa||movement.name||'حرکت',description:movement.description||'',
-          image_path:movement.image_path||null,
+          exercise_id:movement.exercise_id||movement.exerciseId||movement.original_exercise_id||null,
+          original_exercise_id:movement.original_exercise_id||null,
+          name:movement.nameFa||movement.name||'حرکت',
+          description:movement.description||'',
+          image_path:movement.image_path||(movement.original_exercise_id||movement.exercise_id ? `/api/exercise-image/${movement.original_exercise_id||movement.exercise_id}` : null),
+          video_path:movement.video_path||(movement.original_exercise_id||movement.exercise_id ? `/files/exercise/videos/${movement.original_exercise_id||movement.exercise_id}.mp4` : null),
+          target_muscles:movement.target_muscles||[],
           sets:(movement.sets||[]).map(set=>({
             set_ref:set.stable_id,type:set.type||set.set_type,count:set.count??set.count_value??null,
             weight:set.weight??null,rest_seconds:set.restSeconds??set.rest_seconds??null
