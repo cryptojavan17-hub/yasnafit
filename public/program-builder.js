@@ -115,7 +115,13 @@
     if(badge)badge.hidden=!dirty;
     if(inline)inline.hidden=!dirty;
   }
-  function closeAllMenus(){document.querySelectorAll('.builder-menu').forEach(menu=>menu.hidden=true);}
+  function closeAllMenus(){
+    document.querySelectorAll('.builder-menu').forEach(menu=>{
+      menu.hidden=true;
+      menu.style.position='';menu.style.top='';menu.style.left='';menu.style.zIndex='';
+      if(menu.parentElement===document.body&&menu._builderWrap)menu._builderWrap.appendChild(menu);
+    });
+  }
   let pickerDayIdx=null;
   function mountSystemPicker(){
     const picker=document.getElementById('systemPicker');
@@ -161,11 +167,24 @@
   function closeSystemPicker(){const picker=document.getElementById('systemPicker');if(picker)picker.hidden=true;pickerDayIdx=null;}
   function toggleBuilderMenu(button){
     const wrap=button.closest('.builder-menu-wrap');
-    const menu=wrap?wrap.querySelector('.builder-menu'):null;
+    let menu=wrap?wrap.querySelector('.builder-menu'):null;
+    if(!menu)menu=document.querySelector('body > .builder-menu');
     if(!menu)return;
     const willOpen=menu.hidden;
     closeAllMenus();
-    menu.hidden=!willOpen;
+    if(!willOpen)return;
+    // پورتال به body + مختصات ثابت: منو هرگز زیر بلوک‌ها گیر نمی‌کند
+    menu._builderWrap=wrap||menu.parentElement;
+    document.body.appendChild(menu);
+    menu.hidden=false;
+    const r=button.getBoundingClientRect();
+    const vw=window.innerWidth||1024,vh=window.innerHeight||768;
+    const mw=menu.offsetWidth||216,mh=menu.offsetHeight||170;
+    let top=r.bottom+6,left=r.left;
+    if(top+mh>vh-8)top=Math.max(8,r.top-mh-6);
+    if(left+mw>vw-8)left=vw-mw-8;
+    if(left<8)left=8;
+    menu.style.position='fixed';menu.style.top=top+'px';menu.style.left=left+'px';menu.style.zIndex='95';
   }
   function movementSummary(mov){
     const sets=mov.sets||[];
