@@ -28,9 +28,10 @@
 .day-card:hover { border-color: rgba(255,255,255,.2); }
 .day-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.055); }
 .day-header-title-group { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
-.day-label { font-size: 13px; font-weight: 800; color: var(--text); white-space: nowrap; }
-.day-focus-input { min-width: 200px; max-width: 320px; flex: 1 1 220px; min-height: 34px; height: 34px; padding: 5px 11px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 11px; font-weight: 750; transition: var(--transition); }
+.day-label { font-size: 14px; font-weight: 850; color: var(--text); white-space: nowrap; }
+.day-focus-input { min-width: 220px; max-width: 360px; flex: 1 1 240px; min-height: 36px; height: 36px; padding: 6px 12px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 12px; font-weight: 750; transition: var(--transition); }
 .day-focus-input:focus { border-color: var(--accent); background: var(--surface-3); outline: none; }
+.day-focus-input::placeholder { color: var(--text-muted); font-weight: 500; font-size: 11px; }
 .day-rest-title { font-size: 12px; font-weight: 700; color: var(--text-muted); }
 .day-number { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--accent); color: var(--on-accent); font-weight: 800; }
 .day-actions, .system-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
