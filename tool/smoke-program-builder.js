@@ -84,7 +84,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const results = {};
   const check = (name, ok) => { results[name] = ok; console.log((ok ? '✅' : '❌'), name); };
 
-  check('برنامه قدیمی: «سوپر ست» + «۱ از ۲»', dayHtml().includes('سوپر ست') && dayHtml().includes('۱ از ۲'));
+  check('برنامه قدیمی: برچسب «سوپر ست» بدون چیپ پیشرفت', dayHtml().includes('سوپر ست') && !dayHtml().includes('از ۲ حرکت'));
   check('حذف روز در منوی تنظیمات روز موجود است', dayHtml().includes('data-del-day'));
 
   get('btnAddDay').onclick();
@@ -96,7 +96,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('انتخابگر باز شد', els['systemPicker'].hidden === false);
   check('۱۲ سیستم بایند شدند', picks.length === 12 && picks.every(p => p.onclick !== null));
   picks.find(p => p.dataset.pickSystem === '12').onclick();
-  check('ماموت ست (۵ حرکت) اضافه: «۰ از ۵»', dayHtml().includes('ماموت ست') && dayHtml().includes('۰ از ۵'));
+  check('ماموت ست اضافه شد (بدون چیپ پیشرفت)', dayHtml().includes('ماموت ست') && !dayHtml().includes('از ۵ حرکت'));
   check('انتخابگر بعد از انتخاب بسته شد', els['systemPicker'].hidden === true);
 
   addMovBtn.dataset.addMov = '1-0';
@@ -127,7 +127,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   els['drawerDone'].onclick();
   check('بستن دستی + مخفی‌شدن زمینه', !drawer.classList.contains('open') && els['drawerContext'].hidden);
-  check('سیستم کامل بدون دکمه افزودن', dayHtml().includes('system-complete') && !dayHtml().includes('data-add-mov'));
+  check('سیستم کامل: بدون دکمه افزودن و بدون متن تکمیل', !dayHtml().includes('data-add-mov') && !dayHtml().includes('system-complete'));
 
   // ۹) ماتریس ۱۲ سیستم: ۶ کلیک روی هر سیستم، انتظار دقیقاً N حرکت
   const sysMatrix = [[1,1],[6,1],[5,1],[7,1],[8,1],[9,1],[2,2],[10,2],[3,3],[11,3],[4,4],[12,5]];
@@ -147,7 +147,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     els['drawerDone'].onclick();
     const h = els['daysContainer'].innerHTML;
     const n = (h.match(/movement-card/g) || []).length;
-    const ok = n === req && h.includes('system-complete');
+    const ok = n === req && !h.includes('data-add-mov');
     if (!ok) matrixOk = false;
     console.log((ok ? '✅' : '❌'), `${labels[sid]} (id=${sid}): ${n}/${req} حرکت`);
   }
