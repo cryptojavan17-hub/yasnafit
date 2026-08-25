@@ -26,11 +26,14 @@
   transition: border-color var(--transition), transform var(--transition);
 }
 .day-card:hover { border-color: rgba(255,255,255,.2); }
-.day-header { padding: 15px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.055); }
-.day-header h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.day-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.055); }
+.day-header-title-group { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.day-label { font-size: 13px; font-weight: 800; color: var(--text); white-space: nowrap; }
+.day-focus-input { min-width: 200px; max-width: 320px; flex: 1 1 220px; min-height: 34px; height: 34px; padding: 5px 11px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 11px; font-weight: 750; transition: var(--transition); }
+.day-focus-input:focus { border-color: var(--accent); background: var(--surface-3); outline: none; }
+.day-rest-title { font-size: 12px; font-weight: 700; color: var(--text-muted); }
 .day-number { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--accent); color: var(--on-accent); font-weight: 800; }
 .day-actions, .system-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.day-focus-input { min-width: 180px; min-height: 35px; padding: 6px 10px; }
 .btn { min-height: 37px; padding: 7px 13px; border: 1px solid transparent; border-radius: 9px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: var(--transition); }
 .btn-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover { filter: brightness(.86); transform: translateY(-1px); }

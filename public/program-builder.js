@@ -272,7 +272,7 @@
         {
           day_number: 1,
           dayHash: genHash(),
-          focus: 'بالاتنه',
+          focus: '',
           coachNote: '',
           isRestDay: false,
           data: [
@@ -621,11 +621,14 @@
     host.innerHTML = `
       <div class="day-card active-day" data-day-idx="${dayIdx}">
         <div class="day-header">
-          <h3>
+          <div class="day-header-title-group">
             <span class="day-number">${day.day_number.toLocaleString('fa-IR')}</span>
-            <span class="day-name">روز ${day.day_number.toLocaleString('fa-IR')}${isRest ? ' — استراحت 🌙' : (day.focus ? ` — ${esc(day.focus)}` : '')}</span>
+            <span class="day-label">روز ${day.day_number.toLocaleString('fa-IR')} —</span>
+            ${isRest ? `<span class="day-rest-title">استراحت 🌙</span>` : `
+              <input type="text" class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="عنوان روز تمرین (مثلاً زیربغل و پشت بازو)…" title="عنوان روز تمرین">
+            `}
             <small class="day-vol">${vol.movs.toLocaleString('fa-IR')} حرکت • ${vol.sets.toLocaleString('fa-IR')} ست</small>
-          </h3>
+          </div>
           <div class="day-actions">
             <label class="rest-toggle"><input type="checkbox" data-rest="${dayIdx}" ${isRest?'checked':''}> 🌙 روز استراحت</label>
             <div class="builder-menu-wrap">
@@ -808,6 +811,13 @@
       };
     });
     document.querySelectorAll('[data-focus]').forEach(inp=>{
+      inp.oninput=()=>{
+        const idx=Number(inp.dataset.focus);
+        currentProgram.days[idx].focus = inp.value;
+        setDirty(true);
+        const chip = document.querySelector(`[data-day-chip="${idx}"] small`);
+        if(chip) chip.textContent = currentProgram.days[idx].isRestDay ? '🌙 استراحت' : (inp.value || 'بدون تمرکز');
+      };
       inp.onchange=()=>{
         const idx=Number(inp.dataset.focus);
         currentProgram.days[idx].focus = inp.value;
@@ -1464,7 +1474,7 @@
   function makeAssessmentDays(count){
     const total=Math.min(7,Math.max(1,Number(count)||3));
     // روزها بدون سیستم پیش‌فرض ساخته می‌شوند؛ مربی سیستم را از کاتالوگ ۱۲گانه انتخاب می‌کند (BR-14)
-    return Array.from({length:total},(_,index)=>({day_number:index+1,dayHash:genHash(),focus:`جلسه ${index+1}`,coachNote:'',isRestDay:false,data:[]}));
+    return Array.from({length:total},(_,index)=>({day_number:index+1,dayHash:genHash(),focus:'',coachNote:'',isRestDay:false,data:[]}));
   }
   function renderAssessmentContext(){
     const host=document.getElementById('assessmentContext');if(!host)return;
