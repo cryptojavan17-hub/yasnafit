@@ -179,11 +179,12 @@ function saveProgramToDB(db, programId, programInput){
     // Update training_programs base
     const existing = db.prepare('SELECT * FROM training_programs WHERE id=? AND deleted_at IS NULL').get(programId);
     if(!existing) throw new Error('Program not found');
-    if(existing.status !== 'DRAFT') {
-      const err = new Error('برنامه فعال یا تاریخی قابل ویرایش نیست؛ برای ماه جدید برنامه تازه بسازید');
+    if(existing.status === 'ARCHIVED') {
+      const err = new Error('برنامه آرشیوشده قابل ویرایش نیست؛ برای ماه جدید برنامه تازه بسازید');
       err.statusCode = 409;
       throw err;
     }
+    const targetStatus = existing.status === 'ACTIVE' ? 'ACTIVE' : (normalizedInput.status && ['DRAFT','ACTIVE','COMPLETED'].includes(normalizedInput.status) ? normalizedInput.status : (existing.status || 'DRAFT'));
     const targetStudentId = normalizedInput.student_id != null ? normalizedInput.student_id : existing.student_id;
     const targetAssessmentId = normalizedInput.assessment_id != null ? normalizedInput.assessment_id : existing.assessment_id;
     if(targetAssessmentId){
@@ -193,9 +194,11 @@ function saveProgramToDB(db, programId, programInput){
       }
     }
 
-    // Delete old children (hard delete is okay because we recreate transactionally)
-    db.prepare('DELETE FROM program_days WHERE program_id=?').run(programId);
-    // Cascades delete systems, movements, sets via FK
+    // Soft delete old children to preserve historical workout results integrity
+    db.prepare(`UPDATE movement_sets SET deleted_at=CURRENT_TIMESTAMP WHERE movement_id IN (SELECT pm.id FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare(`UPDATE program_movements SET deleted_at=CURRENT_TIMESTAMP WHERE system_id IN (SELECT es.id FROM exercise_systems es JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare(`UPDATE exercise_systems SET deleted_at=CURRENT_TIMESTAMP WHERE day_id IN (SELECT id FROM program_days WHERE program_id=?) AND deleted_at IS NULL`).run(programId);
+    db.prepare('UPDATE program_days SET deleted_at=CURRENT_TIMESTAMP WHERE program_id=? AND deleted_at IS NULL').run(programId);
 
     // Insert new days
     for(const day of normalizedInput.days){
@@ -284,7 +287,7 @@ function saveProgramToDB(db, programId, programInput){
     `).run(
       normalizedInput.title||existing.title,
       normalizedInput.coach_note||existing.coach_note,
-      'DRAFT',
+      targetStatus,
       normalizedInput.start_date||existing.start_date,
       normalizedInput.end_date||existing.end_date,
       normalizedInput.student_id!=null?normalizedInput.student_id:existing.student_id,

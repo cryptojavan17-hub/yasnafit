@@ -1672,15 +1672,16 @@
 
     try {
       let res;
+      const programStatus = (currentProgram.status === 'ACTIVE' || currentProgram.status === 'فعال') ? 'ACTIVE' : 'DRAFT';
       if(currentProgram.id){
-        res=await api(`/api/training-programs/${currentProgram.id}`, {method:'PUT', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
+        res=await api(`/api/training-programs/${currentProgram.id}`, {method:'PUT', body: JSON.stringify({title, coach_note: coachNote, status: programStatus, start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
       } else {
         res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
         currentProgram.id=res.id;
       }
       setDirty(false);
       localStorage.removeItem('yasnafit_program_stash');
-      if(!silent) alert('✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
+      if(!silent) alert(programStatus==='ACTIVE' ? '✅ برنامه با موفقیت ذخیره و به‌روزرسانی شد' : '✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
       if(returnAfter) location.href='/templates/exercise/list';
       return true;
     } catch(e){
