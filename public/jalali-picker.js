@@ -68,7 +68,11 @@
   }
   function pick(jy, jm, jd) {
     const iso = J().jalaliStrToIso(`${jy}/${jm}/${jd}`);
-    if (iso && state.input) J().set(state.input, iso);
+    if (iso && state.input) {
+      J().set(state.input, iso);
+      state.input.dispatchEvent(new Event('input', { bubbles: true }));
+      state.input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     close();
   }
 

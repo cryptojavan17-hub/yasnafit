@@ -100,6 +100,26 @@
     return j ? `${faDigits(j.jd)} ${monthNames[j.jm - 1]} ${faDigits(j.jy)}` : '';
   }
 
+  function addMonths(iso, count = 1) {
+    const j = isoToJalali(iso);
+    if (!j) return null;
+    let jy = j.jy;
+    let jm = j.jm + count;
+    while (jm > 12) {
+      jm -= 12;
+      jy += 1;
+    }
+    while (jm < 1) {
+      jm += 12;
+      jy -= 1;
+    }
+    const maxDay = monthLength(jy, jm);
+    const jd = Math.min(j.jd, maxDay);
+    const jdn = j2d(jy, jm, jd);
+    const g = d2g(jdn);
+    return `${g.gy}-${pad2(g.gm)}-${pad2(g.gd)}`;
+  }
+
   // ---------- ویجت ورودی ----------
   function sync(el) {
     if (el._jalaliHidden) el._jalaliHidden.value = el.dataset.iso || '';
@@ -157,7 +177,7 @@
   }
 
   window.YasnaJalali = {
-    isoToJalali, isoToJalaliStr, jalaliStrToIso, format,
+    isoToJalali, isoToJalaliStr, jalaliStrToIso, format, addMonths,
     monthNames, isLeap, monthLength,
     attach, autoInit,
     iso(el) { return (el && el.dataset && el.dataset.iso) || ''; },

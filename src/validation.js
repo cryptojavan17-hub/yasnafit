@@ -153,7 +153,6 @@ function validateProgram(program){
   if(program.start_date && program.end_date){
     const startDate=new Date(`${program.start_date}T00:00:00Z`),endDate=new Date(`${program.end_date}T00:00:00Z`);
     if(endDate < startDate) errors.push('تاریخ پایان باید بعد از تاریخ شروع باشد');
-    else if((endDate-startDate)/86400000!==29) errors.push('بازه برنامه باید دقیقاً ۳۰ روز باشد');
   }
   if(program.status && !['DRAFT','ACTIVE','COMPLETED','ARCHIVED','پیش‌نویس'].includes(program.status)) errors.push('وضعیت برنامه نامعتبر است');
 

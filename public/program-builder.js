@@ -259,11 +259,13 @@
   }
 
   function createEmptyProgram() {
+    const todayISO = new Date().toISOString().split('T')[0];
+    const endISO = window.YasnaJalali?.addMonths ? window.YasnaJalali.addMonths(todayISO, 1) : new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0];
     return {
       title: 'برنامه تمرینی جدید',
       coach_note: '',
-      start_date: new Date().toISOString().split('T')[0],
-      end_date: new Date(Date.now()+29*24*3600*1000).toISOString().split('T')[0],
+      start_date: todayISO,
+      end_date: endISO,
       status: 'DRAFT',
       student_id: null,
       assessment_id: null,
@@ -1591,6 +1593,35 @@
     document.getElementById('progTitle').oninput=(e)=>{ currentProgram.title=e.target.value; setDirty(true); updateTopbar(); };
     document.getElementById('progNote').oninput=(e)=>{ currentProgram.coach_note=e.target.value; setDirty(true); };
     document.getElementById('progStudent').onchange=(e)=>{ currentProgram.student_id=e.target.value?Number(e.target.value):null; setDirty(true); updateTopbar(); };
+
+    const startInput = document.getElementById('progStart');
+    const endInput = document.getElementById('progEnd');
+    if(startInput && endInput){
+      const onStartChange = () => {
+        const startISO = window.YasnaJalali ? window.YasnaJalali.iso(startInput) : startInput.value;
+        if (startISO) {
+          currentProgram.start_date = startISO;
+          if (window.YasnaJalali?.addMonths) {
+            const nextMonthISO = window.YasnaJalali.addMonths(startISO, 1);
+            if (nextMonthISO) {
+              window.YasnaJalali.set(endInput, nextMonthISO);
+              currentProgram.end_date = nextMonthISO;
+            }
+          }
+          setDirty(true);
+        }
+      };
+      startInput.addEventListener('change', onStartChange);
+      startInput.addEventListener('input', onStartChange);
+      endInput.addEventListener('change', () => {
+        const endISO = window.YasnaJalali ? window.YasnaJalali.iso(endInput) : endInput.value;
+        if (endISO) {
+          currentProgram.end_date = endISO;
+          setDirty(true);
+        }
+      });
+    }
+
     document.getElementById('closeDrawer').onclick=closeDrawer;
     document.getElementById('drawerBackdrop').onclick=closeDrawer;
     const drawerDoneButton=document.getElementById('drawerDone');
