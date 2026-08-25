@@ -1565,14 +1565,16 @@
     document.getElementById('btnSave').onclick=()=> saveProgram(false);
     document.getElementById('btnSaveReturn').onclick=()=> saveProgram(true);
     document.getElementById('btnAssign').onclick=async()=>{
-      if(!currentProgram.assessment_id) return alert('برای اختصاص، برنامه را از صفحه ارزیابی تاییدشده ایجاد کنید.');
-      if(!confirm('برنامه ذخیره و به شاگرد اختصاص داده شود؟ پس از اختصاص قابل ویرایش نیست.')) return;
+      const studentId = document.getElementById('progStudent').value;
+      if(!studentId && !currentProgram.student_id) return alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
+      if(!confirm('برنامه ذخیره و برای شاگرد فعال شود؟')) return;
+      currentProgram.student_id = Number(studentId || currentProgram.student_id);
       const saved=await saveProgram(false, true);
       if(!saved) return;
       try{
         await api(`/api/training-programs/${currentProgram.id}/activate`, {method:'POST'});
         setDirty(false);
-        alert('✅ برنامه فعال و به شاگرد اختصاص داده شد');
+        alert('✅ برنامه با موفقیت فعال و به شاگرد اختصاص داده شد');
         location.href=`/students/${currentProgram.student_id}/timeline`;
       }catch(e){ alert('خطا در اختصاص برنامه: '+e.message); }
     };

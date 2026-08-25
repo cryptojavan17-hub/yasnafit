@@ -435,25 +435,31 @@ function createProgramInDB(db, programInput){
 
 function activateProgram(db, programId){
   const program = db.prepare('SELECT * FROM training_programs WHERE id=? AND deleted_at IS NULL').get(programId);
-  if(!program) throw new Error('Program not found');
-  if(program.status !== 'DRAFT') throw new Error('فقط پیش‌نویس قابل اختصاص است');
-  if(!program.student_id || !program.assessment_id) throw new Error('شاگرد و ارزیابی مبدا الزامی هستند');
-  const assessment = db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(program.assessment_id);
-  if(!assessment || assessment.student_id !== program.student_id || (assessment.lifecycle_status||assessment.status) !== 'APPROVED') throw new Error('ارزیابی تاییدشده همان شاگرد الزامی است');
+  if(!program) throw new Error('برنامه پیدا نشد');
+  if(!program.student_id) throw new Error('شاگرد برای اختصاص برنامه الزامی است');
+  
+  const assessment = program.assessment_id 
+    ? db.prepare('SELECT * FROM body_assessments WHERE id=? AND deleted_at IS NULL').get(program.assessment_id)
+    : db.prepare("SELECT * FROM body_assessments WHERE student_id=? AND deleted_at IS NULL AND (lifecycle_status='APPROVED' OR status='APPROVED') ORDER BY id DESC LIMIT 1").get(program.student_id);
+
   const dayCount = db.prepare('SELECT COUNT(*) AS c FROM program_days WHERE program_id=? AND deleted_at IS NULL').get(programId).c;
   const movementCount = db.prepare(`SELECT COUNT(*) AS c FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=? AND pm.deleted_at IS NULL AND es.deleted_at IS NULL AND pd.deleted_at IS NULL`).get(programId).c;
   if(dayCount < 1 || movementCount < 1) throw new Error('برنامه باید حداقل یک روز و یک حرکت داشته باشد');
   const start = new Date(program.start_date);
   const end = new Date(program.end_date);
-  if(Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) throw new Error('بازه زمانی برنامه نامعتبر است');
+  if(program.start_date && program.end_date && (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start)) throw new Error('بازه زمانی برنامه نامعتبر است');
 
   db.exec('BEGIN');
   try {
-    // A student has one current plan. Prior plans are completed, never overwritten.
+    // Complete previous active programs for the student
     db.prepare(`UPDATE training_programs SET status='COMPLETED', completed_at=COALESCE(completed_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE student_id=? AND status='ACTIVE' AND id<>? AND deleted_at IS NULL`).run(program.student_id, programId);
-    db.prepare(`UPDATE training_programs SET status='ACTIVE', assigned_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId);
-    db.prepare(`UPDATE body_assessments SET program_id=?,lifecycle_status='APPROVED',status='APPROVED',updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(programId, assessment.id);
-    db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessment.id, program.student_id);
+    db.prepare(`UPDATE training_programs SET status='ACTIVE', assigned_at=COALESCE(assigned_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(programId);
+    if(assessment){
+      db.prepare(`UPDATE body_assessments SET program_id=?,lifecycle_status='APPROVED',status='APPROVED',updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?`).run(programId, assessment.id);
+      db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(assessment.id, program.student_id);
+    } else {
+      db.prepare(`UPDATE students SET profile_status='PROGRAM_ASSIGNED', updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?`).run(program.student_id);
+    }
     db.exec('COMMIT');
   } catch(e){ db.exec('ROLLBACK'); throw e; }
   return db.prepare('SELECT * FROM training_programs WHERE id=?').get(programId);
