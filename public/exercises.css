@@ -72,9 +72,9 @@
 .card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .card-info b { overflow: hidden; color: var(--text); font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
 .card-info small { color: var(--text-muted); font-size: 9px; }
-.image-wrap { width: 66px; height: 66px; flex: 0 0 66px; position: relative; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-inset); }
-.exercise-image { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 2; display: block; background: var(--surface-inset); filter: saturate(.65) contrast(1.04); transition: filter var(--transition), transform var(--transition); }
-.exercise-card:hover .exercise-image { filter: saturate(.85) contrast(1.08); transform: scale(1.025); }
+.image-wrap { width: 66px; height: 66px; flex: 0 0 66px; position: relative; overflow: hidden; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, .15); border-radius: 10px; background: rgba(255, 255, 255, 1); }
+.exercise-image { width: 100%; height: 100%; object-fit: contain; position: relative; z-index: 2; display: block; background: rgba(255, 255, 255, 1); padding: 2px; box-sizing: border-box; filter: none; transition: transform var(--transition); }
+.exercise-card:hover .exercise-image { transform: scale(1.04); }
 .no-image { position: absolute; inset: 0; z-index: 1; display: none; place-items: center; padding: 4px; background: var(--surface-2); color: var(--text-disabled); font-size: 8px; line-height: 1.4; text-align: center; }
 .image-wrap.has-error .no-image { display: grid; }
 .image-wrap.has-image .no-image, .image-wrap.loading .no-image { display: none; }

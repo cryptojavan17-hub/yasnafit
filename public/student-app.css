@@ -45,8 +45,8 @@
 .program-system{margin:12px;padding:11px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2)}
 .program-system>header{margin-bottom:8px;color:var(--text-secondary);font-size:9px;text-transform:uppercase}
 .student-movement{padding:10px;display:grid;grid-template-columns:54px minmax(0,1fr);gap:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-3)}
-.student-movement+.student-movement{margin-top:8px}.student-movement-image{width:54px;height:54px;overflow:hidden;display:grid;place-items:center;border:1px solid var(--border);border-radius:9px;background:var(--surface-inset);color:var(--text-disabled)}
-.student-movement-image img{width:100%;height:100%;object-fit:cover;filter:saturate(.72)}.student-movement h3{margin:0 0 3px;font-size:12px}.student-movement p{margin:0;color:var(--text-muted);font-size:9px}
+.student-movement+.student-movement{margin-top:8px}.student-movement-image{width:54px;height:54px;overflow:hidden;display:grid;place-items:center;border:1px solid rgba(255,255,255,.15);border-radius:9px;background:rgba(255,255,255,1);color:var(--text-disabled)}
+.student-movement-image img{width:100%;height:100%;object-fit:contain;padding:2px;box-sizing:border-box;background:rgba(255,255,255,1);filter:none}.student-movement h3{margin:0 0 3px;font-size:12px}.student-movement p{margin:0;color:var(--text-muted);font-size:9px}
 .student-sets{margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:5px}.student-set{padding:7px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface-inset);color:var(--text-secondary);font-size:8px;line-height:1.7}
 .student-profile-grid,.student-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.student-profile-grid label{display:flex;flex-direction:column;gap:5px;color:var(--text-secondary);font-size:10px}.student-profile-grid .wide{grid-column:1/-1}
 .student-actions{margin-top:16px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.student-actions .primary,.student-actions .secondary{min-height:44px}
