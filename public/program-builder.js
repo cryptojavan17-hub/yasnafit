@@ -602,11 +602,28 @@
                         ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
                       </div>
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
-                        <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
-                        <div class="mov-set-boxes">${(mov.sets||[]).map(st=>{
-                          const unit=st.type==='TIME'?' ثانیه':(st.type==='FAILURE'||st.count==null||st.count==='')?'':' تکرار';
-                          const val=st.type==='FAILURE'?'تا خستگی':(st.count??'—');
-                          return `<span class="mov-pill">${esc(String(val))}${esc(unit)}</span>`;}).join('')}
+                        <div class="mov-name-group">
+                          <span class="mov-name-title">نام حرکت: <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b></span>
+                        </div>
+                        <div class="mov-system-group">
+                          <span class="mov-system-pill">${sysMeta.icon} ${esc(sysMeta.label)}</span>
+                        </div>
+                        <div class="mov-spacer"></div>
+                        <div class="mov-set-boxes">
+                          ${(mov.sets||[]).map((st, sIdx)=>{
+                            let unitLabel = 'تکرار';
+                            if(st.type === 'TIME') unitLabel = 'ثانیه';
+                            else if(st.type === 'MINUTE') unitLabel = 'دقیقه';
+                            else if(st.type === 'DROPSET') unitLabel = 'دراپ';
+                            else if(st.type === 'FAILURE') unitLabel = 'توان';
+                            const val = st.type === 'FAILURE' ? 'MAX' : (st.count ?? '—');
+                            return `
+                              <div class="mov-set-sq" title="ست ${(sIdx+1).toLocaleString('fa-IR')}: ${esc(String(st.count??''))} ${unitLabel}">
+                                <span class="mov-set-sq-val">${esc(String(val))}</span>
+                                <span class="mov-set-sq-unit">${unitLabel}</span>
+                              </div>
+                            `;
+                          }).join('')}
                         </div>
                       </button>
                       <div class="builder-menu-wrap">
