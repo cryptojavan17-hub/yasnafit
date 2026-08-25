@@ -317,3 +317,9 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-error { color: var(--danger); font-size: 9px; font-weight: 700; }
 .mv-shake { animation: mvShake 320ms ease; }
 @keyframes mvShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(4px)} 50%{transform:translateX(-4px)} 75%{transform:translateX(3px)} }
+
+/* ===== کارت حرکت فشرده: باکس‌های کوچک ست ===== */
+.movement-head b { font-size: 11px; }
+.mov-set-boxes { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+.mov-pill { padding: 2px 9px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--glass); color: var(--text-secondary); font-size: 8px; font-weight: 750; white-space: nowrap; }
+.movement-head:hover .mov-pill { border-color: var(--accent-border); }

@@ -205,7 +205,7 @@
 
       <div id="assessmentContext"></div>
 
-      <details class="panel-section" id="programInfoPanel" open>
+      <details class="panel-section" id="programInfoPanel">
         <summary>
           <span class="section-num">۱</span>
           <span class="section-titles"><b>مشخصات برنامه و شاگرد</b><small>عنوان، شاگرد، سطح، هدف، آسیب‌دیدگی و بازه زمانی</small></span>
@@ -428,9 +428,6 @@
         </div>
         ${isRest ? `<div style="padding:20px;text-align:center;color:var(--text-muted)">🌙 روز استراحت - ریکاوری و تغذیه • ${esc(day.coachNote||'')}</div>` : `
         <div class="day-body">
-          <label class="day-focus-label">تمرکز این روز
-            <input class="day-focus-input" data-focus="${dayIdx}" value="${esc(day.focus||'')}" placeholder="مثلاً بالاتنه، پا، فول‌بادی…">
-          </label>
           <div class="systems-list">
             ${(day.data||[]).map((sys, sysIdx) => {
               const sysMeta=systemById(sys.exercise_system_id)||systemById(1);
@@ -440,10 +437,7 @@
               return `
               <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                 <div class="system-header">
-                  <h4>
-                    ${sysMeta.icon} ${esc(sysMeta.label)}
-                    <span class="system-progress ${full?'done':''}">${sysMovs.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')} حرکت</span>
-                  </h4>
+                  <h4>${sysMeta.icon} ${esc(sysMeta.label)}</h4>
                   <div class="system-actions">
                     <select data-sys-type="${dayIdx}-${sysIdx}" class="day-focus-input" style="min-width:190px" title="تغییر نوع سیستم تمرینی">
                       ${systemTypes.map(t=>`<option value="${t.id}" ${t.id===(sys.exercise_system_id||1)?'selected':''}>${t.icon} ${t.label} - شامل ${t.movements.toLocaleString('fa-IR')} حرکت</option>`).join('')}
@@ -462,10 +456,13 @@
                       <div class="movement-image">
                         ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
                       </div>
-                      <button type="button" class="movement-head" data-mov-toggle="${movKey}" title="باز/بستن جزئیات حرکت">
-                        <span class="mov-chevron" aria-hidden="true">${isExpanded?'⌃':'⌄'}</span>
+                      <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b>
-                        <small>${movementSummary(mov)}</small>
+                        <div class="mov-set-boxes">${(mov.sets||[]).map(st=>{
+                          const unit=st.type==='TIME'?' ثانیه':(st.type==='FAILURE'||st.count==null||st.count==='')?'':' تکرار';
+                          const val=st.type==='FAILURE'?'تا خستگی':(st.count??'—');
+                          return `<span class="mov-pill">${esc(String(val))}${esc(unit)}</span>`;}).join('')}
+                        </div>
                       </button>
                       <div class="builder-menu-wrap">
                         <button class="btn-icon" type="button" data-menu title="عملیات حرکت">⋮</button>
@@ -478,42 +475,10 @@
                         </div>
                       </div>
                     </div>
-                    <div class="movement-details" ${isExpanded?'':'hidden'}>
-                      <div class="movement-desc">
-                        <input data-mov-desc="${movKey}" value="${esc(mov.description||'')}" placeholder="توضیح مربی: مثلاً ۳ ثانیه مکث در پایین، تمرکز روی انقباض">
-                      </div>
-                      <div class="sets-list">
-                        <div class="sets-head">
-                          <span>نوع ست</span><span>تعداد / مدت</span><span>وزن</span><span>استراحت</span><span></span>
-                        </div>
-                        ${(mov.sets||[]).map((s, setIdx) => `
-                          <div class="set-row" data-set-idx="${setIdx}">
-                            <span class="set-type">${esc(setTypes.find(t=>t.id===s.type)?.icon||'🔁')} ${esc(setTypes.find(t=>t.id===s.type)?.label||s.type)}</span>
-                            <select data-set-type="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}">
-                              ${setTypes.map(t=>`<option value="${t.id}" ${t.id===s.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
-                            </select>
-                            <input data-set-count="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="text" value="${esc(s.count||'')}" placeholder="12 یا 30 ثانیه">
-                            <input data-set-weight="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.weight||''}" placeholder="وزن">
-                            <input data-set-rest="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" type="number" value="${s.restSeconds||60}" placeholder="ثانیه">
-                            <div class="set-actions">
-                              <button class="btn-icon" data-del-set="${dayIdx}-${sysIdx}-${movIdx}-${setIdx}" title="حذف ست">×</button>
-                            </div>
-                          </div>
-                        `).join('')}
-                        <div class="set-add-row">
-                          <button class="btn btn-secondary btn-small" data-add-set="${dayIdx}-${sysIdx}-${movIdx}">＋ ست تکراری</button>
-                          <button class="btn btn-secondary btn-small" data-add-set-time="${dayIdx}-${sysIdx}-${movIdx}">⏱️ ست زمان‌دار</button>
-                          <button class="btn btn-secondary btn-small" data-add-set-fail="${dayIdx}-${sysIdx}-${movIdx}">💥 تا خستگی</button>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                   `;}).join('')}
-                  ${full
-                    ? `<div class="system-complete">✓ حرکات این سیستم تکمیل است (${sysMeta.movements.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')})</div>`
-                    : `<div class="add-movement-bar">
-                        <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکات تمرینی (${remaining.toLocaleString('fa-IR')} حرکت باقی‌مانده)</button>
-                        <button class="btn btn-secondary btn-small" data-suggest-mov="${dayIdx}-${sysIdx}">💡 پیشنهاد جایگزین</button>
+                  ${full?'':`<div class="add-movement-bar">
+                        <button class="btn btn-primary btn-small" data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکات تمرینی</button>
                       </div>`}
                 </div>
               </div>
