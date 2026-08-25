@@ -303,6 +303,27 @@
       </div>
     </div>
 
+    <!-- ویرایش حرکت: مودال تنظیم ست‌ها + آموزش (فیلم/عضله) -->
+    <div class="mv-modal" id="movementModal" hidden>
+      <div class="mv-backdrop" id="mvBackdrop"></div>
+      <div class="mv-panel" role="dialog" aria-modal="true" aria-label="ویرایش حرکت">
+        <header class="mv-head">
+          <div class="mv-nav">
+            <button class="btn-icon" id="mvNext" type="button" title="حرکت بعدی">→</button>
+            <button class="btn-icon" id="mvPrev" type="button" title="حرکت قبلی">←</button>
+          </div>
+          <span class="mv-chip" id="mvSystemChip">—</span>
+          <h3 class="mv-title" id="mvTitle">ویرایش حرکت</h3>
+          <button class="btn-icon" id="mvCloseX" type="button" title="بستن">×</button>
+        </header>
+        <div class="mv-body" id="mvBody"></div>
+        <footer class="mv-foot">
+          <button class="btn mv-confirm" id="mvConfirm" type="button">تایید</button>
+          <button class="mv-text-danger" id="mvClose" type="button">بستن</button>
+        </footer>
+      </div>
+    </div>
+
     <!-- Dedicated exercise-bank drawer -->
     <div class="drawer" id="exerciseDrawer">
       <div class="drawer-backdrop" id="drawerBackdrop"></div>
@@ -452,6 +473,7 @@
                       <div class="builder-menu-wrap">
                         <button class="btn-icon" type="button" data-menu title="عملیات حرکت">⋮</button>
                         <div class="builder-menu" hidden>
+                          <button type="button" data-edit-mov="${movKey}">✏️ ویرایش حرکت و ست‌ها</button>
                           <button type="button" data-move-mov-up="${movKey}">⬆️ انتقال حرکت به بالا</button>
                           <button type="button" data-move-mov-down="${movKey}">⬇️ انتقال حرکت به پایین</button>
                           <div class="menu-sep"></div>
@@ -656,6 +678,9 @@
         setDirty(true);
         renderDays();
       };
+    });
+    document.querySelectorAll('[data-edit-mov]').forEach(b=>{
+      b.onclick=()=>{ const [dayIdx,sysIdx,movIdx]=b.dataset.editMov.split('-').map(Number); openMovementModal(dayIdx,sysIdx,movIdx); };
     });
     document.querySelectorAll('[data-move-mov-up]').forEach(b=>{
       b.onclick=()=>{
@@ -880,6 +905,100 @@
     host.innerHTML=`<button type="button" class="subchip ${currentDrawerSub==='all'?'active':''}" data-sub="all">همه</button>`+subs.map(sub=>`<button type="button" class="subchip ${currentDrawerSub===sub.id?'active':''}" data-sub="${esc(sub.id)}">${esc(sub.name)}</button>`).join('');
     host.querySelectorAll('[data-sub]').forEach(btn=>btn.onclick=()=>{currentDrawerSub=btn.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-sub]').forEach(b=>b.classList.toggle('active',b===btn));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
   }
+  // ===== مودال ویرایش حرکت =====
+  const setPresets=[
+    {label:'۴ × ۱۰',spec:[['REPEAT',10],['REPEAT',10],['REPEAT',10],['REPEAT',10]]},
+    {label:'۳ × ۸',spec:[['REPEAT',8],['REPEAT',8],['REPEAT',8]]},
+    {label:'۴ × ۱۵',spec:[['REPEAT',15],['REPEAT',15],['REPEAT',15],['REPEAT',15]]},
+    {label:'۳ × ۱۲',spec:[['REPEAT',12],['REPEAT',12],['REPEAT',12]]},
+    {label:'۱۲ | ۱۰ | ۸',spec:[['REPEAT',12],['REPEAT',10],['REPEAT',8]]},
+    {label:'۲ × ۱۵ | ۱۰ | ۱۵ ثانیه',spec:[['REPEAT',15],['REPEAT',15],['REPEAT',10],['TIME',15]]},
+    {label:'ماکسیمم توان | ۳ × ۸',spec:[['FAILURE',null],['REPEAT',8],['REPEAT',8],['REPEAT',8]]},
+    {label:'ماکسیمم توان | ۳ × ۱۲',spec:[['FAILURE',null],['REPEAT',12],['REPEAT',12],['REPEAT',12]]},
+    {label:'۲۰ | ۲ × ۸ | ۲ × ۱۲',spec:[['REPEAT',20],['REPEAT',8],['REPEAT',8],['REPEAT',12],['REPEAT',12]]},
+    {label:'دراپ ست ۱۲ | ۱۰ | ۸',spec:[['DROPSET','12-10-8']]},
+  ];
+  let mvCtx=null;
+  function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
+  function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; }
+  function applyPreset(mov,preset){
+    mov.sets=preset.spec.map(([type,count])=>({type,count:count==null?null:count,restSeconds:60,setHash:genHash()}));
+    setDirty(true);renderDays();
+  }
+  function renderMovementModal(){
+    const body=document.getElementById('mvBody'); if(!body||!mvCtx)return;
+    const mov=mvMovement(); if(!mov){closeMovementModal();return;}
+    const {dayIdx,sysIdx,movIdx}=mvCtx;
+    const sys=currentProgram.days[dayIdx].data[sysIdx];
+    const sysMeta=systemById(sys.exercise_system_id)||systemById(1);
+    const exId=mov.original_exercise_id||mov.exercise_id;
+    const det=(mov._detail||{});
+    const videoSrc=det.video_path||`/files/exercise/videos/${exId}.mp4`;
+    const sets=mov.sets||[];
+    document.getElementById('mvTitle').textContent=`ویرایش حرکت ${(movIdx+1).toLocaleString('fa-IR')} از تمرین ${(sysIdx+1).toLocaleString('fa-IR')}`;
+    const chip=document.getElementById('mvSystemChip');
+    chip.textContent=`${sysMeta.icon} ${sysMeta.label} — ${sys.movement_list.length.toLocaleString('fa-IR')} حرکت`;
+    document.getElementById('mvPrev').disabled=movIdx===0;
+    document.getElementById('mvNext').disabled=movIdx>=sys.movement_list.length-1;
+    body.innerHTML=`
+      <section class="mv-info">
+        <b class="mv-name">${esc(mov.nameFa||mov.name||'حرکت')}</b>
+        <small class="mv-en" dir="ltr">${esc(det.name_en||'')}</small>
+        <label class="mv-desc">توضیحات
+          <textarea id="mvDesc" placeholder="توضیح مربی: تمرکز، تمپو، نکات اجرا…">${esc(mov.description||'')}</textarea>
+        </label>
+        <div class="mv-equipment">${det.equipment?`<span class="mv-tag">تجهیزات: ${esc(det.equipment)}</span>`:''}${det.difficulty?`<span class="mv-tag">سختی: ${esc(fa(det.difficulty))}</span>`:''}${det.category?`<span class="mv-tag">${esc(det.category)}</span>`:''}</div>
+      </section>
+      <section class="mv-sets">
+        <label>ست‌های پیشنهادی
+          <select id="mvPreset">
+            <option value="">— انتخاب طرح ست —</option>
+            ${setPresets.map((p,i)=>`<option value="${i}">${p.label}</option>`).join('')}
+          </select>
+        </label>
+        <div class="mv-current-sets" id="mvCurrentSets">
+          ${sets.length?sets.map((st,i)=>`<span class="mv-set-chip">${st.type==='TIME'?`⏱ ${st.count??''} ثانیه`:st.type==='FAILURE'?'💥 تا خستگی':st.type==='DROPSET'?`📉 ${st.count??''}`:`🔁 ${st.count??'—'}`}<b data-mv-del="${i}" title="حذف ست">×</b></span>`).join(''):'<small class="mv-muted">ستی ثبت نشده — طرح پیشنهادی انتخاب کن یا ست جدید بساز</small>'}
+        </div>
+        <button class="btn mv-add-set" id="mvAddSet" type="button">افزودن ست جدید</button>
+      </section>
+      <section class="mv-learn">
+        <div class="mv-anatomy">
+          <b>عضله هدف</b>
+          <div class="mv-figures">
+            <figure><div class="mv-body"><svg viewBox="0 0 60 130" aria-hidden="true"><path d="M30 8c-5 0-8 3-8 8 0 4 2 7 3 9l-9 5c-6 3-9 8-9 15v22c0 3 4 3 4 0V48l3 34c0 3 1 5 3 5h1l2 34c0 4 5 4 5 0l2-34h1c2 0 3-2 3-5l3-34v19c0 3 4 3 4 0V45c0-7-3-12-9-15l-9-5c1-2 3-5 3-9 0-5-3-8-8-8z" class="mv-sil"/><ellipse cx="30" cy="46" rx="9" ry="7" class="mv-hl"/></svg></div><figcaption>نمای جلو</figcaption></figure>
+            <figure><div class="mv-body"><svg viewBox="0 0 60 130" aria-hidden="true"><path d="M30 8c-5 0-8 3-8 8 0 4 2 7 3 9l-9 5c-6 3-9 8-9 15v22c0 3 4 3 4 0V48l3 34c0 3 1 5 3 5h1l2 34c0 4 5 4 5 0l2-34h1c2 0 3-2 3-5l3-34v19c0 3 4 3 4 0V45c0-7-3-12-9-15l-9-5c1-2 3-5 3-9 0-5-3-8-8-8z" class="mv-sil"/><ellipse cx="30" cy="46" rx="9" ry="7" class="mv-hl"/><ellipse cx="18" cy="60" rx="4" ry="9" class="mv-hl"/><ellipse cx="42" cy="60" rx="4" ry="9" class="mv-hl"/></svg></div><figcaption>نمای پشت</figcaption></figure>
+          </div>
+          <div class="mv-muscle-label">عضله هدف: ${esc(det.subcategory||det.category||'—')}</div>
+        </div>
+        <div class="mv-video">
+          <b>آموزش حرکت</b>
+          <div class="mv-player" id="mvPlayerWrap">
+            <video id="mvVideo" controls playsinline preload="metadata" src="${esc(videoSrc)}" onerror="this.closest('.mv-player').classList.add('no-video')"></video>
+            <div class="mv-video-placeholder"><span>▶</span><small>ویدیو برای این حرکت ثبت نشده است</small></div>
+          </div>
+          <small class="mv-muted">پخش / توقف / فول‌اسکرین با کنترل‌های پلیر</small>
+        </div>
+      </section>`;
+    const descEl=document.getElementById('mvDesc');
+    if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
+    const presetEl=document.getElementById('mvPreset');
+    if(presetEl)presetEl.onchange=()=>{ if(presetEl.value==='')return; applyPreset(mov,setPresets[Number(presetEl.value)]); renderMovementModal(); };
+    const addBtn=document.getElementById('mvAddSet');
+    if(addBtn)addBtn.onclick=()=>{ if(!mov.sets)mov.sets=[]; const last=mov.sets[mov.sets.length-1]; mov.sets.push({type:(last&&last.type)||'REPEAT',count:(last&&last.type==='TIME')?30:12,restSeconds:(last&&last.restSeconds)||60,setHash:genHash()}); setDirty(true);renderDays();renderMovementModal(); };
+    body.querySelectorAll('[data-mv-del]').forEach(b=>b.onclick=()=>{ mov.sets.splice(Number(b.dataset.mvDel),1); setDirty(true);renderDays();renderMovementModal(); });
+  }
+  async function openMovementModal(dayIdx,sysIdx,movIdx){
+    let modal=document.getElementById('movementModal');
+    if(!modal)return;
+    if(modal.parentElement!==document.body)document.body.appendChild(modal);
+    mvCtx={dayIdx,sysIdx,movIdx};
+    const mov=mvMovement();
+    if(mov&&!mov._detail){
+      try{ const ex=await api(`/api/exercises/${mov.exercise_id}`); mov._detail={name_en:ex.name_en,equipment:ex.equipment,difficulty:ex.difficulty,category:ex.category_id?String(ex.category_id):'',subcategory:ex.subcategory_id?String(ex.subcategory_id):'',video_path:ex.video_path}; }catch(e){}
+    }
+    renderMovementModal();
+    modal.hidden=false;
+  }
   async function doGlobalDrawerSearch(term){
     const host=document.getElementById('drawerList');
     if(!host)return;
@@ -961,6 +1080,7 @@
         renderDays();
         // بانک عمداً بسته نمی‌شود — انتخاب چند حرکت پشت‌سرهم ممکن است (BR-14)
         refreshDrawerContext();
+        openMovementModal(dayIdx,sysIdx,sys.movement_list.length-1); // ویرایش حرکت باز شود
       };
     });
   }
@@ -1164,6 +1284,12 @@
     document.addEventListener('keydown',event=>{ if(event.key==='Escape'){ closeAllMenus(); closeSystemPicker(); } });
     document.getElementById('closeSystemPicker').onclick=closeSystemPicker;
     document.getElementById('systemPickerBackdrop').onclick=closeSystemPicker;
+    document.getElementById('mvClose').onclick=closeMovementModal;
+    document.getElementById('mvCloseX').onclick=closeMovementModal;
+    document.getElementById('mvConfirm').onclick=closeMovementModal;
+    document.getElementById('mvBackdrop').onclick=closeMovementModal;
+    document.getElementById('mvPrev').onclick=()=>{ if(mvCtx&&mvCtx.movIdx>0)openMovementModal(mvCtx.dayIdx,mvCtx.sysIdx,mvCtx.movIdx-1); };
+    document.getElementById('mvNext').onclick=()=>{ if(!mvCtx)return; const list=currentProgram.days[mvCtx.dayIdx].data[mvCtx.sysIdx].movement_list; if(mvCtx.movIdx<list.length-1)openMovementModal(mvCtx.dayIdx,mvCtx.sysIdx,mvCtx.movIdx+1); };
 
     // Dirty state warning
     window.addEventListener('beforeunload', (e)=>{
