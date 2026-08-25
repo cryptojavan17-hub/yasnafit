@@ -229,3 +229,12 @@ input.jalali-bad { border-color: var(--danger); }
 .quickadd-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .quickadd-hint { color: var(--text-muted); font-size: 8px; }
 @media (max-width: 640px) { .quickadd-grid { grid-template-columns: 1fr; } }
+
+/* لیست گروهی انتخابگر سیستم + هدر روز تمیز */
+.day-name { font-size: 14px; }
+.system-picker-grid { display: flex; flex-direction: column; gap: 4px; }
+.picker-group { display: flex; flex-direction: column; gap: 4px; }
+.picker-group + .picker-group { margin-top: 7px; }
+.picker-group-title { padding: 2px 4px 4px; color: var(--accent-hover); font-size: 9px; font-weight: 800; border-bottom: 1px dashed var(--accent-border); }
+.picker-system { min-height: 44px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 8px 12px; border-radius: 10px; }
+.picker-system small { margin-right: auto; padding: 3px 9px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-surface); color: var(--accent-hover); font-size: 8px; font-weight: 800; }

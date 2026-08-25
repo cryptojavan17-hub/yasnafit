@@ -129,12 +129,17 @@
     pickerDayIdx=dayIdx;
     const grid=picker.querySelector('#systemPickerGrid');
     if(grid){
-      grid.innerHTML=systemTypes.map(t=>`
-        <button type="button" class="picker-system" data-pick-system="${t.id}">
-          <span class="picker-icon" aria-hidden="true">${t.icon}</span>
-          <b>${esc(t.label)}</b>
-          <small>شامل ${t.movements.toLocaleString('fa-IR')} حرکت</small>
-        </button>`).join('');
+      const counts=[...new Set(systemTypes.map(t=>t.movements))].sort((a,b)=>a-b);
+      grid.innerHTML=counts.map(count=>`
+        <div class="picker-group">
+          <div class="picker-group-title">شامل ${count.toLocaleString('fa-IR')} حرکت</div>
+          ${systemTypes.filter(t=>t.movements===count).map(t=>`
+            <button type="button" class="picker-system" data-pick-system="${t.id}">
+              <span class="picker-icon" aria-hidden="true">${t.icon}</span>
+              <b>${esc(t.label)}</b>
+              <small>${t.movements.toLocaleString('fa-IR')} حرکت</small>
+            </button>`).join('')}
+        </div>`).join('');
       grid.querySelectorAll('[data-pick-system]').forEach(btn=>{
         btn.onclick=()=>{
           const meta=systemById(btn.dataset.pickSystem);
@@ -388,7 +393,7 @@
         <div class="day-header">
           <h3>
             <span class="day-number">${day.day_number.toLocaleString('fa-IR')}</span>
-            <span>${isRest ? '🌙 روز استراحت' : `💪 ${esc(day.focus||'بدون تمرکز')}`}</span>
+            <span class="day-name">روز ${day.day_number.toLocaleString('fa-IR')}${isRest ? ' — استراحت 🌙' : (day.focus ? ` — ${esc(day.focus)}` : '')}</span>
             <small class="day-vol">${vol.movs.toLocaleString('fa-IR')} حرکت • ${vol.sets.toLocaleString('fa-IR')} ست</small>
           </h3>
           <div class="day-actions">
