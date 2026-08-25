@@ -399,6 +399,8 @@
                 <button type="button" data-copy-day="${dayIdx}">📋 کپی این روز</button>
                 <button type="button" data-move-day-up="${dayIdx}" ${dayIdx===0?'disabled':''}>⬆️ انتقال روز به بالا</button>
                 <button type="button" data-move-day-down="${dayIdx}" ${dayIdx===days.length-1?'disabled':''}>⬇️ انتقال روز به پایین</button>
+                <div class="menu-sep"></div>
+                <button type="button" class="menu-danger" data-del-day="${dayIdx}">🗑 حذف روز ${day.day_number.toLocaleString('fa-IR')}</button>
               </div>
             </div>
           </div>
@@ -540,6 +542,18 @@
         const key=b.dataset.movToggle;
         expandedMovements[key]=expandedMovements[key]!==true;
         renderDays();
+      };
+    });
+    document.querySelectorAll('[data-del-day]').forEach(b=>{
+      b.onclick=()=>{
+        const idx=Number(b.dataset.delDay);
+        if(confirm(`روز ${currentProgram.days[idx].day_number} و همه محتوایش حذف شود؟`)){
+          currentProgram.days.splice(idx,1);
+          currentProgram.days.forEach((d,i)=>d.day_number=i+1);
+          if(activeDayIdx>=currentProgram.days.length)activeDayIdx=Math.max(0,currentProgram.days.length-1);
+          setDirty(true);
+          renderDays();
+        }
       };
     });
     document.querySelectorAll('[data-copy-day]').forEach(b=>{

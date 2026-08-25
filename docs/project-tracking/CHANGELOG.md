@@ -8,6 +8,12 @@
 
 ## 2026-08-24
 
+### Task 11 — بازگشت «حذف روز» به منوی تنظیمات روز (اصلاح قاعده BR-14)
+
+- **FILES:** `public/program-builder.js`، `tool/smoke-program-builder.js`، مستندات
+- **WHAT:** به درخواست مالک، حذف روز (با تأیید + شماره‌گذاری مجدد + کلمپ روز فعال) به منوی ⚙️ تنظیمات روز برگشت.
+- **TESTS:** smoke برنامه‌ساز ✅ terminology ✅
+
 ### Task 10 — بازطراحی داشبورد مربی («مرکز کنترل مربی»)
 
 - **FILES:** `server.js` (handleDashboard توسعه افزایشی — فیلد v2)، `public/core.js` (بلاک رندر داشبورد بازنویسی)، `public/styles.css` (بخش Dashboard v2)، `public/theme.css` (توکن‌های --warning/--warning-surface)

@@ -85,7 +85,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const check = (name, ok) => { results[name] = ok; console.log((ok ? '✅' : '❌'), name); };
 
   check('برنامه قدیمی: «سوپر ست» + «۱ از ۲»', dayHtml().includes('سوپر ست') && dayHtml().includes('۱ از ۲'));
-  check('هیچ حذف روزی در UI/کد نیست', !dayHtml().includes('data-del-day') && !fs.readFileSync(path.join(__dirname, '..', 'public', 'program-builder.js'), 'utf8').includes('data-del-day'));
+  check('حذف روز در منوی تنظیمات روز موجود است', dayHtml().includes('data-del-day'));
 
   get('btnAddDay').onclick();
   check('روز جدید بدون سیستم پیش‌فرض', dayHtml().includes('افزودن سیستم تمرینی'));
