@@ -298,20 +298,29 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-shake { animation: mvShake 320ms ease; }
 @keyframes mvShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(4px)} 50%{transform:translateX(-4px)} 75%{transform:translateX(3px)} }
 
-.mv-learn { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; align-items: stretch; }
+.mv-learn { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10px; align-items: stretch; }
 .mv-learn > div { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--glass); display: flex; flex-direction: column; gap: 6px; }
 .mv-learn b { font-size: 10px; }
-.mv-figures { flex: 1; display: flex; gap: 6px; }
-.mv-figures figure { flex: 1; margin: 0; display: flex; flex-direction: column; gap: 3px; }
-.mv-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-inset); }
-.mv-body svg { height: 100%; max-height: 150px; }
-.mv-sil { fill: var(--text-muted); opacity: .35; }
-.mv-hl { fill: var(--danger); opacity: .8; animation: mvPulse 2.2s ease infinite; }
-@keyframes mvPulse { 0%,100% { opacity: .8; } 50% { opacity: .45; } }
+
+.mv-anatomy { display: flex; flex-direction: column; gap: 6px; }
+.mv-anatomy-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.mv-anatomy-header b { font-size: 10px; color: var(--text); }
+.mv-muscle-select { min-height: 26px; height: 26px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text-secondary); font: inherit; font-size: 8px; cursor: pointer; }
+.mv-muscle-select:focus { border-color: var(--accent); outline: none; }
+.mv-active-muscle-chips { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+.mv-muscle-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-surface); color: var(--accent-hover); font-size: 8px; font-weight: 750; }
+.mv-muscle-chip button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 0; line-height: 1; }
+.mv-muscle-chip button:hover { color: var(--danger); }
+
+.mv-figures { flex: 1; display: flex; gap: 8px; justify-content: center; }
+.mv-body-figure { flex: 1; margin: 0; display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.muscle-container, .mv-body-canvas-wrap { position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95); }
+.base-body, .mv-base-body { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; display: block; }
+.muscle-overlay, .mv-muscle-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none; display: block; }
 .mv-figures figcaption { text-align: center; color: var(--text-muted); font-size: 8px; }
-.mv-muscle-label { padding: 5px 8px; border: 1px solid var(--danger-border); border-radius: 7px; background: var(--danger-surface); color: var(--danger); font-size: 8px; font-weight: 750; text-align: center; }
-.mv-player { position: relative; flex: 1; min-height: 160px; max-height: 200px; border-radius: 8px; overflow: hidden; background: var(--surface-inset); }
-.mv-player video { width: 100%; height: 100%; min-height: 160px; max-height: 200px; object-fit: contain; display: block; }
+
+.mv-player { position: relative; flex: 1; min-height: 185px; max-height: 225px; border-radius: 8px; overflow: hidden; background: var(--surface-inset); }
+.mv-player video { width: 100%; height: 100%; min-height: 185px; max-height: 225px; object-fit: contain; display: block; }
 .mv-video-placeholder { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-muted); background: var(--surface-inset); }
 .mv-player.no-video video { display: none; }
 .mv-player.no-video .mv-video-placeholder { display: flex; }
@@ -320,7 +329,7 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-foot { padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); background: var(--surface-inset); flex-shrink: 0; }
 .mv-confirm { min-width: 110px; min-height: 36px; border-color: var(--success); background: var(--success); color: var(--bg); font-weight: 800; font-size: 10px; }
 .mv-text-danger { border: 0; background: none; color: var(--danger); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
-@media (max-width: 760px) { .mv-learn { grid-template-columns: 1fr; } .mv-panel { width: 96vw; max-height: 94vh; } .mv-title { font-size: 11px; } .mv-figures svg { max-height: 120px; } }
+@media (max-width: 760px) { .mv-learn { grid-template-columns: 1fr; } .mv-panel { width: 96vw; max-height: 94vh; } .mv-title { font-size: 11px; } .muscle-container, .mv-body-canvas-wrap { height: 150px; } }
 
 /* ===== کارت حرکت فشرده: باکس‌های کوچک ست ===== */
 .movement-summary-row { display: flex; align-items: center; gap: 10px; }

@@ -1209,20 +1209,20 @@
 
           <div class="mv-figures">
             <figure class="mv-body-figure">
-              <div class="mv-body-canvas-wrap">
-                <img class="mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" loading="lazy">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+                <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${frontOverlays.map(m => `
-                  <img class="mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" loading="lazy">
+                  <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
                 `).join('')}
               </div>
               <figcaption>نمای جلو</figcaption>
             </figure>
 
             <figure class="mv-body-figure">
-              <div class="mv-body-canvas-wrap">
-                <img class="mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" loading="lazy">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: 130px; height: 190px; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+                <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${backOverlays.map(m => `
-                  <img class="mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" loading="lazy">
+                  <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
                 `).join('')}
               </div>
               <figcaption>نمای پشت</figcaption>
