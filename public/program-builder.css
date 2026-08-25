@@ -255,22 +255,24 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-modal { position: fixed; inset: 0; z-index: 70; }
 .mv-modal[hidden] { display: none; }
 .mv-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(5px); }
-.mv-panel { position: absolute; inset: 0; margin: auto; width: min(980px, 96vw); max-height: min(90vh, 840px); height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-deep); animation: jdpIn 180ms ease; }
-.mv-head { padding: 10px 14px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--border); background: var(--accent-surface); flex-shrink: 0; }
-.mv-nav { display: flex; gap: 5px; }
-.mv-chip { padding: 4px 10px; border: 1px solid var(--success); border-radius: 999px; background: rgba(52,211,153,.13); color: var(--success); font-size: 9px; font-weight: 800; white-space: nowrap; }
-.mv-title { flex: 1; margin: 0; font-size: 13px; }
+.mv-panel { position: absolute; inset: 0; margin: auto; width: min(980px, 96vw); max-height: min(92vh, 860px); height: auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-deep); animation: jdpIn 180ms ease; }
+.mv-head { padding: 8px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); background: var(--accent-surface); flex-shrink: 0; min-height: 42px; }
+.mv-nav { display: flex; gap: 4px; }
+.mv-chip { padding: 3px 8px; border: 1px solid var(--success); border-radius: 999px; background: rgba(52,211,153,.13); color: var(--success); font-size: 8px; font-weight: 800; white-space: nowrap; }
+.mv-title { flex: 1; margin: 0; font-size: 12px; font-weight: 750; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mv-body { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 
-.mv-info { display: flex; flex-direction: column; gap: 6px; }
+.mv-info { display: flex; flex-direction: column; gap: 6px; padding: 2px 0; }
 .mv-info-grid { display: flex; flex-direction: column; gap: 6px; }
-.mv-field-label { display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 10px; }
-.mv-field-label input, .mv-field-label textarea { font-family: inherit; width: 100%; min-height: 34px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 10px; }
-.mv-field-label textarea { min-height: 44px; resize: vertical; }
+.mv-field-label { display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 10px; font-weight: 700; }
+.mv-field-label input { font-family: inherit; width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 12px; font-weight: 750; }
+.mv-field-label input:focus { border-color: var(--accent); outline: none; }
+.mv-field-label textarea { font-family: inherit; width: 100%; min-height: 46px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 10px; resize: vertical; }
+.mv-field-label textarea:focus { border-color: var(--accent); outline: none; }
 
-.mv-sets { padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-inset); display: flex; flex-direction: column; gap: 8px; }
+.mv-sets { padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-inset); display: flex; flex-direction: column; gap: 9px; }
 .mv-preset-row { display: flex; flex-direction: column; gap: 4px; }
-.mv-preset-row label { color: var(--text-secondary); font-size: 10px; display: flex; align-items: center; gap: 4px; }
+.mv-preset-row label { color: var(--text-secondary); font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
 .mv-req-star { color: var(--danger); font-weight: 800; }
 .mv-preset-select { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 10px; font-weight: 600; cursor: pointer; transition: var(--transition); }
 .mv-preset-select:focus { border-color: var(--accent); outline: none; }
@@ -278,23 +280,24 @@ input.jalali-bad { border-color: var(--danger); }
 
 .mv-sets-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mv-sets-title-wrap { display: flex; align-items: center; gap: 6px; }
-.mv-sets-title-wrap b { font-size: 10px; color: var(--text); }
+.mv-sets-title-wrap b { font-size: 11px; color: var(--text); }
 .mv-sets-count { padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--glass); color: var(--text-muted); font-size: 8px; font-weight: 700; }
 .mv-add-set-btn { min-height: 30px; height: 30px; padding: 4px 11px; border: 1px solid var(--success); border-radius: 7px; background: var(--success); color: var(--bg); font: inherit; font-size: 9px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: var(--transition); white-space: nowrap; }
 .mv-add-set-btn:hover { filter: brightness(.88); transform: translateY(-1px); }
 
-/* چیدمان فشرده و افقی کارت‌های ست کنار هم */
-.mv-set-cards-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.mv-set-card { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px 3px 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); transition: var(--transition); }
-.mv-set-card:hover { border-color: var(--border-strong); background: var(--glass-hover); }
-.mv-set-badge { padding: 2px 6px; border: 1px solid var(--accent-border); border-radius: 5px; background: var(--accent-surface); color: var(--accent-hover); font-size: 9px; font-weight: 800; white-space: nowrap; }
-.mv-unit-select { min-height: 28px; height: 28px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-inset); color: var(--text); font: inherit; font-size: 9px; font-weight: 600; cursor: pointer; }
-.mv-unit-select:focus { border-color: var(--accent); outline: none; }
-.mv-count-input { width: 52px; min-height: 28px; height: 28px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-inset); color: var(--text); font: inherit; font-size: 10px; font-weight: 750; text-align: center; }
-.mv-count-input:focus { border-color: var(--accent); outline: none; }
-.mv-count-input:disabled { opacity: .45; cursor: not-allowed; background: var(--surface-3); }
-.mv-set-del-btn { width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+/* چیدمان مربعی فشرده کارت‌های ست کنار هم */
+.mv-set-cards-list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mv-set-card { width: 86px; height: 86px; flex: 0 0 86px; box-sizing: border-box; padding: 5px 6px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-2); display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; transition: var(--transition); position: relative; }
+.mv-set-card:hover { border-color: var(--accent); background: var(--glass-hover); transform: translateY(-1px); }
+.mv-set-card-top { display: flex; align-items: center; justify-content: space-between; gap: 2px; line-height: 1; }
+.mv-set-badge { padding: 1px 4px; border: 1px solid var(--accent-border); border-radius: 4px; background: var(--accent-surface); color: var(--accent-hover); font-size: 8px; font-weight: 800; white-space: nowrap; }
+.mv-set-del-btn { width: 16px; height: 16px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 800; cursor: pointer; line-height: 1; transition: var(--transition); }
 .mv-set-del-btn:hover { background: var(--danger-surface); color: var(--danger); }
+.mv-unit-select { width: 100%; min-height: 22px; height: 22px; padding: 0 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-inset); color: var(--text); font: inherit; font-size: 8px; font-weight: 700; cursor: pointer; text-align: center; }
+.mv-unit-select:focus { border-color: var(--accent); outline: none; }
+.mv-count-input { width: 100%; min-height: 24px; height: 24px; padding: 0 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-inset); color: var(--text); font: inherit; font-size: 11px; font-weight: 850; text-align: center; }
+.mv-count-input:focus { border-color: var(--accent); outline: none; }
+.mv-count-input:disabled { opacity: .5; cursor: not-allowed; background: var(--surface-3); color: var(--text-muted); font-size: 8px; }
 
 .mv-sets-empty { width: 100%; padding: 12px; border: 1px dashed var(--border-strong); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 9px; line-height: 1.8; }
 .mv-error { color: var(--danger); font-size: 9px; font-weight: 700; }
@@ -323,7 +326,7 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-foot { padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); background: var(--surface-inset); flex-shrink: 0; }
 .mv-confirm { min-width: 110px; min-height: 36px; border-color: var(--success); background: var(--success); color: var(--bg); font-weight: 800; font-size: 10px; }
 .mv-text-danger { border: 0; background: none; color: var(--danger); font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
-@media (max-width: 760px) { .mv-learn { grid-template-columns: 1fr; } .mv-panel { width: 96vw; max-height: 94vh; } .mv-title { font-size: 11px; } .mv-figures svg { max-height: 120px; } .mv-set-card { width: 100%; justify-content: space-between; } }
+@media (max-width: 760px) { .mv-learn { grid-template-columns: 1fr; } .mv-panel { width: 96vw; max-height: 94vh; } .mv-title { font-size: 11px; } .mv-figures svg { max-height: 120px; } }
 
 /* ===== کارت حرکت فشرده: باکس‌های کوچک ست ===== */
 .movement-head b { font-size: 11px; }

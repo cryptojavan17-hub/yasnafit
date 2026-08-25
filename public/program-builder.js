@@ -1046,9 +1046,9 @@
     const sets=mov.sets||[];
     const matchedPresetIdx=findMatchingPresetIndex(sets);
 
-    document.getElementById('mvTitle').textContent=`ویرایش حرکت ${(movIdx+1).toLocaleString('fa-IR')} از تمرین ${(sysIdx+1).toLocaleString('fa-IR')}`;
+    document.getElementById('mvTitle').textContent=`ویرایش حرکت: ${mov.nameFa||mov.name||'حرکت'}`;
     const chip=document.getElementById('mvSystemChip');
-    chip.textContent=`${sysMeta.icon} ${sysMeta.label} — ${sys.movement_list.length.toLocaleString('fa-IR')} حرکت`;
+    chip.textContent=`${sysMeta.icon} ${sysMeta.label}`;
     body.innerHTML=`
       <section class="mv-info">
         <div class="mv-info-grid">
@@ -1083,12 +1083,14 @@
             const isFailure = st.type === 'FAILURE';
             return `
             <div class="mv-set-card" data-set-card="${i}">
-              <span class="mv-set-badge">ست ${(i+1).toLocaleString('fa-IR')}</span>
+              <div class="mv-set-card-top">
+                <span class="mv-set-badge">ست ${(i+1).toLocaleString('fa-IR')}</span>
+                <button type="button" class="mv-set-del-btn" data-mv-del="${i}" title="حذف ست">×</button>
+              </div>
               <select data-mv-unit="${i}" title="واحد ست" class="mv-unit-select">
                 ${setUnits.map(u => `<option value="${u.id}" ${st.type === u.id ? 'selected' : ''}>${u.label}</option>`).join('')}
               </select>
               <input type="text" data-mv-count="${i}" value="${esc(isFailure ? '' : (st.count ?? ''))}" placeholder="${isFailure ? '—' : (st.type === 'TIME' ? '۳۰' : (st.type === 'MINUTE' ? '۱' : '۱۲'))}" ${isFailure ? 'disabled' : ''} title="مقدار" class="mv-count-input">
-              <button type="button" class="mv-set-del-btn" data-mv-del="${i}" title="حذف ست">×</button>
             </div>`;
           }).join('') : `
             <div class="mv-sets-empty">
@@ -1120,7 +1122,14 @@
       </section>`;
 
     const nameEl=document.getElementById('mvName');
-    if(nameEl)nameEl.oninput=()=>{mov.nameFa=nameEl.value;mov.name=nameEl.value;setDirty(true);renderDays();};
+    if(nameEl)nameEl.oninput=()=>{
+      mov.nameFa=nameEl.value;
+      mov.name=nameEl.value;
+      const titleEl=document.getElementById('mvTitle');
+      if(titleEl)titleEl.textContent=`ویرایش حرکت: ${nameEl.value||'حرکت'}`;
+      setDirty(true);
+      renderDays();
+    };
     const descEl=document.getElementById('mvDesc');
     if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
 
