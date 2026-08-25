@@ -49,8 +49,42 @@ assert.ok(programBuilderSrc.includes('data-mv-del'), 'Delete set button must exi
 assert.ok(programBuilderSrc.includes('data-mv-unit'), 'Unit select must exist');
 assert.ok(programBuilderSrc.includes('data-mv-count'), 'Count input must exist');
 
-// 5. Verify anatomy and video player unchanged
+// 5. Verify anatomy, 3D base images, 21 muscle overlays, and video player
 assert.ok(programBuilderSrc.includes('class="mv-anatomy"'), 'Anatomy section must exist');
+assert.ok(programBuilderSrc.includes('front_grey_body.webp'), 'Front base body must exist');
+assert.ok(programBuilderSrc.includes('back_grey_body.webp'), 'Back base body must exist');
+
+const expectedMuscles = [
+  // Front
+  'front_deltoid_anterior.webp',
+  'front_deltoid_lateral.webp',
+  'front_chest.webp',
+  'front_biceps.webp',
+  'front_brachialis.webp',
+  'front_brachioradialis.webp',
+  'front_rectus_abdominis.webp',
+  'front_obliques.webp',
+  'front_serratus_anterior.webp',
+  'front_quadriceps.webp',
+  'front_iliopsoas.webp',
+  // Back
+  'back_trapezius.webp',
+  'back_latissimus_dorsi.webp',
+  'back_triceps.webp',
+  'back_teres_major.webp',
+  'back_teres_minor.webp',
+  'back_infraspinatus.webp',
+  'back_gluteus_maximus.webp',
+  'back_hamstrings.webp',
+  'back_gastrocnemius.webp',
+  'back_soleus.webp'
+];
+
+expectedMuscles.forEach(file => {
+  assert.ok(programBuilderSrc.includes(file), `Muscle overlay missing: ${file}`);
+});
+
+assert.ok(programBuilderSrc.includes('id="mvMuscleQuickSelect"'), 'Muscle selector must exist');
 assert.ok(programBuilderSrc.includes('class="mv-video"'), 'Video section must exist');
 assert.ok(programBuilderSrc.includes('id="mvConfirm"'), 'Confirm button must exist');
 assert.ok(programBuilderSrc.includes('id="mvClose"'), 'Close button must exist');
@@ -59,7 +93,9 @@ console.log(JSON.stringify({
   ok: true,
   presets_count: expectedPresets.length,
   units_count: expectedUnits.length,
+  muscles_count: expectedMuscles.length,
   top_cleaned: true,
   cards_configured: true,
+  anatomy_3d_layered: true,
   bottom_preserved: true
 }));

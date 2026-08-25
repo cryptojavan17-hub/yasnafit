@@ -38,6 +38,66 @@
     { id: 'FAILURE', label: 'ماکسیمم توان' },
   ];
 
+  // کاتالوگ عضلات هدف و تصاویر Overlay منطبق بر مدل‌های 3D
+  const muscleCatalog = [
+    // Front
+    { id: 'front_deltoid_anterior', label: 'دلتوئید قدامی (سرشانه جلو)', side: 'front', file: 'front_deltoid_anterior.webp', cat: ['shoulders'] },
+    { id: 'front_deltoid_lateral', label: 'دلتوئید جانبی (سرشانه میانی)', side: 'front', file: 'front_deltoid_lateral.webp', cat: ['shoulders'] },
+    { id: 'front_chest', label: 'سینه (پکتورالیس)', side: 'front', file: 'front_chest.webp', cat: ['chest'] },
+    { id: 'front_biceps', label: 'جلو بازو (دوسر بازویی)', side: 'front', file: 'front_biceps.webp', cat: ['biceps'] },
+    { id: 'front_brachialis', label: 'براکیالیس', side: 'front', file: 'front_brachialis.webp', cat: ['biceps', 'forearms'] },
+    { id: 'front_brachioradialis', label: 'ساعد (براکیورادیالیس)', side: 'front', file: 'front_brachioradialis.webp', cat: ['forearms'] },
+    { id: 'front_rectus_abdominis', label: 'راست شکمی (سیکس‌پک)', side: 'front', file: 'front_rectus_abdominis.webp', cat: ['abs'] },
+    { id: 'front_obliques', label: 'مورب شکمی (پهلو)', side: 'front', file: 'front_obliques.webp', cat: ['abs'] },
+    { id: 'front_serratus_anterior', label: 'دندانه‌ای قدامی', side: 'front', file: 'front_serratus_anterior.webp', cat: ['abs', 'chest'] },
+    { id: 'front_quadriceps', label: 'چهارسر ران (جلو پا)', side: 'front', file: 'front_quadriceps.webp', cat: ['legs'] },
+    { id: 'front_iliopsoas', label: 'ایلیوپسواس (عضلات ران)', side: 'front', file: 'front_iliopsoas.webp', cat: ['legs', 'abs'] },
+
+    // Back
+    { id: 'back_trapezius', label: 'کول (ذوزنقه‌ای)', side: 'back', file: 'back_trapezius.webp', cat: ['traps', 'back'] },
+    { id: 'back_latissimus_dorsi', label: 'زیربغل (پشتی بزرگ)', side: 'back', file: 'back_latissimus_dorsi.webp', cat: ['back', 'lats'] },
+    { id: 'back_triceps', label: 'پشت بازو (سه‌سر بازویی)', side: 'back', file: 'back_triceps.webp', cat: ['triceps'] },
+    { id: 'back_teres_major', label: 'گرد بزرگ (Teres Major)', side: 'back', file: 'back_teres_major.webp', cat: ['back'] },
+    { id: 'back_teres_minor', label: 'گرد کوچک (Teres Minor)', side: 'back', file: 'back_teres_minor.webp', cat: ['back', 'shoulders'] },
+    { id: 'back_infraspinatus', label: 'تحت‌خاری (Infraspinatus)', side: 'back', file: 'back_infraspinatus.webp', cat: ['back', 'shoulders'] },
+    { id: 'back_gluteus_maximus', label: 'باسن (سرینی بزرگ)', side: 'back', file: 'back_gluteus_maximus.webp', cat: ['legs'] },
+    { id: 'back_hamstrings', label: 'همسترینگ (پشت پا)', side: 'back', file: 'back_hamstrings.webp', cat: ['legs'] },
+    { id: 'back_gastrocnemius', label: 'ساق پا (دوقلو)', side: 'back', file: 'back_gastrocnemius.webp', cat: ['legs', 'calves'] },
+    { id: 'back_soleus', label: 'نعلی ساق (Soleus)', side: 'back', file: 'back_soleus.webp', cat: ['legs', 'calves'] }
+  ];
+
+  function getAutoMusclesForMovement(mov){
+    if(mov.target_muscles && Array.isArray(mov.target_muscles) && mov.target_muscles.length > 0){
+      return mov.target_muscles;
+    }
+    const det = mov._detail || {};
+    const cat = String(det.category_id || det.category || '').toLowerCase();
+    const name = String(mov.nameFa || mov.name || '').toLowerCase();
+
+    if (cat === 'chest' || name.includes('سینه')) return ['front_chest'];
+    if (cat === 'shoulders' || name.includes('سرشانه') || name.includes('نشر') || name.includes('دلتوئید')) {
+      if (name.includes('خلفی') || name.includes('پشت')) return ['back_infraspinatus', 'back_teres_minor'];
+      if (name.includes('بغل') || name.includes('جانبی')) return ['front_deltoid_lateral'];
+      return ['front_deltoid_anterior', 'front_deltoid_lateral'];
+    }
+    if (cat === 'biceps' || name.includes('جلو بازو')) return ['front_biceps'];
+    if (cat === 'triceps' || name.includes('پشت بازو')) return ['back_triceps'];
+    if (cat === 'back' || cat === 'lats' || name.includes('زیربغل') || name.includes('لت') || name.includes('قایقی')) return ['back_latissimus_dorsi'];
+    if (cat === 'traps' || name.includes('کول') || name.includes('شراگ')) return ['back_trapezius'];
+    if (cat === 'abs' || name.includes('شکم') || name.includes('کرانچ')) {
+      if (name.includes('پهلو') || name.includes('مورب')) return ['front_obliques'];
+      return ['front_rectus_abdominis'];
+    }
+    if (cat === 'legs' || name.includes('پا') || name.includes('اسکوات')) {
+      if (name.includes('پشت پا') || name.includes('همسترینگ') || name.includes('ددلیفت')) return ['back_hamstrings'];
+      if (name.includes('باسن') || name.includes('سرینی') || name.includes('هیپ')) return ['back_gluteus_maximus'];
+      if (name.includes('ساق')) return ['back_gastrocnemius', 'back_soleus'];
+      return ['front_quadriceps'];
+    }
+    if (cat === 'forearms' || name.includes('ساعد') || name.includes('مچ')) return ['front_brachioradialis'];
+    return ['front_chest'];
+  }
+
   // کاتالوگ ست‌های پیشنهادی
   const setPresets = [
     {
@@ -1062,6 +1122,11 @@
     const videoSrc=det.video_path||`/files/exercise/videos/${exId}.mp4`;
     const sets=mov.sets||[];
     const matchedPresetIdx=findMatchingPresetIndex(sets);
+    const activeMuscleIds=getAutoMusclesForMovement(mov);
+    mov.target_muscles=activeMuscleIds;
+
+    const frontOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='front')).filter(Boolean);
+    const backOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='back')).filter(Boolean);
 
     document.getElementById('mvTitle').textContent=`ویرایش حرکت: ${mov.nameFa||mov.name||'حرکت'}`;
     const chip=document.getElementById('mvSystemChip');
@@ -1121,13 +1186,50 @@
 
       <section class="mv-learn">
         <div class="mv-anatomy">
-          <b>عضله هدف</b>
-          <div class="mv-figures">
-            <figure><div class="mv-body"><svg viewBox="0 0 60 130" aria-hidden="true"><path d="M30 8c-5 0-8 3-8 8 0 4 2 7 3 9l-9 5c-6 3-9 8-9 15v22c0 3 4 3 4 0V48l3 34c0 3 1 5 3 5h1l2 34c0 4 5 4 5 0l2-34h1c2 0 3-2 3-5l3-34v19c0 3 4 3 4 0V45c0-7-3-12-9-15l-9-5c1-2 3-5 3-9 0-5-3-8-8-8z" class="mv-sil"/><ellipse cx="30" cy="46" rx="9" ry="7" class="mv-hl"/></svg></div><figcaption>نمای جلو</figcaption></figure>
-            <figure><div class="mv-body"><svg viewBox="0 0 60 130" aria-hidden="true"><path d="M30 8c-5 0-8 3-8 8 0 4 2 7 3 9l-9 5c-6 3-9 8-9 15v22c0 3 4 3 4 0V48l3 34c0 3 1 5 3 5h1l2 34c0 4 5 4 5 0l2-34h1c2 0 3-2 3-5l3-34v19c0 3 4 3 4 0V45c0-7-3-12-9-15l-9-5c1-2 3-5 3-9 0-5-3-8-8-8z" class="mv-sil"/><ellipse cx="30" cy="46" rx="9" ry="7" class="mv-hl"/><ellipse cx="18" cy="60" rx="4" ry="9" class="mv-hl"/><ellipse cx="42" cy="60" rx="4" ry="9" class="mv-hl"/></svg></div><figcaption>نمای پشت</figcaption></figure>
+          <div class="mv-anatomy-header">
+            <b>عضله هدف</b>
+            <select id="mvMuscleQuickSelect" class="mv-muscle-select" title="افزودن عضله هدف">
+              <option value="">＋ افزودن عضله...</option>
+              <optgroup label="عضلات جلو">
+                ${muscleCatalog.filter(m=>m.side==='front').map(m=>`<option value="${m.id}" ${activeMuscleIds.includes(m.id)?'disabled':''}>${esc(m.label)}</option>`).join('')}
+              </optgroup>
+              <optgroup label="عضلات پشت">
+                ${muscleCatalog.filter(m=>m.side==='back').map(m=>`<option value="${m.id}" ${activeMuscleIds.includes(m.id)?'disabled':''}>${esc(m.label)}</option>`).join('')}
+              </optgroup>
+            </select>
           </div>
-          <div class="mv-muscle-label">عضله هدف: ${esc(det.subcategory||det.category||'—')}</div>
+
+          <div class="mv-active-muscle-chips" id="mvActiveMuscleChips">
+            ${activeMuscleIds.map(id => {
+              const m = muscleCatalog.find(item => item.id === id);
+              if(!m) return '';
+              return `<span class="mv-muscle-chip">${esc(m.label)}<button type="button" data-del-muscle="${m.id}" title="حذف عضله">×</button></span>`;
+            }).join('')}
+          </div>
+
+          <div class="mv-figures">
+            <figure class="mv-body-figure">
+              <div class="mv-body-canvas-wrap">
+                <img class="mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" loading="lazy">
+                ${frontOverlays.map(m => `
+                  <img class="mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" loading="lazy">
+                `).join('')}
+              </div>
+              <figcaption>نمای جلو</figcaption>
+            </figure>
+
+            <figure class="mv-body-figure">
+              <div class="mv-body-canvas-wrap">
+                <img class="mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" loading="lazy">
+                ${backOverlays.map(m => `
+                  <img class="mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" loading="lazy">
+                `).join('')}
+              </div>
+              <figcaption>نمای پشت</figcaption>
+            </figure>
+          </div>
         </div>
+
         <div class="mv-video">
           <b>آموزش حرکت</b>
           <div class="mv-player" id="mvPlayerWrap">
@@ -1215,6 +1317,32 @@
         if(mov.sets&&mov.sets[idx]!==undefined){
           mov.sets.splice(idx,1);
           setDirty(true);renderDays();renderMovementModal();
+        }
+      };
+    });
+
+    const muscleSelect=document.getElementById('mvMuscleQuickSelect');
+    if(muscleSelect){
+      muscleSelect.onchange=()=>{
+        if(!muscleSelect.value)return;
+        const selectedId=muscleSelect.value;
+        if(!mov.target_muscles)mov.target_muscles=[];
+        if(!mov.target_muscles.includes(selectedId)){
+          mov.target_muscles.push(selectedId);
+          setDirty(true);
+          renderMovementModal();
+        }
+      };
+    }
+
+    body.querySelectorAll('[data-del-muscle]').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        const delId=btn.dataset.delMuscle;
+        if(mov.target_muscles){
+          mov.target_muscles=mov.target_muscles.filter(id=>id!==delId);
+          setDirty(true);
+          renderMovementModal();
         }
       };
     });
