@@ -84,7 +84,7 @@ expectedMuscles.forEach(file => {
   assert.ok(programBuilderSrc.includes(file), `Muscle overlay missing: ${file}`);
 });
 
-assert.ok(programBuilderSrc.includes('id="mvMuscleQuickSelect"'), 'Muscle selector must exist');
+assert.doesNotMatch(programBuilderSrc, /id="mvMuscleQuickSelect"/, 'Muscle menu list must be removed');
 assert.ok(programBuilderSrc.includes('class="mv-video"'), 'Video section must exist');
 assert.ok(programBuilderSrc.includes('id="mvConfirm"'), 'Confirm button must exist');
 assert.ok(programBuilderSrc.includes('id="mvClose"'), 'Close button must exist');
@@ -96,6 +96,6 @@ console.log(JSON.stringify({
   muscles_count: expectedMuscles.length,
   top_cleaned: true,
   cards_configured: true,
-  anatomy_3d_layered: true,
+  anatomy_clean_image_only: true,
   bottom_preserved: true
 }));

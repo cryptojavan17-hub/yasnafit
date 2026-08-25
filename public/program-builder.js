@@ -1193,31 +1193,11 @@
 
       <section class="mv-learn">
         <div class="mv-anatomy">
-          <div class="mv-anatomy-header">
-            <b>عضله هدف</b>
-            <select id="mvMuscleQuickSelect" class="mv-muscle-select" title="افزودن عضله هدف">
-              <option value="">＋ افزودن عضله...</option>
-              <optgroup label="عضلات جلو">
-                ${muscleCatalog.filter(m=>m.side==='front').map(m=>`<option value="${m.id}" ${activeMuscleIds.includes(m.id)?'disabled':''}>${esc(m.label)}</option>`).join('')}
-              </optgroup>
-              <optgroup label="عضلات پشت">
-                ${muscleCatalog.filter(m=>m.side==='back').map(m=>`<option value="${m.id}" ${activeMuscleIds.includes(m.id)?'disabled':''}>${esc(m.label)}</option>`).join('')}
-              </optgroup>
-            </select>
-          </div>
-
-          <div class="mv-active-muscle-chips" id="mvActiveMuscleChips">
-            ${activeMuscleIds.map(id => {
-              const m = muscleCatalog.find(item => item.id === id);
-              if(!m) return '';
-              return `<span class="mv-muscle-chip">${esc(m.label)}<button type="button" data-del-muscle="${m.id}" title="حذف عضله">×</button></span>`;
-            }).join('')}
-          </div>
-
+          <b>عضله هدف</b>
           <div class="mv-figures ${showSides.length===1?'single-view':'dual-view'}">
             ${showSides.includes('front') ? `
             <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'155px':'125px'}; height: ${showSides.length===1?'215px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'165px':'125px'}; height: ${showSides.length===1?'230px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
                 <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${frontOverlays.map(m => `
                   <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
@@ -1228,7 +1208,7 @@
 
             ${showSides.includes('back') ? `
             <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'155px':'125px'}; height: ${showSides.length===1?'215px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
+              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'165px':'125px'}; height: ${showSides.length===1?'230px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
                 <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
                 ${backOverlays.map(m => `
                   <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
@@ -1326,32 +1306,6 @@
         if(mov.sets&&mov.sets[idx]!==undefined){
           mov.sets.splice(idx,1);
           setDirty(true);renderDays();renderMovementModal();
-        }
-      };
-    });
-
-    const muscleSelect=document.getElementById('mvMuscleQuickSelect');
-    if(muscleSelect){
-      muscleSelect.onchange=()=>{
-        if(!muscleSelect.value)return;
-        const selectedId=muscleSelect.value;
-        if(!mov.target_muscles)mov.target_muscles=[];
-        if(!mov.target_muscles.includes(selectedId)){
-          mov.target_muscles.push(selectedId);
-          setDirty(true);
-          renderMovementModal();
-        }
-      };
-    }
-
-    body.querySelectorAll('[data-del-muscle]').forEach(btn=>{
-      btn.onclick=(e)=>{
-        e.stopPropagation();
-        const delId=btn.dataset.delMuscle;
-        if(mov.target_muscles){
-          mov.target_muscles=mov.target_muscles.filter(id=>id!==delId);
-          setDirty(true);
-          renderMovementModal();
         }
       };
     });
