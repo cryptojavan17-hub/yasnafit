@@ -13,7 +13,7 @@
     low:'کم',medium:'متوسط',high:'زیاد',gym:'باشگاه',home:'منزل',
     iranian:'سفره ایرانی',professional:'رژیم حرفه‌ای',low_eating:'کم‌خوری',grazing:'ریزخوری',overeating:'پرخوری',emotional_overeating:'پرخوری عصبی',anorexia:'بی‌اشتهایی عصبی',
     none:'بدون مشکل',constipation:'یبوست',diarrhea:'اسهال',difficult_defecation:'دفع سخت',
-    exercise:'تمرینی',diet:'غذایی',supplement:'مکمل',corrective:'اصلاحی',normal:'معمولی',REPEAT:'تکرار',TIME:'زمانی',FAILURE:'تا خستگی',AMRAP:'بیشترین تکرار',DROPSET:'دراپ‌ست',SUPERSET:'سوپرست',GIANT_SET:'جاینت‌ست',REST_PAUSE:'استراحت‌ـ‌توقف',
+    exercise:'تمرینی',diet:'غذایی',supplement:'مکمل',corrective:'اصلاحی',normal:'معمولی',REPEAT:'تکرار',TIME:'ثانیه',MINUTE:'دقیقه',SECONDS:'ثانیه',FAILURE:'ماکسیمم توان',AMRAP:'بیشترین تکرار',DROPSET:'دراپ ست',SUPERSET:'سوپرست',GIANT_SET:'جاینت‌ست',REST_PAUSE:'استراحت‌ـ‌توقف',
     weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'
   };
   const text=value=>{const key=String(value??'').trim();return labels[key]||key||'—';};

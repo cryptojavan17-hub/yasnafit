@@ -11,17 +11,6 @@
 
   const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
 
-  // Based on PROMPT: ESetType
-  const setTypes = [
-    { id: 'REPEAT', label: 'تکرار', placeholder: '12', icon: '🔁' },
-    { id: 'TIME', label: 'زمان', placeholder: '30 ثانیه', icon: '⏱️' },
-    { id: 'FAILURE', label: 'تا خستگی', placeholder: '-', icon: '💥' },
-    { id: 'AMRAP', label: 'بیشترین تکرار', placeholder: 'تا حد توان', icon: '♾️' },
-    { id: 'DROPSET', label: 'دراپ‌ست', placeholder: '12-10-8', icon: '📉' },
-    { id: 'SUPERSET', label: 'سوپرست', placeholder: 'سوپرست', icon: '⚡' },
-    { id: 'GIANT_SET', label: 'جاینت‌ست', placeholder: 'جاینت', icon: '🔥' },
-  ];
-
   // کاتالوگ سیستم‌های تمرینی (BR-14 — لیست کانونی ۱۲گانه مالک)
   // idهای ۱-۵ تاریخی و دست‌نخورده؛ idهای ۶-۱۲ جدید. ترتیب = ترتیب نمایش مالک.
   const systemTypes = [
@@ -40,6 +29,152 @@
   ];
   const systemById = id => systemTypes.find(t=>t.id===Number(id));
   const systemRequired = sys => (systemById(sys?.exercise_system_id)||systemById(1)).movements;
+
+  const setUnits = [
+    { id: 'REPEAT', label: 'تکرار' },
+    { id: 'TIME', label: 'ثانیه' },
+    { id: 'MINUTE', label: 'دقیقه' },
+    { id: 'DROPSET', label: 'دراپ ست' },
+    { id: 'FAILURE', label: 'ماکسیمم توان' },
+  ];
+
+  // کاتالوگ ست‌های پیشنهادی
+  const setPresets = [
+    {
+      label: '۴ * ۱۰',
+      spec: [
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 10 }
+      ]
+    },
+    {
+      label: '۳ * ۸',
+      spec: [
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 }
+      ]
+    },
+    {
+      label: '۴ * ۱۵',
+      spec: [
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 }
+      ]
+    },
+    {
+      label: '۱۲ | ۱۰ | ۸',
+      spec: [
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 8 }
+      ]
+    },
+    {
+      label: '۲ * ۱۵ | ۱۵ | ۱۵ ثانیه',
+      spec: [
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'TIME', count: 15 }
+      ]
+    },
+    {
+      label: '۱۲ | ۱۰ | ۸ | ۶',
+      spec: [
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 6 }
+      ]
+    },
+    {
+      label: '۶ | ۸ | ۱۰ | ۱۲',
+      spec: [
+        { type: 'REPEAT', count: 6 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 12 }
+      ]
+    },
+    {
+      label: '۳ * ۹ | ۱۱',
+      spec: [
+        { type: 'REPEAT', count: 9 },
+        { type: 'REPEAT', count: 9 },
+        { type: 'REPEAT', count: 9 },
+        { type: 'REPEAT', count: 11 }
+      ]
+    },
+    {
+      label: '۳ * ۸ | ماکسیمم توان',
+      spec: [
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'FAILURE', count: null }
+      ]
+    },
+    {
+      label: '۳ * ۱۲ | ماکسیمم توان',
+      spec: [
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'FAILURE', count: null }
+      ]
+    },
+    {
+      label: '۸ | ۱۰ | ۱۲ | ماکسیمم توان',
+      spec: [
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 10 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'FAILURE', count: null }
+      ]
+    },
+    {
+      label: '۲۵ | ۲ * ۸ | ۲ * ۱۲',
+      spec: [
+        { type: 'REPEAT', count: 25 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 12 }
+      ]
+    },
+    {
+      label: '۲۵ | ۳ * ۱۵',
+      spec: [
+        { type: 'REPEAT', count: 25 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 }
+      ]
+    },
+    {
+      label: '۲ * ۸ | ۲ * ۱۲',
+      spec: [
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 8 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 12 }
+      ]
+    },
+    {
+      label: '۲ * ۱۲ | ۲ * ۱۵',
+      spec: [
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 12 },
+        { type: 'REPEAT', count: 15 },
+        { type: 'REPEAT', count: 15 }
+      ]
+    }
+  ];
 
   const levels = [
     { id: 'Beginner', label: 'مبتدی' },
@@ -879,24 +1014,25 @@
     host.querySelectorAll('[data-sub]').forEach(btn=>btn.onclick=()=>{currentDrawerSub=btn.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-sub]').forEach(b=>b.classList.toggle('active',b===btn));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
   }
   // ===== مودال ویرایش حرکت =====
-  const setPresets=[
-    {label:'۴ × ۱۰',spec:[['REPEAT',10],['REPEAT',10],['REPEAT',10],['REPEAT',10]]},
-    {label:'۳ × ۸',spec:[['REPEAT',8],['REPEAT',8],['REPEAT',8]]},
-    {label:'۴ × ۱۵',spec:[['REPEAT',15],['REPEAT',15],['REPEAT',15],['REPEAT',15]]},
-    {label:'۳ × ۱۲',spec:[['REPEAT',12],['REPEAT',12],['REPEAT',12]]},
-    {label:'۱۲ | ۱۰ | ۸',spec:[['REPEAT',12],['REPEAT',10],['REPEAT',8]]},
-    {label:'۲ × ۱۵ | ۱۰ | ۱۵ ثانیه',spec:[['REPEAT',15],['REPEAT',15],['REPEAT',10],['TIME',15]]},
-    {label:'ماکسیمم توان | ۳ × ۸',spec:[['FAILURE',null],['REPEAT',8],['REPEAT',8],['REPEAT',8]]},
-    {label:'ماکسیمم توان | ۳ × ۱۲',spec:[['FAILURE',null],['REPEAT',12],['REPEAT',12],['REPEAT',12]]},
-    {label:'۲۰ | ۲ × ۸ | ۲ × ۱۲',spec:[['REPEAT',20],['REPEAT',8],['REPEAT',8],['REPEAT',12],['REPEAT',12]]},
-    {label:'دراپ ست ۱۲ | ۱۰ | ۸',spec:[['DROPSET','12-10-8']]},
-  ];
-  let mvCtx=null,mvEditIdx=null;
+  let mvCtx=null;
   function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
   function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; }
   function applyPreset(mov,preset){
-    mov.sets=preset.spec.map(([type,count])=>({type,count:count==null?null:count,restSeconds:60,setHash:genHash()}));
+    mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
     setDirty(true);renderDays();
+  }
+  function findMatchingPresetIndex(sets){
+    if(!sets||!sets.length)return -1;
+    return setPresets.findIndex(p=>{
+      if(p.spec.length!==sets.length)return false;
+      return p.spec.every((expected,i)=>{
+        const actual=sets[i];
+        if(!actual)return false;
+        if(expected.type!==actual.type)return false;
+        if(expected.type==='FAILURE')return true;
+        return String(expected.count??'')===String(actual.count??'');
+      });
+    });
   }
   function renderMovementModal(){
     const body=document.getElementById('mvBody'); if(!body||!mvCtx)return;
@@ -908,42 +1044,69 @@
     const det=(mov._detail||{});
     const videoSrc=det.video_path||`/files/exercise/videos/${exId}.mp4`;
     const sets=mov.sets||[];
+    const matchedPresetIdx=findMatchingPresetIndex(sets);
+
     document.getElementById('mvTitle').textContent=`ویرایش حرکت ${(movIdx+1).toLocaleString('fa-IR')} از تمرین ${(sysIdx+1).toLocaleString('fa-IR')}`;
     const chip=document.getElementById('mvSystemChip');
     chip.textContent=`${sysMeta.icon} ${sysMeta.label} — ${sys.movement_list.length.toLocaleString('fa-IR')} حرکت`;
     body.innerHTML=`
       <section class="mv-info">
-        <b class="mv-name">${esc(mov.nameFa||mov.name||'حرکت')}</b>
-        <small class="mv-en" dir="ltr">${esc(det.name_en||'')}</small>
-        <label class="mv-desc">توضیحات (اختیاری)
-          <textarea id="mvDesc" placeholder="توضیح مربی: تمرکز، تمپو، نکات اجرا…">${esc(mov.description||'')}</textarea>
-        </label>
-        <div class="mv-equipment">${det.equipment?`<span class="mv-tag">تجهیزات: ${esc(det.equipment)}</span>`:''}${det.difficulty?`<span class="mv-tag">سختی: ${esc(fa(det.difficulty))}</span>`:''}${det.category?`<span class="mv-tag">${esc(det.category)}</span>`:''}</div>
-      </section>
-      <section class="mv-sets">
-        <div class="mv-sets-head">
-          <b>ست‌ها</b>
-          <small class="mv-muted">${sets.length?`${sets.length.toLocaleString('fa-IR')} ست`:'حداقل یک ست اجباری است'}</small>
+        <div class="mv-info-grid">
+          <label class="mv-field-label">نام حرکت
+            <input type="text" id="mvName" value="${esc(mov.nameFa||mov.name||'حرکت')}" placeholder="نام حرکت">
+          </label>
+          <label class="mv-field-label">توضیحات
+            <textarea id="mvDesc" placeholder="توضیح مربی: تمرکز، تمپو، نکات اجرا…">${esc(mov.description||'')}</textarea>
+          </label>
         </div>
-        <div class="mv-sets-row" id="mvSetsRow">
-          ${sets.map((st,i)=>{
-            const unit=st.type==='TIME'?' ثانیه':(st.type==='FAILURE'||st.count==null||st.count==='')?'':' تکرار';
-            const val=st.type==='FAILURE'?'تا خستگی':(st.count??'—');
-            return `<button type="button" class="mv-box ${i===mvEditIdx?'active':''}" data-mv-box="${i}" title="ویرایش این ست">${esc(String(val))}${esc(unit)}${st.weight?`<i>· ${esc(String(st.weight))}kg</i>`:''}</button>`;
-          }).join('')}
-          <button type="button" class="mv-add-box" id="mvAddSet" title="افزودن ست جدید">＋ افزودن ست جدید</button>
-        </div>
-        <small class="mv-error" id="mvSetsError" hidden>تعیین حداقل یک ست اجباری است — «افزودن ست جدید» را بزن.</small>
-        ${mvEditIdx!=null&&sets[mvEditIdx]?`
-        <div class="mv-set-editor" id="mvSetEditor">
-          <label>نوع <select id="mvEdType">${setTypes.map(t=>`<option value="${t.id}" ${sets[mvEditIdx].type===t.id?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select></label>
-          <label>مقدار <input id="mvEdCount" value="${esc(String(sets[mvEditIdx].count??''))}" placeholder="12 یا 30"></label>
-          <label>وزن <input id="mvEdWeight" type="number" value="${sets[mvEditIdx].weight??''}" placeholder="—"></label>
-          <label>استراحت <input id="mvEdRest" type="number" value="${sets[mvEditIdx].restSeconds??60}" placeholder="ثانیه"></label>
-          <button type="button" class="mv-ed-del" id="mvEdDel">🗑 حذف ست</button>
-          <button type="button" class="btn btn-secondary btn-small" id="mvEdClose">بستن</button>
-        </div>`:''}
       </section>
+
+      <section class="mv-sets" id="mvSetsContainer">
+        <div class="mv-preset-row">
+          <label for="mvPresetSelect"><b>ست‌های پیشنهادی <span class="mv-req-star">*</span></b></label>
+          <select id="mvPresetSelect" class="mv-preset-select" required>
+            <option value="">— انتخاب ست‌های پیشنهادی (الزامی) —</option>
+            ${setPresets.map((p,i)=>`<option value="${i}" ${matchedPresetIdx===i?'selected':''}>${esc(p.label)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="mv-sets-header-bar">
+          <b>ست‌های حرکت</b>
+          <button type="button" class="mv-add-set-btn" id="mvAddSet" title="افزودن ست جدید">＋ افزودن ست جدید</button>
+        </div>
+
+        <div class="mv-set-cards-list" id="mvSetCardsList">
+          ${sets.length ? sets.map((st, i) => {
+            const isFailure = st.type === 'FAILURE';
+            return `
+            <div class="mv-set-card" data-set-card="${i}">
+              <div class="mv-set-card-head">
+                <span class="mv-set-badge">ست ${(i+1).toLocaleString('fa-IR')}</span>
+                <button type="button" class="mv-set-del-btn" data-mv-del="${i}" title="حذف ست">×</button>
+              </div>
+              <div class="mv-set-card-body">
+                <label class="mv-set-card-field">
+                  <span>واحد ست</span>
+                  <select data-mv-unit="${i}">
+                    ${setUnits.map(u => `<option value="${u.id}" ${st.type === u.id ? 'selected' : ''}>${u.label}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="mv-set-card-field">
+                  <span>مقدار</span>
+                  <input type="text" data-mv-count="${i}" value="${esc(isFailure ? '' : (st.count ?? ''))}" placeholder="${isFailure ? 'ماکسیمم توان' : (st.type === 'TIME' ? '۳۰' : (st.type === 'MINUTE' ? '۱' : '۱۲'))}" ${isFailure ? 'disabled' : ''}>
+                </label>
+              </div>
+            </div>`;
+          }).join('') : `
+            <div class="mv-sets-empty">
+              <span>هنوز ستی تعیین نشده است. از دراپ‌داون بالا یک «ست پیشنهادی» انتخاب کنید یا روی «＋ افزودن ست جدید» بزنید.</span>
+            </div>
+          `}
+        </div>
+
+        <small class="mv-error" id="mvSetsError" hidden>انتخاب ست‌های پیشنهادی یا تعیین حداقل یک ست الزامی است.</small>
+      </section>
+
       <section class="mv-learn">
         <div class="mv-anatomy">
           <b>عضله هدف</b>
@@ -962,24 +1125,80 @@
           <small class="mv-muted">پخش / توقف / فول‌اسکرین با کنترل‌های پلیر</small>
         </div>
       </section>`;
+
+    const nameEl=document.getElementById('mvName');
+    if(nameEl)nameEl.oninput=()=>{mov.nameFa=nameEl.value;mov.name=nameEl.value;setDirty(true);renderDays();};
     const descEl=document.getElementById('mvDesc');
     if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
-    body.querySelectorAll('[data-mv-box]').forEach(b=>b.onclick=()=>{ mvEditIdx=Number(b.dataset.mvBox); renderMovementModal(); });
-    const rowEl=document.getElementById('mvSetsRow'); if(rowEl)rowEl.classList.remove('mv-shake');
-    const addBtn=document.getElementById('mvAddSet');
-    if(addBtn)addBtn.onclick=()=>{ if(!mov.sets)mov.sets=[]; const last=mov.sets[mov.sets.length-1]; mov.sets.push({type:(last&&last.type)||'REPEAT',count:(last&&last.type==='TIME')?30:12,restSeconds:(last&&last.restSeconds)||60,setHash:genHash()}); mvEditIdx=mov.sets.length-1; setDirty(true);renderDays();renderMovementModal(); };
-    const edType=document.getElementById('mvEdType'),edCount=document.getElementById('mvEdCount'),edWeight=document.getElementById('mvEdWeight'),edRest=document.getElementById('mvEdRest');
-    if(edType&&mvEditIdx!=null&&mov.sets[mvEditIdx]){
-      const st=mov.sets[mvEditIdx];
-      edType.onchange=()=>{ st.type=edType.value; setDirty(true);renderDays();renderMovementModal(); };
-      edCount.onchange=()=>{ st.count=edCount.value===''?null:(isNaN(Number(edCount.value))?edCount.value:Number(edCount.value)); setDirty(true);renderDays(); };
-      edWeight.onchange=()=>{ st.weight=edWeight.value===''?0:Number(edWeight.value)||0; setDirty(true);renderDays(); };
-      edRest.onchange=()=>{ st.restSeconds=Number(edRest.value)||60; setDirty(true);renderDays(); };
-      const delBtn=document.getElementById('mvEdDel');
-      if(delBtn)delBtn.onclick=()=>{ mov.sets.splice(mvEditIdx,1); mvEditIdx=null; setDirty(true);renderDays();renderMovementModal(); };
-      const edClose=document.getElementById('mvEdClose');
-      if(edClose)edClose.onclick=()=>{ mvEditIdx=null; renderMovementModal(); };
+
+    const presetSelect=document.getElementById('mvPresetSelect');
+    if(presetSelect){
+      presetSelect.onchange=()=>{
+        if(presetSelect.value==='')return;
+        const preset=setPresets[Number(presetSelect.value)];
+        if(preset){
+          applyPreset(mov,preset);
+          renderMovementModal();
+        }
+      };
     }
+
+    const addBtn=document.getElementById('mvAddSet');
+    if(addBtn){
+      addBtn.onclick=()=>{
+        if(!mov.sets)mov.sets=[];
+        const last=mov.sets[mov.sets.length-1];
+        const newType=(last&&last.type)||'REPEAT';
+        let defaultCount=12;
+        if(newType==='TIME')defaultCount=30;
+        else if(newType==='MINUTE')defaultCount=1;
+        else if(newType==='DROPSET')defaultCount='12-10-8';
+        else if(newType==='FAILURE')defaultCount=null;
+
+        mov.sets.push({type:newType,count:defaultCount,restSeconds:(last&&last.restSeconds)||60,setHash:genHash()});
+        setDirty(true);renderDays();renderMovementModal();
+      };
+    }
+
+    body.querySelectorAll('[data-mv-unit]').forEach(sel=>{
+      sel.onchange=()=>{
+        const idx=Number(sel.dataset.mvUnit);
+        if(mov.sets&&mov.sets[idx]){
+          const newType=sel.value;
+          mov.sets[idx].type=newType;
+          if(newType==='FAILURE'){
+            mov.sets[idx].count=null;
+          }else if(mov.sets[idx].count==null||mov.sets[idx].count===''){
+            if(newType==='TIME')mov.sets[idx].count=30;
+            else if(newType==='MINUTE')mov.sets[idx].count=1;
+            else if(newType==='DROPSET')mov.sets[idx].count='12-10-8';
+            else mov.sets[idx].count=12;
+          }
+          setDirty(true);renderDays();renderMovementModal();
+        }
+      };
+    });
+
+    body.querySelectorAll('[data-mv-count]').forEach(inp=>{
+      inp.oninput=()=>{
+        const idx=Number(inp.dataset.mvCount);
+        if(mov.sets&&mov.sets[idx]){
+          const val=inp.value.trim();
+          mov.sets[idx].count=val===''?null:(isNaN(Number(val))?val:Number(val));
+          setDirty(true);renderDays();
+        }
+      };
+    });
+
+    body.querySelectorAll('[data-mv-del]').forEach(btn=>{
+      btn.onclick=()=>{
+        const idx=Number(btn.dataset.mvDel);
+        if(mov.sets&&mov.sets[idx]!==undefined){
+          mov.sets.splice(idx,1);
+          setDirty(true);renderDays();renderMovementModal();
+        }
+      };
+    });
   }
   async function openMovementModal(dayIdx,sysIdx,movIdx){
     let modal=document.getElementById('movementModal');
@@ -1282,7 +1501,15 @@
     document.getElementById('mvCloseX').onclick=closeMovementModal;
     document.getElementById('mvConfirm').onclick=()=>{
       const mov=mvMovement();
-      if(mov&&!(mov.sets&&mov.sets.length)){ const err=document.getElementById('mvSetsError'); if(err){err.hidden=false;} const row=document.getElementById('mvSetsRow'); if(row)row.classList.add('mv-shake'); return; }
+      const err=document.getElementById('mvSetsError');
+      const container=document.getElementById('mvSetsContainer');
+      const presetSelect=document.getElementById('mvPresetSelect');
+      if(!mov||!(mov.sets&&mov.sets.length)){
+        if(err){err.textContent='انتخاب ست‌های پیشنهادی یا تعیین حداقل یک ست الزامی است.';err.hidden=false;}
+        if(container)container.classList.add('mv-shake');
+        if(presetSelect){presetSelect.classList.add('mv-input-error');presetSelect.focus();}
+        return;
+      }
       closeMovementModal();
     };
     document.getElementById('mvBack').onclick=closeMovementModal;
