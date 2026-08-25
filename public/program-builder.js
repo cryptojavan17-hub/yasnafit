@@ -1070,8 +1070,11 @@
           </select>
         </div>
 
-        <div class="mv-sets-header-bar">
-          <b>ست‌های حرکت</b>
+        <div class="mv-sets-toolbar">
+          <div class="mv-sets-title-wrap">
+            <b>ست‌های حرکت</b>
+            <small class="mv-sets-count">${sets.length ? `${sets.length.toLocaleString('fa-IR')} ست` : 'بدون ست'}</small>
+          </div>
           <button type="button" class="mv-add-set-btn" id="mvAddSet" title="افزودن ست جدید">＋ افزودن ست جدید</button>
         </div>
 
@@ -1080,26 +1083,16 @@
             const isFailure = st.type === 'FAILURE';
             return `
             <div class="mv-set-card" data-set-card="${i}">
-              <div class="mv-set-card-head">
-                <span class="mv-set-badge">ست ${(i+1).toLocaleString('fa-IR')}</span>
-                <button type="button" class="mv-set-del-btn" data-mv-del="${i}" title="حذف ست">×</button>
-              </div>
-              <div class="mv-set-card-body">
-                <label class="mv-set-card-field">
-                  <span>واحد ست</span>
-                  <select data-mv-unit="${i}">
-                    ${setUnits.map(u => `<option value="${u.id}" ${st.type === u.id ? 'selected' : ''}>${u.label}</option>`).join('')}
-                  </select>
-                </label>
-                <label class="mv-set-card-field">
-                  <span>مقدار</span>
-                  <input type="text" data-mv-count="${i}" value="${esc(isFailure ? '' : (st.count ?? ''))}" placeholder="${isFailure ? 'ماکسیمم توان' : (st.type === 'TIME' ? '۳۰' : (st.type === 'MINUTE' ? '۱' : '۱۲'))}" ${isFailure ? 'disabled' : ''}>
-                </label>
-              </div>
+              <span class="mv-set-badge">ست ${(i+1).toLocaleString('fa-IR')}</span>
+              <select data-mv-unit="${i}" title="واحد ست" class="mv-unit-select">
+                ${setUnits.map(u => `<option value="${u.id}" ${st.type === u.id ? 'selected' : ''}>${u.label}</option>`).join('')}
+              </select>
+              <input type="text" data-mv-count="${i}" value="${esc(isFailure ? '' : (st.count ?? ''))}" placeholder="${isFailure ? '—' : (st.type === 'TIME' ? '۳۰' : (st.type === 'MINUTE' ? '۱' : '۱۲'))}" ${isFailure ? 'disabled' : ''} title="مقدار" class="mv-count-input">
+              <button type="button" class="mv-set-del-btn" data-mv-del="${i}" title="حذف ست">×</button>
             </div>`;
           }).join('') : `
             <div class="mv-sets-empty">
-              <span>هنوز ستی تعیین نشده است. از دراپ‌داون بالا یک «ست پیشنهادی» انتخاب کنید یا روی «＋ افزودن ست جدید» بزنید.</span>
+              <span>هنوز ستی تعیین نشده است — از ست‌های پیشنهادی انتخاب کنید یا «افزودن ست جدید» را بزنید.</span>
             </div>
           `}
         </div>
