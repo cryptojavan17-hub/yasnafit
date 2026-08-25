@@ -300,3 +300,20 @@ input.jalali-bad { border-color: var(--danger); }
 .mv-confirm { min-width: 130px; min-height: 42px; border-color: var(--success); background: var(--success); color: var(--bg); font-weight: 800; }
 .mv-text-danger { border: 0; background: none; color: var(--danger); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 @media (max-width: 760px) { .mv-learn { grid-template-columns: 1fr; } .mv-panel { width: 96vw; height: 94vh; } .mv-title { font-size: 11px; } .mv-figures svg { max-height: 140px; } }
+
+/* ===== نسخه ۲: ست‌های فشرده باکسی + ویرایشگر + لرزش خطا ===== */
+.mv-sets-head { display: flex; align-items: center; justify-content: space-between; }
+.mv-sets-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 2px 0; }
+.mv-box { min-height: 34px; padding: 5px 12px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--glass); color: var(--text-secondary); font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; transition: var(--transition); white-space: nowrap; }
+.mv-box i { font-style: normal; color: var(--text-muted); font-size: 8px; }
+.mv-box:hover { border-color: var(--accent); color: var(--text); }
+.mv-box.active { border-color: var(--accent); background: var(--accent-surface); color: var(--accent-hover); }
+.mv-add-box { min-height: 34px; padding: 5px 13px; border: 1px dashed var(--success); border-radius: 999px; background: rgba(52,211,153,.1); color: var(--success); font: inherit; font-size: 9px; font-weight: 800; cursor: pointer; transition: var(--transition); white-space: nowrap; }
+.mv-add-box:hover { background: var(--success); color: var(--bg); border-style: solid; }
+.mv-set-editor { display: flex; align-items: flex-end; gap: 7px; flex-wrap: wrap; padding: 9px; border: 1px solid var(--accent-border); border-radius: 10px; background: var(--accent-surface); }
+.mv-set-editor label { display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 8px; }
+.mv-set-editor input, .mv-set-editor select { min-height: 32px; margin: 0; min-width: 74px; font-size: 10px; padding: 5px 8px; }
+.mv-ed-del { min-height: 32px; padding: 5px 11px; border: 1px solid var(--danger-border); border-radius: 8px; background: var(--danger-surface); color: var(--danger); font: inherit; font-size: 9px; font-weight: 750; cursor: pointer; }
+.mv-error { color: var(--danger); font-size: 9px; font-weight: 700; }
+.mv-shake { animation: mvShake 320ms ease; }
+@keyframes mvShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(4px)} 50%{transform:translateX(-4px)} 75%{transform:translateX(3px)} }

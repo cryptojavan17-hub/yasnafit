@@ -308,10 +308,7 @@
       <div class="mv-backdrop" id="mvBackdrop"></div>
       <div class="mv-panel" role="dialog" aria-modal="true" aria-label="ویرایش حرکت">
         <header class="mv-head">
-          <div class="mv-nav">
-            <button class="btn-icon" id="mvNext" type="button" title="حرکت بعدی">→</button>
-            <button class="btn-icon" id="mvPrev" type="button" title="حرکت قبلی">←</button>
-          </div>
+          <button class="btn btn-secondary btn-small" id="mvBack" type="button">→ برگشت</button>
           <span class="mv-chip" id="mvSystemChip">—</span>
           <h3 class="mv-title" id="mvTitle">ویرایش حرکت</h3>
           <button class="btn-icon" id="mvCloseX" type="button" title="بستن">×</button>
@@ -918,7 +915,7 @@
     {label:'۲۰ | ۲ × ۸ | ۲ × ۱۲',spec:[['REPEAT',20],['REPEAT',8],['REPEAT',8],['REPEAT',12],['REPEAT',12]]},
     {label:'دراپ ست ۱۲ | ۱۰ | ۸',spec:[['DROPSET','12-10-8']]},
   ];
-  let mvCtx=null;
+  let mvCtx=null,mvEditIdx=null;
   function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
   function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; }
   function applyPreset(mov,preset){
@@ -938,28 +935,38 @@
     document.getElementById('mvTitle').textContent=`ویرایش حرکت ${(movIdx+1).toLocaleString('fa-IR')} از تمرین ${(sysIdx+1).toLocaleString('fa-IR')}`;
     const chip=document.getElementById('mvSystemChip');
     chip.textContent=`${sysMeta.icon} ${sysMeta.label} — ${sys.movement_list.length.toLocaleString('fa-IR')} حرکت`;
-    document.getElementById('mvPrev').disabled=movIdx===0;
-    document.getElementById('mvNext').disabled=movIdx>=sys.movement_list.length-1;
     body.innerHTML=`
       <section class="mv-info">
         <b class="mv-name">${esc(mov.nameFa||mov.name||'حرکت')}</b>
         <small class="mv-en" dir="ltr">${esc(det.name_en||'')}</small>
-        <label class="mv-desc">توضیحات
+        <label class="mv-desc">توضیحات (اختیاری)
           <textarea id="mvDesc" placeholder="توضیح مربی: تمرکز، تمپو، نکات اجرا…">${esc(mov.description||'')}</textarea>
         </label>
         <div class="mv-equipment">${det.equipment?`<span class="mv-tag">تجهیزات: ${esc(det.equipment)}</span>`:''}${det.difficulty?`<span class="mv-tag">سختی: ${esc(fa(det.difficulty))}</span>`:''}${det.category?`<span class="mv-tag">${esc(det.category)}</span>`:''}</div>
       </section>
       <section class="mv-sets">
-        <label>ست‌های پیشنهادی
-          <select id="mvPreset">
-            <option value="">— انتخاب طرح ست —</option>
-            ${setPresets.map((p,i)=>`<option value="${i}">${p.label}</option>`).join('')}
-          </select>
-        </label>
-        <div class="mv-current-sets" id="mvCurrentSets">
-          ${sets.length?sets.map((st,i)=>`<span class="mv-set-chip">${st.type==='TIME'?`⏱ ${st.count??''} ثانیه`:st.type==='FAILURE'?'💥 تا خستگی':st.type==='DROPSET'?`📉 ${st.count??''}`:`🔁 ${st.count??'—'}`}<b data-mv-del="${i}" title="حذف ست">×</b></span>`).join(''):'<small class="mv-muted">ستی ثبت نشده — طرح پیشنهادی انتخاب کن یا ست جدید بساز</small>'}
+        <div class="mv-sets-head">
+          <b>ست‌ها</b>
+          <small class="mv-muted">${sets.length?`${sets.length.toLocaleString('fa-IR')} ست`:'حداقل یک ست اجباری است'}</small>
         </div>
-        <button class="btn mv-add-set" id="mvAddSet" type="button">افزودن ست جدید</button>
+        <div class="mv-sets-row" id="mvSetsRow">
+          ${sets.map((st,i)=>{
+            const unit=st.type==='TIME'?' ثانیه':(st.type==='FAILURE'||st.count==null||st.count==='')?'':' تکرار';
+            const val=st.type==='FAILURE'?'تا خستگی':(st.count??'—');
+            return `<button type="button" class="mv-box ${i===mvEditIdx?'active':''}" data-mv-box="${i}" title="ویرایش این ست">${esc(String(val))}${esc(unit)}${st.weight?`<i>· ${esc(String(st.weight))}kg</i>`:''}</button>`;
+          }).join('')}
+          <button type="button" class="mv-add-box" id="mvAddSet" title="افزودن ست جدید">＋ افزودن ست جدید</button>
+        </div>
+        <small class="mv-error" id="mvSetsError" hidden>تعیین حداقل یک ست اجباری است — «افزودن ست جدید» را بزن.</small>
+        ${mvEditIdx!=null&&sets[mvEditIdx]?`
+        <div class="mv-set-editor" id="mvSetEditor">
+          <label>نوع <select id="mvEdType">${setTypes.map(t=>`<option value="${t.id}" ${sets[mvEditIdx].type===t.id?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select></label>
+          <label>مقدار <input id="mvEdCount" value="${esc(String(sets[mvEditIdx].count??''))}" placeholder="12 یا 30"></label>
+          <label>وزن <input id="mvEdWeight" type="number" value="${sets[mvEditIdx].weight??''}" placeholder="—"></label>
+          <label>استراحت <input id="mvEdRest" type="number" value="${sets[mvEditIdx].restSeconds??60}" placeholder="ثانیه"></label>
+          <button type="button" class="mv-ed-del" id="mvEdDel">🗑 حذف ست</button>
+          <button type="button" class="btn btn-secondary btn-small" id="mvEdClose">بستن</button>
+        </div>`:''}
       </section>
       <section class="mv-learn">
         <div class="mv-anatomy">
@@ -981,11 +988,22 @@
       </section>`;
     const descEl=document.getElementById('mvDesc');
     if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
-    const presetEl=document.getElementById('mvPreset');
-    if(presetEl)presetEl.onchange=()=>{ if(presetEl.value==='')return; applyPreset(mov,setPresets[Number(presetEl.value)]); renderMovementModal(); };
+    body.querySelectorAll('[data-mv-box]').forEach(b=>b.onclick=()=>{ mvEditIdx=Number(b.dataset.mvBox); renderMovementModal(); });
+    const rowEl=document.getElementById('mvSetsRow'); if(rowEl)rowEl.classList.remove('mv-shake');
     const addBtn=document.getElementById('mvAddSet');
-    if(addBtn)addBtn.onclick=()=>{ if(!mov.sets)mov.sets=[]; const last=mov.sets[mov.sets.length-1]; mov.sets.push({type:(last&&last.type)||'REPEAT',count:(last&&last.type==='TIME')?30:12,restSeconds:(last&&last.restSeconds)||60,setHash:genHash()}); setDirty(true);renderDays();renderMovementModal(); };
-    body.querySelectorAll('[data-mv-del]').forEach(b=>b.onclick=()=>{ mov.sets.splice(Number(b.dataset.mvDel),1); setDirty(true);renderDays();renderMovementModal(); });
+    if(addBtn)addBtn.onclick=()=>{ if(!mov.sets)mov.sets=[]; const last=mov.sets[mov.sets.length-1]; mov.sets.push({type:(last&&last.type)||'REPEAT',count:(last&&last.type==='TIME')?30:12,restSeconds:(last&&last.restSeconds)||60,setHash:genHash()}); mvEditIdx=mov.sets.length-1; setDirty(true);renderDays();renderMovementModal(); };
+    const edType=document.getElementById('mvEdType'),edCount=document.getElementById('mvEdCount'),edWeight=document.getElementById('mvEdWeight'),edRest=document.getElementById('mvEdRest');
+    if(edType&&mvEditIdx!=null&&mov.sets[mvEditIdx]){
+      const st=mov.sets[mvEditIdx];
+      edType.onchange=()=>{ st.type=edType.value; setDirty(true);renderDays();renderMovementModal(); };
+      edCount.onchange=()=>{ st.count=edCount.value===''?null:(isNaN(Number(edCount.value))?edCount.value:Number(edCount.value)); setDirty(true);renderDays(); };
+      edWeight.onchange=()=>{ st.weight=edWeight.value===''?0:Number(edWeight.value)||0; setDirty(true);renderDays(); };
+      edRest.onchange=()=>{ st.restSeconds=Number(edRest.value)||60; setDirty(true);renderDays(); };
+      const delBtn=document.getElementById('mvEdDel');
+      if(delBtn)delBtn.onclick=()=>{ mov.sets.splice(mvEditIdx,1); mvEditIdx=null; setDirty(true);renderDays();renderMovementModal(); };
+      const edClose=document.getElementById('mvEdClose');
+      if(edClose)edClose.onclick=()=>{ mvEditIdx=null; renderMovementModal(); };
+    }
   }
   async function openMovementModal(dayIdx,sysIdx,movIdx){
     let modal=document.getElementById('movementModal');
@@ -1286,10 +1304,14 @@
     document.getElementById('systemPickerBackdrop').onclick=closeSystemPicker;
     document.getElementById('mvClose').onclick=closeMovementModal;
     document.getElementById('mvCloseX').onclick=closeMovementModal;
-    document.getElementById('mvConfirm').onclick=closeMovementModal;
+    document.getElementById('mvConfirm').onclick=()=>{
+      const mov=mvMovement();
+      if(mov&&!(mov.sets&&mov.sets.length)){ const err=document.getElementById('mvSetsError'); if(err){err.hidden=false;} const row=document.getElementById('mvSetsRow'); if(row)row.classList.add('mv-shake'); return; }
+      closeMovementModal();
+    };
+    document.getElementById('mvBack').onclick=closeMovementModal;
     document.getElementById('mvBackdrop').onclick=closeMovementModal;
-    document.getElementById('mvPrev').onclick=()=>{ if(mvCtx&&mvCtx.movIdx>0)openMovementModal(mvCtx.dayIdx,mvCtx.sysIdx,mvCtx.movIdx-1); };
-    document.getElementById('mvNext').onclick=()=>{ if(!mvCtx)return; const list=currentProgram.days[mvCtx.dayIdx].data[mvCtx.sysIdx].movement_list; if(mvCtx.movIdx<list.length-1)openMovementModal(mvCtx.dayIdx,mvCtx.sysIdx,mvCtx.movIdx+1); };
+
 
     // Dirty state warning
     window.addEventListener('beforeunload', (e)=>{
