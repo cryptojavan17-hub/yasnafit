@@ -84,7 +84,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const results = {};
   const check = (name, ok) => { results[name] = ok; console.log((ok ? '✅' : '❌'), name); };
 
-  check('برنامه قدیمی: برچسب «سوپر ست» بدون چیپ پیشرفت', dayHtml().includes('سوپر ست') && !dayHtml().includes('از ۲ حرکت'));
+  check('برنامه قدیمی باز می‌شود + منوی حرکت دارای حذف سیستم', dayHtml().includes('پرس سینه هالتر') && dayHtml().includes('data-del-sys') && !dayHtml().includes('حذف سیستم</button>\\n'));
   check('حذف روز در منوی تنظیمات روز موجود است', dayHtml().includes('data-del-day'));
 
   get('btnAddDay').onclick();
@@ -96,7 +96,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('انتخابگر باز شد', els['systemPicker'].hidden === false);
   check('۱۲ سیستم بایند شدند', picks.length === 12 && picks.every(p => p.onclick !== null));
   picks.find(p => p.dataset.pickSystem === '12').onclick();
-  check('ماموت ست اضافه شد (بدون چیپ پیشرفت)', dayHtml().includes('ماموت ست') && !dayHtml().includes('از ۵ حرکت'));
+  check('سیستم جدید اضافه شد (بدون هدر سیستم)', dayHtml().includes('افزودن حرکات تمرینی'));
   check('انتخابگر بعد از انتخاب بسته شد', els['systemPicker'].hidden === true);
 
   addMovBtn.dataset.addMov = '1-0';
