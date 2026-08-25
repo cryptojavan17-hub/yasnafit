@@ -325,14 +325,14 @@
             </section>
             <section class="drawer-bank-step locked" id="drawerFilterStep" hidden>
               <header><span>۲</span><div><b>پیدا کردن حرکت</b><small>جستجو یا انتخاب دسته‌بندی</small></div></header>
-              <details class="drawer-filter-accordion" id="drawerSearchSection">
-                <summary>جستجوی نام حرکت</summary>
-                <div class="drawer-search"><input id="drawerSearch" placeholder="مثلاً پرس سینه" autocomplete="off"></div>
-              </details>
-              <details class="drawer-filter-accordion" id="drawerCategorySection">
-                <summary>دسته‌بندی حرکات</summary>
-                <div class="drawer-cats" id="drawerCats"></div>
-              </details>
+              <div class="drawer-filter-accordion drawer-category-bar">
+                <select id="drawerCategorySelect" data-cat-summary aria-label="دسته‌بندی حرکت"></select>
+              </div>
+              <div class="drawer-filter-accordion drawer-subchips" id="drawerSubChips"></div>
+              <div class="drawer-filter-accordion drawer-tools">
+                <div class="drawer-search"><input id="drawerSearch" placeholder="جستجوی حرکت…" autocomplete="off"></div>
+                <button class="btn btn-secondary btn-small" id="drawerManualToggle" type="button" title="افزودن حرکت دلخواه به بانک">＋ افزودن حرکت دستی</button>
+              </div>
             </section>
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
@@ -352,9 +352,6 @@
               <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button">ثبت حرکت</button>
             </div>
           </div>
-        </div>
-        <div class="drawer-footer">
-          <button class="btn btn-secondary btn-small" id="drawerManualToggle" type="button">＋ افزودن حرکت دستی</button>
         </div>
       </div>
     </div>
@@ -762,7 +759,8 @@
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
     document.querySelectorAll('[data-bank-location]').forEach(button=>{button.classList.remove('active');button.disabled=false;});
     const filter=document.getElementById('drawerFilterStep'),search=document.getElementById('drawerSearch'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
-    if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';if(searchSection)searchSection.open=false;if(categorySection)categorySection.open=false;
+    if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';
+    const subChips=document.getElementById('drawerSubChips');if(subChips)subChips.innerHTML='';
     if(list)list.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';
   }
   function mountExerciseDrawer(){
@@ -855,19 +853,30 @@
   async function selectDrawerLocation(location){
     const requestId=++drawerCategoryRequest;currentDrawerLocation=location;currentDrawerCat=null;currentDrawerSub=null;exerciseCategories=[];
     const locationButtons=[...document.querySelectorAll('[data-bank-location]')];locationButtons.forEach(button=>{button.classList.toggle('active',button.dataset.bankLocation===location);button.disabled=true;});
-    const filter=document.getElementById('drawerFilterStep'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList'),cats=document.getElementById('drawerCats');
-    filter.hidden=true;filter.classList.add('locked');searchSection.open=false;categorySection.open=false;cats.innerHTML='';list.innerHTML='<div class="drawer-loading">در حال آماده‌سازی بانک حرکات…</div>';
+    const filter=document.getElementById('drawerFilterStep'),list=document.getElementById('drawerList');
+    filter.hidden=true;filter.classList.add('locked');list.innerHTML='<div class="drawer-loading">در حال آماده‌سازی بانک حرکات…</div>';
     try{
       const categories=await api(`/api/categories/grouped?location=${encodeURIComponent(location)}`);if(requestId!==drawerCategoryRequest)return;if(!categories.length)throw new Error('حرکتی برای این محل ثبت نشده است');
-      exerciseCategories=categories;renderDrawerCats();filter.hidden=false;filter.classList.remove('locked');searchSection.open=true;list.innerHTML='<div class="drawer-guidance">نام حرکت را جستجو کنید یا روی عنوان یک دسته بزنید.</div>';document.getElementById('drawerSearch').focus();
+      exerciseCategories=categories;renderCategorySelect();filter.hidden=false;filter.classList.remove('locked');list.innerHTML='<div class="drawer-loading">در حال خواندن حرکات…</div>';document.getElementById('drawerSearch').focus();
     }catch(error){if(requestId!==drawerCategoryRequest)return;filter.hidden=true;cats.innerHTML='';list.innerHTML=`<div class="drawer-error">${esc(error.message)}</div>`;}
     finally{if(requestId===drawerCategoryRequest)locationButtons.forEach(button=>button.disabled=false);}
   }
-  function renderDrawerCats(){
-    const host=document.getElementById('drawerCats');
-    host.innerHTML=exerciseCategories.map(category=>`<details class="drawer-category-group"><summary data-cat-summary="${category.id}">${esc(category.name)} <small>${category.count.toLocaleString('fa-IR')} حرکت</small></summary><div><button type="button" data-cat="${category.id}" data-sub="all">همه حرکات ${esc(category.name)}</button>${(category.subs||[]).map(sub=>`<button type="button" data-cat="${category.id}" data-sub="${sub.id}">${esc(sub.name)} <small>${sub.count.toLocaleString('fa-IR')}</small></button>`).join('')}</div></details>`).join('');
-    host.querySelectorAll('[data-cat-summary]').forEach(summary=>summary.onclick=()=>{currentDrawerCat=summary.dataset.catSummary;currentDrawerSub='all';document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.remove('active'));loadDrawerExercises(currentDrawerCat,'all','');});
-    host.querySelectorAll('[data-cat]').forEach(button=>button.onclick=event=>{event.preventDefault();event.stopPropagation();currentDrawerCat=button.dataset.cat;currentDrawerSub=button.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-cat]').forEach(item=>item.classList.toggle('active',item===button));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
+  function renderCategorySelect(){
+    const select=document.getElementById('drawerCategorySelect');
+    if(!select)return;
+    select.innerHTML=exerciseCategories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)} (${c.count.toLocaleString('fa-IR')} حرکت)</option>`).join('');
+    currentDrawerCat=exerciseCategories[0]?.id||null;currentDrawerSub='all';
+    renderSubChips();
+    document.querySelectorAll('[data-cat-summary]').forEach(el=>el.onchange=()=>{currentDrawerCat=el.value;currentDrawerSub='all';document.getElementById('drawerSearch').value='';renderSubChips();loadDrawerExercises(currentDrawerCat,'all','');});
+    if(currentDrawerCat)loadDrawerExercises(currentDrawerCat,'all','');
+  }
+  function renderSubChips(){
+    const host=document.getElementById('drawerSubChips');
+    if(!host)return;
+    const cat=exerciseCategories.find(c=>c.id===currentDrawerCat);
+    const subs=(cat&&cat.subs)||[];
+    host.innerHTML=`<button type="button" class="subchip ${currentDrawerSub==='all'?'active':''}" data-sub="all">همه</button>`+subs.map(sub=>`<button type="button" class="subchip ${currentDrawerSub===sub.id?'active':''}" data-sub="${esc(sub.id)}">${esc(sub.name)}</button>`).join('');
+    host.querySelectorAll('[data-sub]').forEach(btn=>btn.onclick=()=>{currentDrawerSub=btn.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-sub]').forEach(b=>b.classList.toggle('active',b===btn));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
   }
   async function loadDrawerExercises(catId=null,subId=null,searchValue=null){
     const host=document.getElementById('drawerList'),searchVal=searchValue===null?document.getElementById('drawerSearch').value.trim():String(searchValue).trim();
@@ -1125,7 +1134,10 @@
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
       clearTimeout(drawerSearchTimeout);
-      drawerSearchTimeout=setTimeout(()=>loadDrawerExercises(null,null,drawerSearch.value),200);
+      drawerSearchTimeout=setTimeout(()=>{
+        if(currentDrawerLocation!=='all'&&currentDrawerCat)loadDrawerExercises(currentDrawerCat,currentDrawerSub,drawerSearch.value);
+        else loadDrawerExercises(null,null,drawerSearch.value);
+      },200);
     };
 
     // Close contextual menus when clicking outside or pressing Escape

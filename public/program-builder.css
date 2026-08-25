@@ -238,3 +238,13 @@ input.jalali-bad { border-color: var(--danger); }
 .picker-group-title { padding: 2px 4px 4px; color: var(--accent-hover); font-size: 9px; font-weight: 800; border-bottom: 1px dashed var(--accent-border); }
 .picker-system { min-height: 44px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 8px 12px; border-radius: 10px; }
 .picker-system small { margin-right: auto; padding: 3px 9px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-surface); color: var(--accent-hover); font-size: 8px; font-weight: 800; }
+
+/* بانک حرکات: دراپ‌داون دسته + چیپ زیردسته + ابزارها */
+.drawer-category-bar { padding: 0; border: 0; background: transparent; }
+.drawer-category-bar select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--glass); color: var(--text); font: inherit; font-size: 10px; }
+.drawer-subchips { display: flex; flex-wrap: wrap; gap: 5px; padding: 0; border: 0; background: transparent; }
+.subchip { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--glass); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+.subchip:hover { border-color: var(--border-strong); color: var(--text); }
+.subchip.active { border-color: var(--accent); background: var(--accent-surface); color: var(--accent-hover); }
+.drawer-tools { display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; }
+.drawer-tools .drawer-search { flex: 1; }
