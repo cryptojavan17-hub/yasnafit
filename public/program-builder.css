@@ -248,3 +248,5 @@ input.jalali-bad { border-color: var(--danger); }
 .subchip.active { border-color: var(--accent); background: var(--accent-surface); color: var(--accent-hover); }
 .drawer-tools { display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; }
 .drawer-tools .drawer-search { flex: 1; }
+.drawer-global-search { margin-top: 7px; }
+.drawer-global-search input { width: 100%; }

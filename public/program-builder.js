@@ -321,7 +321,8 @@
           <div class="drawer-bank-flow">
             <section class="drawer-bank-step active" id="drawerLocationStep">
               <header><span>۱</span><div><b>محل تمرین</b><small>ابتدا یکی را انتخاب کنید</small></div></header>
-              <div class="drawer-location-options"><button type="button" data-bank-location="gym">باشگاه</button><button type="button" data-bank-location="home">منزل</button><button type="button" data-bank-location="all" class="all-option">🌐 همه محل‌ها</button></div>
+              <div class="drawer-location-options"><button type="button" data-bank-location="gym">باشگاه</button><button type="button" data-bank-location="home">منزل</button></div>
+              <div class="drawer-global-search"><input id="drawerGlobalSearch" placeholder="🔍 جستجوی حرکت در همه محل‌ها…" autocomplete="off"></div>
             </section>
             <section class="drawer-bank-step locked" id="drawerFilterStep" hidden>
               <header><span>۲</span><div><b>پیدا کردن حرکت</b><small>جستجو یا انتخاب دسته‌بندی</small></div></header>
@@ -760,6 +761,7 @@
     document.querySelectorAll('[data-bank-location]').forEach(button=>{button.classList.remove('active');button.disabled=false;});
     const filter=document.getElementById('drawerFilterStep'),search=document.getElementById('drawerSearch'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
     if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';
+    const globalSearchInput=document.getElementById('drawerGlobalSearch');if(globalSearchInput)globalSearchInput.value='';
     const subChips=document.getElementById('drawerSubChips');if(subChips)subChips.innerHTML='';
     if(list)list.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';
   }
@@ -877,6 +879,18 @@
     const subs=(cat&&cat.subs)||[];
     host.innerHTML=`<button type="button" class="subchip ${currentDrawerSub==='all'?'active':''}" data-sub="all">همه</button>`+subs.map(sub=>`<button type="button" class="subchip ${currentDrawerSub===sub.id?'active':''}" data-sub="${esc(sub.id)}">${esc(sub.name)}</button>`).join('');
     host.querySelectorAll('[data-sub]').forEach(btn=>btn.onclick=()=>{currentDrawerSub=btn.dataset.sub;document.getElementById('drawerSearch').value='';host.querySelectorAll('[data-sub]').forEach(b=>b.classList.toggle('active',b===btn));loadDrawerExercises(currentDrawerCat,currentDrawerSub,'');});
+  }
+  async function doGlobalDrawerSearch(term){
+    const host=document.getElementById('drawerList');
+    if(!host)return;
+    term=String(term||'').trim();
+    if(!term){host.innerHTML='<div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div>';return;}
+    host.innerHTML='<div class="drawer-loading">در حال خواندن بانک حرکات…</div>';
+    try{
+      const query=new URLSearchParams({query:term,location:'both',status:'active',page:0,pageSize:40});
+      const response=await api(`/api/exercises?${query}`);
+      renderDrawerList(response.items||[]);
+    }catch(error){host.innerHTML=`<div class="drawer-error">خطا در دریافت حرکات: ${esc(error.message)}</div>`;}
   }
   async function loadDrawerExercises(catId=null,subId=null,searchValue=null){
     const host=document.getElementById('drawerList'),searchVal=searchValue===null?document.getElementById('drawerSearch').value.trim():String(searchValue).trim();
@@ -1131,6 +1145,11 @@
     const quickAddSubmitButton=document.getElementById('quickAddSubmit');
     if(quickAddSubmitButton)quickAddSubmitButton.onclick=submitQuickAddExercise;
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
+    const globalSearch=document.getElementById('drawerGlobalSearch');
+    if(globalSearch){
+      let globalTimeout;
+      globalSearch.oninput=()=>{clearTimeout(globalTimeout);globalTimeout=setTimeout(()=>doGlobalDrawerSearch(globalSearch.value),250);};
+    }
     const drawerSearch=document.getElementById('drawerSearch');
     drawerSearch.oninput=()=>{
       clearTimeout(drawerSearchTimeout);
