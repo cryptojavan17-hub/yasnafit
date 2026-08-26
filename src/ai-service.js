@@ -813,6 +813,13 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   const assessment = db.prepare('SELECT * FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid);
   if (!assessment) throw new Error('ارزیابی پیدا نشد.');
 
+  const isApproved = (assessment.lifecycle_status === 'APPROVED' || assessment.status === 'APPROVED');
+  let finalAssessmentId = isApproved ? aid : null;
+  if (!isApproved && sid) {
+    const approved = db.prepare("SELECT id FROM body_assessments WHERE student_id = ? AND (lifecycle_status='APPROVED' OR status='APPROVED') AND deleted_at IS NULL ORDER BY assessment_number DESC, id DESC LIMIT 1").get(sid);
+    if (approved) finalAssessmentId = approved.id;
+  }
+
   const details = assessmentService.getDetails(db, aid) || {};
 
   const location = details.sports?.preferred_location || student.preferred_location || 'gym';
@@ -937,7 +944,7 @@ ${sampleBank.slice(0, 45).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
     const fallbackPayload = {
       title: `برنامه تمرینی هوشمند — ${student.full_name}`,
       student_id: sid,
-      assessment_id: aid,
+      assessment_id: finalAssessmentId,
       coach_note: `برنامه تمرینی اختصاصی تنظیم‌شده بر اساس ارزیابی بدنی #${assessment.assessment_number}. رعایت تمپوی حرکات و آب‌رسانی الزامی است.`,
       status: 'DRAFT',
       start_date: new Date().toISOString().slice(0, 10),

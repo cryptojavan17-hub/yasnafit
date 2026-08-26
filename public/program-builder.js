@@ -1683,31 +1683,38 @@
     const btnAiDraft = document.getElementById('btnAiGenerateDraft');
     if (btnAiDraft) {
       btnAiDraft.onclick = async () => {
-        syncFormToProgram();
-        const studentId = currentProgram.student_id;
-        const assessmentId = currentProgram.assessment_id;
-        if (!studentId) {
-          alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
-          return;
-        }
         try {
+          syncFormToProgram();
+          const studentSel = document.getElementById('progStudent');
+          const studentId = studentSel?.value ? Number(studentSel.value) : (currentProgram?.student_id ? Number(currentProgram.student_id) : null);
+          const assessmentId = currentProgram?.assessment_id ? Number(currentProgram.assessment_id) : null;
+
+          if (!studentId) {
+            alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
+            return;
+          }
+
           btnAiDraft.disabled = true;
           btnAiDraft.textContent = '⏳ در حال تولید پیش‌نویس هوشمند…';
+
           const res = await api('/api/ai/generate-program', {
             method: 'POST',
             body: JSON.stringify({
               studentId: studentId,
-              assessmentId: assessmentId,
-              programId: currentProgram.id
+              assessmentId: assessmentId || undefined,
+              programId: currentProgram?.id ? Number(currentProgram.id) : undefined
             })
           });
 
-          if (res.programId) {
+          if (res.programId || res.redirectUrl) {
             alert('✅ پیش‌نویس برنامه تمرینی با هوش مصنوعی ساخته شد.');
-            location.href = `/programs/exercise/form?id=${res.programId}`;
+            location.href = res.redirectUrl || `/programs/exercise/form?id=${res.programId}`;
+          } else {
+            throw new Error(res.error || 'پاسخ نامعتبر از سرور دریافت شد.');
           }
         } catch (err) {
-          alert(`خطا در تولید پیش‌نویس هوشمند: ${err.message}`);
+          console.error('[AI Draft Error]', err);
+          alert(`❌ خطا در تولید پیش‌نویس هوشمند: ${err.message}`);
         } finally {
           btnAiDraft.disabled = false;
           btnAiDraft.innerHTML = '🤖 تولید پیش‌نویس هوشمند';
@@ -1850,12 +1857,29 @@
 
     // Autosave every 30 seconds
     setInterval(()=>{
-      if(dirty && currentProgram.title){
+      if(dirty && currentProgram && currentProgram.title){
         console.log('Autosave triggered...');
         // In real app, save to stash (localStorage)
         localStorage.setItem('yasnafit_program_stash', JSON.stringify(currentProgram));
       }
     }, 30000);
+  }
+
+  function syncFormToProgram(){
+    if(!currentProgram) currentProgram = createEmptyProgram();
+    const title = document.getElementById('progTitle')?.value?.trim();
+    const coachNote = document.getElementById('progNote')?.value?.trim();
+    const startEl = document.getElementById('progStart');
+    const endEl = document.getElementById('progEnd');
+    const start = window.YasnaJalali && startEl ? window.YasnaJalali.iso(startEl) : (startEl?.value || '');
+    const end = window.YasnaJalali && endEl ? window.YasnaJalali.iso(endEl) : (endEl?.value || '');
+    const studentId = document.getElementById('progStudent')?.value || currentProgram.student_id || null;
+
+    if(title) currentProgram.title = title;
+    currentProgram.coach_note = coachNote || '';
+    if(start) currentProgram.start_date = start;
+    if(end) currentProgram.end_date = end;
+    if(studentId) currentProgram.student_id = Number(studentId);
   }
 
   async function saveProgram(returnAfter, silent=false){
