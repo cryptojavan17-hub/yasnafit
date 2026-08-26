@@ -98,9 +98,14 @@
     const today = getTodayFaDate();
 
     let totalMovements = 0;
+    let totalSets = 0;
     days.forEach(d => {
       (d.data || d.systems || []).forEach(s => {
-        totalMovements += (s.movement_list || s.movements || []).length;
+        const movs = s.movement_list || s.movements || [];
+        totalMovements += movs.length;
+        movs.forEach(m => {
+          totalSets += (m.sets || []).length;
+        });
       });
     });
 
@@ -116,12 +121,12 @@
           <section class="pdf-day-card">
             <header class="pdf-day-head">
               <h3>روز ${dayNum.toLocaleString('fa-IR')} — ${dayFocus}</h3>
-              <span class="pdf-day-meta">🛌 استراحت و ریکاوری</span>
+              <span class="pdf-day-meta">🛌 استراحت و ریکاوری فعال</span>
             </header>
             ${dayNote ? `<div class="pdf-day-coach-note"><b>یادداشت مربی:</b> ${esc(dayNote)}</div>` : ''}
             <div class="pdf-rest-box">
               <b>روز استراحت و ریکاوری فعال</b>
-              <span>استراحت کافی، خواب باکیفیت شبانه، مصرف مداوم آب و تغذیه سالم جهت رشد و بازسازی عضلات.</span>
+              <span>استراحت کافی، خواب باکیفیت شبانه (۷ الی ۸ ساعت)، مصرف مداوم آب و تغذیه متناسب جهت رشد و بازسازی تارهای عضلانی.</span>
             </div>
           </section>
         `;
@@ -211,7 +216,7 @@
               <div class="pdf-logo-badge">Y</div>
               <div>
                 <h2 class="pdf-brand-title">سامانه مدیریت و مربیگری یسنافیت</h2>
-                <div class="pdf-brand-subtitle">Yasnafit Professional Coaching System</div>
+                <div class="pdf-brand-subtitle">Yasnafit Professional Coaching & Fitness Platform</div>
               </div>
             </div>
             <div class="pdf-stamp-badge">
@@ -235,8 +240,8 @@
               <span class="pdf-meta-val">${startDate} تا ${endDate}</span>
             </div>
             <div class="pdf-meta-item">
-              <span class="pdf-meta-label">تعداد روزها و حرکات</span>
-              <span class="pdf-meta-val">${days.length.toLocaleString('fa-IR')} روز • ${totalMovements.toLocaleString('fa-IR')} حرکت</span>
+              <span class="pdf-meta-label">آمار جلسات و ست‌ها</span>
+              <span class="pdf-meta-val">${days.length.toLocaleString('fa-IR')} جلسه • ${totalMovements.toLocaleString('fa-IR')} حرکت (${totalSets.toLocaleString('fa-IR')} ست)</span>
             </div>
             <div class="pdf-meta-item">
               <span class="pdf-meta-label">وضعیت برنامه</span>
@@ -246,9 +251,34 @@
 
           ${coachNote ? `
             <div class="pdf-coach-note">
-              <b>توصیه‌های مربی:</b> ${esc(coachNote)}
+              <b>توصیه‌های اختصاصی مربی:</b> ${esc(coachNote)}
             </div>
           ` : ''}
+
+          <div class="pdf-guidelines-box">
+            <div class="pdf-guidelines-head">
+              <span>📋</span>
+              <b>پروتکل‌های عمومی اجرای برنامه و ریکاوری:</b>
+            </div>
+            <div class="pdf-guidelines-grid">
+              <div class="pdf-guide-item">
+                <b>🏃 گرم‌کردن و موبیلیتی:</b>
+                <span>۵ الی ۱۰ دقیقه گرم‌کردن عمومی + ۱ تا ۲ ست سبک فعال‌سازی عصبی عضلانی.</span>
+              </div>
+              <div class="pdf-guide-item">
+                <b>⏱️ استراحت بین ست‌ها:</b>
+                <span>۶۰ تا ۹۰ ثانیه برای حرکات ایزوله و ۹۰ تا ۱۲۰ ثانیه برای حرکات کامپاند.</span>
+              </div>
+              <div class="pdf-guide-item">
+                <b>🎯 تمپو و کنترل وزنه:</b>
+                <span>تمرکز بر فاز منفی (اکسنتریک)، حفظ فرم صحیح و دامنه کامل حرکتی بدون ضربه.</span>
+              </div>
+              <div class="pdf-guide-item">
+                <b>💧 آب‌رسانی و تغذیه:</b>
+                <span>مصرف آب کافی حین تمرین و مصرف پروتئین و کربوهیدرات مناسب پس از جلسه.</span>
+              </div>
+            </div>
+          </div>
         </header>
 
         <!-- Body / Days -->
@@ -264,6 +294,43 @@
         </footer>
       </div>
     `;
+  }
+
+  function programToPlainText(program) {
+    const progData = program.program_data || {};
+    const days = progData.days || [];
+    const studentName = program.student_name || program.studentName || 'ورزشکار';
+    const startDate = toFaDate(program.start_date || program.startDate);
+    const endDate = toFaDate(program.end_date || program.endDate);
+    const title = program.title || 'برنامه تمرینی';
+
+    let text = `🏋️ ${title}\n👤 ورزشکار: ${studentName}\n🗓️ بازه: ${startDate} تا ${endDate}\n`;
+    if (program.coach_note) text += `💬 یادداشت مربی: ${program.coach_note}\n`;
+    text += `\n${'═'.repeat(30)}\n`;
+
+    days.forEach((day, dIdx) => {
+      const dayNum = day.day_number || (dIdx + 1);
+      const dayFocus = day.focus || `جلسه ${dayNum}`;
+      if (day.is_rest_day || day.isRestDay) {
+        text += `\n🛌 روز ${dayNum}: ${dayFocus} (استراحت و ریکاوری)\n`;
+      } else {
+        text += `\n📌 روز ${dayNum}: ${dayFocus}\n`;
+        (day.data || day.systems || []).forEach(sys => {
+          const sysId = Number(sys.exercise_system_id || sys.exerciseSystemId || 1);
+          const sysMeta = systems[sysId] || systems[1];
+          text += `  🔹 سیستم: ${sysMeta.label}\n`;
+          (sys.movement_list || sys.movements || []).forEach((mov, mIdx) => {
+            const movName = mov.nameFa || mov.name || 'حرکت';
+            const setsStr = (mov.sets || []).map((s, i) => `${s.count || '—'} ${units[s.type] || 'تکرار'}`).join(' | ');
+            text += `    ${mIdx + 1}. ${movName} ← [ ${setsStr} ]\n`;
+            if (mov.description) text += `       نکته: ${mov.description}\n`;
+          });
+        });
+      }
+    });
+
+    text += `\n${'═'.repeat(30)}\nتنظیم شده در سامانه یسنافیت (Yasnafit)`;
+    return text;
   }
 
   async function openProgramPDF(programOrId) {
@@ -321,6 +388,9 @@
           <b>پیش‌نمایش خروجی PDF و چاپ برنامه تمرینی</b>
         </div>
         <div class="pdf-toolbar-actions">
+          <button type="button" class="pdf-btn pdf-btn-secondary" id="btnPdfCopyText">
+            <span>📋</span> کپی متن برنامه
+          </button>
           <button type="button" class="pdf-btn pdf-btn-primary" id="btnPdfPrint">
             <span>🖨️</span> چاپ / ذخیره PDF
           </button>
@@ -347,6 +417,22 @@
       window.print();
     };
 
+    const copyBtn = document.getElementById('btnPdfCopyText');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          const plain = programToPlainText(program);
+          await navigator.clipboard.writeText(plain);
+          copyBtn.textContent = 'کپی شد ✓';
+          setTimeout(() => {
+            copyBtn.innerHTML = '<span>📋</span> کپی متن برنامه';
+          }, 2000);
+        } catch(e) {
+          alert('امکان کپی خودکار فراهم نشد.');
+        }
+      };
+    }
+
     // Close on Escape
     const onKey = (e) => {
       if (e.key === 'Escape' && !modal.hidden) {
@@ -360,6 +446,7 @@
   // Export globally
   win.YasnafitPDF = {
     generateHTML: generateProgramSheetHTML,
+    toPlainText: programToPlainText,
     open: openProgramPDF
   };
   win.openProgramPDF = openProgramPDF;
