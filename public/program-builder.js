@@ -570,9 +570,11 @@
               </div>
             </section>
           </div>
-          <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
           <div class="drawer-quickadd" id="drawerQuickAdd" hidden>
-            <b>افزودن حرکت دستی</b>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <b style="font-size:11px;color:var(--accent-hover);">＋ افزودن حرکت دستی به بانک</b>
+              <button type="button" class="btn-icon" id="quickAddCloseX" style="width:24px;height:24px;font-size:14px;" title="بستن">×</button>
+            </div>
             <div class="quickadd-grid">
               <input id="quickAddName" placeholder="نام حرکت (فارسی) *" maxlength="120">
               <select id="quickAddLocation">
@@ -582,10 +584,10 @@
               </select>
               <select id="quickAddCategory"></select>
             </div>
-            <div class="quickadd-muscles-row" style="margin-top:7px;display:flex;flex-direction:column;gap:5px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <div class="quickadd-muscles-row" style="margin-top:4px;display:flex;flex-direction:column;gap:5px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
                 <span style="font-size:10px;color:var(--text-secondary);font-weight:700;">عضله‌های هدف درگیر:</span>
-                <select id="quickAddMuscleSelect" style="min-height:30px;padding:3px 8px;font-size:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+                <select id="quickAddMuscleSelect" style="min-height:30px;padding:3px 8px;font-size:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-3);color:var(--text);">
                   <option value="">＋ انتخاب و افزودن عضله...</option>
                   <optgroup label="عضلات جلو">
                     ${muscleCatalog.filter(m=>m.side==='front').map(m=>`<option value="${m.id}">${m.label}</option>`).join('')}
@@ -597,11 +599,12 @@
               </div>
               <div class="quickadd-muscle-chips" id="quickAddMuscleChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px;"></div>
             </div>
-            <div class="quickadd-actions">
-              <span class="quickadd-hint">می‌توانید چند عضله را با ＋ انتخاب کنید تا روی بدن مشخص شوند.</span>
-              <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button">ثبت حرکت</button>
+            <div class="quickadd-actions" style="margin-top:2px;">
+              <span class="quickadd-hint">عضله‌های درگیر را با ＋ انتخاب کنید.</span>
+              <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button" style="min-height:32px;padding:5px 14px;font-weight:800;">ثبت حرکت</button>
             </div>
           </div>
+          <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
       </div>
     </div>
@@ -1043,6 +1046,11 @@
     if(!panel)return;
     panel.hidden=force!==undefined?!force:!panel.hidden;
     if(button)button.textContent=panel.hidden?'＋ افزودن حرکت دستی':'× بستن افزودن دستی';
+    const closeX = document.getElementById('quickAddCloseX');
+    if (closeX && !closeX._bound) {
+      closeX._bound = true;
+      closeX.onclick = () => toggleQuickAddPanel(false);
+    }
     if(!panel.hidden){
       refreshQuickAddCategories();
       const qaSelect = document.getElementById('quickAddMuscleSelect');
@@ -1675,15 +1683,15 @@
           setDirty(true);
         }
       };
-      startInput.addEventListener('change', onStartChange);
-      startInput.addEventListener('input', onStartChange);
-      endInput.addEventListener('change', () => {
+      startInput.onchange = onStartChange;
+      startInput.oninput = onStartChange;
+      endInput.onchange = () => {
         const endISO = window.YasnaJalali ? window.YasnaJalali.iso(endInput) : endInput.value;
         if (endISO) {
           currentProgram.end_date = endISO;
           setDirty(true);
         }
-      });
+      };
     }
 
     document.getElementById('closeDrawer').onclick=closeDrawer;

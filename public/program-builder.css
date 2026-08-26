@@ -219,7 +219,7 @@ input.jalali-ok { border-color: var(--success); }
 input.jalali-bad { border-color: var(--danger); }
 .drawer-location-options button.all-option { grid-column: 1 / -1; min-height: 38px; }
 .drawer-footer { padding: 9px 11px; display: flex; align-items: center; justify-content: flex-start; border-top: 1px solid var(--border); background: var(--surface-inset); }
-.drawer-quickadd { padding: 11px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--accent-border); background: var(--accent-surface); }
+.drawer-quickadd { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--accent-border); background: var(--surface-2); flex-shrink: 0; box-shadow: 0 4px 18px rgba(0,0,0,.45); }
 .drawer-quickadd[hidden] { display: none; }
 .drawer-quickadd > b { font-size: 10px; color: var(--accent-hover); }
 .quickadd-grid { display: grid; grid-template-columns: 1fr 110px 150px; gap: 6px; }

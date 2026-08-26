@@ -1110,6 +1110,16 @@ const migrations = [
         }catch(error){}
       }
     }
+  },
+  {
+    id: '023_exercise_target_muscles',
+    description: 'Add target_muscles JSON column for multi-muscle highlighting',
+    up: (db) => {
+      const cols = new Set(db.prepare('PRAGMA table_info(exercises)').all().map(r => r.name));
+      if (!cols.has('target_muscles')) {
+        db.exec('ALTER TABLE exercises ADD COLUMN target_muscles TEXT');
+      }
+    }
   }
 ];
 
