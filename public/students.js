@@ -167,7 +167,7 @@
       <div class="history-actions"><button class="secondary" data-review-assessment="${assessment.id}">بررسی کامل</button></div></article>`;
   }
   function programCard(program){
-    return `<article class="history-card"><header><div><b>${esc(program.title)}</b><small>${formatDate(program.start_date)} تا ${formatDate(program.end_date)}</small></div><span class="program-status ${String(program.status).toLowerCase()}">${esc(programLabels[program.status]||fa(program.status))}</span></header><p>${esc(program.coach_note||'بدون توضیح')}</p><div class="history-actions"><button class="secondary" data-view-program="${program.id}">مشاهده فقط‌خواندنی</button></div></article>`;
+    return `<article class="history-card"><header><div><b>${esc(program.title)}</b><small>${formatDate(program.start_date)} تا ${formatDate(program.end_date)}</small></div><span class="program-status ${String(program.status).toLowerCase()}">${esc(programLabels[program.status]||fa(program.status))}</span></header><p>${esc(program.coach_note||'بدون توضیح')}</p><div class="history-actions"><button class="secondary" data-view-program="${program.id}">مشاهده</button><button class="secondary" data-pdf-program="${program.id}">📄 PDF</button></div></article>`;
   }
   function timelineItem(item){
     if(item.type==='assessment') return `<li><span class="timeline-dot assessment">📋</span><div><b>ارزیابی ${item.data.assessment_number}</b><small>${formatDate(item.date)} • ${esc(assessmentLabels[item.data.lifecycle_status||item.data.status]||fa(item.data.lifecycle_status||item.data.status))}</small></div></li>`;
@@ -249,6 +249,10 @@
       content.querySelectorAll('[data-open-photo]').forEach(button=>button.onclick=()=>window.open(`/api/student-photos/${button.dataset.openPhoto}`,'_blank','noopener'));
       content.querySelectorAll('[data-review-assessment]').forEach(button=>button.onclick=()=>{location.href=`/assessments/${button.dataset.reviewAssessment}`;});
       content.querySelectorAll('[data-view-program]').forEach(button=>button.onclick=()=>openProgramReadOnly(button.dataset.viewProgram));
+      content.querySelectorAll('[data-pdf-program]').forEach(button=>button.onclick=()=>{
+        const progId = Number(button.dataset.pdfProgram);
+        if(window.openProgramPDF) window.openProgramPDF(progId);
+      });
       content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${internalStudentId}&assessment_id=${button.dataset.createProgram}`;});
       content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(internalStudentId)));button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(caseNumber);}catch(error){alert(error.message);}});

@@ -1,0 +1,485 @@
+/* Yasnafit — Professional Workout Program PDF / Print Stylesheet */
+
+.pdf-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, .88);
+  backdrop-filter: blur(12px);
+  overflow-y: auto;
+  direction: rtl;
+  color: var(--pdf-text);
+  font-family: inherit;
+}
+
+.pdf-preview-modal[hidden] {
+  display: none;
+}
+
+.pdf-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background: rgba(15, 23, 42, .96);
+  border-bottom: 1px solid rgba(255, 255, 255, .15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .4);
+}
+
+.pdf-toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pdf-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.pdf-btn-primary {
+  background: var(--accent);
+  color: var(--white);
+  border-color: var(--accent-strong);
+}
+
+.pdf-btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.pdf-btn-secondary {
+  background: rgba(255, 255, 255, .1);
+  color: var(--white);
+  border-color: rgba(255, 255, 255, .2);
+}
+
+.pdf-btn-secondary:hover {
+  background: rgba(255, 255, 255, .18);
+}
+
+.pdf-btn-close {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.pdf-content-wrapper {
+  flex: 1;
+  padding: 24px 16px 48px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Printable Sheet */
+.pdf-sheet {
+  width: 100%;
+  max-width: 840px;
+  background: var(--pdf-bg);
+  color: var(--pdf-text);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .5);
+  padding: 28px 32px;
+  box-sizing: border-box;
+}
+
+/* Header */
+.pdf-header {
+  border-bottom: 2px solid var(--pdf-border);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.pdf-brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.pdf-logo-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdf-logo-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--pdf-text);
+  color: var(--pdf-bg);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.pdf-brand-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--pdf-text);
+  line-height: 1.2;
+}
+
+.pdf-brand-subtitle {
+  font-size: 9px;
+  color: var(--pdf-text-muted);
+  font-weight: 600;
+}
+
+.pdf-stamp-badge {
+  padding: 5px 12px;
+  border: 1px solid var(--pdf-border-strong);
+  border-radius: 999px;
+  background: var(--pdf-surface);
+  font-size: 10px;
+  font-weight: 750;
+  color: var(--pdf-text-secondary);
+}
+
+.pdf-program-title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--pdf-text);
+  line-height: 1.3;
+}
+
+.pdf-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--pdf-border);
+  border-radius: 10px;
+  background: var(--pdf-surface);
+}
+
+.pdf-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pdf-meta-label {
+  font-size: 9px;
+  color: var(--pdf-text-muted);
+  font-weight: 700;
+}
+
+.pdf-meta-val {
+  font-size: 12px;
+  color: var(--pdf-text);
+  font-weight: 850;
+}
+
+/* Coach Note */
+.pdf-coach-note {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-right: 4px solid var(--pdf-accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--pdf-accent-light);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--pdf-text-secondary);
+}
+
+.pdf-coach-note b {
+  color: var(--pdf-accent-dark);
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* Day Section */
+.pdf-day-card {
+  margin-bottom: 22px;
+  border: 1px solid var(--pdf-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--pdf-bg);
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.pdf-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--pdf-surface-2);
+  border-bottom: 1px solid var(--pdf-border);
+}
+
+.pdf-day-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--pdf-text);
+}
+
+.pdf-day-meta {
+  font-size: 10px;
+  color: var(--pdf-text-muted);
+  font-weight: 700;
+}
+
+.pdf-day-coach-note {
+  padding: 8px 16px;
+  background: var(--pdf-surface);
+  border-bottom: 1px dashed var(--pdf-border);
+  font-size: 10px;
+  color: var(--pdf-text-secondary);
+  line-height: 1.6;
+}
+
+/* Rest Day */
+.pdf-rest-box {
+  padding: 24px;
+  text-align: center;
+  background: var(--pdf-surface);
+  color: var(--pdf-text-muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.pdf-rest-box b {
+  display: block;
+  font-size: 13px;
+  color: var(--pdf-text-secondary);
+  margin-bottom: 4px;
+}
+
+/* System Block */
+.pdf-system-block {
+  padding: 12px 16px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.pdf-system-block + .pdf-system-block {
+  border-top: 1px dashed var(--pdf-border);
+}
+
+.pdf-system-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pdf-system-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--pdf-border-strong);
+  border-radius: 999px;
+  background: var(--pdf-surface-2);
+  font-size: 10px;
+  font-weight: 850;
+  color: var(--pdf-text);
+}
+
+/* Movement Table / Cards */
+.pdf-movements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdf-mov-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--pdf-border);
+  border-radius: 9px;
+  background: var(--pdf-surface);
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.pdf-mov-img {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 1px solid var(--pdf-border);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--pdf-bg);
+  display: grid;
+  place-items: center;
+}
+
+.pdf-mov-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--pdf-bg);
+  display: block;
+}
+
+.pdf-mov-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pdf-mov-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pdf-mov-name {
+  font-size: 12px;
+  font-weight: 850;
+  color: var(--pdf-text);
+}
+
+.pdf-muscles-tag {
+  padding: 2px 7px;
+  border: 1px solid var(--pdf-border);
+  border-radius: 999px;
+  background: var(--pdf-bg);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--pdf-text-muted);
+}
+
+.pdf-mov-desc {
+  font-size: 9px;
+  color: var(--pdf-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pdf-set-boxes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.pdf-set-sq {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid var(--pdf-border-strong);
+  border-radius: 6px;
+  background: var(--pdf-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  box-sizing: border-box;
+}
+
+.pdf-set-val {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--pdf-text);
+}
+
+.pdf-set-unit {
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--pdf-text-muted);
+}
+
+/* Footer */
+.pdf-footer {
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pdf-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 9px;
+  color: var(--pdf-text-muted);
+  font-weight: 600;
+}
+
+/* Print Overrides */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .pdf-preview-modal,
+  .pdf-preview-modal * {
+    visibility: visible;
+  }
+  .pdf-preview-modal {
+    position: static;
+    inset: auto;
+    background: transparent;
+    padding: 0;
+    overflow: visible;
+    backdrop-filter: none;
+  }
+  .pdf-toolbar {
+    display: none;
+  }
+  .pdf-content-wrapper {
+    padding: 0;
+  }
+  .pdf-sheet {
+    max-width: 100%;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 10mm 10mm 12mm 10mm;
+  }
+  .pdf-day-card,
+  .pdf-system-block,
+  .pdf-mov-row,
+  .pdf-meta-grid,
+  .pdf-coach-note {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

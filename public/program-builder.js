@@ -492,12 +492,14 @@
         <span class="dirty-inline" id="dirtyInline" hidden>⚠️ ذخیره نشده</span>
         <span class="volume-badge" id="volBadge">${vol.totalSets} ست • ${vol.totalMovs} حرکت • ${vol.totalDays} روز</span>
         <div class="spacer"></div>
+        <button class="btn btn-secondary" id="btnExportPDF" type="button" title="پیش‌نمایش و چاپ نسخه PDF">📄 خروجی PDF</button>
         <button class="btn btn-secondary" id="btnSaveReturn">💾 ذخیره و بازگشت</button>
         <button class="btn btn-primary" id="btnSave">💾 ذخیره پیش‌نویس</button>
         <button class="btn btn-assign" id="btnAssign">✅ ذخیره و اختصاص به شاگرد</button>
         <div class="builder-menu-wrap">
           <button class="btn-icon" id="moreMenuBtn" type="button" data-menu title="ابزارهای بیشتر">⋮</button>
           <div class="builder-menu" id="moreMenu" hidden>
+            <button type="button" id="btnMenuPDF">📄 خروجی و چاپ PDF</button>
             <button type="button" id="btnPreview">👁 پیش‌نمایش JSON</button>
             <button type="button" id="btnStats">📈 آمار برنامه</button>
             <button type="button" id="btnList">📋 لیست برنامه‌ها</button>
@@ -1663,6 +1665,17 @@
         location.href=`/students/${currentProgram.student_id}/timeline`;
       }catch(e){ alert('خطا در اختصاص برنامه: '+e.message); }
     };
+    const handleExportPDF = () => {
+      syncFormToProgram();
+      if (window.openProgramPDF) {
+        window.openProgramPDF(currentProgram);
+      }
+    };
+    const btnExportPDF = document.getElementById('btnExportPDF');
+    if (btnExportPDF) btnExportPDF.onclick = handleExportPDF;
+    const btnMenuPDF = document.getElementById('btnMenuPDF');
+    if (btnMenuPDF) btnMenuPDF.onclick = handleExportPDF;
+
     document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
     document.getElementById('btnPreview').onclick=()=>{
       const preview = JSON.stringify(currentProgram, null, 2);
@@ -1947,7 +1960,12 @@
         };
       });
       host.querySelectorAll('[data-pdf]').forEach(b=>{
-        b.onclick=()=> alert('📄 خروجی PDF حرفه‌ای: در نسخه کامل، PDF با لوگو و جدول ست‌ها تولید می‌شود');
+        b.onclick = () => {
+          const id = Number(b.dataset.pdf);
+          if (window.openProgramPDF) {
+            window.openProgramPDF(id);
+          }
+        };
       });
     } catch(e){
       document.getElementById('progList').innerHTML=`<div class="error">خطا: ${esc(e.message)}</div>`;
