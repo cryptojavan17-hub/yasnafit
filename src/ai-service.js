@@ -839,34 +839,46 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   const categories = db.prepare('SELECT id, name FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order').all();
 
   const prompt = `
-مشخصات شاگرد و ارزیابی:
+مشخصات شاگرد و ارزیابی بدنی:
 - نام شاگرد: ${student.full_name} (شماره پرونده: ${student.case_number || '—'})
 - شناسه شاگرد (studentId): ${sid}
 - شناسه ارزیابی (assessmentId): ${aid}
-- وزن: ${assessment.weight || '—'} کیلوگرم | قد: ${assessment.height || '—'} سانتی‌متر
+- وزن: ${assessment.weight || '—'} کیلوگرم | قد: ${assessment.height || '—'} سانتی‌متر | درصد چربی: ${assessment.body_fat || '—'}%
 - هدف اصلی: ${goal}
 - سطح تمرین: ${level}
 - محل تمرین: ${location === 'home' ? 'منزل' : 'باشگاه'}
 - آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
 ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}
 
-دسته‌بندی‌های موجود در بانک حرکات:
-${categories.map(c => `- ${c.id}: ${c.name}`).join('\n')}
+شناسه‌های استاندارد حرکات پایه برای ساختار ۵ مرحله‌ای (الزامی):
+- گرم کردن پویا (Warm-up): [ID: 1158] «گرم کردن» (دسته: warmup)
+- سرد کردن و کشش ایستا (Cool-down): [ID: 1157] «سرد کردن» (دسته: warmup)
+- هوازی و چربی‌سوزی (Cardio): [ID: 1107] «تردمیل» | [ID: 1110] «دوچرخه ثابت» | [ID: 1106] «الپتیکال» | [ID: 1385] «دویدن»
 
-نمونه‌ای از حرکات معتبر با شناسه عددی دقیق (حتماً فقط از این شناسه‌ها یا نتایج search_exercises استفاده کنید):
-${sampleBank.slice(0, 45).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})`).join(' | ')}
+نمونه‌ای از حرکات قدرتی و هایپرتروفی معتبر بانک:
+${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})`).join(' | ')}
 
-وظیفه شما:
-۱. یک برنامه تمرینی ۳ الی ۴ روزه متناسب با هدف و شرایط شاگرد طراحی کنید.
-۲. برای هر روز، سیستم تمرینی مناسب (۱: معمولی، ۲: سوپرست و...) و حرکات را با exercise_id معتبر از بانک انتخاب کنید.
-۳. ساختن نام یا شناسه خارج از بانک حرکات اکیداً ممنوع است.
-۴. ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT ذخیره شود.
+وظیفه و پروتکل ۵ مرحله‌ای اجباری برای هر روز تمرینی:
+۱. یک برنامه تمرینی ۳ الی ۴ روزه علمی و متعادل طراحی کنید.
+۲. هر جلسه تمرینی حتماً باید دارای ساختار زیر باشد:
+   - سیستم ۱ (گرم کردن): حرکت [ID: 1158] «گرم کردن» به مدت ۵ تا ۱۰ دقیقه (واحد TIME با مقدار ۳۰۰ الی ۶۰۰ ثانیه).
+   - سیستم‌های ۲ و ۳ (حرکات اصلی و کمکی): حرکات چندمفصلی و ایزوله متناسب با عضلات هدف جلسه با ست‌ها و تکرارهای متناسب (معمولی، سوپرست و...).
+   - سیستم ۴ (هوازی / تردمیل): حرکت [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۵ الی ۲۰ دقیقه (واحد TIME با مقدار ۹۰۰ الی ۱۲۰۰ ثانیه) جهت ارتقای استقامت قلبی-تنفسی و چربی‌سوزی.
+   - سیستم ۵ (سرد کردن): حرکت [ID: 1157] «سرد کردن» یا کشش‌های تخصصی به مدت ۵ دقیقه (واحد TIME با مقدار ۳۰۰ ثانیه) جهت ریکاوری و دفع لاکتات.
+۳. ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT ذخیره شود.
 `;
 
   const systemMessage = {
     role: 'system',
-    content: `شما مربی و متخصص ارشد فیزیولوژی تمرین در سامانه یسنافیت هستید.
-قانون اساسی و غیرقابل نقض:
+    content: `شما فیزیولوژیست ورزشی و مربی ارشد بدنسازی در سامانه یسنافیت هستید.
+اصول علمی و ساختار ۵ مرحله‌ای اجباری برای هر روز تمرینی:
+۱. مرحله آغازین (گرم کردن): هر جلسه حتماً با یک حرکت گرم‌کردن پویا و موبیلیتی مفاصل («گرم کردن» [ID: 1158] با سیستم معمولی ۱ ست ۵ تا ۱۰ دقیقه) شروع شود.
+۲. مرحله حرکات اصلی (Main Compound Lifts): حرکات چندمفصلی مادر با بیشترین درگیری عصبی-عضلانی در ابتدای بخش قدرتی قرار گیرند.
+۳. مرحله حرکات کمکی و ایزوله (Accessory Hypertrophy): حرکات تک‌مفصلی جهت ایجاد تنش مکانیکی و پمپ عضلانی با سیستم‌های متناسب (سوپرست، دراپ‌ست، معمولی).
+۴. مرحله هوازی و قلبی-عروقی (Cardio Conditioning): یک حرکت هوازی مانند «تردمیل» [ID: 1107] یا «دوچرخه ثابت» [ID: 1110] (۱ ست ۱۵ الی ۲۰ دقیقه) قبل از سرد کردن قرار گیرد.
+۵. مرحله پایانی (سرد کردن و کشش ایستا): هر جلسه حتماً با یک حرکت سردکردن و کشش («سرد کردن» [ID: 1157] با سیستم معمولی ۱ ست ۵ دقیقه) به پایان برسد.
+
+قوانین سخت‌گیرانه و غیرقابل نقض:
 ۱. شما فقط و فقط مجاز هستید از حرکات واقعی موجود در بانک حرکات ۲۷۰۷ تایی یسنافیت با exercise_id معتبر استفاده کنید.
 ۲. تحت هیچ شرایطی حرکت جدید یا نام جعلی خارج از جدول exercises نسازید.
 ۳. حرکات مضر برای آسیب شاگرد (${injuries}) را قرار ندهید.
@@ -896,17 +908,58 @@ ${sampleBank.slice(0, 45).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
   // Fallback if AI provider did not complete tool call
   if (!createdProgId) {
     const splitDays = [
-      { focus: 'سینه و جلو بازو', cats: ['chest', 'biceps'] },
-      { focus: 'زیربغل و پشت بازو', cats: ['back', 'triceps'] },
-      { focus: 'پا و ساق', cats: ['legs'] },
-      { focus: 'سرشانه، کول و شکم', cats: ['shoulders', 'abs'] }
+      {
+        focus: 'سینه، جلو بازو، هوازی و ریکاوری',
+        mainCats: ['chest'],
+        accCats: ['biceps'],
+        cardioId: 1107, // تردمیل
+        cardioName: 'تردمیل'
+      },
+      {
+        focus: 'زیربغل، پشت بازو، هوازی و ریکاوری',
+        mainCats: ['back'],
+        accCats: ['triceps'],
+        cardioId: 1110, // دوچرخه ثابت
+        cardioName: 'دوچرخه ثابت'
+      },
+      {
+        focus: 'پا، باسن، شکم، هوازی و ریکاوری',
+        mainCats: ['legs'],
+        accCats: ['abs'],
+        cardioId: 1106, // الپتیکال
+        cardioName: 'الپتیکال'
+      },
+      {
+        focus: 'سرشانه، کول، شکم، هوازی و ریکاوری',
+        mainCats: ['shoulders'],
+        accCats: ['traps', 'abs'],
+        cardioId: 1107, // تردمیل
+        cardioName: 'تردمیل'
+      }
     ];
 
     const daysPayload = [];
     for (let i = 0; i < splitDays.length; i++) {
       const sp = splitDays[i];
-      const movList = [];
-      for (const cat of sp.cats) {
+      const daySystems = [];
+
+      // 1. Phase 1: Warm-up System
+      daySystems.push({
+        exercise_system_id: 1,
+        system_type: 'normal',
+        movements: [
+          {
+            exercise_id: 1158, // گرم کردن
+            name: 'گرم کردن',
+            description: '۵ الی ۱۰ دقیقه گرم کردن عمومی مفاصل و افزایش دمای مرکزی بدن',
+            sets: [{ type: 'TIME', count: 600, restSeconds: 60 }]
+          }
+        ]
+      });
+
+      // 2. Phase 2: Main Compound Movements System
+      const mainMovs = [];
+      for (const cat of sp.mainCats) {
         const catExercises = db.prepare(`
           SELECT id, name_fa FROM exercises
           WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
@@ -914,38 +967,97 @@ ${sampleBank.slice(0, 45).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
         `).all(cat, location === 'home' ? 'home' : 'gym');
 
         for (const ex of catExercises) {
-          movList.push({
+          mainMovs.push({
             exercise_id: ex.id,
             name: ex.name_fa,
-            description: 'کنترل فاز منفی، تمرکز بر دامنه کامل حرکتی',
+            description: 'حرکت اصلی چندمفصلی، کنترل کامل فاز منفی و دامنه حرکتی',
             sets: [
               { type: 'REPEAT', count: 12, restSeconds: 60 },
               { type: 'REPEAT', count: 10, restSeconds: 60 },
-              { type: 'REPEAT', count: 8, restSeconds: 60 }
+              { type: 'REPEAT', count: 8, restSeconds: 75 }
             ]
           });
         }
       }
+      if (mainMovs.length > 0) {
+        daySystems.push({
+          exercise_system_id: 1,
+          system_type: 'normal',
+          movements: mainMovs
+        });
+      }
+
+      // 3. Phase 3: Accessory / Isolation Movements System
+      const accMovs = [];
+      for (const cat of sp.accCats) {
+        const accExercises = db.prepare(`
+          SELECT id, name_fa FROM exercises
+          WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
+          ORDER BY priority ASC, id ASC LIMIT 2
+        `).all(cat, location === 'home' ? 'home' : 'gym');
+
+        for (const ex of accExercises) {
+          accMovs.push({
+            exercise_id: ex.id,
+            name: ex.name_fa,
+            description: 'حرکت ایزوله، تمرکز بر انقباض حداکثری عضله هدف',
+            sets: [
+              { type: 'REPEAT', count: 12, restSeconds: 60 },
+              { type: 'REPEAT', count: 12, restSeconds: 60 },
+              { type: 'REPEAT', count: 10, restSeconds: 60 }
+            ]
+          });
+        }
+      }
+      if (accMovs.length > 0) {
+        daySystems.push({
+          exercise_system_id: 1,
+          system_type: 'normal',
+          movements: accMovs
+        });
+      }
+
+      // 4. Phase 4: Cardio Conditioning System (Treadmill / Bike / Elliptical)
+      daySystems.push({
+        exercise_system_id: 1,
+        system_type: 'normal',
+        movements: [
+          {
+            exercise_id: sp.cardioId,
+            name: sp.cardioName,
+            description: 'تمرین هوازی با شدت یکنواخت متوسط (Zone 2) جهت چربی‌سوزی و ریکاوری فعال',
+            sets: [{ type: 'TIME', count: 900, restSeconds: 60 }] // 15 minutes
+          }
+        ]
+      });
+
+      // 5. Phase 5: Cool-down & Static Stretching System
+      daySystems.push({
+        exercise_system_id: 1,
+        system_type: 'normal',
+        movements: [
+          {
+            exercise_id: 1157, // سرد کردن
+            name: 'سرد کردن',
+            description: 'کشش ایستا و بازگشت ضربان قلب به حالت اولیه جهت ریکاوری سریع‌تر عضلات',
+            sets: [{ type: 'TIME', count: 300, restSeconds: 30 }] // 5 minutes
+          }
+        ]
+      });
 
       daysPayload.push({
         day_number: i + 1,
         focus: sp.focus,
         is_rest_day: false,
-        systems: [
-          {
-            exercise_system_id: 1,
-            system_type: 'normal',
-            movements: movList
-          }
-        ]
+        systems: daySystems
       });
     }
 
     const fallbackPayload = {
-      title: `برنامه تمرینی هوشمند — ${student.full_name}`,
+      title: `برنامه تمرینی جامع و علمی — ${student.full_name}`,
       student_id: sid,
       assessment_id: finalAssessmentId,
-      coach_note: `برنامه تمرینی اختصاصی تنظیم‌شده بر اساس ارزیابی بدنی #${assessment.assessment_number}. رعایت تمپوی حرکات و آب‌رسانی الزامی است.`,
+      coach_note: `برنامه ۵ مرحله‌ای استاندارد (گرم‌کردن، بخش اصلی، کمکی، هوازی و سردکردن). رعایت آب‌رسانی و تمپوی حرکات الزامی است.`,
       status: 'DRAFT',
       start_date: new Date().toISOString().slice(0, 10),
       end_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),

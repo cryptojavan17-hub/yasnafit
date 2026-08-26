@@ -74,7 +74,9 @@ const publicDir = path.join(root, 'public');
 
   console.log('--- 4. Testing Tool Execution Handlers ---');
   // Insert dummy student & category for tool testing
-  db.prepare("INSERT INTO exercise_categories (id, name, sort_order) VALUES ('chest', 'سینه', 1)").run();
+  db.prepare("INSERT OR IGNORE INTO exercise_categories (id, name, sort_order) VALUES ('chest', 'سینه', 1), ('warmup', 'گرم کردن و سرد کردن', 12), ('cardio', 'هوازی', 13), ('biceps', 'جلو بازو', 4), ('triceps', 'پشت بازو', 5), ('legs', 'پا', 6), ('shoulders', 'سرشانه', 3), ('abs', 'شکم', 7), ('back', 'پشت', 2), ('traps', 'کول', 9)").run();
+  db.prepare("INSERT OR IGNORE INTO exercises (id, name_fa, location, category_id, status, priority, stable_id) VALUES (1158, 'گرم کردن', 'gym', 'warmup', 'active', 1, 'ex-1158'), (1157, 'سرد کردن', 'gym', 'warmup', 'active', 1, 'ex-1157'), (1107, 'تردمیل', 'gym', 'cardio', 'active', 1, 'ex-1107'), (1110, 'دوچرخه ثابت', 'gym', 'cardio', 'active', 1, 'ex-1110'), (1106, 'الپتیکال', 'gym', 'cardio', 'active', 1, 'ex-1106')").run();
+
   const insEx = db.prepare("INSERT INTO exercises (name_fa, location, category_id, status, priority, stable_id) VALUES ('پرس سینه هالتر', 'gym', 'chest', 'active', 1, 'ex-uuid-1')").run();
   const exId = Number(insEx.lastInsertRowid);
 
@@ -156,8 +158,15 @@ const publicDir = path.join(root, 'public');
   assert.equal(progRow.status, 'DRAFT', 'Generated program MUST remain in DRAFT status (never auto-activated)');
   assert.equal(progRow.student_id, studentId, 'Must link correct student_id');
   assert.equal(progRow.assessment_id, assessmentId, 'Must link correct assessment_id');
-  // Verify all exercise IDs exist in database
+  // Verify 5-phase scientific structure: Warm-up, Main/Accessory, Cardio, and Cool-down
   for (const day of genProgram.programData.days) {
+    const allMovNames = (day.data || []).flatMap(sys => (sys.movement_list || []).map(m => m.name));
+    const allMovIds = (day.data || []).flatMap(sys => (sys.movement_list || []).map(m => m.exercise_id));
+
+    assert.ok(allMovIds.includes(1158) || allMovNames.some(n => n.includes('گرم')), 'Day must contain Warm-up movement');
+    assert.ok(allMovIds.includes(1157) || allMovNames.some(n => n.includes('سرد')), 'Day must contain Cool-down movement');
+    assert.ok(allMovIds.some(id => [1107, 1110, 1106, 1385].includes(id)) || allMovNames.some(n => n.includes('تردمیل') || n.includes('دوچرخه') || n.includes('الپتیکال')), 'Day must contain Cardio/Conditioning movement');
+
     for (const sys of (day.data || [])) {
       for (const mov of (sys.movement_list || [])) {
         assert.ok(mov.exercise_id > 0, 'Every movement must have a valid exercise_id');
