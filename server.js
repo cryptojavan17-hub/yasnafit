@@ -1840,6 +1840,16 @@ async function handleAi(req,res,url){
     return send(res,200,{tools:aiService.AI_TOOLS});
   }
 
+  if(p==='/api/ai/models' && req.method==='GET'){
+    try {
+      const baseUrl = url.searchParams.get('base_url');
+      const result = await aiService.fetchAvailableModels(db, { base_url: baseUrl });
+      return send(res, 200, result);
+    } catch(e){
+      return sendError(res, 400, e.message);
+    }
+  }
+
   if(p==='/api/ai/chat' && req.method==='POST'){
     try {
       const b=await readBody(req);

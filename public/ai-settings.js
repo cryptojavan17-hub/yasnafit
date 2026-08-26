@@ -79,11 +79,13 @@
     try {
       // Build API messages payload
       const apiMessages = chatHistory.map(m => ({ role: m.role, content: m.content }));
+      const comboVal = (document.getElementById('aiDefaultCombo')?.value || '').trim();
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: apiMessages
+          messages: apiMessages,
+          combo: comboVal || undefined
         })
       });
 
@@ -98,6 +100,13 @@
         tools: data.tool_calls_executed || []
       });
       renderChatMessages(msgList);
+
+      if (data.model) {
+        const pill = document.getElementById('aiCurrentComboPill');
+        if (pill) pill.textContent = data.model;
+        const comboInput = document.getElementById('aiDefaultCombo');
+        if (comboInput && !comboInput.value) comboInput.value = data.model;
+      }
     } catch (error) {
       chatHistory.push({
         role: 'assistant',
@@ -111,6 +120,50 @@
         sendBtn.textContent = 'ارسال';
       }
       input.focus();
+    }
+  }
+
+  async function refreshAvailableCombos(currentSelected = '') {
+    const select = document.getElementById('aiComboSelect');
+    const statusNote = document.getElementById('aiComboFetchStatus');
+    const comboInput = document.getElementById('aiDefaultCombo');
+    const comboPill = document.getElementById('aiCurrentComboPill');
+    const baseUrlInput = document.getElementById('aiBaseUrl');
+    if (!select) return;
+
+    if (statusNote) statusNote.textContent = 'در حال دریافت مدل‌ها/کامبوها از سرور…';
+
+    try {
+      const baseUrl = (baseUrlInput?.value || '').trim();
+      const query = baseUrl ? `?base_url=${encodeURIComponent(baseUrl)}` : '';
+      const res = await fetch(`/api/ai/models${query}`);
+      if (!res.ok) throw new Error('پاسخی از سرور دریافت نشد');
+      const data = await res.json();
+      const models = data.models || [];
+
+      if (models.length === 0) {
+        if (statusNote) statusNote.textContent = 'مدل یا کامبویی یافت نشد (می‌توانید دستی نام کامبو را بنویسید).';
+        return;
+      }
+
+      const active = currentSelected || data.default_combo || models[0];
+      select.innerHTML = `
+        <option value="">— انتخاب کامبو از فهرست سرور (${models.length} کامبو) —</option>
+        ${models.map(m => `<option value="${esc(m)}" ${m === active ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+      `;
+
+      if (statusNote) {
+        statusNote.innerHTML = `✅ <b>${models.length.toLocaleString('fa-IR')} کامبو</b> با موفقیت از سرور دریافت شد.`;
+      }
+
+      if (comboInput && (!comboInput.value || !models.includes(comboInput.value))) {
+        comboInput.value = active;
+      }
+      if (comboPill) {
+        comboPill.textContent = active || 'تعیین نشده';
+      }
+    } catch (err) {
+      if (statusNote) statusNote.textContent = `عدم دسترسی به لیست خودکار (${err.message}). می‌توانید نام کامبو را دستی وارد کنید.`;
     }
   }
 
@@ -184,13 +237,21 @@
                 <small class="ai-help-text">برای 9Router از http://localhost:20128/v1 استفاده کنید. برای OpenRouter از https://openrouter.ai/api/v1</small>
               </div>
 
-              <!-- Default Combo -->
+              <!-- Default Combo (Auto-Fetch & Selector) -->
               <div class="ai-form-group">
                 <div class="ai-label-row">
                   <label class="ai-label" for="aiDefaultCombo">مدل / کامبو پیش‌فرض (Default Combo)</label>
+                  <button type="button" class="btn btn-secondary btn-small" id="btnRefreshCombos" style="font-size:10px;padding:2px 8px;" title="دریافت خودکار کامبوها از 9Router">
+                    🔄 دریافت خودکار کامبوها
+                  </button>
                 </div>
-                <input type="text" id="aiDefaultCombo" name="default_combo" dir="ltr" placeholder="نام کامبوی 9Router را وارد کنید (مثلاً mimo-v2.5-free یا yasna-coach)" value="${esc(settings.default_combo || '')}">
-                <small class="ai-help-text">نام کامبوی ساخته شده در 9Router را وارد کنید. این نام به عنوان شناسه مدل ارسال می‌شود.</small>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <select id="aiComboSelect" style="width:100%;font-family:monospace;direction:ltr;">
+                    <option value="">در حال دریافت کامبوها از سرور…</option>
+                  </select>
+                  <input type="text" id="aiDefaultCombo" name="default_combo" dir="ltr" placeholder="نام کامبوی 9Router را وارد کنید (مثلاً mimo-v2.5-free یا yasna-coach)" value="${esc(settings.default_combo || '')}">
+                </div>
+                <small class="ai-help-text" id="aiComboFetchStatus">نام کامبوی ساخته شده در 9Router را انتخاب یا تایپ کنید. این نام به عنوان شناسه مدل ارسال می‌شود.</small>
               </div>
 
               <!-- Advanced Parameters -->
@@ -243,7 +304,7 @@
                 <h2>💬 گفتگوی آزمایشی زنده</h2>
                 <div class="ai-chat-status">
                   <span>کامبوی فعال:</span>
-                  <span class="ai-combo-pill" id="aiCurrentComboPill">${esc(settings.default_combo || 'تعیین نشده')}</span>
+                  <span class="ai-combo-pill" id="aiCurrentComboPill">${esc(settings.default_combo || 'در حال شناسایی…')}</span>
                 </div>
               </div>
               <button type="button" class="btn btn-secondary btn-small" id="btnClearChat" title="پاک کردن گفتگو">
@@ -264,6 +325,41 @@
 
     const chatHost = document.getElementById('aiChatMessages');
     renderChatMessages(chatHost);
+
+    // Initial background auto-fetch of available combos
+    refreshAvailableCombos(settings.default_combo);
+
+    // Bind Combo Dropdown Change
+    const comboSelect = document.getElementById('aiComboSelect');
+    if (comboSelect) {
+      comboSelect.onchange = () => {
+        const val = comboSelect.value;
+        if (val) {
+          const comboInput = document.getElementById('aiDefaultCombo');
+          if (comboInput) comboInput.value = val;
+          const comboPill = document.getElementById('aiCurrentComboPill');
+          if (comboPill) comboPill.textContent = val;
+        }
+      };
+    }
+
+    // Bind Manual Combo Input Change
+    const comboInput = document.getElementById('aiDefaultCombo');
+    if (comboInput) {
+      comboInput.oninput = () => {
+        const val = comboInput.value.trim();
+        const comboPill = document.getElementById('aiCurrentComboPill');
+        if (comboPill) comboPill.textContent = val || 'تعیین نشده';
+      };
+    }
+
+    // Bind Refresh Combos Button
+    const refreshBtn = document.getElementById('btnRefreshCombos');
+    if (refreshBtn) {
+      refreshBtn.onclick = () => {
+        refreshAvailableCombos(comboInput?.value);
+      };
+    }
 
     // Bind Chat Form
     document.getElementById('aiChatForm').onsubmit = e => {
@@ -321,6 +417,9 @@
         if (comboPill) {
           comboPill.textContent = data.default_combo || 'تعیین نشده';
         }
+
+        // Re-fetch combos with new settings if base_url / key changed
+        refreshAvailableCombos(data.default_combo);
       } catch (err) {
         if (feedback) {
           feedback.textContent = `❌ ${err.message}`;

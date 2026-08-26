@@ -137,6 +137,11 @@ const publicDir = path.join(root, 'public');
   assert.ok(activateResult.success, 'activate_program should succeed');
   assert.equal(activateResult.status, 'ACTIVE');
 
+  console.log('--- 4b. Testing Available Models Fetch Handler ---');
+  assert.equal(typeof aiService.fetchAvailableModels, 'function', 'fetchAvailableModels must be a function');
+  const modelsRes = await aiService.fetchAvailableModels(db);
+  assert.ok(Array.isArray(modelsRes.models), 'models must be an array');
+
   console.log('--- 5. Testing Settings Page UI & Design Tokens Compliance ---');
   const aiSettingsJs = fs.readFileSync(path.join(publicDir, 'ai-settings.js'), 'utf8');
   const aiSettingsCss = fs.readFileSync(path.join(publicDir, 'ai-settings.css'), 'utf8');

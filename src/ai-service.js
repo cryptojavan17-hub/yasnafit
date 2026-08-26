@@ -585,6 +585,65 @@ async function executeTool(db, name, args = {}) {
 }
 
 // ==========================================
+// Fetch Available Models / Combos from Server
+// ==========================================
+async function fetchAvailableModels(db, options = {}) {
+  const settings = getRawSettings(db);
+  const baseUrl = (options.base_url || settings.base_url || 'https://9router-production-6a92.up.railway.app/v1').replace(/\/+$/, '');
+  const endpoint = `${baseUrl}/models`;
+  const timeoutMs = options.timeout_ms || 15000;
+
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  const apiKey = (options.api_key !== undefined ? options.api_key : settings.api_key) || '';
+  if (apiKey && apiKey.trim()) {
+    headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+  }
+
+  let models = [];
+  try {
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (Array.isArray(data.data)) {
+        rawList = data.data;
+      } else if (Array.isArray(data.models)) {
+        rawList = data.models;
+      }
+      models = rawList.map(item => {
+        if (typeof item === 'string') return item.trim();
+        return (item.id || item.name || '').trim();
+      }).filter(Boolean);
+    }
+  } catch (err) {
+    console.warn(`[AI Service] Failed to fetch models from ${endpoint}:`, err.message);
+  }
+
+  // If models found and no default_combo is set in DB, auto-save the first one
+  if (models.length > 0 && (!settings.default_combo || !settings.default_combo.trim())) {
+    try {
+      db.prepare('UPDATE ai_settings SET default_combo = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1')
+        .run(models[0]);
+    } catch(e){}
+  }
+
+  const updatedSettings = getRawSettings(db);
+  return {
+    models,
+    default_combo: updatedSettings.default_combo || (models.length > 0 ? models[0] : '')
+  };
+}
+
+// ==========================================
 // Core Chat Completion Engine
 // ==========================================
 async function chatCompletion(db, options = {}) {
@@ -596,7 +655,17 @@ async function chatCompletion(db, options = {}) {
   }
 
   // Determine combo (ALWAYS used as model field for 9Router)
-  const comboName = String(options.combo || settings.default_combo || '').trim();
+  let comboName = String(options.combo || settings.default_combo || '').trim();
+  if (!comboName) {
+    // Automatically discover available combos from the server
+    try {
+      const discovered = await fetchAvailableModels(db, { base_url: options.base_url, timeout_ms: 10000 });
+      if (discovered.models && discovered.models.length > 0) {
+        comboName = discovered.default_combo || discovered.models[0];
+      }
+    } catch (discoveryErr) {}
+  }
+
   if (!comboName) {
     throw new Error('نام مدل یا کامبو (Combo) مشخص نشده است. لطفاً در صفحه تنظیمات هوش مصنوعی (/settings/ai) یک کامبو تعیین کنید.');
   }
@@ -718,6 +787,7 @@ module.exports = {
   getSettings,
   getRawSettings,
   saveSettings,
+  fetchAvailableModels,
   AI_TOOLS,
   executeTool,
   chatCompletion
