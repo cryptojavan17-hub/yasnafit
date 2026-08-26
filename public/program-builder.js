@@ -582,8 +582,23 @@
               </select>
               <select id="quickAddCategory"></select>
             </div>
+            <div class="quickadd-muscles-row" style="margin-top:7px;display:flex;flex-direction:column;gap:5px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                <span style="font-size:10px;color:var(--text-secondary);font-weight:700;">عضله‌های هدف درگیر:</span>
+                <select id="quickAddMuscleSelect" style="min-height:30px;padding:3px 8px;font-size:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+                  <option value="">＋ انتخاب و افزودن عضله...</option>
+                  <optgroup label="عضلات جلو">
+                    ${muscleCatalog.filter(m=>m.side==='front').map(m=>`<option value="${m.id}">${m.label}</option>`).join('')}
+                  </optgroup>
+                  <optgroup label="عضلات پشت">
+                    ${muscleCatalog.filter(m=>m.side==='back').map(m=>`<option value="${m.id}">${m.label}</option>`).join('')}
+                  </optgroup>
+                </select>
+              </div>
+              <div class="quickadd-muscle-chips" id="quickAddMuscleChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px;"></div>
+            </div>
             <div class="quickadd-actions">
-              <span class="quickadd-hint">حرکت شخصی به بانک اضافه و بلافاصله قابل انتخاب است.</span>
+              <span class="quickadd-hint">می‌توانید چند عضله را با ＋ انتخاب کنید تا روی بدن مشخص شوند.</span>
               <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button">ثبت حرکت</button>
             </div>
           </div>
@@ -1005,12 +1020,45 @@
       host.innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     }catch(error){}
   }
+  let quickAddSelectedMuscles = [];
+  function renderQuickAddMuscles(){
+    const host = document.getElementById('quickAddMuscleChips');
+    if(!host) return;
+    host.innerHTML = quickAddSelectedMuscles.map(id => {
+      const m = muscleCatalog.find(item => item.id === id);
+      if(!m) return '';
+      return `<span class="mv-muscle-chip" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border:1px solid var(--accent-border);border-radius:999px;background:var(--accent-surface);color:var(--accent-hover);font-size:8px;font-weight:750;">${esc(m.label)}<button type="button" data-del-qa-muscle="${m.id}" style="border:0;background:none;color:var(--text-muted);cursor:pointer;font-size:10px;padding:0;line-height:1;">×</button></span>`;
+    }).join('');
+    host.querySelectorAll('[data-del-qa-muscle]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        quickAddSelectedMuscles = quickAddSelectedMuscles.filter(id => id !== btn.dataset.delQaMuscle);
+        renderQuickAddMuscles();
+      };
+    });
+  }
+
   function toggleQuickAddPanel(force){
     const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
     if(!panel)return;
     panel.hidden=force!==undefined?!force:!panel.hidden;
     if(button)button.textContent=panel.hidden?'＋ افزودن حرکت دستی':'× بستن افزودن دستی';
-    if(!panel.hidden){refreshQuickAddCategories();document.getElementById('quickAddName')?.focus();}
+    if(!panel.hidden){
+      refreshQuickAddCategories();
+      const qaSelect = document.getElementById('quickAddMuscleSelect');
+      if (qaSelect && !qaSelect._bound) {
+        qaSelect._bound = true;
+        qaSelect.onchange = () => {
+          if (!qaSelect.value) return;
+          if (!quickAddSelectedMuscles.includes(qaSelect.value)) {
+            quickAddSelectedMuscles.push(qaSelect.value);
+            renderQuickAddMuscles();
+          }
+          qaSelect.value = '';
+        };
+      }
+      document.getElementById('quickAddName')?.focus();
+    }
   }
   async function submitQuickAddExercise(){
     const name=(document.getElementById('quickAddName')?.value||'').trim();
@@ -1018,10 +1066,13 @@
     const category=document.getElementById('quickAddCategory')?.value;
     if(!name)return alert('نام حرکت الزامی است');
     if(!category)return alert('دسته‌بندی را انتخاب کنید');
+    const targetMuscles = [...quickAddSelectedMuscles];
     try{
-      const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,priority:5})});
+      const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,target_muscles:targetMuscles,priority:5})});
       alert('✅ حرکت «'+name+'» به بانک اضافه شد');
       document.getElementById('quickAddName').value='';
+      quickAddSelectedMuscles = [];
+      renderQuickAddMuscles();
       toggleQuickAddPanel(false);
       // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن
       if(selectedSystemForAdd){
@@ -1029,7 +1080,17 @@
         const sys=currentProgram.days[dayIdx].data[sysIdx];
         const meta=systemById(sys.exercise_system_id)||systemById(1);
         if((sys.movement_list||[]).length<meta.movements){
-          sys.movement_list.push({exercise_id:created.id,exerciseId:created.id,original_exercise_id:null,nameFa:name,name:name,movementHash:genHash(),description:'',sets:[{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}]});
+          sys.movement_list.push({
+            exercise_id:created.id,
+            exerciseId:created.id,
+            original_exercise_id:null,
+            nameFa:name,
+            name:name,
+            movementHash:genHash(),
+            description:'',
+            target_muscles:targetMuscles,
+            sets:[{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}]
+          });
           expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
           setDirty(true);renderDays();refreshDrawerContext();
         }
@@ -1131,7 +1192,10 @@
     const sysMeta=systemById(sys.exercise_system_id)||systemById(1);
     const exId=mov.original_exercise_id||mov.exercise_id;
     const det=(mov._detail||{});
-    const videoSrc=det.video_path||`/files/exercise/videos/${exId}.mp4`;
+    const rawVideo = (det.video_path && det.video_path.trim() && det.video_path !== 'null' && det.video_path !== 'undefined') 
+      ? det.video_path 
+      : (mov.original_exercise_id ? `/files/exercise/videos/${mov.original_exercise_id}.mp4` : '');
+    const videoSrc = rawVideo || '';
     const sets=mov.sets||[];
     const matchedPresetIdx=findMatchingPresetIndex(sets);
     const activeMuscleIds=getAutoMusclesForMovement(mov);
@@ -1233,8 +1297,8 @@
 
         <div class="mv-video">
           <b>آموزش حرکت</b>
-          <div class="mv-player" id="mvPlayerWrap">
-            <video id="mvVideo" controls playsinline preload="metadata" src="${esc(videoSrc)}" onerror="this.closest('.mv-player').classList.add('no-video')"></video>
+          <div class="mv-player ${videoSrc ? '' : 'no-video'}" id="mvPlayerWrap">
+            ${videoSrc ? `<video id="mvVideo" controls playsinline preload="metadata" src="${esc(videoSrc)}" onerror="this.closest('.mv-player').classList.add('no-video')"></video>` : ''}
             <div class="mv-video-placeholder"><span>▶</span><small>ویدیو برای این حرکت ثبت نشده است</small></div>
           </div>
           <small class="mv-muted">پخش / توقف / فول‌اسکرین با کنترل‌های پلیر</small>

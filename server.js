@@ -610,8 +610,9 @@ async function handleExercises(req,res,url){
     if(!catExists) return sendError(res,400,'دسته‌بندی نامعتبر');
 
     const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
-    const r=db.prepare('INSERT INTO exercises (original_id, name_fa, location, category_id, subcategory_id, status, image_path, video_path, priority, stable_id, version) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(b.original_id||null, b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, stableId, 1);
+    const targetMusclesStr = b.target_muscles ? (Array.isArray(b.target_muscles) ? JSON.stringify(b.target_muscles) : String(b.target_muscles)) : null;
+    const r=db.prepare('INSERT INTO exercises (original_id, name_fa, location, category_id, subcategory_id, status, image_path, video_path, priority, target_muscles, stable_id, version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(b.original_id||null, b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, targetMusclesStr, stableId, 1);
     log('حرکت جدید ثبت شد', b.name_fa);
     return send(res,201,{id:Number(r.lastInsertRowid), stable_id: stableId});
   }
@@ -623,6 +624,9 @@ async function handleExercises(req,res,url){
     if(req.method==='GET'){
       const ex = one('SELECT * FROM exercises WHERE id=? AND deleted_at IS NULL', id);
       if(!ex) return sendError(res,404,'حرکت پیدا نشد');
+      if(ex.target_muscles){
+        try{ ex.target_muscles = JSON.parse(ex.target_muscles); }catch(e){}
+      }
       return send(res,200,ex);
     }
     if(req.method==='PUT'){
@@ -633,8 +637,9 @@ async function handleExercises(req,res,url){
       const catExists = one('SELECT id FROM exercise_categories WHERE id=? AND deleted_at IS NULL', b.category_id);
       if(!catExists) return sendError(res,400,'دسته‌بندی نامعتبر');
 
-      const r=db.prepare('UPDATE exercises SET name_fa=?,location=?,category_id=?,subcategory_id=?,status=?,image_path=?,video_path=?,priority=?,updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL')
-        .run(b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, id);
+      const targetMusclesStr = b.target_muscles ? (Array.isArray(b.target_muscles) ? JSON.stringify(b.target_muscles) : String(b.target_muscles)) : null;
+      const r=db.prepare('UPDATE exercises SET name_fa=?,location=?,category_id=?,subcategory_id=?,status=?,image_path=?,video_path=?,priority=?,target_muscles=?,updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL')
+        .run(b.name_fa.trim(), b.location||'gym', b.category_id, b.subcategory_id||null, b.status==='archived'?'archived':'active', b.image_path||null, b.video_path||null, Number(b.priority)||5, targetMusclesStr, id);
       if(!r.changes) return sendError(res,404,'حرکت پیدا نشد');
       log('حرکت ویرایش شد', b.name_fa);
       return send(res,200,{id});

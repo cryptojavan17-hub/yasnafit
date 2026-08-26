@@ -111,6 +111,7 @@ const migrations = [
       ensureColumn('exercises','equipment',"TEXT DEFAULT ''");
       ensureColumn('exercises','difficulty',"TEXT DEFAULT 'beginner'");
       ensureColumn('exercises','description',"TEXT DEFAULT ''");
+      ensureColumn('exercises','target_muscles','TEXT');
       ensureColumn('exercise_categories','original_id','INTEGER');
       ensureColumn('exercise_subcategories','original_id','INTEGER');
       ensureColumn('students','updated_at',"TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
