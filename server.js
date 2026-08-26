@@ -155,7 +155,7 @@ function requireCoach(req, res){
 }
 
 const rateBuckets=new Map();
-function rateLimit(req,res,scope,limit,windowMs){if(process.env.NODE_ENV==='test') return true;const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim(),key=`${scope}:${ip}`,now=Date.now();let bucket=rateBuckets.get(key);if(!bucket||bucket.resetAt<=now)bucket={count:0,resetAt:now+windowMs};bucket.count++;rateBuckets.set(key,bucket);if(bucket.count>limit){send(res,429,{error:'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.',code:'RATE_LIMITED'},{'Retry-After':String(Math.ceil((bucket.resetAt-now)/1000))});return false;}if(rateBuckets.size>5000)for(const [entry,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(entry);return true;}
+function rateLimit(req,res,scope,limit,windowMs){const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim(),key=`${scope}:${ip}`,now=Date.now();let bucket=rateBuckets.get(key);if(!bucket||bucket.resetAt<=now)bucket={count:0,resetAt:now+windowMs};bucket.count++;rateBuckets.set(key,bucket);if(bucket.count>limit){send(res,429,{error:'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.',code:'RATE_LIMITED'},{'Retry-After':String(Math.ceil((bucket.resetAt-now)/1000))});return false;}if(rateBuckets.size>5000)for(const [entry,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(entry);return true;}
 function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;try{const expected=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();return new URL(origin).host===expected;}catch(error){return false;}}
 
 function requireStudent(req,res){
