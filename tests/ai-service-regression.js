@@ -223,6 +223,11 @@ const publicDir = path.join(root, 'public');
     }
   }
 
+  // Verify diverse training systems (Supersets, Trisets, Dropsets)
+  const allSystems = genProgram.programData.days.flatMap(d => (d.data || []).map(s => Number(s.exercise_system_id)));
+  const nonNormalSystems = allSystems.filter(sysId => sysId !== 1);
+  assert.ok(nonNormalSystems.length >= 2, `Program must contain diverse training systems like Superset/Triset/Dropset (got ${nonNormalSystems.length})`);
+
   console.log('--- 5. Testing Settings Page UI & Design Tokens Compliance ---');
   const aiSettingsJs = fs.readFileSync(path.join(publicDir, 'ai-settings.js'), 'utf8');
   const aiSettingsCss = fs.readFileSync(path.join(publicDir, 'ai-settings.css'), 'utf8');

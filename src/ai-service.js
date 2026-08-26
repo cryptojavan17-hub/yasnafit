@@ -995,7 +995,7 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
         });
       }
 
-      // 3. Phase 3: 3-4 Accessory / Isolation Movements
+      // 3. Phase 3: 3-4 Accessory / Isolation Movements paired as Superset / Triset
       const accMovs = [];
       const accLimitPerCat = sp.accCats.length === 1 ? 4 : 2;
       for (const cat of sp.accCats) {
@@ -1018,7 +1018,30 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
           });
         }
       }
-      if (accMovs.length > 0) {
+      if (accMovs.length === 2) {
+        daySystems.push({
+          exercise_system_id: 2, // Superset
+          system_type: 'superset',
+          movements: accMovs
+        });
+      } else if (accMovs.length === 3) {
+        daySystems.push({
+          exercise_system_id: 3, // Triset
+          system_type: 'triset',
+          movements: accMovs
+        });
+      } else if (accMovs.length >= 4) {
+        daySystems.push({
+          exercise_system_id: 2, // Superset 1
+          system_type: 'superset',
+          movements: accMovs.slice(0, 2)
+        });
+        daySystems.push({
+          exercise_system_id: 2, // Superset 2
+          system_type: 'superset',
+          movements: accMovs.slice(2, 4)
+        });
+      } else if (accMovs.length > 0) {
         daySystems.push({
           exercise_system_id: 1,
           system_type: 'normal',

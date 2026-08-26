@@ -33,7 +33,7 @@
   };
 
   const systems = {
-    1: { label: 'معمولی (Normal)', icon: '📌' },
+    1: { label: 'معمولی', icon: '📌' },
     2: { label: 'سوپر ست (Superset)', icon: '⚡' },
     3: { label: 'تری ست (Triset)', icon: '🔺' },
     4: { label: 'جاینت ست (Giant Set)', icon: '🔥' },
@@ -83,6 +83,20 @@
     if (!muscles || !Array.isArray(muscles) || muscles.length === 0) return '';
     const names = muscles.map(m => muscleNames[m] || m).filter(Boolean);
     return names.join('، ');
+  }
+
+  function renderSetsHTML(sets) {
+    return (sets || []).map((st, sIdx) => {
+      const isFailure = st.type === 'FAILURE';
+      const unitName = units[st.type] || 'تکرار';
+      const val = isFailure ? 'MAX' : (st.count ?? st.count_value ?? '—');
+      return `
+        <div class="pdf-set-sq" title="ست ${(sIdx + 1).toLocaleString('fa-IR')}">
+          <span class="pdf-set-val">${esc(String(val))}</span>
+          <span class="pdf-set-unit">${unitName}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   function generateProgramSheetHTML(program) {
@@ -137,12 +151,67 @@
         dayMovCount += (s.movement_list || s.movements || []).length;
       });
 
+      let movCounter = 1;
+
       const systemsHTML = daySystems.map(sys => {
         const sysId = Number(sys.exercise_system_id || sys.exerciseSystemId || 1);
         const sysMeta = systems[sysId] || systems[1];
         const movs = sys.movement_list || sys.movements || [];
 
-        const movsHTML = movs.map((mov, mIdx) => {
+        if (movs.length === 0) return '';
+
+        // CASE 1: Linked Multi-Movement Group (Superset, Triset, Giant Set, etc.)
+        if (movs.length > 1 && sysId !== 1) {
+          const comboRowsHTML = movs.map((mov) => {
+            const mNum = movCounter++;
+            const movName = mov.nameFa || mov.name || 'حرکت تمرینی';
+            const movDesc = mov.description || '';
+            const targetMusclesStr = resolveMusclesLabel(mov.target_muscles);
+            const imgSrc = (mov.image_path && mov.image_path.trim())
+              ? mov.image_path
+              : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
+            const setsHTML = renderSetsHTML(mov.sets);
+
+            return `
+              <div class="pdf-combo-row">
+                <div class="pdf-mov-img">
+                  <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
+                </div>
+                <div class="pdf-mov-info">
+                  <div class="pdf-mov-name-row">
+                    <span class="pdf-mov-name">${mNum.toLocaleString('fa-IR')}. ${esc(movName)}</span>
+                    ${targetMusclesStr ? `<span class="pdf-muscles-tag">${esc(targetMusclesStr)}</span>` : ''}
+                  </div>
+                  ${movDesc ? `<p class="pdf-mov-desc">📌 ${esc(movDesc)}</p>` : ''}
+                </div>
+                <div class="pdf-set-boxes">
+                  ${setsHTML}
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          let comboHint = 'حرکات متوالی بدون استراحت بین ست‌ها';
+          if (sysId === 2) comboHint = '۲ حرکت پی‌درپی بدون استراحت';
+          else if (sysId === 3) comboHint = '۳ حرکت پی‌درپی بدون استراحت';
+          else if (sysId === 4) comboHint = '۴ حرکت پی‌درپی بدون استراحت';
+
+          return `
+            <div class="pdf-combo-group">
+              <div class="pdf-combo-head">
+                <span class="pdf-combo-title">${sysMeta.icon} سیستم: ${esc(sysMeta.label)}</span>
+                <span class="pdf-combo-hint">⚡ ${comboHint}</span>
+              </div>
+              <div class="pdf-combo-items">
+                ${comboRowsHTML}
+              </div>
+            </div>
+          `;
+        }
+
+        // CASE 2: Single-movement rows (Normal, Dropset, Warmup, Cardio, Cooldown, etc.)
+        return movs.map(mov => {
+          const mNum = movCounter++;
           const movName = mov.nameFa || mov.name || 'حرکت تمرینی';
           const movDesc = mov.description || '';
           const targetMusclesStr = resolveMusclesLabel(mov.target_muscles);
@@ -150,18 +219,18 @@
             ? mov.image_path
             : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
 
-          const sets = mov.sets || [];
-          const setsHTML = sets.map((st, sIdx) => {
-            const isFailure = st.type === 'FAILURE';
-            const unitName = units[st.type] || 'تکرار';
-            const val = isFailure ? 'MAX' : (st.count ?? st.count_value ?? '—');
-            return `
-              <div class="pdf-set-sq" title="ست ${(sIdx + 1).toLocaleString('fa-IR')}">
-                <span class="pdf-set-val">${esc(String(val))}</span>
-                <span class="pdf-set-unit">${unitName}</span>
-              </div>
-            `;
-          }).join('');
+          let inlineSystemTag = '';
+          if (sysId === 5) inlineSystemTag = '<span class="pdf-system-inline-pill">💧 دراپ‌ست</span>';
+          else if (sysId === 6) inlineSystemTag = '<span class="pdf-system-inline-pill">🏛️ هرمی</span>';
+          else if (sysId === 8) inlineSystemTag = '<span class="pdf-system-inline-pill">⏸️ رست‌پاز</span>';
+          else if (sysId === 9) inlineSystemTag = '<span class="pdf-system-inline-pill">🔢 ۲۱</span>';
+          else if (sysId === 10) inlineSystemTag = '<span class="pdf-system-inline-pill">✂️ تکرار نیمه</span>';
+          else if (movName.includes('گرم کردن')) inlineSystemTag = '<span class="pdf-system-inline-pill">🏃 گرم‌کردن</span>';
+          else if (movName.includes('سرد کردن')) inlineSystemTag = '<span class="pdf-system-inline-pill">🧘 سردکردن</span>';
+          else if (movName.includes('تردمیل') || movName.includes('دوچرخه') || movName.includes('الپتیکال')) inlineSystemTag = '<span class="pdf-system-inline-pill">🚴 هوازی</span>';
+          else inlineSystemTag = '<span class="pdf-system-inline-pill">معمولی</span>';
+
+          const setsHTML = renderSetsHTML(mov.sets);
 
           return `
             <div class="pdf-mov-row">
@@ -170,10 +239,11 @@
               </div>
               <div class="pdf-mov-info">
                 <div class="pdf-mov-name-row">
-                  <span class="pdf-mov-name">${(mIdx + 1).toLocaleString('fa-IR')}. ${esc(movName)}</span>
-                  ${targetMusclesStr ? `<span class="pdf-muscles-tag">عضلات هدف: ${esc(targetMusclesStr)}</span>` : ''}
+                  <span class="pdf-mov-name">${mNum.toLocaleString('fa-IR')}. ${esc(movName)}</span>
+                  ${inlineSystemTag}
+                  ${targetMusclesStr ? `<span class="pdf-muscles-tag">${esc(targetMusclesStr)}</span>` : ''}
                 </div>
-                ${movDesc ? `<p class="pdf-mov-desc">📌 <b>نکته اجرا:</b> ${esc(movDesc)}</p>` : ''}
+                ${movDesc ? `<p class="pdf-mov-desc">📌 ${esc(movDesc)}</p>` : ''}
               </div>
               <div class="pdf-set-boxes">
                 ${setsHTML}
@@ -181,18 +251,6 @@
             </div>
           `;
         }).join('');
-
-        return `
-          <div class="pdf-system-block">
-            <div class="pdf-system-title-row">
-              <span class="pdf-system-pill">${sysMeta.icon} سیستم: ${esc(sysMeta.label)}</span>
-              <small style="font-size:9px;color:var(--pdf-text-muted)">(${movs.length.toLocaleString('fa-IR')} حرکت)</small>
-            </div>
-            <div class="pdf-movements-list">
-              ${movsHTML || '<div style="font-size:10px;color:var(--pdf-text-muted);padding:8px">حرکتی تعریف نشده است.</div>'}
-            </div>
-          </div>
-        `;
       }).join('');
 
       return `
@@ -202,7 +260,9 @@
             <span class="pdf-day-meta">${daySystems.length.toLocaleString('fa-IR')} سیستم تمرینی • ${dayMovCount.toLocaleString('fa-IR')} حرکت</span>
           </header>
           ${dayNote ? `<div class="pdf-day-coach-note"><b>یادداشت مربی برای این روز:</b> ${esc(dayNote)}</div>` : ''}
-          ${systemsHTML}
+          <div class="pdf-day-body">
+            ${systemsHTML}
+          </div>
         </section>
       `;
     }).join('');
@@ -315,16 +375,29 @@
         text += `\n🛌 روز ${dayNum}: ${dayFocus} (استراحت و ریکاوری)\n`;
       } else {
         text += `\n📌 روز ${dayNum}: ${dayFocus}\n`;
+        let movCounter = 1;
         (day.data || day.systems || []).forEach(sys => {
           const sysId = Number(sys.exercise_system_id || sys.exerciseSystemId || 1);
           const sysMeta = systems[sysId] || systems[1];
-          text += `  🔹 سیستم: ${sysMeta.label}\n`;
-          (sys.movement_list || sys.movements || []).forEach((mov, mIdx) => {
-            const movName = mov.nameFa || mov.name || 'حرکت';
-            const setsStr = (mov.sets || []).map((s, i) => `${s.count || '—'} ${units[s.type] || 'تکرار'}`).join(' | ');
-            text += `    ${mIdx + 1}. ${movName} ← [ ${setsStr} ]\n`;
-            if (mov.description) text += `       نکته: ${mov.description}\n`;
-          });
+          const movs = sys.movement_list || sys.movements || [];
+
+          if (movs.length > 1 && sysId !== 1) {
+            text += `\n  ⚡ [ ${sysMeta.label} ]:\n`;
+            movs.forEach((mov) => {
+              const movName = mov.nameFa || mov.name || 'حرکت';
+              const setsStr = (mov.sets || []).map((s) => `${s.count || '—'} ${units[s.type] || 'تکرار'}`).join(' | ');
+              text += `    ${movCounter++}. ${movName} ← [ ${setsStr} ]\n`;
+              if (mov.description) text += `       نکته: ${mov.description}\n`;
+            });
+          } else {
+            movs.forEach((mov) => {
+              const movName = mov.nameFa || mov.name || 'حرکت';
+              const setsStr = (mov.sets || []).map((s) => `${s.count || '—'} ${units[s.type] || 'تکرار'}`).join(' | ');
+              const sysTag = sysId !== 1 ? ` (${sysMeta.label})` : ' (معمولی)';
+              text += `  ${movCounter++}. ${movName}${sysTag} ← [ ${setsStr} ]\n`;
+              if (mov.description) text += `     نکته: ${mov.description}\n`;
+            });
+          }
         });
       }
     });
@@ -339,7 +412,6 @@
     if (typeof programOrId === 'number' || typeof programOrId === 'string') {
       try {
         const id = Number(programOrId);
-        // Try coach endpoint first, then student endpoint
         try {
           const res = await fetch(`/api/training-programs/${id}/full`);
           if (res.ok) {
@@ -433,7 +505,6 @@
       };
     }
 
-    // Close on Escape
     const onKey = (e) => {
       if (e.key === 'Escape' && !modal.hidden) {
         close();

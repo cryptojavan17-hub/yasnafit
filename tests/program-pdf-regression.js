@@ -75,6 +75,15 @@ const sampleProgram = {
                   { type: 'REPEAT', count: 10 },
                   { type: 'FAILURE', count: 0 }
                 ]
+              },
+              {
+                name: 'قفسه سینه دمبل',
+                description: 'کشش کامل در انتهای حرکت',
+                target_muscles: ['front_chest'],
+                sets: [
+                  { type: 'REPEAT', count: 12 },
+                  { type: 'REPEAT', count: 12 }
+                ]
               }
             ]
           }
