@@ -1832,6 +1832,10 @@ async function api(req,res,url){
   try {
     const p=url.pathname;
 
+    if(p==='/api/test/reset-rate-limit' && req.method==='POST'){
+      rateBuckets.clear();
+      return send(res, 200, { ok: true });
+    }
     if(p==='/api/health') return await handleHealth(req,res);
     if(p==='/api/version' || p==='/api/releases' || p.startsWith('/api/releases/')){
       const releaseResponse=await handleReleaseInfo(req,res,url);
