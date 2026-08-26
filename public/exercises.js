@@ -37,96 +37,47 @@
     return [...map.values()].sort((a,b)=>a.sort_order-b.sort_order);
   }
 
-  function imageHtml(ex) {
-    const origId = ex.original_id || ex.id;
-    // Primary robust endpoint that searches recursively for any file starting with originalId
-    const primary = `/api/exercise-image/${origId}`;
-    const candidates = [
-      `/assets/images/exercises/imported/${origId}.png`,
-      `/assets/images/exercises/imported/${origId}.jpg`,
-      `/assets/images/exercises/imported/${origId}.jpeg`,
-      ex.image_path ? ex.image_path : null,
-      `/files/exercise/images/${origId}.png`,
-      `/files/exercise/images/${origId}.jpg`
-    ].filter(Boolean);
+  const muscleCatalog = [
+    // Front
+    { id: 'front_deltoid_anterior', label: 'دلتوئید قدامی (سرشانه جلو)', side: 'front' },
+    { id: 'front_deltoid_lateral', label: 'دلتوئید جانبی (سرشانه میانی)', side: 'front' },
+    { id: 'front_chest', label: 'سینه (پکتورالیس)', side: 'front' },
+    { id: 'front_biceps', label: 'جلو بازو (دوسر بازویی)', side: 'front' },
+    { id: 'front_brachialis', label: 'براکیالیس', side: 'front' },
+    { id: 'front_brachioradialis', label: 'ساعد (براکیورادیالیس)', side: 'front' },
+    { id: 'front_rectus_abdominis', label: 'راست شکمی (سیکس‌پک)', side: 'front' },
+    { id: 'front_obliques', label: 'مورب شکمی (پهلو)', side: 'front' },
+    { id: 'front_serratus_anterior', label: 'دندانه‌ای قدامی', side: 'front' },
+    { id: 'front_quadriceps', label: 'چهارسر ران (جلو پا)', side: 'front' },
+    { id: 'front_iliopsoas', label: 'ایلیوپسواس (عضلات ران)', side: 'front' },
 
-    // Store candidates as JSON in data attribute safely (base64 to avoid escaping issues)
-    const fallbacksJson = JSON.stringify(candidates);
-    const fallbacksB64 = btoa(unescape(encodeURIComponent(fallbacksJson)));
+    // Back
+    { id: 'back_trapezius', label: 'کول (ذوزنقه‌ای)', side: 'back' },
+    { id: 'back_latissimus_dorsi', label: 'زیربغل (پشتی بزرگ)', side: 'back' },
+    { id: 'back_triceps', label: 'پشت بازو (سه‌سر بازویی)', side: 'back' },
+    { id: 'back_teres_major', label: 'گرد بزرگ (Teres Major)', side: 'back' },
+    { id: 'back_teres_minor', label: 'گرد کوچک (Teres Minor)', side: 'back' },
+    { id: 'back_infraspinatus', label: 'تحت‌خاری (Infraspinatus)', side: 'back' },
+    { id: 'back_gluteus_maximus', label: 'باسن (سرینی بزرگ)', side: 'back' },
+    { id: 'back_hamstrings', label: 'همسترینگ (پشت پا)', side: 'back' },
+    { id: 'back_gastrocnemius', label: 'ساق پا (دوقلو)', side: 'back' },
+    { id: 'back_soleus', label: 'نعلی ساق (Soleus)', side: 'back' }
+  ];
+
+  function imageHtml(ex) {
+    const imgSrc = (ex.image_path && ex.image_path.trim())
+      ? ex.image_path
+      : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/assets/images/blank-white.svg');
 
     return `
-      <div class="image-wrap loading" id="wrap-${origId}-${ex.id}">
-        <img class="exercise-image" src="${esc(primary)}" alt="${esc(ex.name_fa)}"
-          data-fallbacks-b64="${fallbacksB64}"
-          data-orig-id="${origId}"
-          data-ex-id="${ex.id}"
-          onerror="window.handleImageError(this)"
-          onload="window.handleImageLoad(this)"
+      <div class="image-wrap has-image" id="wrap-${ex.original_id||'m'}-${ex.id}">
+        <img class="exercise-image" src="${esc(imgSrc)}" alt="${esc(ex.name_fa)}"
+          onerror="this.src='/assets/images/blank-white.svg'"
           loading="lazy"
         >
-        <div class="no-image">تصویر<br>موجود نیست<br><small>ID:${origId}</small></div>
       </div>
     `;
   }
-
-  // When image loads successfully - hide placeholder
-  window.handleImageLoad = function(img) {
-    const wrap = img.parentElement;
-    if(wrap){
-      wrap.classList.remove('loading','has-error');
-      wrap.classList.add('has-image');
-    }
-  };
-
-  // Global image error handler with fallback chain - robust version
-  window.handleImageError = function(img) {
-    try {
-      // Try to decode base64 fallbacks
-      let fallbacks = [];
-      if (img.dataset.fallbacksB64) {
-        try {
-          const jsonStr = decodeURIComponent(escape(atob(img.dataset.fallbacksB64)));
-          fallbacks = JSON.parse(jsonStr);
-        } catch(e){
-          // Fallback to old attribute if exists
-          try {
-            fallbacks = JSON.parse(img.dataset.fallbacks || '[]');
-          } catch(e2){}
-        }
-      } else if (img.dataset.fallbacks) {
-        try {
-          fallbacks = JSON.parse(img.dataset.fallbacks);
-        } catch(e){}
-      }
-
-      // If we have fallbacks, try next
-      if (fallbacks.length > 0) {
-        const next = fallbacks.shift();
-        const remainingJson = JSON.stringify(fallbacks);
-        img.dataset.fallbacksB64 = btoa(unescape(encodeURIComponent(remainingJson)));
-        // console.log('Trying fallback:', next, 'for', img.dataset.origId);
-        img.src = next;
-        return;
-      }
-
-      // No more fallbacks - show no-image placeholder
-      console.warn('Image failed for ID:', img.dataset.origId, 'all fallbacks tried');
-      const wrap = img.parentElement;
-      if(wrap){
-        wrap.classList.remove('loading','has-image');
-        wrap.classList.add('has-error');
-      }
-      img.style.display = 'none';
-    } catch (e) {
-      console.error('handleImageError failed', e);
-      const wrap = img.parentElement;
-      if(wrap){
-        wrap.classList.add('has-error');
-        wrap.classList.remove('loading','has-image');
-      }
-      img.style.display = 'none';
-    }
-  };
 
   function cardHtml(x) {
     const selected = state.selected.has(x.id) ? 'checked' : '';
@@ -463,12 +414,21 @@
   function openForm(item) {
     const cat = selectedCategory();
     const subOptions = (cat?.subs || []).map(s => `<option value="${s.id}" ${item?.subcategory_id === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
+    let selectedMuscles = [];
+    if(item?.target_muscles){
+      try {
+        selectedMuscles = Array.isArray(item.target_muscles) ? [...item.target_muscles] : JSON.parse(item.target_muscles);
+      } catch(e){
+        selectedMuscles = [];
+      }
+    }
+
     const m = document.createElement('div');
     m.className = 'modal-backdrop';
     m.innerHTML = `
-      <form class="modal exercise-form">
+      <form class="modal exercise-form" style="max-width: 580px;">
         <div class="modal-head">
-          <h2>${item ? 'ویرایش حرکت' : 'افزودن حرکت'}</h2>
+          <h2>${item ? 'ویرایش حرکت' : 'افزودن حرکت دستی'}</h2>
           <button class="close" type="button">×</button>
         </div>
         <div class="form-grid">
@@ -502,14 +462,30 @@
           <label>اولویت (1-10)
             <input name="priority" type="number" min="1" max="10" value="${item?.priority||5}">
           </label>
-          <label>مسیر تصویر
-            <input name="image_path" value="${esc(item?.image_path||'')}" placeholder="/files/exercise/images/4.png">
+          <label>مسیر تصویر (اختیاری)
+            <input name="image_path" value="${esc(item?.image_path||'')}" placeholder="اختیاری — در صورت خالی بودن تصویر سفید قرار می‌گیرد">
           </label>
-          <label>مسیر ویدیو
+          <label>مسیر ویدیو (اختیاری)
             <input name="video_path" value="${esc(item?.video_path||'')}" placeholder="/files/exercise/videos/4.mp4">
           </label>
+          <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+            <label style="font-weight: 700; font-size: 11px;">عضلات هدف درگیر
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <select id="modalMuscleSelect" style="flex: 1;">
+                  <option value="">＋ انتخاب و افزودن عضله هدف...</option>
+                  <optgroup label="عضلات جلو">
+                    ${muscleCatalog.filter(mc=>mc.side==='front').map(mc=>`<option value="${mc.id}">${mc.label}</option>`).join('')}
+                  </optgroup>
+                  <optgroup label="عضلات پشت">
+                    ${muscleCatalog.filter(mc=>mc.side==='back').map(mc=>`<option value="${mc.id}">${mc.label}</option>`).join('')}
+                  </optgroup>
+                </select>
+              </div>
+            </label>
+            <div id="modalMuscleChips" style="display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px;"></div>
+          </div>
         </div>
-        ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;" onerror="this.style.display='none'"></div>` : ''}
+        ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;background:rgba(255,255,255,1);" onerror="this.src='/assets/images/blank-white.svg'"></div>` : ''}
         <div class="modal-actions">
           <button class="secondary close" type="button">انصراف</button>
           <button class="primary">💾 ذخیره</button>
@@ -518,6 +494,38 @@
     `;
     document.body.append(m);
     m.querySelectorAll('.close').forEach(x => x.onclick = () => m.remove());
+
+    function renderModalMuscleChips(){
+      const chipsHost = m.querySelector('#modalMuscleChips');
+      if(!chipsHost) return;
+      chipsHost.innerHTML = selectedMuscles.map(id => {
+        const mc = muscleCatalog.find(x => x.id === id);
+        if(!mc) return '';
+        return `<span class="mv-muscle-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--accent-border);border-radius:999px;background:var(--accent-surface);color:var(--accent-hover);font-size:9px;font-weight:750;">${esc(mc.label)}<button type="button" data-del-modal-muscle="${mc.id}" style="border:0;background:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:0;line-height:1;">×</button></span>`;
+      }).join('');
+      chipsHost.querySelectorAll('[data-del-modal-muscle]').forEach(btn => {
+        btn.onclick = e => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectedMuscles = selectedMuscles.filter(id => id !== btn.dataset.delModalMuscle);
+          renderModalMuscleChips();
+        };
+      });
+    }
+
+    const muscleSelect = m.querySelector('#modalMuscleSelect');
+    if(muscleSelect){
+      muscleSelect.onchange = () => {
+        if(!muscleSelect.value) return;
+        if(!selectedMuscles.includes(muscleSelect.value)){
+          selectedMuscles.push(muscleSelect.value);
+          renderModalMuscleChips();
+        }
+        muscleSelect.value = '';
+      };
+    }
+    renderModalMuscleChips();
+
     m.querySelector('form').onsubmit = async e => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
@@ -525,6 +533,9 @@
       b.category_id = b.category_id || state.categoryId;
       b.priority = parseInt(b.priority)||5;
       if(!b.subcategory_id) b.subcategory_id = null;
+      if(!b.image_path || !b.image_path.trim()) b.image_path = null;
+      if(!b.video_path || !b.video_path.trim()) b.video_path = null;
+      b.target_muscles = selectedMuscles;
       try {
         await request(item ? '/api/exercises/' + item.id : '/api/exercises', {
           method: item ? 'PUT' : 'POST',

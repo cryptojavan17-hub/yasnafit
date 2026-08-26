@@ -682,7 +682,7 @@
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-summary-row">
                       <div class="movement-image">
-                        ${(mov.original_exercise_id||mov.exercise_id) ? `<img src="/api/exercise-image/${mov.original_exercise_id||mov.exercise_id}" onerror="this.parentElement.innerHTML='🏋️'" loading="lazy">` : '🏋️'}
+                        <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/assets/images/blank-white.svg'))}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
                       </div>
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <div class="mov-name-group">
@@ -1094,6 +1094,7 @@
             original_exercise_id:null,
             nameFa:name,
             name:name,
+            image_path:null,
             movementHash:genHash(),
             description:'',
             target_muscles:targetMuscles,
@@ -1401,7 +1402,13 @@
     mvCtx={dayIdx,sysIdx,movIdx};
     const mov=mvMovement();
     if(mov&&!mov._detail){
-      try{ const ex=await api(`/api/exercises/${mov.exercise_id}`); mov._detail={name_en:ex.name_en,equipment:ex.equipment,difficulty:ex.difficulty,category:ex.category_id?String(ex.category_id):'',subcategory:ex.subcategory_id?String(ex.subcategory_id):'',video_path:ex.video_path}; }catch(e){}
+      try{
+        const ex=await api(`/api/exercises/${mov.exercise_id}`);
+        mov._detail={name_en:ex.name_en,equipment:ex.equipment,difficulty:ex.difficulty,category:ex.category_id?String(ex.category_id):'',subcategory:ex.subcategory_id?String(ex.subcategory_id):'',video_path:ex.video_path,image_path:ex.image_path,target_muscles:ex.target_muscles};
+        if((!mov.target_muscles || mov.target_muscles.length===0) && ex.target_muscles){
+          mov.target_muscles = Array.isArray(ex.target_muscles) ? ex.target_muscles : (typeof ex.target_muscles==='string'?JSON.parse(ex.target_muscles):[]);
+        }
+      }catch(e){}
     }
     renderMovementModal();
     modal.hidden=false;
@@ -1451,22 +1458,25 @@
       host.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">حرکتی پیدا نشد</div>`;
       return;
     }
-    host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت بزنید — بانک باز می‌ماند</span></div>` + items.map(ex=>`
-      <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}">
-        <img src="/api/exercise-image/${ex.original_id||ex.id}" onerror="this.style.display='none'" loading="lazy">
+    host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت بزنید — بانک باز می‌ماند</span></div>` + items.map(ex=>{
+      const thumbSrc = (ex.image_path && ex.image_path.trim()) ? ex.image_path : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/assets/images/blank-white.svg');
+      return `
+      <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}" data-ex-img="${esc(ex.image_path||'')}">
+        <img src="${esc(thumbSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
         <div>
           <b>${esc(ex.name_fa)}</b>
           <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)} • ${ex.location==='gym'?'باشگاه':ex.location==='home'?'منزل':'همه محل‌ها'}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
         </div>
         <span style="margin-left:auto;color:var(--text-secondary)">＋</span>
       </div>
-    `).join('');
+    `;}).join('');
     host.querySelectorAll('.drawer-item').forEach(el=>{
       el.onclick=()=>{
         if(!selectedSystemForAdd)return;
         const exId=Number(el.dataset.exId);
         const origId=el.dataset.exOrig;
         const name=el.dataset.exName;
+        const imgPath=el.dataset.exImg||null;
         const {dayIdx, sysIdx}=selectedSystemForAdd;
         const sys=currentProgram.days[dayIdx].data[sysIdx];
         const meta=systemById(sys.exercise_system_id)||systemById(1);
@@ -1478,6 +1488,7 @@
           original_exercise_id:origId?Number(origId):null,
           nameFa: name,
           name: name,
+          image_path: imgPath,
           movementHash: genHash(),
           description: '',
           sets: [{type:'REPEAT', count:12, restSeconds:60, setHash: genHash()}]

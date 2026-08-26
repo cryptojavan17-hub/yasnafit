@@ -40,12 +40,14 @@ function normalizeProgramInput(input){
           movement_list: (sys.movement_list || sys.movements || sys.data || []).map((mov, movIdx)=>{
             return {
               exercise_id: mov.exercise_id ?? mov.exerciseId ?? mov.original_exercise_id ?? null,
-              original_exercise_id: mov.original_exercise_id ?? mov.exercise_id ?? mov.exerciseId ?? null,
+              original_exercise_id: mov.original_exercise_id ?? null,
               exerciseId: mov.exerciseId ?? mov.exercise_id ?? null,
               nameFa: mov.nameFa || mov.name || '',
               movementHash: mov.movementHash || mov.movement_hash || genHash(),
               movement_hash: mov.movementHash || mov.movement_hash || genHash(),
               description: mov.description || '',
+              image_path: mov.image_path || null,
+              target_muscles: mov.target_muscles || [],
               order_index: mov.order_index ?? movIdx,
               sets: (mov.sets||[]).map(s=>{
                 return {
@@ -81,7 +83,7 @@ function buildProgramFromDB(db, programId){
     const systems = db.prepare('SELECT * FROM exercise_systems WHERE day_id=? AND deleted_at IS NULL ORDER BY id').all(d.id);
     const fullSystems = systems.map(sys=>{
       const movements = db.prepare(`
-        SELECT pm.*, e.name_fa, e.original_id, e.category_id, e.subcategory_id, e.image_path
+        SELECT pm.*, e.name_fa, e.original_id, e.category_id, e.subcategory_id, e.image_path, e.target_muscles, e.video_path
         FROM program_movements pm
         LEFT JOIN exercises e ON e.id=pm.exercise_id
         WHERE pm.system_id=? AND pm.deleted_at IS NULL
@@ -90,10 +92,18 @@ function buildProgramFromDB(db, programId){
 
       const fullMovements = movements.map(m=>{
         const sets = db.prepare('SELECT * FROM movement_sets WHERE movement_id=? AND deleted_at IS NULL ORDER BY id').all(m.id);
+        let targetMuscles = [];
+        if(m.target_muscles){
+          try {
+            targetMuscles = Array.isArray(m.target_muscles) ? m.target_muscles : JSON.parse(m.target_muscles);
+          } catch(e){
+            targetMuscles = [];
+          }
+        }
         return {
           id: m.id,
           exercise_id: m.exercise_id,
-          original_exercise_id: m.original_exercise_id,
+          original_exercise_id: m.original_id ?? m.original_exercise_id ?? null,
           exerciseId: m.exercise_id,
           nameFa: m.name_fa || '',
           name: m.name_fa || '',
@@ -101,6 +111,8 @@ function buildProgramFromDB(db, programId){
           movement_hash: m.movement_hash,
           description: m.description||'',
           image_path: m.image_path||null,
+          video_path: m.video_path||null,
+          target_muscles: targetMuscles,
           order_index: m.order_index,
           stable_id: m.stable_id,
           version: m.version,
