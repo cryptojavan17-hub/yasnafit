@@ -415,6 +415,9 @@
         </div>
         <span class="dirty-badge" id="dirtyBadge" hidden>⚠️ تغییرات ذخیره نشده</span>
         <div class="topbar-actions">
+          <button class="btn btn-primary btn-small" id="btnAiGenerateDraft" type="button" style="font-weight:800;display:inline-flex;align-items:center;gap:5px;" title="ساخت خودکار پیش‌نویس برنامه تمرینی با هوش مصنوعی بر اساس ارزیابی شاگرد">
+            🤖 تولید پیش‌نویس هوشمند
+          </button>
           <button class="btn btn-secondary btn-small" onclick="history.back()">← بازگشت</button>
         </div>
       </div>
@@ -1676,6 +1679,41 @@
     if (btnExportPDF) btnExportPDF.onclick = handleExportPDF;
     const btnMenuPDF = document.getElementById('btnMenuPDF');
     if (btnMenuPDF) btnMenuPDF.onclick = handleExportPDF;
+
+    const btnAiDraft = document.getElementById('btnAiGenerateDraft');
+    if (btnAiDraft) {
+      btnAiDraft.onclick = async () => {
+        syncFormToProgram();
+        const studentId = currentProgram.student_id;
+        const assessmentId = currentProgram.assessment_id;
+        if (!studentId) {
+          alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
+          return;
+        }
+        try {
+          btnAiDraft.disabled = true;
+          btnAiDraft.textContent = '⏳ در حال تولید پیش‌نویس هوشمند…';
+          const res = await api('/api/ai/generate-program', {
+            method: 'POST',
+            body: JSON.stringify({
+              studentId: studentId,
+              assessmentId: assessmentId,
+              programId: currentProgram.id
+            })
+          });
+
+          if (res.programId) {
+            alert('✅ پیش‌نویس برنامه تمرینی با هوش مصنوعی ساخته شد.');
+            location.href = `/programs/exercise/form?id=${res.programId}`;
+          }
+        } catch (err) {
+          alert(`خطا در تولید پیش‌نویس هوشمند: ${err.message}`);
+        } finally {
+          btnAiDraft.disabled = false;
+          btnAiDraft.innerHTML = '🤖 تولید پیش‌نویس هوشمند';
+        }
+      };
+    }
 
     const btnMenuAi = document.getElementById('btnMenuAi');
     if (btnMenuAi) {

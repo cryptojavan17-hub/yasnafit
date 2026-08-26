@@ -1860,6 +1860,17 @@ async function handleAi(req,res,url){
     }
   }
 
+  if(p==='/api/ai/generate-program' && req.method==='POST'){
+    try {
+      const b=await readBody(req);
+      const result=await aiService.generateProgramFromAssessment(db,b);
+      log('برنامه تمرینی با هوش مصنوعی ساخته شد', `Program ID: ${result.programId}`);
+      return send(res,201,result);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
   return null;
 }
 

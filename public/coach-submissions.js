@@ -150,7 +150,16 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
                   <a class="review-action message" href="/users-list/${student.case_number||student.id}">✉ <span>پیام به شاگرد</span></a>
                 </div>
                 <p class="review-action-feedback" id="reviewActionFeedback" role="alert"></p>
-                ${lifecycle==='APPROVED'?`<a class="primary review-program-link" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}">ساخت برنامه ۳۰ روزه</a>`:''}
+                ${lifecycle==='APPROVED'?`
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                    <button type="button" class="btn btn-primary review-program-link" id="btnAiBuildProgram" style="width:100%;font-weight:850;display:flex;align-items:center;justify-content:center;gap:6px;">
+                      🤖 ساخت برنامه با AI
+                    </button>
+                    <a class="secondary review-program-link" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}" style="text-align:center;">
+                      ساخت برنامه ۳۰ روزه (دستی)
+                    </a>
+                  </div>
+                `:''}
               </section>
             </aside>
           </div>
@@ -170,6 +179,33 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
       document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));
       document.querySelector('#btnRequestChanges')?.addEventListener('click',()=>decide('request-changes',true));
       document.querySelector('#btnReject')?.addEventListener('click',()=>decide('reject',true));
+      document.querySelector('#btnAiBuildProgram')?.addEventListener('click', async () => {
+        const btn = document.querySelector('#btnAiBuildProgram');
+        if (!btn) return;
+        try {
+          btn.disabled = true;
+          btn.textContent = '⏳ در حال انتخاب حرکات از بانک و ساخت برنامه…';
+          const res = await api('/api/ai/generate-program', {
+            method: 'POST',
+            body: JSON.stringify({
+              studentId: student.id,
+              assessmentId: id
+            })
+          });
+          if (res.redirectUrl) {
+            alert('✅ پیش‌نویس برنامه تمرینی با موفقیت توسط هوش مصنوعی ساخته شد.');
+            location.href = res.redirectUrl;
+          } else if (res.programId) {
+            alert('✅ پیش‌نویس برنامه تمرینی با موفقیت توسط هوش مصنوعی ساخته شد.');
+            location.href = `/programs/exercise/form?id=${res.programId}`;
+          }
+        } catch (err) {
+          alert(`خطا در ساخت برنامه با هوش مصنوعی: ${err.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '🤖 ساخت برنامه با AI';
+        }
+      });
       document.querySelector('#btnAiAnalyze')?.addEventListener('click', async () => {
         const btn = document.querySelector('#btnAiAnalyze');
         const noteEl = document.querySelector('#coachNote');

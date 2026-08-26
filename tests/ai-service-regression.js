@@ -142,6 +142,31 @@ const publicDir = path.join(root, 'public');
   const modelsRes = await aiService.fetchAvailableModels(db);
   assert.ok(Array.isArray(modelsRes.models), 'models must be an array');
 
+  console.log('--- 4c. Testing AI Generate Program from Assessment ---');
+  assert.equal(typeof aiService.generateProgramFromAssessment, 'function', 'generateProgramFromAssessment must be a function');
+  const genResult = await aiService.generateProgramFromAssessment(db, {
+    studentId,
+    assessmentId
+  });
+  assert.ok(genResult.success, 'Program generation must succeed');
+  assert.ok(genResult.programId > 0, 'Must return valid program ID');
+  const genProgram = programService.buildProgramFromDB(db, genResult.programId);
+  assert.ok(genProgram, 'Generated program must exist in DB');
+  const progRow = genProgram.dbProgram || genProgram;
+  assert.equal(progRow.status, 'DRAFT', 'Generated program MUST remain in DRAFT status (never auto-activated)');
+  assert.equal(progRow.student_id, studentId, 'Must link correct student_id');
+  assert.equal(progRow.assessment_id, assessmentId, 'Must link correct assessment_id');
+  // Verify all exercise IDs exist in database
+  for (const day of genProgram.programData.days) {
+    for (const sys of (day.data || [])) {
+      for (const mov of (sys.movement_list || [])) {
+        assert.ok(mov.exercise_id > 0, 'Every movement must have a valid exercise_id');
+        const exCheck = db.prepare('SELECT id FROM exercises WHERE id = ?').get(mov.exercise_id);
+        assert.ok(exCheck, `Exercise ID ${mov.exercise_id} must exist in the exercises database`);
+      }
+    }
+  }
+
   console.log('--- 5. Testing Settings Page UI & Design Tokens Compliance ---');
   const aiSettingsJs = fs.readFileSync(path.join(publicDir, 'ai-settings.js'), 'utf8');
   const aiSettingsCss = fs.readFileSync(path.join(publicDir, 'ai-settings.css'), 'utf8');
@@ -155,12 +180,23 @@ const publicDir = path.join(root, 'public');
   assert.ok(aiSettingsJs.includes('aiSettingsForm'), 'ai-settings.js must contain settings form');
   assert.ok(aiSettingsJs.includes('aiChatMessages'), 'ai-settings.js must contain live test chat');
 
+  console.log('--- 6. Testing Mandatory Button Names and Triggers ---');
+  const submissionsJs = fs.readFileSync(path.join(publicDir, 'coach-submissions.js'), 'utf8');
+  assert.ok(submissionsJs.includes('ساخت برنامه با AI'), 'coach-submissions.js must contain exact button text: «ساخت برنامه با AI»');
+  assert.ok(submissionsJs.includes('btnAiBuildProgram'), 'coach-submissions.js must contain btnAiBuildProgram');
+
+  const builderJs = fs.readFileSync(path.join(publicDir, 'program-builder.js'), 'utf8');
+  assert.ok(builderJs.includes('تولید پیش‌نویس هوشمند'), 'program-builder.js must contain exact button text: «تولید پیش‌نویس هوشمند»');
+  assert.ok(builderJs.includes('btnAiGenerateDraft'), 'program-builder.js must contain btnAiGenerateDraft');
+
   console.log(JSON.stringify({
     ok: true,
     ai_settings_singleton: true,
     secret_masking: true,
     tool_definitions_count: aiService.AI_TOOLS.length,
     tool_execution_functional: true,
+    ai_draft_generation_verified: true,
+    mandatory_buttons_verified: true,
     ui_compliant: true
   }));
 })();

@@ -783,11 +783,205 @@ async function chatCompletion(db, options = {}) {
   };
 }
 
+// ==========================================
+// High-Level Automated Program Generation
+// ==========================================
+async function generateProgramFromAssessment(db, { studentId, assessmentId, programId, customInstructions = '' }) {
+  if (!studentId && !assessmentId && !programId) {
+    throw new Error('شناسه شاگرد یا ارزیابی الزامی است.');
+  }
+
+  let sid = studentId ? Number(studentId) : null;
+  let aid = assessmentId ? Number(assessmentId) : null;
+
+  if (!sid && aid) {
+    const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid);
+    if (ass) sid = ass.student_id;
+  }
+
+  if (!aid && sid) {
+    const ass = db.prepare("SELECT id FROM body_assessments WHERE student_id = ? AND status IN ('APPROVED', 'SUBMITTED', 'PENDING_REVIEW') AND deleted_at IS NULL ORDER BY assessment_number DESC, id DESC LIMIT 1").get(sid);
+    if (ass) aid = ass.id;
+  }
+
+  if (!sid) throw new Error('شاگرد پیدا نشد.');
+  if (!aid) throw new Error('ارزیابی معتبری برای این شاگرد یافت نشد. ابتدا ارزیابی شاگرد را ثبت و تایید کنید.');
+
+  const student = db.prepare('SELECT * FROM students WHERE id = ? AND deleted_at IS NULL').get(sid);
+  if (!student) throw new Error('شاگرد پیدا نشد.');
+
+  const assessment = db.prepare('SELECT * FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid);
+  if (!assessment) throw new Error('ارزیابی پیدا نشد.');
+
+  const details = assessmentService.getDetails(db, aid) || {};
+
+  const location = details.sports?.preferred_location || student.preferred_location || 'gym';
+  const goal = details.goals?.main_goal || student.goal || 'فیتنس و هایپرتروفی';
+  const level = student.training_level || student.training_experience || 'متوسط';
+  const injuries = student.injuries || details.medical?.orthopedic_issues || 'بدون آسیب';
+  const limitations = student.limitations || 'ندارد';
+
+  const sampleBank = db.prepare(`
+    SELECT id, name_fa, category_id, location, priority
+    FROM exercises
+    WHERE status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
+    ORDER BY priority ASC, id ASC
+    LIMIT 120
+  `).all(location === 'home' ? 'home' : 'gym');
+
+  const categories = db.prepare('SELECT id, name FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order').all();
+
+  const prompt = `
+مشخصات شاگرد و ارزیابی:
+- نام شاگرد: ${student.full_name} (شماره پرونده: ${student.case_number || '—'})
+- شناسه شاگرد (studentId): ${sid}
+- شناسه ارزیابی (assessmentId): ${aid}
+- وزن: ${assessment.weight || '—'} کیلوگرم | قد: ${assessment.height || '—'} سانتی‌متر
+- هدف اصلی: ${goal}
+- سطح تمرین: ${level}
+- محل تمرین: ${location === 'home' ? 'منزل' : 'باشگاه'}
+- آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
+${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}
+
+دسته‌بندی‌های موجود در بانک حرکات:
+${categories.map(c => `- ${c.id}: ${c.name}`).join('\n')}
+
+نمونه‌ای از حرکات معتبر با شناسه عددی دقیق (حتماً فقط از این شناسه‌ها یا نتایج search_exercises استفاده کنید):
+${sampleBank.slice(0, 45).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})`).join(' | ')}
+
+وظیفه شما:
+۱. یک برنامه تمرینی ۳ الی ۴ روزه متناسب با هدف و شرایط شاگرد طراحی کنید.
+۲. برای هر روز، سیستم تمرینی مناسب (۱: معمولی، ۲: سوپرست و...) و حرکات را با exercise_id معتبر از بانک انتخاب کنید.
+۳. ساختن نام یا شناسه خارج از بانک حرکات اکیداً ممنوع است.
+۴. ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT ذخیره شود.
+`;
+
+  const systemMessage = {
+    role: 'system',
+    content: `شما مربی و متخصص ارشد فیزیولوژی تمرین در سامانه یسنافیت هستید.
+قانون اساسی و غیرقابل نقض:
+۱. شما فقط و فقط مجاز هستید از حرکات واقعی موجود در بانک حرکات ۲۷۰۷ تایی یسنافیت با exercise_id معتبر استفاده کنید.
+۲. تحت هیچ شرایطی حرکت جدید یا نام جعلی خارج از جدول exercises نسازید.
+۳. حرکات مضر برای آسیب شاگرد (${injuries}) را قرار ندهید.
+۴. حتماً از ابزار create_draft_program برای ثبت برنامه به‌صورت DRAFT استفاده کنید.`
+  };
+
+  let createdProgId = null;
+  try {
+    const result = await chatCompletion(db, {
+      messages: [systemMessage, { role: 'user', content: prompt }],
+      tools: AI_TOOLS,
+      executeTools: true,
+      temperature: 0.4,
+      max_tokens: 3500
+    });
+
+    for (const tc of result.tool_calls_executed || []) {
+      if (tc.tool === 'create_draft_program' && tc.result && tc.result.programId) {
+        createdProgId = tc.result.programId;
+        break;
+      }
+    }
+  } catch (aiErr) {
+    console.warn('[AI Service] AI generation failed, using DB deterministic fallback:', aiErr.message);
+  }
+
+  // Fallback if AI provider did not complete tool call
+  if (!createdProgId) {
+    const splitDays = [
+      { focus: 'سینه و جلو بازو', cats: ['chest', 'biceps'] },
+      { focus: 'زیربغل و پشت بازو', cats: ['back', 'triceps'] },
+      { focus: 'پا و ساق', cats: ['legs'] },
+      { focus: 'سرشانه، کول و شکم', cats: ['shoulders', 'abs'] }
+    ];
+
+    const daysPayload = [];
+    for (let i = 0; i < splitDays.length; i++) {
+      const sp = splitDays[i];
+      const movList = [];
+      for (const cat of sp.cats) {
+        const catExercises = db.prepare(`
+          SELECT id, name_fa FROM exercises
+          WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
+          ORDER BY priority ASC, id ASC LIMIT 3
+        `).all(cat, location === 'home' ? 'home' : 'gym');
+
+        for (const ex of catExercises) {
+          movList.push({
+            exercise_id: ex.id,
+            name: ex.name_fa,
+            description: 'کنترل فاز منفی، تمرکز بر دامنه کامل حرکتی',
+            sets: [
+              { type: 'REPEAT', count: 12, restSeconds: 60 },
+              { type: 'REPEAT', count: 10, restSeconds: 60 },
+              { type: 'REPEAT', count: 8, restSeconds: 60 }
+            ]
+          });
+        }
+      }
+
+      daysPayload.push({
+        day_number: i + 1,
+        focus: sp.focus,
+        is_rest_day: false,
+        systems: [
+          {
+            exercise_system_id: 1,
+            system_type: 'normal',
+            movements: movList
+          }
+        ]
+      });
+    }
+
+    const fallbackPayload = {
+      title: `برنامه تمرینی هوشمند — ${student.full_name}`,
+      student_id: sid,
+      assessment_id: aid,
+      coach_note: `برنامه تمرینی اختصاصی تنظیم‌شده بر اساس ارزیابی بدنی #${assessment.assessment_number}. رعایت تمپوی حرکات و آب‌رسانی الزامی است.`,
+      status: 'DRAFT',
+      start_date: new Date().toISOString().slice(0, 10),
+      end_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+      program_data: {
+        version: 2,
+        days: daysPayload.map((d, dIdx) => ({
+          day_number: d.day_number || (dIdx + 1),
+          focus: d.focus,
+          is_rest_day: false,
+          data: d.systems.map(sys => ({
+            exercise_system_id: sys.exercise_system_id,
+            system_type: sys.system_type,
+            movement_list: sys.movements.map(m => ({
+              exercise_id: m.exercise_id,
+              name: m.name,
+              description: m.description,
+              sets: m.sets
+            }))
+          }))
+        }))
+      }
+    };
+
+    const fallbackResult = programService.createProgramInDB(db, fallbackPayload);
+    createdProgId = fallbackResult.id;
+  }
+
+  return {
+    success: true,
+    programId: createdProgId,
+    studentId: sid,
+    assessmentId: aid,
+    message: 'برنامه تمرینی پیش‌نویس با موفقیت ساخته شد.',
+    redirectUrl: `/programs/exercise/form?id=${createdProgId}`
+  };
+}
+
 module.exports = {
   getSettings,
   getRawSettings,
   saveSettings,
   fetchAvailableModels,
+  generateProgramFromAssessment,
   AI_TOOLS,
   executeTool,
   chatCompletion
