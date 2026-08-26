@@ -74,11 +74,55 @@ const publicDir = path.join(root, 'public');
 
   console.log('--- 4. Testing Tool Execution Handlers ---');
   // Insert dummy student & category for tool testing
-  db.prepare("INSERT OR IGNORE INTO exercise_categories (id, name, sort_order) VALUES ('chest', 'سینه', 1), ('warmup', 'گرم کردن و سرد کردن', 12), ('cardio', 'هوازی', 13), ('biceps', 'جلو بازو', 4), ('triceps', 'پشت بازو', 5), ('legs', 'پا', 6), ('shoulders', 'سرشانه', 3), ('abs', 'شکم', 7), ('back', 'پشت', 2), ('traps', 'کول', 9)").run();
+  db.prepare("INSERT OR IGNORE INTO exercise_categories (id, name, sort_order) VALUES ('chest', 'سینه', 1), ('warmup', 'گرم کردن و سرد کردن', 12), ('cardio', 'هوازی', 13), ('biceps', 'جلو بازو', 4), ('triceps', 'پشت بازو', 5), ('legs', 'پا', 6), ('shoulders', 'سرشانه', 3), ('abs', 'شکم', 7), ('back', 'پشت', 2), ('traps', 'کول', 9), ('lower_back', 'فیله کمر', 10), ('forearms', 'ساعد', 8)").run();
   db.prepare("INSERT OR IGNORE INTO exercises (id, name_fa, location, category_id, status, priority, stable_id) VALUES (1158, 'گرم کردن', 'gym', 'warmup', 'active', 1, 'ex-1158'), (1157, 'سرد کردن', 'gym', 'warmup', 'active', 1, 'ex-1157'), (1107, 'تردمیل', 'gym', 'cardio', 'active', 1, 'ex-1107'), (1110, 'دوچرخه ثابت', 'gym', 'cardio', 'active', 1, 'ex-1110'), (1106, 'الپتیکال', 'gym', 'cardio', 'active', 1, 'ex-1106')").run();
 
-  const insEx = db.prepare("INSERT INTO exercises (name_fa, location, category_id, status, priority, stable_id) VALUES ('پرس سینه هالتر', 'gym', 'chest', 'active', 1, 'ex-uuid-1')").run();
-  const exId = Number(insEx.lastInsertRowid);
+  const sampleData = [
+    // Chest
+    { id: 101, name: 'پرس سینه هالتر', cat: 'chest' },
+    { id: 102, name: 'پرس بالا سینه دمبل', cat: 'chest' },
+    { id: 103, name: 'قفسه سینه دمبل', cat: 'chest' },
+    { id: 104, name: 'کراس اور سیم‌کش', cat: 'chest' },
+    // Biceps
+    { id: 105, name: 'جلو بازو هالتر ایستاده', cat: 'biceps' },
+    { id: 106, name: 'جلو بازو دمبل لاری', cat: 'biceps' },
+    { id: 107, name: 'جلو بازو چکشی', cat: 'biceps' },
+    // Back
+    { id: 108, name: 'زیربغل سیم کش از بالا', cat: 'back' },
+    { id: 109, name: 'زیربغل قایقی سیم کش', cat: 'back' },
+    { id: 110, name: 'زیربغل هالتر خم', cat: 'back' },
+    { id: 111, name: 'پلاور سیم کش', cat: 'back' },
+    // Triceps
+    { id: 112, name: 'پشت بازو سیم کش طناب', cat: 'triceps' },
+    { id: 113, name: 'پشت بازو هالتر خوابیده', cat: 'triceps' },
+    { id: 114, name: 'پشت بازو دیپ', cat: 'triceps' },
+    // Legs
+    { id: 115, name: 'اسکوات با هالتر', cat: 'legs' },
+    { id: 116, name: 'پرس پا دستگاه', cat: 'legs' },
+    { id: 117, name: 'جلو پا دستگاه', cat: 'legs' },
+    { id: 118, name: 'پشت پا دستگاه', cat: 'legs' },
+    { id: 119, name: 'ساق پا ایستاده', cat: 'legs' },
+    // Shoulders
+    { id: 120, name: 'پرس سرشانه دمبل نشسته', cat: 'shoulders' },
+    { id: 121, name: 'نشر از جانب دمبل', cat: 'shoulders' },
+    { id: 122, name: 'نشر خم دمبل', cat: 'shoulders' },
+    { id: 123, name: 'نشر روبرو دمبل', cat: 'shoulders' },
+    // Traps
+    { id: 124, name: 'شراگ دمبل', cat: 'traps' },
+    { id: 125, name: 'شراگ هالتر', cat: 'traps' },
+    // Abs
+    { id: 126, name: 'کرانچ شکم روی زمین', cat: 'abs' },
+    { id: 127, name: 'پلانک روی زمین', cat: 'abs' },
+    // Lower back
+    { id: 128, name: 'فیله کمر ۴۵ درجه', cat: 'lower_back' },
+    // Forearms
+    { id: 129, name: 'ساعد هالتر نشسته', cat: 'forearms' }
+  ];
+  for (const s of sampleData) {
+    db.prepare("INSERT OR IGNORE INTO exercises (id, name_fa, location, category_id, status, priority, stable_id) VALUES (?, ?, 'gym', ?, 'active', 1, ?)").run(s.id, s.name, s.cat, `ex-${s.id}`);
+  }
+
+  const exId = 101;
 
   const insStudent = db.prepare("INSERT INTO students (full_name, mobile, case_number, stable_id) VALUES ('امیر رضایی', '09121112233', '100200', 'st-uuid-1')").run();
   const studentId = Number(insStudent.lastInsertRowid);
@@ -99,7 +143,7 @@ const publicDir = path.join(root, 'public');
   // Test search_exercises tool
   const searchExResult = await aiService.executeTool(db, 'search_exercises', { query: 'سینه' });
   assert.ok(searchExResult.exercises.length >= 1, 'search_exercises should find exercise');
-  assert.equal(searchExResult.exercises[0].name_fa, 'پرس سینه هالتر');
+  assert.ok(searchExResult.exercises.some(e => e.name_fa.includes('سینه')), 'search_exercises should find exercises containing سینه');
 
   // Test create_draft_program tool
   const createProgResult = await aiService.executeTool(db, 'create_draft_program', {
@@ -158,7 +202,7 @@ const publicDir = path.join(root, 'public');
   assert.equal(progRow.status, 'DRAFT', 'Generated program MUST remain in DRAFT status (never auto-activated)');
   assert.equal(progRow.student_id, studentId, 'Must link correct student_id');
   assert.equal(progRow.assessment_id, assessmentId, 'Must link correct assessment_id');
-  // Verify 5-phase scientific structure: Warm-up, Main/Accessory, Cardio, and Cool-down
+  // Verify 6-phase scientific structure: Warm-up, 7-9 Main/Accessory/Core, Cardio, and Cool-down
   for (const day of genProgram.programData.days) {
     const allMovNames = (day.data || []).flatMap(sys => (sys.movement_list || []).map(m => m.name));
     const allMovIds = (day.data || []).flatMap(sys => (sys.movement_list || []).map(m => m.exercise_id));
@@ -166,6 +210,9 @@ const publicDir = path.join(root, 'public');
     assert.ok(allMovIds.includes(1158) || allMovNames.some(n => n.includes('گرم')), 'Day must contain Warm-up movement');
     assert.ok(allMovIds.includes(1157) || allMovNames.some(n => n.includes('سرد')), 'Day must contain Cool-down movement');
     assert.ok(allMovIds.some(id => [1107, 1110, 1106, 1385].includes(id)) || allMovNames.some(n => n.includes('تردمیل') || n.includes('دوچرخه') || n.includes('الپتیکال')), 'Day must contain Cardio/Conditioning movement');
+
+    const resistanceMovs = allMovIds.filter(id => id !== 1158 && id !== 1157 && ![1107, 1110, 1106, 1385].includes(id));
+    assert.ok(resistanceMovs.length >= 7 && resistanceMovs.length <= 9, `Day must have 7 to 9 main+accessory resistance movements (got ${resistanceMovs.length})`);
 
     for (const sys of (day.data || [])) {
       for (const mov of (sys.movement_list || [])) {

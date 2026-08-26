@@ -850,34 +850,38 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
 - آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
 ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}
 
-شناسه‌های استاندارد حرکات پایه برای ساختار ۵ مرحله‌ای (الزامی):
+شناسه‌های استاندارد حرکات پایه برای ساختار ۶ مرحله‌ای:
 - گرم کردن پویا (Warm-up): [ID: 1158] «گرم کردن» (دسته: warmup)
 - سرد کردن و کشش ایستا (Cool-down): [ID: 1157] «سرد کردن» (دسته: warmup)
-- هوازی و چربی‌سوزی (Cardio): [ID: 1107] «تردمیل» | [ID: 1110] «دوچرخه ثابت» | [ID: 1106] «الپتیکال» | [ID: 1385] «دویدن»
+- هوازی و کاندیشنینگ (Cardio): [ID: 1107] «تردمیل» | [ID: 1110] «دوچرخه ثابت» | [ID: 1106] «الپتیکال» | [ID: 1385] «دویدن»
 
 نمونه‌ای از حرکات قدرتی و هایپرتروفی معتبر بانک:
 ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})`).join(' | ')}
 
-وظیفه و پروتکل ۵ مرحله‌ای اجباری برای هر روز تمرینی:
-۱. یک برنامه تمرینی ۳ الی ۴ روزه علمی و متعادل طراحی کنید.
-۲. هر جلسه تمرینی حتماً باید دارای ساختار زیر باشد:
-   - سیستم ۱ (گرم کردن): حرکت [ID: 1158] «گرم کردن» به مدت ۵ تا ۱۰ دقیقه (واحد TIME با مقدار ۳۰۰ الی ۶۰۰ ثانیه).
-   - سیستم‌های ۲ و ۳ (حرکات اصلی و کمکی): حرکات چندمفصلی و ایزوله متناسب با عضلات هدف جلسه با ست‌ها و تکرارهای متناسب (معمولی، سوپرست و...).
-   - سیستم ۴ (هوازی / تردمیل): حرکت [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۵ الی ۲۰ دقیقه (واحد TIME با مقدار ۹۰۰ الی ۱۲۰۰ ثانیه) جهت ارتقای استقامت قلبی-تنفسی و چربی‌سوزی.
-   - سیستم ۵ (سرد کردن): حرکت [ID: 1157] «سرد کردن» یا کشش‌های تخصصی به مدت ۵ دقیقه (واحد TIME با مقدار ۳۰۰ ثانیه) جهت ریکاوری و دفع لاکتات.
-۳. ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT ذخیره شود.
+دستور کار و پروتکل علمی برای هر روز تمرینی (مدت زمان جلسه: ۵۵ الی ۶۵ دقیقه):
+۱. یک برنامه تمرینی ۳ الی ۴ روزه با حجم کافی (۷ تا ۹ حرکت اصلی و کمکی در هر روز بدون احتساب گرم‌کردن و سردکردن) طراحی کنید.
+۲. ساختار اجباری هر روز تمرین:
+   - فاز ۱ (گرم کردن): [ID: 1158] «گرم کردن» به مدت ۵ تا ۱۰ دقیقه (واحد TIME: ۳۰۰ الی ۶۰۰ ثانیه).
+   - فاز ۲ (حرکات اصلی چندمفصلی): ۲ الی ۳ حرکت سنگین و چندمفصلی (پرس سینه، زیربغل، پرس پا، پرس سرشانه و...) با سیستم معمولی یا هرمی.
+   - فاز ۳ (حرکات کمکی و ایزوله): ۳ الی ۴ حرکت تک‌مفصلی و هایپرتروفی (قفسه سینه، جلوبازو، پشت‌بازو، جلوپا، پشت‌پا، نشر جانب) با سیستم‌های معمولی، سوپرست یا دراپ‌ست.
+   - فاز ۴ (شکم / کول / فیله): ۱ حرکت تقویت میان‌تنه، شکم، فیله یا کول.
+   - فاز ۵ (هوازی / تردمیل): [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۰ الی ۱۵ دقیقه (واحد TIME: ۶۰۰ الی ۹۰۰ ثانیه).
+   - فاز ۶ (سرد کردن): [ID: 1157] «سرد کردن» به مدت ۵ دقیقه (واحد TIME: ۳۰۰ ثانیه).
+۳. حتماً ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT در سامانه ثبت شود.
 `;
 
   const systemMessage = {
     role: 'system',
     content: `شما فیزیولوژیست ورزشی و مربی ارشد بدنسازی در سامانه یسنافیت هستید.
-اصول علمی و ساختار ۵ مرحله‌ای اجباری برای هر روز تمرینی:
-۱. مرحله آغازین (گرم کردن): هر جلسه حتماً با یک حرکت گرم‌کردن پویا و موبیلیتی مفاصل («گرم کردن» [ID: 1158] با سیستم معمولی ۱ ست ۵ تا ۱۰ دقیقه) شروع شود.
-۲. مرحله حرکات اصلی (Main Compound Lifts): حرکات چندمفصلی مادر با بیشترین درگیری عصبی-عضلانی در ابتدای بخش قدرتی قرار گیرند.
-۳. مرحله حرکات کمکی و ایزوله (Accessory Hypertrophy): حرکات تک‌مفصلی جهت ایجاد تنش مکانیکی و پمپ عضلانی با سیستم‌های متناسب (سوپرست، دراپ‌ست، معمولی).
-۴. مرحله هوازی و قلبی-عروقی (Cardio Conditioning): یک حرکت هوازی مانند «تردمیل» [ID: 1107] یا «دوچرخه ثابت» [ID: 1110] (۱ ست ۱۵ الی ۲۰ دقیقه) قبل از سرد کردن قرار گیرد.
-۵. مرحله پایانی (سرد کردن و کشش ایستا): هر جلسه حتماً با یک حرکت سردکردن و کشش («سرد کردن» [ID: 1157] با سیستم معمولی ۱ ست ۵ دقیقه) به پایان برسد.
+اصول علمی و ساختار ۶ مرحله‌ای اجباری برای هر روز تمرینی (حجم ۵۵ تا ۶۵ دقیقه):
+۱. فاز گرم کردن (Warm-up): هر جلسه با یک حرکت گرم‌کردن پویا («گرم کردن» [ID: 1158] ۱ ست ۵ تا ۱۰ دقیقه) شروع شود.
+۲. فاز حرکات اصلی (Main Lifts): ۲ تا ۳ حرکت اصلی چندمفصلی در ابتدای بخش مقاومتی با ست‌های ۶ تا ۱۲ تکرار.
+۳. فاز حرکات کمکی (Accessory Lifts): ۳ تا ۴ حرکت ایزوله و پمپ عضلانی با سیستم‌های معمولی، سوپرست یا دراپ‌ست.
+۴. فاز تقویت میان‌تنه/کول/فیله: ۱ حرکت شکم، فیله کمر یا کول.
+۵. فاز هوازی (Cardio): ۱۰ تا ۱۵ دقیقه هوازی («تردمیل» [ID: 1107] یا «دوچرخه ثابت» [ID: 1110]).
+۶. فاز سرد کردن (Cool-down): ۵ دقیقه کشش ایستا و بازگشت ضربان قلب («سرد کردن» [ID: 1157]).
 
+مجموع حرکات مقاومتی اصلی و کمکی در هر جلسه باید بین ۷ تا ۹ حرکت باشد.
 قوانین سخت‌گیرانه و غیرقابل نقض:
 ۱. شما فقط و فقط مجاز هستید از حرکات واقعی موجود در بانک حرکات ۲۷۰۷ تایی یسنافیت با exercise_id معتبر استفاده کنید.
 ۲. تحت هیچ شرایطی حرکت جدید یا نام جعلی خارج از جدول exercises نسازید.
@@ -892,7 +896,7 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
       tools: AI_TOOLS,
       executeTools: true,
       temperature: 0.4,
-      max_tokens: 3500
+      max_tokens: 4000
     });
 
     for (const tc of result.tool_calls_executed || []) {
@@ -909,30 +913,34 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
   if (!createdProgId) {
     const splitDays = [
       {
-        focus: 'سینه، جلو بازو، هوازی و ریکاوری',
+        focus: 'سینه، جلو بازو، شکم، هوازی و کشش',
         mainCats: ['chest'],
         accCats: ['biceps'],
+        coreCat: 'abs',
         cardioId: 1107, // تردمیل
         cardioName: 'تردمیل'
       },
       {
-        focus: 'زیربغل، پشت بازو، هوازی و ریکاوری',
+        focus: 'زیربغل، پشت بازو، فیله، هوازی و کشش',
         mainCats: ['back'],
         accCats: ['triceps'],
+        coreCat: 'lower_back',
         cardioId: 1110, // دوچرخه ثابت
         cardioName: 'دوچرخه ثابت'
       },
       {
-        focus: 'پا، باسن، شکم، هوازی و ریکاوری',
+        focus: 'چهارسر، همسترینگ، باسن، ساق، شکم و هوازی',
         mainCats: ['legs'],
-        accCats: ['abs'],
+        accCats: ['legs'],
+        coreCat: 'abs',
         cardioId: 1106, // الپتیکال
         cardioName: 'الپتیکال'
       },
       {
-        focus: 'سرشانه، کول، شکم، هوازی و ریکاوری',
+        focus: 'سرشانه، کول، ساعد، شکم و هوازی',
         mainCats: ['shoulders'],
-        accCats: ['traps', 'abs'],
+        accCats: ['traps', 'forearms'],
+        coreCat: 'abs',
         cardioId: 1107, // تردمیل
         cardioName: 'تردمیل'
       }
@@ -943,7 +951,7 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
       const sp = splitDays[i];
       const daySystems = [];
 
-      // 1. Phase 1: Warm-up System
+      // 1. Phase 1: Warm-up System (5-10 min)
       daySystems.push({
         exercise_system_id: 1,
         system_type: 'normal',
@@ -952,12 +960,12 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
             exercise_id: 1158, // گرم کردن
             name: 'گرم کردن',
             description: '۵ الی ۱۰ دقیقه گرم کردن عمومی مفاصل و افزایش دمای مرکزی بدن',
-            sets: [{ type: 'TIME', count: 600, restSeconds: 60 }]
+            sets: [{ type: 'TIME', count: 480, restSeconds: 60 }]
           }
         ]
       });
 
-      // 2. Phase 2: Main Compound Movements System
+      // 2. Phase 2: 3 Main Compound Movements (Primary Heavy Lifts)
       const mainMovs = [];
       for (const cat of sp.mainCats) {
         const catExercises = db.prepare(`
@@ -970,11 +978,11 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
           mainMovs.push({
             exercise_id: ex.id,
             name: ex.name_fa,
-            description: 'حرکت اصلی چندمفصلی، کنترل کامل فاز منفی و دامنه حرکتی',
+            description: 'حرکت اصلی چندمفصلی، کنترل کامل فاز منفی و دامنه کامل حرکتی',
             sets: [
               { type: 'REPEAT', count: 12, restSeconds: 60 },
-              { type: 'REPEAT', count: 10, restSeconds: 60 },
-              { type: 'REPEAT', count: 8, restSeconds: 75 }
+              { type: 'REPEAT', count: 10, restSeconds: 75 },
+              { type: 'REPEAT', count: 8, restSeconds: 90 }
             ]
           });
         }
@@ -987,20 +995,21 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
         });
       }
 
-      // 3. Phase 3: Accessory / Isolation Movements System
+      // 3. Phase 3: 3-4 Accessory / Isolation Movements
       const accMovs = [];
+      const accLimitPerCat = sp.accCats.length === 1 ? 4 : 2;
       for (const cat of sp.accCats) {
         const accExercises = db.prepare(`
           SELECT id, name_fa FROM exercises
           WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
-          ORDER BY priority ASC, id ASC LIMIT 2
-        `).all(cat, location === 'home' ? 'home' : 'gym');
+          ORDER BY priority ASC, id ASC LIMIT ?
+        `).all(cat, location === 'home' ? 'home' : 'gym', accLimitPerCat);
 
         for (const ex of accExercises) {
           accMovs.push({
             exercise_id: ex.id,
             name: ex.name_fa,
-            description: 'حرکت ایزوله، تمرکز بر انقباض حداکثری عضله هدف',
+            description: 'حرکت کمکی و ایزوله، تمرکز بر انقباض حداکثری و پمپ عضلانی',
             sets: [
               { type: 'REPEAT', count: 12, restSeconds: 60 },
               { type: 'REPEAT', count: 12, restSeconds: 60 },
@@ -1017,7 +1026,35 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
         });
       }
 
-      // 4. Phase 4: Cardio Conditioning System (Treadmill / Bike / Elliptical)
+      // 4. Phase 4: 1-2 Core / Abs / Traps / Lower back movement
+      const coreMovs = [];
+      const coreExercises = db.prepare(`
+        SELECT id, name_fa FROM exercises
+        WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
+        ORDER BY priority ASC, id ASC LIMIT 1
+      `).all(sp.coreCat, location === 'home' ? 'home' : 'gym');
+
+      for (const ex of coreExercises) {
+        coreMovs.push({
+          exercise_id: ex.id,
+          name: ex.name_fa,
+          description: 'تقویت عضلات میان‌تنه و ثبات‌دهنده ستون فقرات',
+          sets: [
+            { type: 'REPEAT', count: 15, restSeconds: 45 },
+            { type: 'REPEAT', count: 15, restSeconds: 45 },
+            { type: 'REPEAT', count: 15, restSeconds: 45 }
+          ]
+        });
+      }
+      if (coreMovs.length > 0) {
+        daySystems.push({
+          exercise_system_id: 1,
+          system_type: 'normal',
+          movements: coreMovs
+        });
+      }
+
+      // 5. Phase 5: Cardio Conditioning (Treadmill / Bike / Elliptical 10-15 min)
       daySystems.push({
         exercise_system_id: 1,
         system_type: 'normal',
@@ -1026,12 +1063,12 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
             exercise_id: sp.cardioId,
             name: sp.cardioName,
             description: 'تمرین هوازی با شدت یکنواخت متوسط (Zone 2) جهت چربی‌سوزی و ریکاوری فعال',
-            sets: [{ type: 'TIME', count: 900, restSeconds: 60 }] // 15 minutes
+            sets: [{ type: 'TIME', count: 720, restSeconds: 60 }] // 12 minutes
           }
         ]
       });
 
-      // 5. Phase 5: Cool-down & Static Stretching System
+      // 6. Phase 6: Cool-down & Static Stretching (5 min)
       daySystems.push({
         exercise_system_id: 1,
         system_type: 'normal',
@@ -1057,7 +1094,7 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
       title: `برنامه تمرینی جامع و علمی — ${student.full_name}`,
       student_id: sid,
       assessment_id: finalAssessmentId,
-      coach_note: `برنامه ۵ مرحله‌ای استاندارد (گرم‌کردن، بخش اصلی، کمکی، هوازی و سردکردن). رعایت آب‌رسانی و تمپوی حرکات الزامی است.`,
+      coach_note: `برنامه ۶ مرحله‌ای استاندارد (گرم‌کردن، ۳ حرکت اصلی، ۳-۴ حرکت کمکی، شکم/فیله، هوازی و سردکردن). مدت جلسه حدود ۶۰ دقیقه. رعایت آب‌رسانی الزامی است.`,
       status: 'DRAFT',
       start_date: new Date().toISOString().slice(0, 10),
       end_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
