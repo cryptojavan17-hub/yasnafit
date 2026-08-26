@@ -90,7 +90,7 @@ assert.equal(retMov.video_path, null, 'Retrieved video_path must be null');
 assert.deepEqual(retMov.target_muscles, ['front_biceps', 'front_brachialis'], 'Retrieved target_muscles must match');
 
 console.log('--- 4. Checking Blank White SVG Asset File ---');
-const svgPath = path.resolve(__dirname, '../public/assets/images/blank-white.svg');
+const svgPath = path.resolve(__dirname, '../public/blank-white.svg');
 assert.ok(fs.existsSync(svgPath), 'blank-white.svg must exist');
 const svgContent = fs.readFileSync(svgPath, 'utf8');
 assert.ok(svgContent.includes('<svg') && svgContent.includes('fill="white"'), 'blank-white.svg must be a valid white SVG');

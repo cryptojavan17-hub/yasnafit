@@ -1,0 +1,724 @@
+'use strict';
+
+const programService = require('./program-service');
+const studentService = require('./student-service');
+const assessmentService = require('./assessment-service');
+const engagementService = require('./engagement-service');
+
+function maskApiKey(key) {
+  if (!key || typeof key !== 'string') return '';
+  const trimmed = key.trim();
+  if (!trimmed) return '';
+  if (trimmed.length <= 8) return '********';
+  return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
+}
+
+function getRawSettings(db) {
+  const row = db.prepare('SELECT * FROM ai_settings WHERE id = 1').get();
+  if (!row) {
+    db.prepare(`
+      INSERT OR IGNORE INTO ai_settings (id, base_url, default_combo, temperature, top_p, max_tokens, timeout_ms)
+      VALUES (1, 'https://9router-production-6a92.up.railway.app/v1', '', 0.7, 1.0, 2000, 30000)
+    `).run();
+    return db.prepare('SELECT * FROM ai_settings WHERE id = 1').get();
+  }
+  return row;
+}
+
+function getSettings(db) {
+  const s = getRawSettings(db);
+  return {
+    has_api_key: Boolean(s.api_key && s.api_key.trim()),
+    api_key_masked: maskApiKey(s.api_key),
+    base_url: s.base_url || 'https://9router-production-6a92.up.railway.app/v1',
+    default_combo: s.default_combo || '',
+    temperature: s.temperature ?? 0.7,
+    top_p: s.top_p ?? 1.0,
+    max_tokens: s.max_tokens ?? 2000,
+    timeout_ms: s.timeout_ms ?? 30000,
+    updated_at: s.updated_at
+  };
+}
+
+function saveSettings(db, input = {}) {
+  const current = getRawSettings(db);
+
+  let baseUrl = String(input.base_url ?? current.base_url ?? '').trim();
+  if (!baseUrl) {
+    baseUrl = 'https://9router-production-6a92.up.railway.app/v1';
+  }
+  baseUrl = baseUrl.replace(/\/+$/, '');
+
+  let defaultCombo = String(input.default_combo ?? current.default_combo ?? '').trim();
+  
+  let temp = input.temperature != null ? parseFloat(input.temperature) : current.temperature;
+  if (isNaN(temp) || temp < 0 || temp > 2) temp = 0.7;
+
+  let topP = input.top_p != null ? parseFloat(input.top_p) : current.top_p;
+  if (isNaN(topP) || topP < 0 || topP > 1) topP = 1.0;
+
+  let maxTokens = input.max_tokens != null ? parseInt(input.max_tokens, 10) : current.max_tokens;
+  if (isNaN(maxTokens) || maxTokens < 1 || maxTokens > 32000) maxTokens = 2000;
+
+  let timeoutMs = input.timeout_ms != null ? parseInt(input.timeout_ms, 10) : current.timeout_ms;
+  if (isNaN(timeoutMs) || timeoutMs < 1000 || timeoutMs > 180000) timeoutMs = 30000;
+
+  let apiKey = current.api_key;
+  if (typeof input.api_key === 'string') {
+    const rawKey = input.api_key.trim();
+    if (input.clear_api_key) {
+      apiKey = null;
+    } else if (rawKey && !rawKey.includes('...')) {
+      apiKey = rawKey;
+    }
+  }
+
+  db.prepare(`
+    INSERT INTO ai_settings (id, api_key, base_url, default_combo, temperature, top_p, max_tokens, timeout_ms, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
+      api_key = excluded.api_key,
+      base_url = excluded.base_url,
+      default_combo = excluded.default_combo,
+      temperature = excluded.temperature,
+      top_p = excluded.top_p,
+      max_tokens = excluded.max_tokens,
+      timeout_ms = excluded.timeout_ms,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(apiKey, baseUrl, defaultCombo, temp, topP, maxTokens, timeoutMs);
+
+  return getSettings(db);
+}
+
+// ==========================================
+// OpenAI-compatible Tool Definitions
+// ==========================================
+const AI_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_student',
+      description: 'دریافت اطلاعات پرونده و مشخصات شاگرد بر اساس شناسه یا شماره پرونده',
+      parameters: {
+        type: 'object',
+        properties: {
+          studentId: { type: 'number', description: 'شناسه عددی شاگرد' },
+          caseNumber: { type: 'string', description: 'شماره پرونده شش‌رقمی شاگرد (مانند 104523)' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_students',
+      description: 'جستجو و دریافت لیست شاگردان بر اساس نام، شماره پرونده یا وضعیت',
+      parameters: {
+        type: 'object',
+        properties: {
+          search: { type: 'string', description: 'عبارت جستجو در نام یا شماره پرونده' },
+          status: { type: 'string', enum: ['all', 'active', 'attention', 'idle'], description: 'فیلتر وضعیت شاگرد' },
+          limit: { type: 'number', description: 'حداکثر تعداد نتایج (پیش‌فرض 20)' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_latest_assessment',
+      description: 'دریافت آخرین ارزیابی بدنی ثبت‌شده یا تاییدشده یک شاگرد همراه با اندازه‌ها و مشخصات',
+      parameters: {
+        type: 'object',
+        properties: {
+          studentId: { type: 'number', description: 'شناسه عددی شاگرد' }
+        },
+        required: ['studentId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_assessment',
+      description: 'دریافت اطلاعات کامل یک ارزیابی با شناسه مشخص',
+      parameters: {
+        type: 'object',
+        properties: {
+          assessmentId: { type: 'number', description: 'شناسه ارزیابی' }
+        },
+        required: ['assessmentId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_coach_note',
+      description: 'افزودن یا به‌روزرسانی یادداشت و توصیه‌های مربی برای شاگرد، ارزیابی یا برنامه',
+      parameters: {
+        type: 'object',
+        properties: {
+          targetType: { type: 'string', enum: ['student', 'assessment', 'program'], description: 'نوع هدف یادداشت' },
+          targetId: { type: 'number', description: 'شناسه هدف' },
+          note: { type: 'string', description: 'متن یادداشت یا توصیه مربی' }
+        },
+        required: ['targetType', 'targetId', 'note']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_exercises',
+      description: 'جستجو در بانک ۲۷۰۷ حرکت تمرینی بر اساس نام فارسی، دسته‌بندی، عضله و محل تمرین',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'نام فارسی حرکت برای جستجو (مثلاً پرس سینه، اسکوات، نشر)' },
+          categoryId: { type: 'string', description: 'شناسه دسته‌بندی (مانند chest, back, legs, shoulders, biceps, triceps, abs)' },
+          location: { type: 'string', enum: ['gym', 'home', 'both', 'all'], description: 'محل تمرین' },
+          status: { type: 'string', enum: ['active', 'archived', 'all'], description: 'وضعیت حرکت' },
+          limit: { type: 'number', description: 'تعداد نتایج (پیش‌فرض 15)' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_exercise',
+      description: 'دریافت جزئیات کامل یک حرکت تمرینی شامل نام فارسی، عضلات هدف و تجهیزات',
+      parameters: {
+        type: 'object',
+        properties: {
+          exerciseId: { type: 'number', description: 'شناسه عددی حرکت در بانک' }
+        },
+        required: ['exerciseId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_program',
+      description: 'دریافت اطلاعات کامل یک برنامه تمرینی شامل تمام روزها، سیستم‌ها، حرکات و ست‌ها',
+      parameters: {
+        type: 'object',
+        properties: {
+          programId: { type: 'number', description: 'شناسه برنامه تمرینی' }
+        },
+        required: ['programId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_student_programs',
+      description: 'دریافت تاریخچه تمام برنامه‌های تمرینی یک شاگرد',
+      parameters: {
+        type: 'object',
+        properties: {
+          studentId: { type: 'number', description: 'شناسه شاگرد' }
+        },
+        required: ['studentId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_draft_program',
+      description: 'ایجاد یک برنامه تمرینی پیش‌نویس (Draft) ساختاریافته برای شاگرد متصل به ارزیابی تاییدشده',
+      parameters: {
+        type: 'object',
+        properties: {
+          studentId: { type: 'number', description: 'شناسه شاگرد' },
+          assessmentId: { type: 'number', description: 'شناسه ارزیابی شاگرد' },
+          title: { type: 'string', description: 'عنوان برنامه تمرینی' },
+          coachNote: { type: 'string', description: 'توصیه‌ها و یادداشت‌های عمومی مربی برای این برنامه' },
+          days: {
+            type: 'array',
+            description: 'لیست روزها و جلسات تمرینی',
+            items: {
+              type: 'object',
+              properties: {
+                day_number: { type: 'number', description: 'شماره جلسه/روز (۱، ۲، ۳...)' },
+                focus: { type: 'string', description: 'تمرکز جلسه (مثلاً سینه و جلوبازو، یا استراحت)' },
+                is_rest_day: { type: 'boolean', description: 'آیا روز استراحت است؟' },
+                coach_note: { type: 'string', description: 'یادداشت اختصاصی این روز' },
+                systems: {
+                  type: 'array',
+                  description: 'سیستم‌های تمرینی این جلسه',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      exercise_system_id: { type: 'number', description: 'شناسه سیستم تمرینی (۱: معمولی، ۲: سوپرست، ۳: تری‌ست، ۴: جاینت‌ست، ۵: دراپ‌ست، و...)' },
+                      movements: {
+                        type: 'array',
+                        description: 'حرکات تمرینی داخل این سیستم',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            exercise_id: { type: 'number', description: 'شناسه حرکت از بانک حرکات' },
+                            name: { type: 'string', description: 'نام حرکت' },
+                            description: { type: 'string', description: 'توضیحات تمپو و اجرای حرکت' },
+                            sets: {
+                              type: 'array',
+                              description: 'ست‌های این حرکت',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  type: { type: 'string', enum: ['REPEAT', 'TIME', 'MINUTE', 'DROPSET', 'FAILURE'], description: 'واحد ست' },
+                                  count: { type: 'number', description: 'تعداد تکرار یا زمان ست' },
+                                  weight: { type: 'number', description: 'وزنه پیشنهادی (اختیاری)' },
+                                  restSeconds: { type: 'number', description: 'زمان استراحت به ثانیه' }
+                                }
+                              }
+                            }
+                          },
+                          required: ['exercise_id']
+                        }
+                      }
+                    },
+                    required: ['exercise_system_id', 'movements']
+                  }
+                }
+              },
+              required: ['day_number']
+            }
+          }
+        },
+        required: ['studentId', 'assessmentId', 'title', 'days']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_draft_program',
+      description: 'به‌روزرسانی محتوا یا ساختار یک برنامه تمرینی پیش‌نویس',
+      parameters: {
+        type: 'object',
+        properties: {
+          programId: { type: 'number', description: 'شناسه برنامه' },
+          data: { type: 'object', description: 'داده‌های جدید برنامه' }
+        },
+        required: ['programId', 'data']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'activate_program',
+      description: 'فعال‌سازی و اختصاص رسمی یک برنامه تمرینی به شاگرد',
+      parameters: {
+        type: 'object',
+        properties: {
+          programId: { type: 'number', description: 'شناسه برنامه تمرینی' }
+        },
+        required: ['programId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'complete_program',
+      description: 'تکمیل و بایگانی یک دوره تمرینی',
+      parameters: {
+        type: 'object',
+        properties: {
+          programId: { type: 'number', description: 'شناسه برنامه تمرینی' }
+        },
+        required: ['programId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_workout_results',
+      description: 'دریافت نتایج و تاریخچه ثبت تمرینات و ست‌های اجرا شده توسط شاگرد',
+      parameters: {
+        type: 'object',
+        properties: {
+          studentId: { type: 'number', description: 'شناسه شاگرد' },
+          programId: { type: 'number', description: 'شناسه برنامه تمرینی (اختیاری)' },
+          from: { type: 'string', description: 'تاریخ شروع بازه' },
+          to: { type: 'string', description: 'تاریخ پایان بازه' }
+        },
+        required: ['studentId']
+      }
+    }
+  }
+];
+
+// ==========================================
+// Tool Execution Handlers
+// ==========================================
+async function executeTool(db, name, args = {}) {
+  try {
+    switch (name) {
+      case 'get_student': {
+        const { studentId, caseNumber } = args;
+        if (!studentId && !caseNumber) {
+          return { error: 'studentId یا caseNumber الزامی است.' };
+        }
+        let sql = 'SELECT id, full_name, case_number, mobile, goal, height, weight, training_level, limitations, injuries, medical_notes, coach_notes, created_at FROM students WHERE deleted_at IS NULL';
+        let params = [];
+        if (studentId) {
+          sql += ' AND id = ?';
+          params.push(Number(studentId));
+        } else {
+          sql += ' AND case_number = ?';
+          params.push(String(caseNumber).trim());
+        }
+        const student = db.prepare(sql).get(...params);
+        if (!student) return { error: 'شاگرد پیدا نشد.' };
+        return { student };
+      }
+
+      case 'list_students': {
+        const { search = '', status = 'all', limit = 20 } = args;
+        const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        let sql = 'SELECT id, full_name, case_number, mobile, goal, training_level, created_at FROM students WHERE deleted_at IS NULL';
+        const params = [];
+        if (search && String(search).trim()) {
+          sql += ' AND (full_name LIKE ? OR case_number LIKE ? OR mobile LIKE ?)';
+          const term = `%${String(search).trim()}%`;
+          params.push(term, term, term);
+        }
+        sql += ' ORDER BY id DESC LIMIT ?';
+        params.push(lim);
+        const list = db.prepare(sql).all(...params);
+        return { students: list, count: list.length };
+      }
+
+      case 'get_latest_assessment': {
+        const studentId = Number(args.studentId);
+        if (!studentId) return { error: 'studentId الزامی است.' };
+        const assessment = db.prepare(`
+          SELECT * FROM body_assessments
+          WHERE student_id = ? AND deleted_at IS NULL
+          ORDER BY assessment_number DESC, id DESC
+          LIMIT 1
+        `).get(studentId);
+        if (!assessment) return { error: 'ارزیابی برای این شاگرد ثبت نشده است.' };
+        const details = assessmentService.getDetails(db, assessment.id);
+        return { assessment, details };
+      }
+
+      case 'get_assessment': {
+        const assessmentId = Number(args.assessmentId);
+        if (!assessmentId) return { error: 'assessmentId الزامی است.' };
+        const assessment = db.prepare('SELECT * FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(assessmentId);
+        if (!assessment) return { error: 'ارزیابی پیدا نشد.' };
+        const details = assessmentService.getDetails(db, assessmentId);
+        return { assessment, details };
+      }
+
+      case 'add_coach_note': {
+        const { targetType, targetId, note } = args;
+        const noteText = String(note || '').trim();
+        const id = Number(targetId);
+        if (!id) return { error: 'targetId نامعتبر است.' };
+        if (targetType === 'student') {
+          db.prepare('UPDATE students SET coach_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(noteText, id);
+          return { success: true, message: 'یادداشت مربی برای شاگرد ذخیره شد.' };
+        } else if (targetType === 'assessment') {
+          db.prepare('UPDATE body_assessments SET coach_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(noteText, id);
+          return { success: true, message: 'یادداشت مربی برای ارزیابی ذخیره شد.' };
+        } else if (targetType === 'program') {
+          db.prepare('UPDATE training_programs SET coach_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(noteText, id);
+          return { success: true, message: 'یادداشت مربی برای برنامه تمرینی ذخیره شد.' };
+        }
+        return { error: 'نوع هدف (targetType) نامعتبر است.' };
+      }
+
+      case 'search_exercises': {
+        const { query = '', categoryId, location, status = 'active', limit = 15 } = args;
+        const lim = Math.min(Math.max(Number(limit) || 15, 1), 60);
+        let sql = 'SELECT id, original_id, name_fa, location, category_id, subcategory_id, image_path, target_muscles, priority FROM exercises WHERE deleted_at IS NULL';
+        const params = [];
+        if (status && status !== 'all') {
+          sql += ' AND status = ?';
+          params.push(status);
+        }
+        if (location && location !== 'all' && location !== 'both') {
+          sql += ' AND (location = ? OR location = "both")';
+          params.push(location);
+        }
+        if (categoryId && categoryId !== 'all') {
+          sql += ' AND category_id = ?';
+          params.push(categoryId);
+        }
+        if (query && String(query).trim()) {
+          sql += ' AND name_fa LIKE ?';
+          params.push(`%${String(query).trim()}%`);
+        }
+        sql += ' ORDER BY priority ASC, name_fa ASC LIMIT ?';
+        params.push(lim);
+        const exercises = db.prepare(sql).all(...params);
+        return { exercises, count: exercises.length };
+      }
+
+      case 'get_exercise': {
+        const exerciseId = Number(args.exerciseId);
+        if (!exerciseId) return { error: 'exerciseId الزامی است.' };
+        const exercise = db.prepare('SELECT * FROM exercises WHERE id = ? AND deleted_at IS NULL').get(exerciseId);
+        if (!exercise) return { error: 'حرکت در بانک پیدا نشد.' };
+        if (exercise.target_muscles) {
+          try { exercise.target_muscles = JSON.parse(exercise.target_muscles); } catch(e){}
+        }
+        return { exercise };
+      }
+
+      case 'get_program': {
+        const programId = Number(args.programId);
+        if (!programId) return { error: 'programId الزامی است.' };
+        const built = programService.buildProgramFromDB(db, programId);
+        if (!built) return { error: 'برنامه تمرینی پیدا نشد.' };
+        return { program: built };
+      }
+
+      case 'list_student_programs': {
+        const studentId = Number(args.studentId);
+        if (!studentId) return { error: 'studentId الزامی است.' };
+        const programs = db.prepare(`
+          SELECT id, title, status, program_number, start_date, end_date, coach_note, created_at
+          FROM training_programs
+          WHERE student_id = ? AND deleted_at IS NULL
+          ORDER BY program_number DESC, id DESC
+        `).all(studentId);
+        return { programs, count: programs.length };
+      }
+
+      case 'create_draft_program': {
+        const { studentId, assessmentId, title, coachNote = '', days = [] } = args;
+        if (!studentId || !assessmentId) return { error: 'studentId و assessmentId الزامی هستند.' };
+        if (!title || !String(title).trim()) return { error: 'title برنامه الزامی است.' };
+        if (!days || !Array.isArray(days) || days.length === 0) return { error: 'حداقل یک روز تمرینی الزامی است.' };
+
+        // Construct standardized payload
+        const payload = {
+          title: String(title).trim(),
+          student_id: Number(studentId),
+          assessment_id: Number(assessmentId),
+          coach_note: String(coachNote || ''),
+          status: 'DRAFT',
+          start_date: new Date().toISOString().slice(0, 10),
+          end_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+          program_data: {
+            version: 2,
+            days: days.map((d, dIdx) => ({
+              day_number: d.day_number || (dIdx + 1),
+              focus: d.focus || `جلسه ${dIdx + 1}`,
+              coach_note: d.coach_note || '',
+              is_rest_day: Boolean(d.is_rest_day),
+              data: (d.systems || []).map(sys => ({
+                exercise_system_id: sys.exercise_system_id || 1,
+                system_type: sys.system_type || 'normal',
+                movement_list: (sys.movements || []).map(m => ({
+                  exercise_id: m.exercise_id,
+                  name: m.name || '',
+                  description: m.description || '',
+                  sets: (m.sets || []).map(s => ({
+                    type: s.type || 'REPEAT',
+                    count: s.count ?? 12,
+                    weight: s.weight ?? null,
+                    restSeconds: s.restSeconds ?? 60
+                  }))
+                }))
+              }))
+            }))
+          }
+        };
+
+        const result = programService.createProgramInDB(db, payload);
+        return {
+          success: true,
+          programId: result.id,
+          title: payload.title,
+          status: 'DRAFT',
+          message: 'برنامه تمرینی پیش‌نویس با موفقیت ساخته شد.'
+        };
+      }
+
+      case 'update_draft_program': {
+        const programId = Number(args.programId);
+        if (!programId) return { error: 'programId الزامی است.' };
+        const result = programService.saveProgramToDB(db, programId, args.data || {});
+        return { success: true, programId, message: 'برنامه تمرینی به‌روزرسانی شد.' };
+      }
+
+      case 'activate_program': {
+        const programId = Number(args.programId);
+        if (!programId) return { error: 'programId الزامی است.' };
+        const activated = programService.activateProgram(db, programId);
+        return { success: true, programId, status: activated.status, message: 'برنامه تمرینی فعال و به شاگرد اختصاص داده شد.' };
+      }
+
+      case 'complete_program': {
+        const programId = Number(args.programId);
+        if (!programId) return { error: 'programId الزامی است.' };
+        const transitioned = programService.transitionProgram(db, programId, 'COMPLETED');
+        return { success: true, programId, status: transitioned.status, message: 'برنامه تمرینی تکمیل شد.' };
+      }
+
+      case 'get_workout_results': {
+        const studentId = Number(args.studentId);
+        if (!studentId) return { error: 'studentId الزامی است.' };
+        const perf = engagementService.performance(db, studentId);
+        const workouts = engagementService.listWorkouts(db, studentId);
+        return { performance: perf, workouts: workouts.slice(0, 15) };
+      }
+
+      default:
+        return { error: `ابزار ناشناخته: ${name}` };
+    }
+  } catch (error) {
+    return { error: `خطا در اجرای ابزار ${name}: ${error.message}` };
+  }
+}
+
+// ==========================================
+// Core Chat Completion Engine
+// ==========================================
+async function chatCompletion(db, options = {}) {
+  const settings = getRawSettings(db);
+  const messages = options.messages || [];
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw new Error('لیست پیام‌ها (messages) الزامی است.');
+  }
+
+  // Determine combo (ALWAYS used as model field for 9Router)
+  const comboName = String(options.combo || settings.default_combo || '').trim();
+  if (!comboName) {
+    throw new Error('نام مدل یا کامبو (Combo) مشخص نشده است. لطفاً در صفحه تنظیمات هوش مصنوعی (/settings/ai) یک کامبو تعیین کنید.');
+  }
+
+  const baseUrl = (options.base_url || settings.base_url || 'https://9router-production-6a92.up.railway.app/v1').replace(/\/+$/, '');
+  const endpoint = `${baseUrl}/chat/completions`;
+  const timeoutMs = options.timeout_ms || settings.timeout_ms || 30000;
+
+  const toolsToProvide = options.tools === false ? null : (Array.isArray(options.tools) ? options.tools : AI_TOOLS);
+
+  const requestHeaders = {
+    'Content-Type': 'application/json'
+  };
+  if (settings.api_key && settings.api_key.trim()) {
+    requestHeaders['Authorization'] = `Bearer ${settings.api_key.trim()}`;
+  }
+
+  const conversation = [...messages];
+  const executedToolCalls = [];
+  let finalResponse = null;
+  const maxTurns = 5;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    const payload = {
+      model: comboName, // CRITICAL: 9Router combo name sent as model field
+      messages: conversation,
+      temperature: options.temperature != null ? Number(options.temperature) : (settings.temperature ?? 0.7),
+      top_p: options.top_p != null ? Number(options.top_p) : (settings.top_p ?? 1.0),
+      max_tokens: options.max_tokens != null ? Number(options.max_tokens) : (settings.max_tokens ?? 2000),
+      stream: false
+    };
+
+    if (toolsToProvide && toolsToProvide.length > 0) {
+      payload.tools = toolsToProvide;
+      payload.tool_choice = 'auto';
+    }
+
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (networkError) {
+      if (networkError.name === 'TimeoutError' || networkError.name === 'AbortError') {
+        throw new Error(`پاسخی در مهلت زمانی (${Math.round(timeoutMs / 1000)} ثانیه) از ارائه‌دهنده هوش مصنوعی دریافت نشد.`);
+      }
+      throw new Error(`خطا در اتصال به سرور هوش مصنوعی (${baseUrl}): ${networkError.message}`);
+    }
+
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        const errJson = await response.json();
+        errorBody = errJson.error?.message || errJson.error || JSON.stringify(errJson);
+      } catch (e) {
+        errorBody = await response.text();
+      }
+      throw new Error(`ارائه‌دهنده هوش مصنوعی خطای ${response.status} را بازگرداند: ${errorBody || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const choice = data.choices && data.choices[0];
+    if (!choice || !choice.message) {
+      throw new Error('فرمت پاسخ ارائه‌دهنده هوش مصنوعی نامعتبر است.');
+    }
+
+    const assistantMsg = choice.message;
+    conversation.push(assistantMsg);
+    finalResponse = data;
+
+    // Check for tool calls
+    const toolCalls = assistantMsg.tool_calls;
+    if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0 && options.executeTools !== false) {
+      for (const tc of toolCalls) {
+        const fnName = tc.function?.name;
+        let fnArgs = {};
+        try {
+          fnArgs = typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.function?.arguments || {});
+        } catch (e) {
+          fnArgs = {};
+        }
+
+        const toolResult = await executeTool(db, fnName, fnArgs);
+        executedToolCalls.push({
+          id: tc.id,
+          tool: fnName,
+          arguments: fnArgs,
+          result: toolResult
+        });
+
+        conversation.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          name: fnName,
+          content: JSON.stringify(toolResult)
+        });
+      }
+      // Continue loop for follow-up message with tool results
+    } else {
+      // No tool calls - conversation complete
+      break;
+    }
+  }
+
+  const lastMsg = conversation[conversation.length - 1];
+  return {
+    message: lastMsg,
+    content: lastMsg.content || '',
+    tool_calls_executed: executedToolCalls,
+    model: comboName,
+    usage: finalResponse?.usage || null
+  };
+}
+
+module.exports = {
+  getSettings,
+  getRawSettings,
+  saveSettings,
+  AI_TOOLS,
+  executeTool,
+  chatCompletion
+};

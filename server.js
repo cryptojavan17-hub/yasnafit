@@ -46,6 +46,7 @@ const assessmentDocumentService = require('./src/assessment-document-service');
 const engagementService = require('./src/engagement-service');
 const auditService = require('./src/audit-service');
 const studentAuthService = require('./src/student-auth-service');
+const aiService = require('./src/ai-service');
 
 // --- MIME Types ---
 const types = {
@@ -1816,6 +1817,42 @@ async function handleBackup(req,res,url){
   return null;
 }
 
+async function handleAi(req,res,url){
+  if(requireCoach(req,res)) return true;
+  const p=url.pathname;
+
+  if(p==='/api/ai/settings' && req.method==='GET'){
+    return send(res,200,aiService.getSettings(db));
+  }
+
+  if(p==='/api/ai/settings' && req.method==='PUT'){
+    try {
+      const b=await readBody(req);
+      const updated=aiService.saveSettings(db,b);
+      log('تنظیمات هوش مصنوعی به‌روزرسانی شد', `Combo: ${updated.default_combo||'تعیین‌نشده'}`);
+      return send(res,200,updated);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  if(p==='/api/ai/tools' && req.method==='GET'){
+    return send(res,200,{tools:aiService.AI_TOOLS});
+  }
+
+  if(p==='/api/ai/chat' && req.method==='POST'){
+    try {
+      const b=await readBody(req);
+      const result=await aiService.chatCompletion(db,b);
+      return send(res,200,result);
+    } catch(e){
+      return sendError(res,400,e.message);
+    }
+  }
+
+  return null;
+}
+
 async function handleCoachEngagement(req,res,url){
   const p=url.pathname;
   if(p==='/api/coach/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'coach',null,100)});
@@ -1855,6 +1892,11 @@ async function api(req,res,url){
     if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
     if(p.startsWith('/api/coach/')||p.startsWith('/api/students/')){const engagement=await handleCoachEngagement(req,res,url);if(engagement)return engagement;}
+
+    if(p.startsWith('/api/ai/')){
+      const r = await handleAi(req,res,url);
+      if(r) return r;
+    }
 
     if(p.startsWith('/api/students')){
       const r1 = await handleStudentsDelete(req,res,url);

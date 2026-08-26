@@ -141,6 +141,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
             <aside class="coach-review-sidebar">
               <section class="review-decision-card">
                 <div><p class="eyebrow">تصمیم مربی</p><h2>${reviewable?'نتیجه بررسی را ثبت کنید':esc(lifecycleLabels[lifecycle]||fa(lifecycle))}</h2></div>
+                <button type="button" class="btn btn-secondary btn-small" id="btnAiAnalyze" style="width:100%;margin-bottom:8px;font-size:10px;font-weight:750;">🤖 تحلیل ارزیابی و پیشنهاد یادداشت با AI</button>
                 <label>یادداشت برای شاگرد<textarea id="coachNote" maxlength="4000" placeholder="توضیح کوتاه و روشن…">${esc(ass.coach_note||'')}</textarea></label>
                 <div class="review-actions">
                   <button class="review-action approve" id="btnApprove" ${reviewable?'':'disabled'}>✓ <span>تأیید</span></button>
@@ -169,6 +170,33 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
       document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));
       document.querySelector('#btnRequestChanges')?.addEventListener('click',()=>decide('request-changes',true));
       document.querySelector('#btnReject')?.addEventListener('click',()=>decide('reject',true));
+      document.querySelector('#btnAiAnalyze')?.addEventListener('click', async () => {
+        const btn = document.querySelector('#btnAiAnalyze');
+        const noteEl = document.querySelector('#coachNote');
+        if(!btn || !noteEl) return;
+        try {
+          btn.disabled = true;
+          btn.textContent = '⏳ در حال تحلیل هوشمند…';
+          const res = await api('/api/ai/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: 'شما مشاور ارشد مربیگری بدنسازی هستید. ارزیابی بدنی شاگرد را بررسی کن و یک یادداشت بازخورد کوتاه، حرفه‌ای و کاربردی برای مربی پیشنهاد بده.' },
+                { role: 'user', content: `ارزیابی شماره ${id} شاگرد ${student.full_name} را با ابزارها تحلیل کن و متن یادداشت مربی را پیشنهاد بده.` }
+              ]
+            })
+          });
+          const reply = res.content || (res.message && res.message.content) || '';
+          if(reply) {
+            noteEl.value = reply;
+          }
+        } catch(err){
+          alert(`خطا در هوش مصنوعی: ${err.message}`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🤖 تحلیل ارزیابی و پیشنهاد یادداشت با AI';
+        }
+      });
     }catch(error){
       content.innerHTML=`<section class="coach-review-error"><b>ارزیابی باز نشد</b><p>${esc(error.message)}</p><a class="secondary" href="/students/submissions">بازگشت به فهرست</a></section>`;
     }

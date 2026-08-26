@@ -1120,6 +1120,29 @@ const migrations = [
         db.exec('ALTER TABLE exercises ADD COLUMN target_muscles TEXT');
       }
     }
+  },
+  {
+    id: '024_ai_settings_and_router',
+    description: 'Central 9Router AI engine configuration and settings singleton',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_settings (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          api_key TEXT,
+          base_url TEXT NOT NULL DEFAULT 'https://9router-production-6a92.up.railway.app/v1',
+          default_combo TEXT,
+          temperature REAL NOT NULL DEFAULT 0.7,
+          top_p REAL NOT NULL DEFAULT 1.0,
+          max_tokens INTEGER NOT NULL DEFAULT 2000,
+          timeout_ms INTEGER NOT NULL DEFAULT 30000,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      db.prepare(`
+        INSERT OR IGNORE INTO ai_settings (id, base_url, default_combo, temperature, top_p, max_tokens, timeout_ms)
+        VALUES (1, 'https://9router-production-6a92.up.railway.app/v1', '', 0.7, 1.0, 2000, 30000)
+      `).run();
+    }
   }
 ];
 
