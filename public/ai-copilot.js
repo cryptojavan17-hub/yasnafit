@@ -61,6 +61,20 @@
     return muscles.map(m => muscleNames[m] || m).filter(Boolean).join('، ');
   }
 
+  function renderSetsPills(sets) {
+    return (sets || []).map((s) => {
+      const isFailure = s.type === 'FAILURE';
+      const unitName = units[s.type] || 'تکرار';
+      const val = isFailure ? 'MAX' : (s.count ?? s.count_value ?? '—');
+      return `
+        <div class="ai-preview-set-pill">
+          <span class="ai-preview-set-val">${esc(String(val))}</span>
+          <span class="ai-preview-set-unit">${unitName}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
   // ==============================================================
   // 1. Assessment AI Analysis & Feedback Large Modal (Request 1)
   // ==============================================================
@@ -212,6 +226,7 @@
     studentId: null,
     assessmentId: null,
     program: null,
+    studentInfo: null,
     rationaleReport: null,
     chatHistory: [],
     isSending: false
@@ -221,31 +236,71 @@
     if (!host) return;
     const prog = activeCopilotState.program;
     if (!prog) {
-      host.innerHTML = '<div class="ai-chat-empty">در حال آماده‌سازی پیش‌نمایش برنامه…</div>';
+      host.innerHTML = '<div class="loading-state"><span class="spinner"></span><p>در حال آماده‌سازی و بارگذاری پیش‌نمایش برنامه…</p></div>';
       return;
     }
 
     const progData = prog.programData || prog.program_data || {};
     const days = progData.days || [];
     const rationale = activeCopilotState.rationaleReport;
+    const studentInfo = activeCopilotState.studentInfo || {};
 
+    // 1. Student Profile & Assessment Summary Card
+    const assessmentSummaryHTML = `
+      <article class="ai-copilot-card">
+        <header class="ai-copilot-card-head">
+          <h3>👤 مشخصات و ارزیابی بدنی شاگرد</h3>
+          <span style="font-size:9px;color:var(--text-muted);">مبنای استخراج اطلاعات</span>
+        </header>
+        <div class="ai-copilot-card-body">
+          <div class="ai-assessment-summary-grid">
+            <div class="ai-assessment-summary-item">
+              <span>نام و پرونده</span>
+              <b>${esc(studentInfo.fullName || prog.student_name || 'ورزشکار')} (${esc(studentInfo.caseNumber || prog.student_case_number || '—')})</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>وزن و قد</span>
+              <b>${studentInfo.weight || '—'} kg • ${studentInfo.height || '—'} cm</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>درصد چربی</span>
+              <b>${studentInfo.bodyFat ? `${studentInfo.bodyFat}%` : 'ثبت نشده'}</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>هدف اصلی</span>
+              <b>${esc(studentInfo.goal || 'فیتنس و هایپرتروفی')}</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>سطح و محل تمرین</span>
+              <b>${esc(studentInfo.level || 'متوسط')} • ${studentInfo.location === 'home' ? 'منزل' : 'باشگاه'}</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>آسیب‌ها و محدودیت‌ها</span>
+              <b>${esc(studentInfo.injuries || 'بدون آسیب')}</b>
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+
+    // 2. Program Rationale & Decision Logic Card
     let rationaleHTML = '';
     if (rationale) {
       rationaleHTML = `
         <article class="ai-copilot-card">
           <header class="ai-copilot-card-head">
-            <h3>📋 گزارش توجیه علمی و مبنای طراحی برنامه (Program Rationale)</h3>
+            <h3>🧠 دلایل و توجیه علمی چیدمان برنامه توسط هوش مصنوعی (Program Rationale)</h3>
           </header>
           <div class="ai-copilot-card-body">
             <div class="ai-rationale-section">
-              <h4>📂 منابع داده‌های ارزیابی استفاده‌شده:</h4>
+              <h4>📂 ۱. داده‌های ارزیابی استفاده‌شده:</h4>
               <ul class="ai-rationale-list">
                 ${(rationale.dataSources || []).map(d => `<li>${esc(d)}</li>`).join('')}
               </ul>
             </div>
 
             <div class="ai-rationale-section">
-              <h4>🧠 منطق تصمیم‌گیری و ساختار فیزیولوژیک:</h4>
+              <h4>🎯 ۲. منطق تصمیم‌گیری و چیدمان فیزیولوژیک:</h4>
               <ul class="ai-rationale-list">
                 ${(rationale.decisionLogic || []).map(d => `<li>${esc(d)}</li>`).join('')}
               </ul>
@@ -253,7 +308,7 @@
 
             ${rationale.overallRationale ? `
               <div class="ai-rationale-section" style="margin-bottom:0;">
-                <h4>💡 جمع‌بندی و توجیه علمی مربی:</h4>
+                <h4>💡 ۳. جمع‌بندی و توجیه علمی مربی:</h4>
                 <p style="margin:0;font-size:10px;color:var(--text-secondary);line-height:1.7;">${esc(rationale.overallRationale)}</p>
               </div>
             ` : ''}
@@ -262,7 +317,9 @@
       `;
     }
 
-    let daysHTML = days.map((day, dIdx) => {
+    // 3. Live Workout Days & Movements List
+    let movCounter = 1;
+    const daysHTML = days.map((day, dIdx) => {
       const dayNum = day.day_number || (dIdx + 1);
       const dayFocus = day.focus ? esc(day.focus) : `جلسه ${dayNum.toLocaleString('fa-IR')}`;
       const daySystems = day.data || day.systems || [];
@@ -272,49 +329,84 @@
         const sysMeta = systems[sysId] || systems[1];
         const movs = sys.movement_list || sys.movements || [];
 
+        if (movs.length === 0) return '';
+
+        // CASE 1: Linked Superset / Triset / Giant Set Group
         if (movs.length > 1 && sysId !== 1) {
           return `
             <div class="ai-preview-combo-block">
               <span class="ai-preview-combo-title">${sysMeta.icon} سیستم: ${esc(sysMeta.label)}</span>
-              ${movs.map((mov, mIdx) => `
-                <div class="ai-preview-mov-row">
-                  <div class="ai-preview-mov-img">
-                    <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/assets/images/blank-white.svg'))}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
+              ${movs.map((mov) => {
+                const mNum = movCounter++;
+                const imgSrc = (mov.image_path && mov.image_path.trim())
+                  ? mov.image_path
+                  : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
+                return `
+                  <div class="ai-preview-mov-row">
+                    <div class="ai-preview-mov-right">
+                      <div class="ai-preview-mov-img">
+                        <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
+                      </div>
+                      <div class="ai-preview-mov-info">
+                        <div class="ai-preview-mov-name-group">
+                          <span class="ai-preview-mov-name">${mNum.toLocaleString('fa-IR')}. ${esc(mov.nameFa || mov.name)}</span>
+                        </div>
+                        <span class="ai-preview-muscles-tag">${resolveMusclesLabel(mov.target_muscles) ? `عضلات: ${resolveMusclesLabel(mov.target_muscles)}` : ''}</span>
+                      </div>
+                    </div>
+                    <div class="ai-preview-sets-pills">
+                      ${renderSetsPills(mov.sets)}
+                    </div>
                   </div>
-                  <div class="ai-preview-mov-info">
-                    <span class="ai-preview-mov-name">${esc(mov.nameFa || mov.name)}</span>
-                    <span class="ai-preview-mov-meta">${resolveMusclesLabel(mov.target_muscles) ? `عضلات: ${resolveMusclesLabel(mov.target_muscles)}` : ''}</span>
-                  </div>
-                  <div class="ai-preview-sets-pills">
-                    ${(mov.sets || []).map(s => `<span class="ai-preview-set-pill">${s.count || '—'} ${units[s.type] || 'تکرار'}</span>`).join('')}
-                  </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           `;
         }
 
-        return movs.map(mov => `
-          <div class="ai-preview-mov-row">
-            <div class="ai-preview-mov-img">
-              <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/assets/images/blank-white.svg'))}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
+        // CASE 2: Single movement row (Normal, Dropset, Warmup, Cardio, Cooldown)
+        return movs.map(mov => {
+          const mNum = movCounter++;
+          const movName = mov.nameFa || mov.name || 'حرکت تمرینی';
+          const imgSrc = (mov.image_path && mov.image_path.trim())
+            ? mov.image_path
+            : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
+
+          let inlineTag = '';
+          if (sysId === 5) inlineTag = '<span class="ai-preview-system-tag">💧 دراپ‌ست</span>';
+          else if (sysId === 6) inlineTag = '<span class="ai-preview-system-tag">🏛️ هرمی</span>';
+          else if (movName.includes('گرم کردن')) inlineTag = '<span class="ai-preview-system-tag">🏃 گرم‌کردن</span>';
+          else if (movName.includes('سرد کردن')) inlineTag = '<span class="ai-preview-system-tag">🧘 سردکردن</span>';
+          else if (movName.includes('تردمیل') || movName.includes('دوچرخه') || movName.includes('الپتیکال')) inlineTag = '<span class="ai-preview-system-tag">🚴 هوازی</span>';
+          else inlineTag = '<span class="ai-preview-system-tag">معمولی</span>';
+
+          return `
+            <div class="ai-preview-mov-row">
+              <div class="ai-preview-mov-right">
+                <div class="ai-preview-mov-img">
+                  <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
+                </div>
+                <div class="ai-preview-mov-info">
+                  <div class="ai-preview-mov-name-group">
+                    <span class="ai-preview-mov-name">${mNum.toLocaleString('fa-IR')}. ${esc(movName)}</span>
+                    ${inlineTag}
+                  </div>
+                  <span class="ai-preview-muscles-tag">${resolveMusclesLabel(mov.target_muscles) ? `عضلات: ${resolveMusclesLabel(mov.target_muscles)}` : ''}</span>
+                </div>
+              </div>
+              <div class="ai-preview-sets-pills">
+                ${renderSetsPills(mov.sets)}
+              </div>
             </div>
-            <div class="ai-preview-mov-info">
-              <span class="ai-preview-mov-name">${esc(mov.nameFa || mov.name)}</span>
-              <span class="ai-preview-mov-meta">${resolveMusclesLabel(mov.target_muscles) ? `عضلات: ${resolveMusclesLabel(mov.target_muscles)} • ` : ''}${sysMeta.label}</span>
-            </div>
-            <div class="ai-preview-sets-pills">
-              ${(mov.sets || []).map(s => `<span class="ai-preview-set-pill">${s.count || '—'} ${units[s.type] || 'تکرار'}</span>`).join('')}
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }).join('');
 
       return `
         <div class="ai-preview-day">
           <header class="ai-preview-day-head">
             <span>روز ${dayNum.toLocaleString('fa-IR')} — ${dayFocus}</span>
-            <small style="font-size:9px;color:var(--text-muted)">${daySystems.length.toLocaleString('fa-IR')} سیستم تمرینی</small>
+            <small style="font-size:9px;color:var(--text-muted);">${daySystems.length.toLocaleString('fa-IR')} سیستم تمرینی</small>
           </header>
           <div class="ai-preview-day-body">
             ${systemsHTML || '<div style="font-size:9px;color:var(--text-muted);padding:8px">حرکتی در این روز نیست.</div>'}
@@ -324,6 +416,7 @@
     }).join('');
 
     host.innerHTML = `
+      ${assessmentSummaryHTML}
       ${rationaleHTML}
       <article class="ai-copilot-card">
         <header class="ai-copilot-card-head">
@@ -546,11 +639,12 @@
       activeCopilotState.programId = progId;
       activeCopilotState.studentId = genData.studentId || studentId;
       activeCopilotState.assessmentId = genData.assessmentId || assessmentId;
+      activeCopilotState.studentInfo = genData.studentInfo || null;
       activeCopilotState.rationaleReport = genData.rationaleReport || null;
       activeCopilotState.chatHistory = [
         {
           role: 'assistant',
-          content: `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید ساختار جلسات و گزارش توجیه علمی را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`
+          content: `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`
         }
       ];
 

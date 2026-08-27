@@ -3,11 +3,11 @@
 .ai-copilot-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
-  background: rgba(5, 5, 5, .94);
-  backdrop-filter: blur(20px);
+  background: rgba(5, 5, 5, .96);
+  backdrop-filter: blur(24px);
   overflow: hidden;
   direction: rtl;
   color: var(--text);
@@ -93,19 +93,40 @@
 .ai-copilot-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
   gap: 16px;
-  padding: 16px 20px 20px;
+  padding: 14px 20px 20px;
   overflow: hidden;
+  height: calc(100vh - 65px);
+  min-height: 0;
+  box-sizing: border-box;
 }
 
-/* Right Panel: Program Rationale & Live Preview */
+/* Right Panel: Program Rationale, Assessment Summary & Live Preview */
 .ai-copilot-preview-col {
   display: flex;
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  max-height: 100%;
+  padding-left: 6px;
   padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) var(--surface-inset);
+}
+
+.ai-copilot-preview-col::-webkit-scrollbar {
+  width: 7px;
+}
+.ai-copilot-preview-col::-webkit-scrollbar-track {
+  background: var(--surface-inset);
+  border-radius: 4px;
+}
+.ai-copilot-preview-col::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
 }
 
 .ai-copilot-card {
@@ -114,6 +135,7 @@
   background: var(--card);
   backdrop-filter: blur(16px);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .ai-copilot-card-head {
@@ -121,7 +143,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 11px 16px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
 }
@@ -140,13 +162,43 @@
   padding: 14px 16px;
 }
 
+/* Assessment Diagnostic Grid */
+.ai-assessment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ai-assessment-summary-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-inset);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-assessment-summary-item span {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.ai-assessment-summary-item b {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 850;
+}
+
 /* Rationale Audit Report Styles */
 .ai-rationale-section {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .ai-rationale-section h4 {
-  margin: 0 0 6px;
+  margin: 0 0 5px;
   font-size: 11px;
   font-weight: 800;
   color: var(--accent-hover);
@@ -238,73 +290,122 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  margin-bottom: 2px;
 }
 
 .ai-preview-mov-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--surface-2);
 }
 
+.ai-preview-mov-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
 .ai-preview-mov-img {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 7px;
   overflow: hidden;
   background: rgba(255, 255, 255, 1);
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, .15);
+  border: 1px solid rgba(255, 255, 255, .2);
 }
 
 .ai-preview-mov-img img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  padding: 2px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 1);
+  display: block;
 }
 
 .ai-preview-mov-info {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+}
+
+.ai-preview-mov-name-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ai-preview-mov-name {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 850;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ai-preview-mov-meta {
+.ai-preview-system-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  font-size: 8px;
+  font-weight: 750;
+  color: var(--text-secondary);
+}
+
+.ai-preview-muscles-tag {
   font-size: 8px;
   color: var(--text-muted);
+  font-weight: 600;
 }
 
 .ai-preview-sets-pills {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .ai-preview-set-pill {
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: var(--surface-inset);
-  border: 1px solid var(--border);
-  font-size: 8px;
-  font-weight: 750;
-  color: var(--text-secondary);
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  box-sizing: border-box;
+  line-height: 1.1;
+  padding: 1px 4px;
+}
+
+.ai-preview-set-val {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+.ai-preview-set-unit {
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 /* Left Panel: Live Copilot Chat */
@@ -316,6 +417,8 @@
   background: var(--card);
   backdrop-filter: blur(16px);
   overflow: hidden;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
 }
 
@@ -327,6 +430,7 @@
   padding: 12px 16px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .ai-copilot-chat-head h3 {
@@ -347,6 +451,8 @@
   flex-direction: column;
   gap: 10px;
   background: var(--surface-inset);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) var(--surface-inset);
 }
 
 .ai-copilot-quick-prompts {
@@ -524,8 +630,12 @@
   .ai-copilot-workspace {
     grid-template-columns: 1fr;
     overflow-y: auto;
+    height: auto;
+  }
+  .ai-copilot-preview-col {
+    max-height: 480px;
   }
   .ai-copilot-chat-col {
-    height: 460px;
+    height: 480px;
   }
 }
