@@ -167,11 +167,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
-<<<<<<< HEAD
-  margin-bottom: 12px;
-=======
   margin-bottom: 4px;
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 }
 
 .ai-assessment-summary-item {
@@ -196,17 +192,6 @@
   font-weight: 850;
 }
 
-<<<<<<< HEAD
-/* Rationale Audit Report Styles */
-.ai-rationale-section {
-  margin-bottom: 12px;
-}
-
-.ai-rationale-section h4 {
-  margin: 0 0 5px;
-  font-size: 11px;
-  font-weight: 800;
-=======
 .ai-bmi-badge {
   display: inline-block;
   padding: 1px 5px;
@@ -228,7 +213,6 @@
   margin: 0 0 6px;
   font-size: 11px;
   font-weight: 850;
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   color: var(--accent-hover);
   display: flex;
   align-items: center;
@@ -243,20 +227,6 @@
   line-height: 1.7;
 }
 
-<<<<<<< HEAD
-.ai-mismatch-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 9px;
-  margin-top: 6px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.ai-mismatch-table th,
-.ai-mismatch-table td {
-=======
 /* Decision Cards Grid */
 .ai-decision-grid {
   display: flex;
@@ -305,33 +275,22 @@
 
 .ai-phase-table th,
 .ai-phase-table td {
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   padding: 6px 10px;
   text-align: right;
   border-bottom: 1px solid var(--border);
 }
 
-<<<<<<< HEAD
-.ai-mismatch-table th {
-=======
 .ai-phase-table th {
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   background: var(--surface-inset);
   color: var(--text-muted);
   font-weight: 750;
 }
 
-<<<<<<< HEAD
-.ai-mismatch-table td {
-=======
 .ai-phase-table td {
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   background: var(--surface-2);
   color: var(--text);
 }
 
-<<<<<<< HEAD
-=======
 .ai-phase-table tr:last-child td {
   border-bottom: none;
 }
@@ -431,7 +390,6 @@
   font-weight: 850;
 }
 
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 /* Live Program Preview inside Copilot */
 .ai-preview-day {
   margin-bottom: 14px;
@@ -644,8 +602,6 @@
   scrollbar-color: var(--scrollbar) var(--surface-inset);
 }
 
-<<<<<<< HEAD
-=======
 .ai-msg {
   display: flex;
   flex-direction: column;
@@ -728,7 +684,6 @@
   color: var(--accent-hover);
 }
 
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 .ai-copilot-quick-prompts {
   display: flex;
   align-items: center;

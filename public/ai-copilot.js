@@ -75,10 +75,6 @@
     }).join('');
   }
 
-<<<<<<< HEAD
-  // ==============================================================
-  // 1. Assessment AI Analysis & Feedback Large Modal (Request 1)
-=======
   function formatCopilotChatMessage(text) {
     if (!text) return '';
     const lines = String(text).split('\n');
@@ -141,7 +137,6 @@
 
   // ==============================================================
   // 1. Assessment AI Analysis & Feedback Large Modal
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   // ==============================================================
   async function openAIAssessmentModal(params = {}) {
     const { student, assessment, assessmentDetails = {}, assessmentId } = params;
@@ -284,11 +279,7 @@
   }
 
   // ==============================================================
-<<<<<<< HEAD
-  // 2. Dedicated AI Copilot Workspace & Live Interactive Chat (Request 2)
-=======
   // 2. Dedicated AI Copilot Workspace & Live Interactive Chat
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   // ==============================================================
   let activeCopilotState = {
     programId: null,
@@ -312,14 +303,10 @@
     const progData = prog.programData || prog.program_data || {};
     const days = progData.days || [];
     const rationale = activeCopilotState.rationaleReport;
-<<<<<<< HEAD
-    const studentInfo = activeCopilotState.studentInfo || {};
-=======
     const studentInfo = activeCopilotState.studentInfo || rationale?.studentProfile || {};
 
     const bmi = studentInfo.bmi || (studentInfo.weight && studentInfo.height ? +(studentInfo.weight / ((studentInfo.height / 100) ** 2)).toFixed(1) : null);
     const bmiCategory = studentInfo.bmiCategory || (bmi ? (bmi < 18.5 ? 'کمبود وزن' : (bmi < 25 ? 'نرمال' : (bmi < 30 ? 'اضافه‌وزن' : 'چاقی'))) : '—');
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 
     // 1. Student Profile & Assessment Summary Card
     const assessmentSummaryHTML = `
@@ -339,13 +326,10 @@
               <b>${studentInfo.weight || '—'} kg • ${studentInfo.height || '—'} cm</b>
             </div>
             <div class="ai-assessment-summary-item">
-<<<<<<< HEAD
-=======
               <span>شاخص BMI و وضعیت</span>
               <b>${bmi || '—'} <span class="ai-bmi-badge">${esc(bmiCategory)}</span></b>
             </div>
             <div class="ai-assessment-summary-item">
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
               <span>درصد چربی</span>
               <b>${studentInfo.bodyFat ? `${studentInfo.bodyFat}%` : 'ثبت نشده'}</b>
             </div>
@@ -354,14 +338,6 @@
               <b>${esc(studentInfo.goal || 'فیتنس و هایپرتروفی')}</b>
             </div>
             <div class="ai-assessment-summary-item">
-<<<<<<< HEAD
-              <span>سطح و محل تمرین</span>
-              <b>${esc(studentInfo.level || 'متوسط')} • ${studentInfo.location === 'home' ? 'منزل' : 'باشگاه'}</b>
-            </div>
-            <div class="ai-assessment-summary-item">
-              <span>آسیب‌ها و محدودیت‌ها</span>
-              <b>${esc(studentInfo.injuries || 'بدون آسیب')}</b>
-=======
               <span>سطح و سابقه تمرین</span>
               <b>${esc(studentInfo.level || 'متوسط')} • ${esc(studentInfo.experience || 'سابقه منظم')}</b>
             </div>
@@ -372,7 +348,6 @@
             <div class="ai-assessment-summary-item">
               <span>آسیب‌ها و مفاصل حساس</span>
               <b>${esc(studentInfo.injuries || 'بدون آسیب ثبت‌شده')}</b>
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
             </div>
           </div>
         </div>
@@ -382,43 +357,16 @@
     // 2. Program Rationale & Decision Logic Card
     let rationaleHTML = '';
     if (rationale) {
-<<<<<<< HEAD
-=======
       const dataSources = rationale.dataSources || [];
       const decisionLogic = rationale.decisionLogic || [];
       const sixPhases = rationale.sixPhaseBreakdown || [];
       const mismatch = rationale.mismatchReport || [];
       const coachGuidelines = rationale.coachGuidelines || [];
 
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
       rationaleHTML = `
         <article class="ai-copilot-card">
           <header class="ai-copilot-card-head">
             <h3>🧠 دلایل و توجیه علمی چیدمان برنامه توسط هوش مصنوعی (Program Rationale)</h3>
-<<<<<<< HEAD
-          </header>
-          <div class="ai-copilot-card-body">
-            <div class="ai-rationale-section">
-              <h4>📂 ۱. داده‌های ارزیابی استفاده‌شده:</h4>
-              <ul class="ai-rationale-list">
-                ${(rationale.dataSources || []).map(d => `<li>${esc(d)}</li>`).join('')}
-              </ul>
-            </div>
-
-            <div class="ai-rationale-section">
-              <h4>🎯 ۲. منطق تصمیم‌گیری و چیدمان فیزیولوژیک:</h4>
-              <ul class="ai-rationale-list">
-                ${(rationale.decisionLogic || []).map(d => `<li>${esc(d)}</li>`).join('')}
-              </ul>
-            </div>
-
-            ${rationale.overallRationale ? `
-              <div class="ai-rationale-section" style="margin-bottom:0;">
-                <h4>💡 ۳. جمع‌بندی و توجیه علمی مربی:</h4>
-                <p style="margin:0;font-size:10px;color:var(--text-secondary);line-height:1.7;">${esc(rationale.overallRationale)}</p>
-              </div>
-            ` : ''}
-=======
             <span class="ai-copilot-badge active-combo">تحلیل فیزیولوژیک اختصاصی</span>
           </header>
           <div class="ai-copilot-card-body">
@@ -512,7 +460,6 @@
                 </div>
               ` : ''}
             </div>
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
           </div>
         </article>
       `;
@@ -651,17 +598,11 @@
         toolsHTML = `<div class="ai-msg-tools">🔧 <b>تغییرات اعمال‌شده در برنامه:</b> ${m.tools.map(t => esc(t.tool)).join('، ')}</div>`;
       }
 
-<<<<<<< HEAD
-      return `
-        <div class="ai-msg ${isUser ? 'ai-msg-user' : 'ai-msg-assistant'}">
-          <div class="ai-msg-bubble">${esc(m.content)}</div>
-=======
       const formattedContent = isUser ? `<p class="ai-msg-p">${esc(m.content)}</p>` : formatCopilotChatMessage(m.content);
 
       return `
         <div class="ai-msg ${isUser ? 'ai-msg-user' : 'ai-msg-assistant'}">
           <div class="ai-msg-bubble">${formattedContent}</div>
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
           ${toolsHTML}
         </div>
       `;
@@ -698,11 +639,7 @@
 وظیفه:
 ۱. درخواست مربی را با فراخوانی ابزارهای مربوطه (مانند update_draft_program، search_exercises، get_program) در دیتابیس اعمال کنید.
 ۲. فقط از حرکات واقعی بانک استفاده کنید.
-<<<<<<< HEAD
-۳. گزارش تغییرات و توجیه برنامه را در پاسخ خود اعلام فرمایید.
-=======
 ۳. گزارش کامل تغییرات، دلایل فیزیولوژیک و اثر آن بر حجم و ریکاوری شاگرد را در پاسخ خود شرح فرمایید.
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 `;
 
       const apiMessages = [
@@ -854,12 +791,6 @@
       activeCopilotState.assessmentId = genData.assessmentId || assessmentId;
       activeCopilotState.studentInfo = genData.studentInfo || null;
       activeCopilotState.rationaleReport = genData.rationaleReport || null;
-<<<<<<< HEAD
-      activeCopilotState.chatHistory = [
-        {
-          role: 'assistant',
-          content: `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`
-=======
       
       const initialChat = genData.initialChatMessage || (genData.rationaleReport ? genData.rationaleReport.initialChatMessage : null) || `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`;
 
@@ -867,7 +798,6 @@
         {
           role: 'assistant',
           content: initialChat
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
         }
       ];
 

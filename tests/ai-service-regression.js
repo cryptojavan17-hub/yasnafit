@@ -124,17 +124,10 @@ const publicDir = path.join(root, 'public');
 
   const exId = 101;
 
-<<<<<<< HEAD
-  const insStudent = db.prepare("INSERT INTO students (full_name, mobile, case_number, stable_id) VALUES ('امیر رضایی', '09121112233', '100200', 'st-uuid-1')").run();
-  const studentId = Number(insStudent.lastInsertRowid);
-
-  const insAss = db.prepare("INSERT INTO body_assessments (student_id, assessment_number, status, lifecycle_status, weight, height, stable_id) VALUES (?, 1, 'APPROVED', 'APPROVED', 80, 180, 'ass-uuid-1')").run(studentId);
-=======
   const insStudent = db.prepare("INSERT INTO students (full_name, mobile, case_number, training_level, training_experience, goal, stable_id) VALUES ('امیر رضایی', '09121112233', '100200', 'مبتدی', 'کمتر از ۶ ماه', 'fat_loss', 'st-uuid-1')").run();
   const studentId = Number(insStudent.lastInsertRowid);
 
   const insAss = db.prepare("INSERT INTO body_assessments (student_id, assessment_number, status, lifecycle_status, weight, height, goal, stable_id) VALUES (?, 1, 'APPROVED', 'APPROVED', 80, 180, 'fat_loss', 'ass-uuid-1')").run(studentId);
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   const assessmentId = Number(insAss.lastInsertRowid);
 
   // Test list_students tool
@@ -195,23 +188,16 @@ const publicDir = path.join(root, 'public');
   const modelsRes = await aiService.fetchAvailableModels(db);
   assert.ok(Array.isArray(modelsRes.models), 'models must be an array');
 
-<<<<<<< HEAD
-  console.log('--- 4c. Testing AI Generate Program from Assessment ---');
-  assert.equal(typeof aiService.generateProgramFromAssessment, 'function', 'generateProgramFromAssessment must be a function');
-=======
   console.log('--- 4c. Testing AI Generate Program from Assessment & Scientific Rationale ---');
   assert.equal(typeof aiService.generateProgramFromAssessment, 'function', 'generateProgramFromAssessment must be a function');
   assert.equal(typeof aiService.buildComprehensiveProgramRationale, 'function', 'buildComprehensiveProgramRationale must be a function');
 
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   const genResult = await aiService.generateProgramFromAssessment(db, {
     studentId,
     assessmentId
   });
   assert.ok(genResult.success, 'Program generation must succeed');
   assert.ok(genResult.programId > 0, 'Must return valid program ID');
-<<<<<<< HEAD
-=======
   assert.ok(genResult.rationaleReport, 'Must return rationaleReport');
   assert.ok(genResult.initialChatMessage, 'Must return initialChatMessage');
   assert.ok(genResult.studentInfo, 'Must return studentInfo');
@@ -230,17 +216,13 @@ const publicDir = path.join(root, 'public');
   assert.ok(genResult.initialChatMessage.includes('گرم‌کردن') && genResult.initialChatMessage.includes('سردکردن'), 'Chat message must detail 6 phases');
   assert.ok(genResult.initialChatMessage.includes('اضافه بار تدریجی') || genResult.initialChatMessage.includes('تغذیه'), 'Chat message must include coach guidelines');
 
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   const genProgram = programService.buildProgramFromDB(db, genResult.programId);
   assert.ok(genProgram, 'Generated program must exist in DB');
   const progRow = genProgram.dbProgram || genProgram;
   assert.equal(progRow.status, 'DRAFT', 'Generated program MUST remain in DRAFT status (never auto-activated)');
   assert.equal(progRow.student_id, studentId, 'Must link correct student_id');
   assert.equal(progRow.assessment_id, assessmentId, 'Must link correct assessment_id');
-<<<<<<< HEAD
-=======
   
->>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   // Verify 6-phase scientific structure: Warm-up, 7-9 Main/Accessory/Core, Cardio, and Cool-down
   for (const day of genProgram.programData.days) {
     const allMovNames = (day.data || []).flatMap(sys => (sys.movement_list || []).map(m => m.name));
