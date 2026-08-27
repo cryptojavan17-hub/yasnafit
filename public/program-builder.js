@@ -1680,23 +1680,44 @@
     const btnMenuPDF = document.getElementById('btnMenuPDF');
     if (btnMenuPDF) btnMenuPDF.onclick = handleExportPDF;
 
-    const handleOpenCopilot = () => {
-      syncFormToProgram();
-      const studentSel = document.getElementById('progStudent');
-      const studentId = studentSel?.value ? Number(studentSel.value) : (currentProgram?.student_id ? Number(currentProgram.student_id) : null);
-      const assessmentId = currentProgram?.assessment_id ? Number(currentProgram.assessment_id) : null;
+    const handleOpenCopilot = async () => {
+      try {
+        syncFormToProgram();
+        const studentSel = document.getElementById('progStudent');
+        let studentId = studentSel?.value ? Number(studentSel.value) : (currentProgram?.student_id ? Number(currentProgram.student_id) : null);
+        if (!studentId && studentSel) {
+          const firstOpt = studentSel.querySelector('option[value]:not([value=""])');
+          if (firstOpt && firstOpt.value) {
+            studentId = Number(firstOpt.value);
+            studentSel.value = String(studentId);
+            currentProgram.student_id = studentId;
+          }
+        }
+        const assessmentId = currentProgram?.assessment_id ? Number(currentProgram.assessment_id) : null;
 
-      if (!studentId) {
-        alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
-        return;
-      }
-
-      if (window.openAICopilot) {
-        window.openAICopilot({
-          studentId: studentId,
-          assessmentId: assessmentId || undefined,
-          programId: currentProgram?.id ? Number(currentProgram.id) : undefined
-        });
+        if (window.openAICopilot) {
+          window.openAICopilot({
+            studentId: studentId || undefined,
+            assessmentId: assessmentId || undefined,
+            programId: currentProgram?.id ? Number(currentProgram.id) : undefined
+          });
+        } else {
+          const res = await api('/api/ai/generate-program', {
+            method: 'POST',
+            body: JSON.stringify({
+              studentId: studentId || undefined,
+              assessmentId: assessmentId || undefined,
+              programId: currentProgram?.id ? Number(currentProgram.id) : undefined
+            })
+          });
+          if (res.programId) {
+            alert('✅ پیش‌نویس برنامه تمرینی با هوش مصنوعی ساخته شد.');
+            location.href = `/programs/exercise/form?id=${res.programId}`;
+          }
+        }
+      } catch (err) {
+        console.error('[AI Copilot Open Error]', err);
+        alert(`❌ خطا در اجرای دستیار هوش مصنوعی: ${err.message}`);
       }
     };
 

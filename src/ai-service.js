@@ -847,28 +847,34 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
     if (ass) sid = ass.student_id;
   }
 
-  if (!aid && sid) {
-    const ass = db.prepare("SELECT id FROM body_assessments WHERE student_id = ? AND status IN ('APPROVED', 'SUBMITTED', 'PENDING_REVIEW') AND deleted_at IS NULL ORDER BY assessment_number DESC, id DESC LIMIT 1").get(sid);
-    if (ass) aid = ass.id;
+  if (!sid) {
+    const st = db.prepare('SELECT id FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 1').get();
+    if (st) sid = st.id;
   }
 
-  if (!sid) throw new Error('شاگرد پیدا نشد.');
-  if (!aid) throw new Error('ارزیابی معتبری برای این شاگرد یافت نشد. ابتدا ارزیابی شاگرد را ثبت و تایید کنید.');
+  if (!sid) throw new Error('شاگردی در سامانه یافت نشد. لطفاً ابتدا از بخش «مدیریت شاگردها» یک شاگرد ثبت فرمایید.');
 
   const student = db.prepare('SELECT * FROM students WHERE id = ? AND deleted_at IS NULL').get(sid);
   if (!student) throw new Error('شاگرد پیدا نشد.');
 
-  const assessment = db.prepare('SELECT * FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid);
-  if (!assessment) throw new Error('ارزیابی پیدا نشد.');
+  if (!aid) {
+    const ass = db.prepare("SELECT id FROM body_assessments WHERE student_id = ? AND deleted_at IS NULL ORDER BY (CASE WHEN lifecycle_status='APPROVED' OR status='APPROVED' THEN 1 ELSE 2 END), assessment_number DESC, id DESC LIMIT 1").get(sid);
+    if (ass) aid = ass.id;
+  }
 
-  const isApproved = (assessment.lifecycle_status === 'APPROVED' || assessment.status === 'APPROVED');
+  let assessment = aid ? db.prepare('SELECT * FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid) : null;
+  let details = aid ? (assessmentService.getDetails(db, aid) || {}) : {};
+
+  if (!assessment) {
+    assessment = { assessment_number: 1, weight: student.weight || 75, height: student.height || 175, body_fat: null };
+  }
+
+  const isApproved = assessment && (assessment.lifecycle_status === 'APPROVED' || assessment.status === 'APPROVED');
   let finalAssessmentId = isApproved ? aid : null;
   if (!isApproved && sid) {
     const approved = db.prepare("SELECT id FROM body_assessments WHERE student_id = ? AND (lifecycle_status='APPROVED' OR status='APPROVED') AND deleted_at IS NULL ORDER BY assessment_number DESC, id DESC LIMIT 1").get(sid);
     if (approved) finalAssessmentId = approved.id;
   }
-
-  const details = assessmentService.getDetails(db, aid) || {};
 
   const location = details.sports?.preferred_location || student.preferred_location || 'gym';
   const goal = details.goals?.main_goal || student.goal || 'فیتنس و هایپرتروفی';

@@ -5,6 +5,7 @@
 (() => {
   'use strict';
 
+  const win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const muscleNames = {
@@ -135,10 +136,13 @@
     `;
 
     modal.hidden = false;
+    modal.removeAttribute('hidden');
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
     const close = () => {
       modal.hidden = true;
+      modal.style.display = 'none';
       document.body.style.overflow = '';
     };
 
@@ -511,10 +515,13 @@
     `;
 
     modal.hidden = false;
+    modal.removeAttribute('hidden');
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
     const close = () => {
       modal.hidden = true;
+      modal.style.display = 'none';
       document.body.style.overflow = '';
     };
 
