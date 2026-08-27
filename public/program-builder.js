@@ -1680,83 +1680,30 @@
     const btnMenuPDF = document.getElementById('btnMenuPDF');
     if (btnMenuPDF) btnMenuPDF.onclick = handleExportPDF;
 
+    const handleOpenCopilot = () => {
+      syncFormToProgram();
+      const studentSel = document.getElementById('progStudent');
+      const studentId = studentSel?.value ? Number(studentSel.value) : (currentProgram?.student_id ? Number(currentProgram.student_id) : null);
+      const assessmentId = currentProgram?.assessment_id ? Number(currentProgram.assessment_id) : null;
+
+      if (!studentId) {
+        alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
+        return;
+      }
+
+      if (window.openAICopilot) {
+        window.openAICopilot({
+          studentId: studentId,
+          assessmentId: assessmentId || undefined,
+          programId: currentProgram?.id ? Number(currentProgram.id) : undefined
+        });
+      }
+    };
+
     const btnAiDraft = document.getElementById('btnAiGenerateDraft');
-    if (btnAiDraft) {
-      btnAiDraft.onclick = async () => {
-        try {
-          syncFormToProgram();
-          const studentSel = document.getElementById('progStudent');
-          const studentId = studentSel?.value ? Number(studentSel.value) : (currentProgram?.student_id ? Number(currentProgram.student_id) : null);
-          const assessmentId = currentProgram?.assessment_id ? Number(currentProgram.assessment_id) : null;
-
-          if (!studentId) {
-            alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
-            return;
-          }
-
-          btnAiDraft.disabled = true;
-          btnAiDraft.textContent = '⏳ در حال تولید پیش‌نویس هوشمند…';
-
-          const res = await api('/api/ai/generate-program', {
-            method: 'POST',
-            body: JSON.stringify({
-              studentId: studentId,
-              assessmentId: assessmentId || undefined,
-              programId: currentProgram?.id ? Number(currentProgram.id) : undefined
-            })
-          });
-
-          if (res.programId || res.redirectUrl) {
-            alert('✅ پیش‌نویس برنامه تمرینی با هوش مصنوعی ساخته شد.');
-            location.href = res.redirectUrl || `/programs/exercise/form?id=${res.programId}`;
-          } else {
-            throw new Error(res.error || 'پاسخ نامعتبر از سرور دریافت شد.');
-          }
-        } catch (err) {
-          console.error('[AI Draft Error]', err);
-          alert(`❌ خطا در تولید پیش‌نویس هوشمند: ${err.message}`);
-        } finally {
-          btnAiDraft.disabled = false;
-          btnAiDraft.innerHTML = '🤖 تولید پیش‌نویس هوشمند';
-        }
-      };
-    }
-
+    if (btnAiDraft) btnAiDraft.onclick = handleOpenCopilot;
     const btnMenuAi = document.getElementById('btnMenuAi');
-    if (btnMenuAi) {
-      btnMenuAi.onclick = async () => {
-        syncFormToProgram();
-        const studentId = currentProgram.student_id;
-        const defaultPrompt = studentId
-          ? `شاگرد با شناسه ${studentId} را بررسی کن و با توجه به آخرین ارزیابی بدنی، اهداف و محدودیت‌های او، توصیه‌های تمرینی و ساختار بهینه جلسات را تحلیل و پیشنهاد بده.`
-          : `ساختار یک برنامه تمرینی ۴ روزه هایپرتروفی استاندارد همراه با سیستم‌های تمرینی بهینه را پیشنهاد بده.`;
-
-        const userPrompt = prompt('پیام یا درخواست از هوش مصنوعی برای این برنامه:', defaultPrompt);
-        if (!userPrompt) return;
-
-        try {
-          btnMenuAi.textContent = '⏳ در حال دریافت پاسخ…';
-          btnMenuAi.disabled = true;
-          const res = await api('/api/ai/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: 'شما دستیار ارشد مربیگری بدنسازی در سامانه یسنافیت هستید. پاسخ‌های دقیق، علمی و ساختاریافته به زبان فارسی ارائه دهید.' },
-                { role: 'user', content: userPrompt }
-              ]
-            })
-          });
-
-          const reply = res.content || (res.message && res.message.content) || 'پاسخ دریافت شد.';
-          alert(`🤖 پاسخ هوش مصنوعی:\n\n${reply}`);
-        } catch (err) {
-          alert(`خطا در هوش مصنوعی: ${err.message}`);
-        } finally {
-          btnMenuAi.textContent = '🤖 دستیار هوشمند هوش مصنوعی (AI)';
-          btnMenuAi.disabled = false;
-        }
-      };
-    }
+    if (btnMenuAi) btnMenuAi.onclick = handleOpenCopilot;
 
     document.getElementById('btnList').onclick=()=>{ location.href='/templates/exercise/list'; };
     document.getElementById('btnPreview').onclick=()=>{

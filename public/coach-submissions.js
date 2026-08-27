@@ -179,58 +179,14 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
       document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));
       document.querySelector('#btnRequestChanges')?.addEventListener('click',()=>decide('request-changes',true));
       document.querySelector('#btnReject')?.addEventListener('click',()=>decide('reject',true));
-      document.querySelector('#btnAiBuildProgram')?.addEventListener('click', async () => {
-        const btn = document.querySelector('#btnAiBuildProgram');
-        if (!btn) return;
-        try {
-          btn.disabled = true;
-          btn.textContent = '⏳ در حال انتخاب حرکات از بانک و ساخت برنامه…';
-          const res = await api('/api/ai/generate-program', {
-            method: 'POST',
-            body: JSON.stringify({
-              studentId: student.id,
-              assessmentId: id
-            })
-          });
-          if (res.redirectUrl) {
-            alert('✅ پیش‌نویس برنامه تمرینی با موفقیت توسط هوش مصنوعی ساخته شد.');
-            location.href = res.redirectUrl;
-          } else if (res.programId) {
-            alert('✅ پیش‌نویس برنامه تمرینی با موفقیت توسط هوش مصنوعی ساخته شد.');
-            location.href = `/programs/exercise/form?id=${res.programId}`;
-          }
-        } catch (err) {
-          alert(`خطا در ساخت برنامه با هوش مصنوعی: ${err.message}`);
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = '🤖 ساخت برنامه با AI';
+      document.querySelector('#btnAiBuildProgram')?.addEventListener('click', () => {
+        if (window.openAICopilot) {
+          window.openAICopilot({ studentId: student.id, assessmentId: id });
         }
       });
-      document.querySelector('#btnAiAnalyze')?.addEventListener('click', async () => {
-        const btn = document.querySelector('#btnAiAnalyze');
-        const noteEl = document.querySelector('#coachNote');
-        if(!btn || !noteEl) return;
-        try {
-          btn.disabled = true;
-          btn.textContent = '⏳ در حال تحلیل هوشمند…';
-          const res = await api('/api/ai/chat', {
-            method: 'POST',
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: 'شما مشاور ارشد مربیگری بدنسازی هستید. ارزیابی بدنی شاگرد را بررسی کن و یک یادداشت بازخورد کوتاه، حرفه‌ای و کاربردی برای مربی پیشنهاد بده.' },
-                { role: 'user', content: `ارزیابی شماره ${id} شاگرد ${student.full_name} را با ابزارها تحلیل کن و متن یادداشت مربی را پیشنهاد بده.` }
-              ]
-            })
-          });
-          const reply = res.content || (res.message && res.message.content) || '';
-          if(reply) {
-            noteEl.value = reply;
-          }
-        } catch(err){
-          alert(`خطا در هوش مصنوعی: ${err.message}`);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = '🤖 تحلیل ارزیابی و پیشنهاد یادداشت با AI';
+      document.querySelector('#btnAiAnalyze')?.addEventListener('click', () => {
+        if (window.openAIAssessmentModal) {
+          window.openAIAssessmentModal({ student, assessment: ass, assessmentDetails: details, assessmentId: id });
         }
       });
     }catch(error){
