@@ -75,8 +75,73 @@
     }).join('');
   }
 
+<<<<<<< HEAD
   // ==============================================================
   // 1. Assessment AI Analysis & Feedback Large Modal (Request 1)
+=======
+  function formatCopilotChatMessage(text) {
+    if (!text) return '';
+    const lines = String(text).split('\n');
+    let html = '';
+    let inUl = false;
+    let inOl = false;
+
+    const closeLists = () => {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (inOl) { html += '</ol>'; inOl = false; }
+    };
+
+    for (let rawLine of lines) {
+      let line = rawLine.trim();
+      if (!line) {
+        closeLists();
+        continue;
+      }
+
+      // Check for bullet list (• or - or *)
+      if (line.startsWith('• ') || line.startsWith('- ') || line.startsWith('* ')) {
+        if (inOl) { html += '</ol>'; inOl = false; }
+        if (!inUl) { html += '<ul class="ai-msg-ul">'; inUl = true; }
+        const itemContent = esc(line.replace(/^[•\-\*]\s*/, ''))
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        html += `<li class="ai-msg-li">${itemContent}</li>`;
+        continue;
+      }
+
+      // Check for numbered list (1. or ۱. or 1- or ۱-)
+      const numMatch = line.match(/^([0-9۰-۹]+)[\.\-]\s*(.*)$/);
+      if (numMatch) {
+        if (inUl) { html += '</ul>'; inUl = false; }
+        if (!inOl) { html += '<ol class="ai-msg-ol">'; inOl = true; }
+        const itemContent = esc(numMatch[2])
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        html += `<li class="ai-msg-li">${itemContent}</li>`;
+        continue;
+      }
+
+      closeLists();
+
+      // Format inline markdown (bold, italic)
+      let formatted = esc(line)
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('🧠 ') || line.startsWith('📋 ') || line.startsWith('💡 ') || line.startsWith('✅ ')) {
+        html += `<div class="ai-msg-heading">${formatted}</div>`;
+      } else {
+        html += `<p class="ai-msg-p">${formatted}</p>`;
+      }
+    }
+
+    closeLists();
+    return html;
+  }
+
+  // ==============================================================
+  // 1. Assessment AI Analysis & Feedback Large Modal
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   // ==============================================================
   async function openAIAssessmentModal(params = {}) {
     const { student, assessment, assessmentDetails = {}, assessmentId } = params;
@@ -219,7 +284,11 @@
   }
 
   // ==============================================================
+<<<<<<< HEAD
   // 2. Dedicated AI Copilot Workspace & Live Interactive Chat (Request 2)
+=======
+  // 2. Dedicated AI Copilot Workspace & Live Interactive Chat
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   // ==============================================================
   let activeCopilotState = {
     programId: null,
@@ -243,7 +312,14 @@
     const progData = prog.programData || prog.program_data || {};
     const days = progData.days || [];
     const rationale = activeCopilotState.rationaleReport;
+<<<<<<< HEAD
     const studentInfo = activeCopilotState.studentInfo || {};
+=======
+    const studentInfo = activeCopilotState.studentInfo || rationale?.studentProfile || {};
+
+    const bmi = studentInfo.bmi || (studentInfo.weight && studentInfo.height ? +(studentInfo.weight / ((studentInfo.height / 100) ** 2)).toFixed(1) : null);
+    const bmiCategory = studentInfo.bmiCategory || (bmi ? (bmi < 18.5 ? 'کمبود وزن' : (bmi < 25 ? 'نرمال' : (bmi < 30 ? 'اضافه‌وزن' : 'چاقی'))) : '—');
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 
     // 1. Student Profile & Assessment Summary Card
     const assessmentSummaryHTML = `
@@ -263,6 +339,13 @@
               <b>${studentInfo.weight || '—'} kg • ${studentInfo.height || '—'} cm</b>
             </div>
             <div class="ai-assessment-summary-item">
+<<<<<<< HEAD
+=======
+              <span>شاخص BMI و وضعیت</span>
+              <b>${bmi || '—'} <span class="ai-bmi-badge">${esc(bmiCategory)}</span></b>
+            </div>
+            <div class="ai-assessment-summary-item">
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
               <span>درصد چربی</span>
               <b>${studentInfo.bodyFat ? `${studentInfo.bodyFat}%` : 'ثبت نشده'}</b>
             </div>
@@ -271,12 +354,25 @@
               <b>${esc(studentInfo.goal || 'فیتنس و هایپرتروفی')}</b>
             </div>
             <div class="ai-assessment-summary-item">
+<<<<<<< HEAD
               <span>سطح و محل تمرین</span>
               <b>${esc(studentInfo.level || 'متوسط')} • ${studentInfo.location === 'home' ? 'منزل' : 'باشگاه'}</b>
             </div>
             <div class="ai-assessment-summary-item">
               <span>آسیب‌ها و محدودیت‌ها</span>
               <b>${esc(studentInfo.injuries || 'بدون آسیب')}</b>
+=======
+              <span>سطح و سابقه تمرین</span>
+              <b>${esc(studentInfo.level || 'متوسط')} • ${esc(studentInfo.experience || 'سابقه منظم')}</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>محل تمرین و تجهیزات</span>
+              <b>${studentInfo.locationFa || (studentInfo.location === 'home' ? 'منزل (دمبل و کش)' : 'باشگاه مجهز')}</b>
+            </div>
+            <div class="ai-assessment-summary-item">
+              <span>آسیب‌ها و مفاصل حساس</span>
+              <b>${esc(studentInfo.injuries || 'بدون آسیب ثبت‌شده')}</b>
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
             </div>
           </div>
         </div>
@@ -286,10 +382,20 @@
     // 2. Program Rationale & Decision Logic Card
     let rationaleHTML = '';
     if (rationale) {
+<<<<<<< HEAD
+=======
+      const dataSources = rationale.dataSources || [];
+      const decisionLogic = rationale.decisionLogic || [];
+      const sixPhases = rationale.sixPhaseBreakdown || [];
+      const mismatch = rationale.mismatchReport || [];
+      const coachGuidelines = rationale.coachGuidelines || [];
+
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
       rationaleHTML = `
         <article class="ai-copilot-card">
           <header class="ai-copilot-card-head">
             <h3>🧠 دلایل و توجیه علمی چیدمان برنامه توسط هوش مصنوعی (Program Rationale)</h3>
+<<<<<<< HEAD
           </header>
           <div class="ai-copilot-card-body">
             <div class="ai-rationale-section">
@@ -312,6 +418,101 @@
                 <p style="margin:0;font-size:10px;color:var(--text-secondary);line-height:1.7;">${esc(rationale.overallRationale)}</p>
               </div>
             ` : ''}
+=======
+            <span class="ai-copilot-badge active-combo">تحلیل فیزیولوژیک اختصاصی</span>
+          </header>
+          <div class="ai-copilot-card-body">
+            <!-- 1. Data Sources -->
+            <div class="ai-rationale-section">
+              <h4>📂 ۱. داده‌های ارزیابی و مبانی استخراج‌شده:</h4>
+              <ul class="ai-rationale-list">
+                ${dataSources.map(d => `<li>${esc(d)}</li>`).join('')}
+              </ul>
+            </div>
+
+            <!-- 2. Decision Logic -->
+            <div class="ai-rationale-section">
+              <h4>🎯 ۲. منطق تصمیم‌گیری و توجیهات فیزیولوژیک (علل طراحی):</h4>
+              <div class="ai-decision-grid">
+                ${decisionLogic.map((logic, idx) => {
+                  const parts = logic.split(':');
+                  const title = parts[0] ? parts[0].trim() : `تحلیل ${idx + 1}`;
+                  const body = parts.slice(1).join(':').trim() || logic;
+                  return `
+                    <div class="ai-decision-card">
+                      <b>📌 ${esc(title)}</b>
+                      <p>${esc(body)}</p>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- 3. Six-Phase Scientific Breakdown -->
+            ${sixPhases.length > 0 ? `
+              <div class="ai-rationale-section">
+                <h4>🧬 ۳. تشریح علمی پروتکل ۶ مرحله‌ای هر جلسه (مدت جلسه: ۵۵ الی ۶۵ دقیقه):</h4>
+                <div class="ai-phase-table-wrap">
+                  <table class="ai-phase-table">
+                    <thead>
+                      <tr>
+                        <th>فاز</th>
+                        <th>نام مرحله</th>
+                        <th>حجم / زمان</th>
+                        <th>دلیل و هدف فیزیولوژیک</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${sixPhases.map(p => `
+                        <tr>
+                          <td><span class="ai-phase-num">${esc(String(p.phase))}</span></td>
+                          <td><b>${esc(p.name)}</b></td>
+                          <td><span class="ai-phase-vol">${esc(p.duration || p.count || '—')}</span></td>
+                          <td><span class="ai-phase-reason">${esc(p.reason)}</span></td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 4. Mismatch & Preference Audit Report -->
+            ${mismatch.length > 0 ? `
+              <div class="ai-rationale-section">
+                <h4>⚖️ ۴. گزارش انطباق با ارزیابی شاگرد (Mismatch & Compliance Audit):</h4>
+                <div class="ai-audit-grid">
+                  ${mismatch.map(m => `
+                    <div class="ai-audit-card">
+                      <div class="ai-audit-head">
+                        <b>${esc(m.item)}</b>
+                        <span class="ai-audit-badge">${esc(m.status)}</span>
+                      </div>
+                      <div class="ai-audit-details">
+                        <span>درخواست شاگرد: <b>${esc(m.requested)}</b></span>
+                        <span>طراحی هوشمند: <b>${esc(m.delivered)}</b></span>
+                      </div>
+                      <small style="font-size:9px;color:var(--text-muted);display:block;margin-top:2px;">${esc(m.note)}</small>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 5. Coach Guidelines & Overall Summary -->
+            <div class="ai-rationale-section" style="margin-bottom:0;">
+              <h4>💡 ۵. جمع‌بندی علمی و دستورالعمل‌های پیشرفت مربی:</h4>
+              <p style="margin:0 0 8px;font-size:11px;color:var(--text-secondary);line-height:1.7;">${esc(rationale.overallRationale || '')}</p>
+              ${coachGuidelines.length > 0 ? `
+                <div class="ai-coach-tips-box">
+                  <b>📌 نکات کلیدی اجرای برنامه:</b>
+                  <ul class="ai-rationale-list" style="margin-top:4px;">
+                    ${coachGuidelines.map(g => `<li>${esc(g)}</li>`).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+            </div>
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
           </div>
         </article>
       `;
@@ -450,9 +651,17 @@
         toolsHTML = `<div class="ai-msg-tools">🔧 <b>تغییرات اعمال‌شده در برنامه:</b> ${m.tools.map(t => esc(t.tool)).join('، ')}</div>`;
       }
 
+<<<<<<< HEAD
       return `
         <div class="ai-msg ${isUser ? 'ai-msg-user' : 'ai-msg-assistant'}">
           <div class="ai-msg-bubble">${esc(m.content)}</div>
+=======
+      const formattedContent = isUser ? `<p class="ai-msg-p">${esc(m.content)}</p>` : formatCopilotChatMessage(m.content);
+
+      return `
+        <div class="ai-msg ${isUser ? 'ai-msg-user' : 'ai-msg-assistant'}">
+          <div class="ai-msg-bubble">${formattedContent}</div>
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
           ${toolsHTML}
         </div>
       `;
@@ -489,7 +698,11 @@
 وظیفه:
 ۱. درخواست مربی را با فراخوانی ابزارهای مربوطه (مانند update_draft_program، search_exercises، get_program) در دیتابیس اعمال کنید.
 ۲. فقط از حرکات واقعی بانک استفاده کنید.
+<<<<<<< HEAD
 ۳. گزارش تغییرات و توجیه برنامه را در پاسخ خود اعلام فرمایید.
+=======
+۳. گزارش کامل تغییرات، دلایل فیزیولوژیک و اثر آن بر حجم و ریکاوری شاگرد را در پاسخ خود شرح فرمایید.
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 `;
 
       const apiMessages = [
@@ -641,10 +854,20 @@
       activeCopilotState.assessmentId = genData.assessmentId || assessmentId;
       activeCopilotState.studentInfo = genData.studentInfo || null;
       activeCopilotState.rationaleReport = genData.rationaleReport || null;
+<<<<<<< HEAD
       activeCopilotState.chatHistory = [
         {
           role: 'assistant',
           content: `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`
+=======
+      
+      const initialChat = genData.initialChatMessage || (genData.rationaleReport ? genData.rationaleReport.initialChatMessage : null) || `✅ برنامه تمرینی هوشمند بر اساس ارزیابی بدنی ساخته شد.\n\nشما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.`;
+
+      activeCopilotState.chatHistory = [
+        {
+          role: 'assistant',
+          content: initialChat
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
         }
       ];
 

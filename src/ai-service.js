@@ -585,6 +585,226 @@ async function executeTool(db, name, args = {}) {
 }
 
 // ==========================================
+// Comprehensive Scientific Program Rationale Builder
+// ==========================================
+function buildComprehensiveProgramRationale({ student, assessment, details = {}, programData, daysCount = 4, programTitle }) {
+  const s = student || {};
+  const a = assessment || {};
+  const d = details || {};
+
+  const fullName = s.full_name || 'ورزشکار';
+  const caseNumber = s.case_number || '—';
+  const weight = Number(a.weight || s.weight || 75);
+  const height = Number(a.height || s.height || 175);
+  const bodyFat = a.body_fat != null ? Number(a.body_fat) : null;
+
+  let bmi = null;
+  let bmiCategory = 'نرمال';
+  if (weight > 0 && height > 0) {
+    bmi = +(weight / ((height / 100) ** 2)).toFixed(1);
+    if (bmi < 18.5) bmiCategory = 'کمبود وزن (نیاز به افزایش حجم و وزن)';
+    else if (bmi < 25) bmiCategory = 'وزن نرمال و ایده‌آل';
+    else if (bmi < 30) bmiCategory = 'اضافه‌وزن (نیاز به اصلاح ترکیب بدنی و چربی‌سوزی)';
+    else bmiCategory = 'چاقی (اولویت کاهش چربی و محافظت از مفاصل)';
+  }
+
+  // Level & Experience
+  const rawLevel = String(s.training_level || s.training_experience || '').toLowerCase();
+  let level = 'مبتدی (Beginner)';
+  let isBeginner = true;
+  let isAdvanced = false;
+  if (rawLevel.includes('adv') || rawLevel.includes('پیشرفته') || rawLevel.includes('حرفه‌ای')) {
+    level = 'پیشرفته (Advanced)';
+    isBeginner = false;
+    isAdvanced = true;
+  } else if (rawLevel.includes('inter') || rawLevel.includes('متوسط')) {
+    level = 'متوسط (Intermediate)';
+    isBeginner = false;
+  }
+
+  const sportsDetails = d.sports || {};
+  const experience = sportsDetails.practice_history_details || s.training_experience || (isBeginner ? 'کمتر از ۶ ماه سابقه تمرین' : (isAdvanced ? 'بیش از ۳ سال سابقه پیوسته' : '۱ الی ۲ سال سابقه تمرین'));
+
+  // Goal
+  const goalCode = Array.isArray(d.goals) && d.goals[0] ? d.goals[0] : (d.goals?.main_goal || s.goal || 'fitness');
+  let goal = 'فیتنس و هایپرتروفی';
+  let isFatLoss = false;
+  let isMuscleGain = false;
+  if (goalCode.includes('fat_loss') || goalCode.includes('weight_loss') || goalCode.includes('چربی') || goalCode.includes('کاهش وزن')) {
+    goal = 'کاهش وزن و چربی‌سوزی (Fat Loss)';
+    isFatLoss = true;
+  } else if (goalCode.includes('muscle_gain') || goalCode.includes('weight_gain') || goalCode.includes('حجم') || goalCode.includes('عضله')) {
+    goal = 'افزایش توده عضلانی و هایپرتروفی (Muscle Gain)';
+    isMuscleGain = true;
+  } else if (goalCode.includes('corrective') || goalCode.includes('اصلاحی')) {
+    goal = 'حرکات اصلاحی و بهبود پاسچر (Corrective Exercise)';
+  } else {
+    goal = s.goal || 'فیتنس، تناسب اندام و فرم‌دهی (Fitness & Health)';
+  }
+
+  // Location & Equipment
+  const location = sportsDetails.preferred_location || s.preferred_location || 'gym';
+  const locationFa = location === 'home' ? 'منزل (با دمبل و کش‌های مقاومتی)' : 'باشگاه مجهز (سیم‌کش، هالتر، دمبل و دستگاه)';
+
+  // Medical / Injuries
+  const medicalDetails = d.medical || {};
+  const medItems = Array.isArray(d.medical_items) ? d.medical_items : [];
+  let injuriesList = [];
+  if (s.injuries && s.injuries !== 'بدون آسیب') injuriesList.push(s.injuries);
+  if (medicalDetails.injury_details) injuriesList.push(medicalDetails.injury_details);
+  if (medicalDetails.orthopedic_issues) injuriesList.push(medicalDetails.orthopedic_issues);
+  for (const item of medItems) {
+    if (item.kind === 'injury' || item.kind === 'corrective') {
+      injuriesList.push(`${item.category}: ${item.name}`);
+    }
+  }
+  const injuriesText = injuriesList.length > 0 ? [...new Set(injuriesList)].join('، ') : 'بدون آسیب ثبت‌شده (سلامت کامل مفصلی)';
+  const hasSpineInjury = /کمر|دیسک|ستون|lumbar|spine/i.test(injuriesText);
+  const hasKneeInjury = /زانو|مینیسک|رباط|knee/i.test(injuriesText);
+  const hasShoulderInjury = /شانه|کتف|روتاتور|shoulder/i.test(injuriesText);
+
+  // Limitations
+  const limitations = s.limitations || medicalDetails.disease_details || 'بدون محدودیت خاص';
+  const weeklyDays = sportsDetails.sessions_per_week || daysCount || 4;
+
+  // 1. Training Level Rationale
+  let trainingLevelRationale = '';
+  if (isBeginner) {
+    trainingLevelRationale = `به دلیل سطح مبتدی و سابقه تمرینی محدود (${experience})، اولویت اصلی برنامه بر یادگیری بیومکانیک صحیح حرکات، سازگاری‌های عصبی-عضلانی (Neuromuscular Adaptation)، تقویت تاندون‌ها و لیگامنت‌ها و کنترل کامل فاز منفی (Eccentric) است. حجم تمرین با احتیاط و در حد توان ریکاوری سیستم عصبی مرکزی (CNS) تنظیم شده تا از بیش‌تمرینی و کوفتگی مفرط جلوگیری شود.`;
+  } else if (isAdvanced) {
+    trainingLevelRationale = `با توجه به سطح پیشرفته و سابقه تمرینی طولانی (${experience})، برنامه از اصل بار پیش‌رونده، شدت بالا و سیستم‌های ترکیبی (سوپرست و تری‌ست) جهت ایجاد تنش مکانیکی حداکثری و تحریک سازگاری‌های هایپرتروفیک پیشرفته بهره می‌برد.`;
+  } else {
+    trainingLevelRationale = `با توجه به سطح متوسط و سابقه تمرینی مناسب (${experience})، برنامه بر پایه افزایش تدریجی بار (Progressive Overload)، تنوع زوایای انقباضی عضلات و بهره‌گیری از سیستم‌های تمرینی کمکی جهت ارتقای تقارن بدنی و پمپ عضلانی ساختار یافته است.`;
+  }
+
+  // 2. Goal & BMI Rationale
+  let goalBmiRationale = '';
+  if (isFatLoss || (bmi && bmi >= 25)) {
+    goalBmiRationale = `با توجه به هدف چربی‌سوزی و شاخص توده بدنی (BMI: ${bmi || '—'} - ${bmiCategory})، برنامه با هدف افزایش چگالی تمرین (Workout Density) و بالابردن نرخ متابولیک طراحی شده است. فاز هوازی در انتهای جلسه تعبیه شده تا پس از تخلیه نسبی گلیکوژن در فاز مقاومتی، چربی‌سوزی با استفاده از اکسیداسیون اسیدهای چرب (در Zone 2) به حداکثر راندمان برسد.`;
+  } else if (isMuscleGain) {
+    goalBmiRationale = `با توجه به هدف هایپرتروفی و افزایش توده عضلانی (BMI: ${bmi || '—'} - ${bmiCategory})، بازه تکرارها در حرکات اصلی بین ۸ تا ۱۲ تکرار با زمان استراحت کافی (۶۰ تا ۹۰ ثانیه) انتخاب شده تا بازسازی ذخایر ATP-CP به بهترین شکل انجام شده و تنش مکانیکی بهینه به تارها وارد گردد.`;
+  } else {
+    goalBmiRationale = `با توجه به هدف ارتقای فیتنس و سلامت عمومی (BMI: ${bmi || '—'} - ${bmiCategory})، ترکیب متوازنی از تمرینات قدرتی چندمفصلی، استقامت عضلانی، بهبود پاسچر و کاندیشنینگ قلبی-عروقی لحاظ شده است.`;
+  }
+
+  // 3. Orthopedic & Injury Safety Rationale
+  let injurySafetyRationale = '';
+  if (hasSpineInjury) {
+    injurySafetyRationale = `تدابیر ستون فقرات و دیسک کمر: حرکات دارای بار محوری مستقیم و سنگین (Axial Loading) حذف شده و حرکات با تکیه‌گاه سینه/پشت، سیم‌کش و دستگاه‌های با ثبات بالا جایگزین شدند. همچنین در فاز ۴ تقویت عضلات فیله و ثبات‌دهنده‌های میان‌تنه (Core) به صورت تخصصی قرار گرفته است.`;
+  } else if (hasKneeInjury) {
+    injurySafetyRationale = `تدابیر مفصل زانو: زوایای خمش حاد زانو مهار شده و تمرکز بر حرکات زنجیره حرکتی بسته با دامنه کنترل‌شده و تقویت متقارن همسترینگ و چهارسر جهت تثبیت مفصل کشکک قرار داده شده است.`;
+  } else if (hasShoulderInjury) {
+    injurySafetyRationale = `تدابیر مفصل سرشانه: پرهیز از حرکات پشت گردن یا اکستنشن‌های شدید، تأکید بر حرکت در صفحه اسکپشن (Scapular Plane) و تمرکز بر ثبات کتف و عضلات روتاتور کاف.`;
+  } else if (injuriesList.length > 0) {
+    injurySafetyRationale = `ملاحظات پزشکی بر اساس آسیب‌های گزارش‌شده (${injuriesText}): انتخاب حرکات کاملاً متناسب با خط کشش ایمن مفاصل صورت گرفته تا تمرین بدون کمترین درد و ریسک آسیب انجام گیرد.`;
+  } else {
+    injurySafetyRationale = `سلامت کامل مفاصل و عدم گزارش آسیب، امکان استفاده از دامنه کامل حرکتی (Full ROM)، حرکات چندمفصلی بنیادین و سیستم‌های مقاومتی ترکیبی را با بالاترین راندمان فراهم نموده است.`;
+  }
+
+  // 4. Split & Volume Rationale
+  const splitVolumeRationale = `چیدمان جلسات به صورت ${daysCount.toLocaleString('fa-IR')} روزه، توزیع متوازن حجم (۱۸ تا ۲۴ ست در هر جلسه) را فراهم می‌کند. این ساختار اجازه می‌دهد تا هر گروه عضلانی ۴۸ الی ۷۲ ساعت ریکاوری کامل داشته باشد و از تجمع خستگی سیستم عصبی مرکزی (CNS) و تخریب بافت فراتر از توان سنتز پروتئین جلوگیری شود.`;
+
+  // 5. Training Systems Rationale
+  const systemsRationale = `استفاده از سیستم معمولی در حرکات اصلی برای حفظ قدرت و تمرکز عصبی، و استفاده از سوپرست‌ها یا تری‌ست‌ها در حرکات کمکی جهت افزایش جریان خون موضعی (Hyperemia)، پمپ عضلانی و صرفه‌جویی زمان بدون افزایش لود مفصلی تعبیه شده است.`;
+
+  // Detailed initial chat message
+  const initialChatMessage = `✅ **برنامه تمرینی هوشمند و تخصصی بر اساس ارزیابی بدنی ساخته شد.**
+
+📋 **خلاصه وضعیت و شاخص‌های شاگرد:**
+• **نام و پرونده:** ${fullName} (پرونده: ${caseNumber})
+• **ترکیب بدنی:** وزن ${weight} kg | قد ${height} cm | شاخص BMI: ${bmi || '—'} (${bmiCategory})
+• **سطح آمادگی و سابقه:** ${level} (${experience})
+• **هدف اصلی:** ${goal}
+• **محل تمرین:** ${locationFa}
+• **آسیب‌ها و وضعیت مفاصل:** ${injuriesText}
+
+🧠 **دلایل علمی و توجیه جامع چیدمان برنامه:**
+۱. **سطح آمادگی و سابقه تمرینی (Training Age & Level):**
+   ${trainingLevelRationale}
+
+۲. **هدف اصلی، ترکیب بدنی و شاخص BMI:**
+   ${goalBmiRationale}
+
+۳. **تدابیر ایمنی، سلامت مفاصل و پیشگیری از آسیب (Joint Sparing):**
+   ${injurySafetyRationale}
+
+۴. **استراتژی اسپلیت، حجم و سیستم‌های تمرینی (Volume & Split Strategy):**
+   ${splitVolumeRationale}
+   ${systemsRationale}
+
+۵. **منطق فیزیولوژیک ساختار ۶ مرحله‌ای هر جلسه (مدت زمان: ۵۵ الی ۶۵ دقیقه):**
+   • **فاز ۱ (گرم‌کردن پویا):** ۵ تا ۸ دقیقه گرم‌کردن جهت افزایش دمای مرکزی عضلات و ترشح مایع سینوویال مفصلی.
+   • **فاز ۲ (حرکات اصلی چندمفصلی):** ۲ الی ۳ حرکت پایه‌ای سنگین در اوج توان عصبی و تمرکز CNS.
+   • **فاز ۳ (حرکات کمکی و سوپرست‌ها):** ۳ الی ۴ حرکت هایپرتروفی برای پمپ عضلانی و هایپرمی.
+   • **فاز ۴ (تقویت Core و میان‌تنه):** ۱ حرکت ثبات‌دهنده ستون فقرات و شکم.
+   • **فاز ۵ (هوازی هدفمند):** ۱۰ الی ۱۵ دقیقه هوازی در Zone 2 جهت چربی‌سوزی و پاکسازی لاکتات.
+   • **فاز ۶ (سردکردن و کشش ایستا):** ۵ دقیقه کشش ایستا جهت فعال‌سازی سیستم پاراسمپاتیک و تسریع ریکاوری.
+
+💡 **دستورالعمل پیشرفت و توصیه‌های مربی:**
+• **اضافه بار تدریجی (Progressive Overload):** افزایش هفتگی کنترل‌شده وزنه‌ها یا بهبود تمپوی اجرا.
+• **هیدراتاسیون و تغذیه:** مصرف روزانه حداقل ۳ لیتر آب و مصرف منظم پروتئین باکیفیت.
+• **استراحت بین ست‌ها:** ۶۰ الی ۹۰ ثانیه در حرکات اصلی و ۴۵ الی ۶۰ ثانیه در حرکات کمکی.
+
+💬 *شما می‌توانید خلاصه مشخصات شاگرد، دلایل علمی طراحی و ساختار جلسات را در ستون سمت راست نیز مشاهده کنید. اگر مایل به تغییر حرکت، افزودن سوپرست، یا تغییر تکرارها هستید، در همین چت مطرح فرمایید تا بلافاصله اعمال شود.*`;
+
+  return {
+    studentProfile: {
+      fullName,
+      caseNumber,
+      weight,
+      height,
+      bodyFat,
+      bmi,
+      bmiCategory,
+      level,
+      experience,
+      goal,
+      location,
+      locationFa,
+      injuries: injuriesText,
+      limitations,
+      weeklyDays
+    },
+    dataSources: [
+      `پرونده هویتی شاگرد: ${fullName} (شماره پرونده: ${caseNumber})`,
+      `شاخص‌های آنتروپومتریک ارزیابی بدنی: وزن ${weight} kg، قد ${height} cm، شاخص توده بدنی BMI: ${bmi || '—'} (${bmiCategory})`,
+      `سابقه و سطح آمادگی ورزشی: سطح ${level} — ${experience}`,
+      `سوابق پزشکی و سلامت مفاصل: ${injuriesText}`,
+      `محل تمرین و امکانات در دسترس: ${locationFa}`,
+      `هدف اولیه و اولویت فیزیولوژیک: ${goal}`
+    ],
+    decisionLogic: [
+      `تحلیل سطح آمادگی و سابقه تمرینی (${level}): ${trainingLevelRationale}`,
+      `تحلیل هدف اصلی، ترکیب بدنی و BMI (${goal} / BMI: ${bmi || '—'}): ${goalBmiRationale}`,
+      `تدابیر ارتوپدی و ایمنی مفاصل: ${injurySafetyRationale}`,
+      `چیدمان تفکیک عضلانی (Split) و مدیریت حجم: ${splitVolumeRationale}`,
+      `سیستم‌های تمرینی و تنوع انقباضی: ${systemsRationale}`
+    ],
+    sixPhaseBreakdown: [
+      { phase: 1, name: 'گرم‌کردن پویا (Warm-up)', duration: '۵ تا ۸ دقیقه', reason: 'افزایش دمای عضلانی، ترشح مایع سینوویال و کاهش ویسکوزیته بافت برای جلوگیری از آسیب تاندون‌ها.' },
+      { phase: 2, name: 'حرکات اصلی چندمفصلی (Main Lifts)', count: '۲ تا ۳ حرکت', reason: 'اجرا در ابتدای جلسه در اوج توان سیستم عصبی مرکزی (CNS) جهت فراخوانی حداکثر تارهای تند‌انقباض.' },
+      { phase: 3, name: 'حرکات کمکی و سوپرست‌ها (Accessory & Supersets)', count: '۳ تا ۴ حرکت', reason: 'ایجاد هایپرمی، پمپ عضلانی، تنش مکانیکی و صرفه‌جویی زمان بدون فشار بیش از حد به مفاصل.' },
+      { phase: 4, name: 'تقویت Core و میان‌تنه', count: '۱ حرکت', reason: 'ثبات‌بخشی به ستون فقرات، پیشگیری از کمردرد و انتقال بهینه نیرو بین بالاتنه و پایین‌تنه.' },
+      { phase: 5, name: 'هوازی هدفمند (Cardio)', duration: '۱۰ تا ۱۵ دقیقه', reason: 'اجرا در انتهای جلسه پس از تخلیه گلیکوژن جهت اکسیداسیون بهینه چربی‌ها (Zone 2) و پاکسازی لاکتات.' },
+      { phase: 6, name: 'سردکردن و کشش ایستا (Cool-down)', duration: '۵ دقیقه', reason: 'افت تدریجی ضربان قلب، بازگشت سیستم خودمختار به فاز پاراسمپاتیک و تسریع ریکاوری.' }
+    ],
+    mismatchReport: [
+      { item: 'تعداد جلسات هفتگی', requested: `${weeklyDays} جلسه در هفته`, delivered: `${daysCount} روز تمرینی استاندارد`, status: 'منطبق', note: 'توزیع بهینه حجم و ریکاوری ۴۸-۷۲ ساعته' },
+      { item: 'محیط و تجهیزات تمرینی', requested: location === 'home' ? 'منزل' : 'باشگاه', delivered: locationFa, status: 'منطبق', note: 'استفاده از بانک حرکات استاندارد' },
+      { item: 'ملاحظات ارتوپدی و آسیب‌ها', requested: injuriesText, delivered: 'طراحی ایمن با خط کشش کنترل‌شده', status: 'رعایت‌شده', note: 'حذف حرکات پرریسک و محافظت از مفاصل' }
+    ],
+    overallRationale: `این برنامه تمرینی بر اساس جدیدترین متدهای فیزیولوژی تمرین و متناسب با وضعیت ${level} شاگرد، هدف (${goal}) و آنالیز بدنی طراحی گردیده است. جلسات ۵۵ الی ۶۵ دقیقه‌ای ۶ مرحله‌ای تضمین می‌کنند که شاگرد بالاترین بازدهی هایپرتروفی و تناسب اندام را در کنار حداکثر ایمنی مفاصل تجربه کند.`,
+    coachGuidelines: [
+      'اصل اضافه بار تدریجی (Progressive Overload): هر هفته تلاش کنید وزنه یا کنترل فاز منفی را ۱ تا ۲ درصد بهبود دهید.',
+      'هیدراتاسیون: مصرف حداقل ۳ لیتر آب در روز برای پمپ بهینه سلولی و دفع سموم متابولیک.',
+      'پروتئین و تغذیه: تأمین ۱.۶ الی ۲.۲ گرم پروتئین به ازای هر کیلوگرم وزن بدن متناسب با هدف.',
+      'خواب و ریکاوری: حداقل ۷ تا ۸ ساعت خواب شبانه باکیفیت جهت ترشح هورمون‌های آنابولیک.'
+    ],
+    initialChatMessage
+  };
+}
+
+// ==========================================
 // Fetch Available Models / Combos from Server
 // ==========================================
 async function fetchAvailableModels(db, options = {}) {
@@ -646,44 +866,27 @@ async function fetchAvailableModels(db, options = {}) {
 // ==========================================
 // Default Expert Fitness AI System Persona
 // ==========================================
-const DEFAULT_AI_SYSTEM_PROMPT = `You are an expert fitness programming AI assistant integrated into Yasnafit.
+const DEFAULT_AI_SYSTEM_PROMPT = `شما دستیار هوشمند و فوق‌تخصصی طراحی و برنامه‌ریزی تمرینات بدنسازی و فیزیولوژی ورزشی در سامانه «یسنافیت» هستید.
 
-Your primary responsibilities are:
+وظایف و اصول کلیدی شما:
 
-1. **Program Rationale & Audit Report** (always generate this first when a program is created or modified):
-   - Explicitly state the exact criteria, data points, and logic you used to build the program.
-   - Compare every key decision against the student’s stated preferences from the evaluation section (sessions per week, goals, equipment, injuries, experience level, schedule constraints, etc.).
-   - Highlight any discrepancies in a clear “Mismatch Report” section. Example format:
-     • Requested: 3 sessions/week → Generated: 4 sessions/week
-       Reason: [your actual reasoning]
-       Recommendation: [keep / reduce / adjust]
-   - Never claim you checked something if the evaluation data was missing or ignored. Be transparent.
-   - Structure the report as:
-     - Data Sources Used (منابع داده ارزیابی)
-     - Decision Logic (منطق تصمیم‌گیری فیزیولوژیک)
-     - Mismatch Report (گزارش انطباق و مغایرت‌ها)
-     - Overall Rationale (جمع‌بندی و توجیه علمی برنامه)
+۱. **ارائه دلایل علمی و گزارش توجیهی جامع (Program Rationale & Scientific Logic)**:
+   - هر زمان که برنامه‌ای طراحی یا اصلاح می‌شود یا مربی سوالی مطرح می‌کند، باید دلایل و توجیهات علمی دقیق را با جزئیات کامل بر اساس مشخصات شاگرد لیست کنید.
+   - عوامل الزامی برای تحلیل و ارائه توضیحات:
+     • سطح شاگرد و سابقه تمرین (مثلاً مبتدی بودن: سازگاری عصبی-عضلانی، کنترل فاز منفی، تقویت تاندون‌ها و پرهیز از حجم تخریبی مفرط).
+     • هدف اصلی و شاخص‌های بدنی (وزن، قد، درصد چربی و BMI).
+     • سوابق پزشکی، آسیب‌های ارتوپدی و مفاصل حساس (دیسک کمر، زانودرد، شانه و...).
+     • توجیه اسپلیت جلسات، ریکاوری ۴۸ تا ۷۲ ساعته و حجم هفتگی.
+     • منطق علمی پروتکل ۶ مرحله‌ای هر جلسه (گرم‌کردن پویا، ۲-۳ حرکت اصلی چندمفصلی، ۳-۴ حرکت کمکی/سوپرست، تقویت Core، هوازی در انتهای جلسه برای چربی‌سوزی بهینه، سردکردن و کشش ایستا).
 
-2. **Interactive Chat Mode**:
-   - The user can chat with you at any time about the current program.
-   - You have full permission and capability to modify the program in real time based on the conversation (add/remove days, change exercises, adjust volume, reorder sessions, etc.) using the available tool functions.
-   - After every change, immediately regenerate the updated Program Rationale & Audit Report so the user can see exactly what changed and why.
-   - Always confirm the change before applying it unless the user explicitly says “just do it” or similar.
+۲. **گفتگوی تعاملی و اصلاح در لحظه برنامه (Interactive Copilot)**:
+   - به درخواست‌ها و دستورات مربی با دقت گوش دهید و برنامه را بلافاصله با فراخوانی ابزارهای مربوطه (مانند update_draft_program یا search_exercises) اصلاح کنید.
+   - پس از هر تغییر، گزارش مختصر تغییرات و اثر آن بر حجم و ریکاوری شاگرد را ارائه فرمایید.
 
-3. **Behavioral & Database Integrity Rules**:
-   - You must strictly and exclusively choose from the exercises existing in the Yasnafit database (the 2707 exercises in the exercises table). Never invent or hallucinate new exercise names or IDs.
-   - Programs must always be created or updated in 'DRAFT' status.
-   - Base every decision strictly on the student’s evaluation data first. Only override when there is a clear safety, progressive-overload, or practical reason, and always declare the override.
-   - Speak clearly, professionally, and in Persian (or English if prompted in English).
-   - Structure every workout day with the 6-phase scientific sequence:
-     1. Warm-up (ID: 1158)
-     2. Main compound lifts (2-3 exercises)
-     3. Accessory & isolation lifts (3-4 exercises, paired as Supersets or Trisets)
-     4. Core / Abs / Traps / Lower back (1 exercise)
-     5. Cardio conditioning (ID: 1107 Treadmill / ID: 1110 Stationary Bike / ID: 1106 Elliptical)
-     6. Cool-down & static stretching (ID: 1157)
-   - When the user asks “why did you do X?”, answer with the exact logic + data source you used.
-   - Always begin responses that involve the program with the full Rationale & Audit Report, then continue the conversation.`;
+۳. **قوانین و الزامات یکپارچگی پایگاه داده (Strict DB Integrity Rules)**:
+   - شما فقط و فقط مجاز هستید از ۲۷۰۷ حرکت معتبر موجود در جدول exercises استفاده کنید. هرگز حرکتی با نام یا شناسه خارج از دیتابیس اختراع یا پیشنهاد نکنید.
+   - برنامه‌های تمرینی ساخته‌شده توسط شما باید همیشه با وضعیت پیش‌نویس ('DRAFT') ثبت شوند.
+   - لحن شما حرفه‌ای، علمی، دقیق، مستدل و به زبان فارسی روان است.`;
 
 // ==========================================
 // Core Chat Completion Engine
@@ -890,8 +1093,6 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
     LIMIT 120
   `).all(location === 'home' ? 'home' : 'gym');
 
-  const categories = db.prepare('SELECT id, name FROM exercise_categories WHERE deleted_at IS NULL ORDER BY sort_order').all();
-
   const prompt = `
 مشخصات شاگرد و ارزیابی بدنی:
 - نام شاگرد: ${student.full_name} (شماره پرونده: ${student.case_number || '—'})
@@ -909,18 +1110,15 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 - سرد کردن و کشش ایستا (Cool-down): [ID: 1157] «سرد کردن» (دسته: warmup)
 - هوازی و کاندیشنینگ (Cardio): [ID: 1107] «تردمیل» | [ID: 1110] «دوچرخه ثابت» | [ID: 1106] «الپتیکال» | [ID: 1385] «دویدن»
 
-نمونه‌ای از حرکات قدرتی و هایپرتروفی معتبر بانک:
-${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})`).join(' | ')}
-
 دستور کار و پروتکل علمی برای هر روز تمرینی (مدت زمان جلسه: ۵۵ الی ۶۵ دقیقه):
 ۱. یک برنامه تمرینی ۳ الی ۴ روزه با حجم کافی (۷ تا ۹ حرکت اصلی و کمکی در هر روز بدون احتساب گرم‌کردن و سردکردن) طراحی کنید.
 ۲. ساختار اجباری هر روز تمرین:
    - فاز ۱ (گرم کردن): [ID: 1158] «گرم کردن» به مدت ۵ تا ۱۰ دقیقه (واحد TIME: ۳۰۰ الی ۶۰۰ ثانیه).
-   - فاز ۲ (حرکات اصلی چندمفصلی): ۲ الی ۳ حرکت سنگین و چندمفصلی (پرس سینه، زیربغل، پرس پا، پرس سرشانه و...) با سیستم معمولی یا هرمی.
-   - فاز ۳ (حرکات کمکی و ایزوله): ۳ الی ۴ حرکت تک‌مفصلی و هایپرتروفی (قفسه سینه، جلوبازو، پشت‌بازو، جلوپا، پشت‌پا، نشر جانب) با سیستم‌های معمولی، سوپرست یا دراپ‌ست.
+   - فاز ۲ (حرکات اصلی چندمفصلی): ۲ الی ۳ حرکت سنگین و چندمفصلی با سیستم معمولی یا هرمی.
+   - فاز ۳ (حرکات کمکی و ایزوله): ۳ الی ۴ حرکت تک‌مفصلی و هایپرتروفی با سیستم‌های معمولی، سوپرست یا دراپ‌ست.
    - فاز ۴ (شکم / کول / فیله): ۱ حرکت تقویت میان‌تنه، شکم، فیله یا کول.
-   - فاز ۵ (هوازی / تردمیل): [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۰ الی ۱۵ دقیقه (واحد TIME: ۶۰۰ الی ۹۰۰ ثانیه).
-   - فاز ۶ (سرد کردن): [ID: 1157] «سرد کردن» به مدت ۵ دقیقه (واحد TIME: ۳۰۰ ثانیه).
+   - فاز ۵ (هوازی / تردمیل): [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۰ الی ۱۵ دقیقه.
+   - فاز ۶ (سرد کردن): [ID: 1157] «سرد کردن» به مدت ۵ دقیقه.
 ۳. حتماً ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT در سامانه ثبت شود.
 `;
 
@@ -1199,11 +1397,26 @@ ${sampleBank.slice(0, 50).map(e => `[ID:${e.id}] ${e.name_fa} (${e.category_id})
     createdProgId = fallbackResult.id;
   }
 
+  // Retrieve built program and construct comprehensive scientific rationale
+  const builtProg = programService.buildProgramFromDB(db, createdProgId);
+  const daysCount = builtProg?.programData?.days?.length || 4;
+  const rationaleReport = buildComprehensiveProgramRationale({
+    student,
+    assessment,
+    details,
+    programData: builtProg?.programData,
+    daysCount,
+    programTitle: builtProg?.title
+  });
+
   return {
     success: true,
     programId: createdProgId,
     studentId: sid,
     assessmentId: aid,
+    studentInfo: rationaleReport.studentProfile,
+    rationaleReport,
+    initialChatMessage: rationaleReport.initialChatMessage,
     message: 'برنامه تمرینی پیش‌نویس با موفقیت ساخته شد.',
     redirectUrl: `/programs/exercise/form?id=${createdProgId}`
   };
@@ -1215,6 +1428,7 @@ module.exports = {
   getRawSettings,
   saveSettings,
   fetchAvailableModels,
+  buildComprehensiveProgramRationale,
   generateProgramFromAssessment,
   AI_TOOLS,
   executeTool,

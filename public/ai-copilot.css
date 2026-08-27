@@ -167,7 +167,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
+<<<<<<< HEAD
   margin-bottom: 12px;
+=======
+  margin-bottom: 4px;
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 }
 
 .ai-assessment-summary-item {
@@ -192,6 +196,7 @@
   font-weight: 850;
 }
 
+<<<<<<< HEAD
 /* Rationale Audit Report Styles */
 .ai-rationale-section {
   margin-bottom: 12px;
@@ -201,6 +206,29 @@
   margin: 0 0 5px;
   font-size: 11px;
   font-weight: 800;
+=======
+.ai-bmi-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  background: var(--accent-surface);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent-border);
+  margin-right: 4px;
+}
+
+/* Rationale Audit Report Styles */
+.ai-rationale-section {
+  margin-bottom: 14px;
+}
+
+.ai-rationale-section h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 850;
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   color: var(--accent-hover);
   display: flex;
   align-items: center;
@@ -215,6 +243,7 @@
   line-height: 1.7;
 }
 
+<<<<<<< HEAD
 .ai-mismatch-table {
   width: 100%;
   border-collapse: collapse;
@@ -227,22 +256,182 @@
 
 .ai-mismatch-table th,
 .ai-mismatch-table td {
+=======
+/* Decision Cards Grid */
+.ai-decision-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ai-decision-card {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-decision-card b {
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-decision-card p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 6-Phase Scientific Table */
+.ai-phase-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.ai-phase-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+  direction: rtl;
+}
+
+.ai-phase-table th,
+.ai-phase-table td {
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   padding: 6px 10px;
   text-align: right;
   border-bottom: 1px solid var(--border);
 }
 
+<<<<<<< HEAD
 .ai-mismatch-table th {
+=======
+.ai-phase-table th {
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   background: var(--surface-inset);
   color: var(--text-muted);
   font-weight: 750;
 }
 
+<<<<<<< HEAD
 .ai-mismatch-table td {
+=======
+.ai-phase-table td {
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
   background: var(--surface-2);
   color: var(--text);
 }
 
+<<<<<<< HEAD
+=======
+.ai-phase-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-phase-num {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-hover);
+  font-weight: 850;
+  font-size: 9px;
+}
+
+.ai-phase-vol {
+  font-weight: 750;
+  color: var(--text-muted);
+}
+
+.ai-phase-reason {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Audit & Mismatch Grid */
+.ai-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-audit-card {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-audit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.ai-audit-head b {
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-audit-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-hover);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.ai-audit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.ai-audit-details b {
+  color: var(--text);
+  font-weight: 750;
+}
+
+/* Coach Tips Box */
+.ai-coach-tips-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border-right: 3px solid var(--accent);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.ai-coach-tips-box b {
+  font-size: 10px;
+  color: var(--accent-hover);
+  font-weight: 850;
+}
+
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 /* Live Program Preview inside Copilot */
 .ai-preview-day {
   margin-bottom: 14px;
@@ -455,6 +644,91 @@
   scrollbar-color: var(--scrollbar) var(--surface-inset);
 }
 
+<<<<<<< HEAD
+=======
+.ai-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 92%;
+  animation: fadeIn 140ms ease;
+}
+
+.ai-msg-user {
+  align-self: flex-start;
+}
+
+.ai-msg-assistant {
+  align-self: flex-end;
+  width: 95%;
+  max-width: 95%;
+}
+
+.ai-msg-bubble {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.8;
+  word-break: break-word;
+  direction: rtl;
+}
+
+.ai-msg-user .ai-msg-bubble {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 3px;
+}
+
+.ai-msg-assistant .ai-msg-bubble {
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-bottom-left-radius: 3px;
+}
+
+.ai-msg-p {
+  margin: 0 0 8px;
+}
+.ai-msg-p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-msg-heading {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--accent-hover);
+  margin: 8px 0 4px;
+  line-height: 1.5;
+}
+
+.ai-msg-ul,
+.ai-msg-ol {
+  margin: 4px 0 8px;
+  padding-right: 18px;
+}
+
+.ai-msg-li {
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.ai-msg-assistant .ai-msg-li strong,
+.ai-msg-assistant .ai-msg-p strong {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-msg-tools {
+  margin-top: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 9px;
+  color: var(--accent-hover);
+}
+
+>>>>>>> 975119c (feat(ai): provide comprehensive physiological rationale, student diagnostics, and scientific decision breakdown in AI Copilot)
 .ai-copilot-quick-prompts {
   display: flex;
   align-items: center;
