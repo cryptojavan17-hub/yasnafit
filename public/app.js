@@ -1,23 +1,16 @@
 const sidebarMenu = [
-  ['داشبورد','/coach/dashboard','▦'],
-  ['مدیریت شاگردها',null,'♚',[
-    ['لیست شاگردها','/users-list'],
+  ['داشبورد','/coach/dashboard','🏠'],
+  ['شاگردان',null,'👥',[
+    ['لیست شاگردان','/users-list'],
     ['ارزیابی‌های در انتظار','/students/submissions']
   ]],
-  ['برنامه تمرینی',null,'▣',[
-    ['ساخت برنامه','/programs/exercise/form'],
+  ['برنامه‌ها',null,'📚',[
     ['برنامه‌های تمرینی','/templates/exercise/list'],
-    ['بانک حرکات','/programs/exercise/movements-list']
-  ]],
-  ['برنامه غذایی',null,'🥗',[
     ['برنامه‌های غذایی','/programs/diet/list'],
-    ['طراحی برنامه غذایی','/programs/diet/form']
-  ]],
-  ['برنامه مکمل',null,'💊',[
     ['برنامه‌های مکمل','/programs/supplement/list'],
-    ['افزودن نمونه برنامه مکمل','/programs/supplement/form']
+    ['بانک برنامه','/programs/exercise/movements-list']
   ]],
-  ['سیستم',null,'⚙',[
+  ['سیستم',null,'📦',[
     ['پیکربندی هوش مصنوعی (AI)','/settings/ai'],
     ['تنظیمات و پشتیبان','/coach/settings'],
     ['نسخه و تغییرات','/coach/releases']
@@ -31,7 +24,18 @@ const menuEl=document.querySelector('#menu'), content=document.querySelector('#c
 let current='';
 function go(label, route){ current=route; history.pushState({},'',route); renderRoute(label,route); document.querySelector('#sidebar').classList.remove('open'); }
 
+function updateSidebarActiveState(route){
+  document.querySelectorAll('.menu-link').forEach(link=>{
+    const isDirectMatch = link.dataset.route === route;
+    link.classList.toggle('active', isDirectMatch);
+    if(isDirectMatch && link.classList.contains('child')){
+      link.closest('.menu-group')?.classList.add('expanded');
+    }
+  });
+}
+
 function renderRoute(label,route){
+  updateSidebarActiveState(route);
   // Student portal - no sidebar, secure token
   if(route.startsWith('/join/') && window.renderStudentPortal) return window.renderStudentPortal(route);
   if((route==='/users-list' || route.startsWith('/users-list/')) && window.renderStudentsPage) return window.renderStudentsPage(label,route);
