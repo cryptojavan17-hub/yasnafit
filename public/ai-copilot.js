@@ -139,7 +139,11 @@
   // 1. Assessment AI Analysis & Feedback Large Modal
   // ==============================================================
   function generateScientificCoachNote(info = {}) {
+<<<<<<< HEAD
     const { studentName = 'ورزشکار', assNum = 1, weight = '—', height = '—', bodyFat, goal = 'فیتنس', level = 'متوسط', injuries = 'بدون آسیب', appetiteStatus = 'معمولی و طبیعی' } = info;
+=======
+    const { studentName = 'ورزشکار', assNum = 1, weight = '—', height = '—', bodyFat, goal = 'فیتنس', level = 'متوسط', injuries = 'بدون آسیب', appetiteStatus = 'معمولی و طبیعی', dietStatus = 'بدون محدودیت' } = info;
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
     
     const w = parseFloat(weight);
     const h = parseFloat(height);
@@ -185,7 +189,11 @@ ${safetyText}
 تمرینات در قالب جلسات استاندارد ۶ مرحله‌ای شامل ۵ الی ۸ دقیقه گرم‌کردن پویا، حرکات اصلی چندمفصلی، سوپرست‌های تکمیلی برای پمپ عضلانی، تقویت میان‌تنه، ۱۰ الی ۱۵ دقیقه هوازی هدفمند در Zone 2 برای چربی‌سوزی بهینه، و سردکردن با کشش ایستا طراحی شده است.
 
 🥗 ۴. توصیه‌های کلیدی تغذیه و ریکاوری:
+<<<<<<< HEAD
 الگوی اشتهای شما (${appetiteStatus}) برای دوره مناسب است. مصرف روزانه حداقل ۳ لیتر آب، دریافت منظم پروتئین و خواب باکیفیت شبانه (۷ تا ۸ ساعت) ضامن ریکاوری سریع و اثربخشی تمرینات است.
+=======
+الگوی اشتهای شما (${appetiteStatus}) و وضعیت محدودیت غذایی (${dietStatus}) در چیدمان تمرین لحاظ گردید. مصرف روزانه حداقل ۳ لیتر آب، دریافت منظم پروتئین و خواب باکیفیت شبانه (۷ تا ۸ ساعت) ضامن ریکاوری سریع و اثربخشی تمرینات است.
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 
 با انرژی و تعهد تمرینات را آغاز کن؛ در طول این مسیر همراهت هستم!`;
   }
@@ -203,6 +211,11 @@ ${safetyText}
     const limitations = student?.limitations || assessmentDetails?.medical?.disease_details || 'ندارد';
     const appetiteRaw = assessmentDetails?.nutrition?.appetite_status || 'normal';
     const appetiteFa = ({ normal: 'معمولی و طبیعی', normal_eating: 'معمولی و طبیعی', low_eating: 'کم‌خوری', grazing: 'ریزه‌خوری', overeating: 'پرخوری', emotional_overeating: 'پرخوری عصبی', anorexia: 'بی‌اشتهایی عصبی' })[appetiteRaw] || appetiteRaw;
+<<<<<<< HEAD
+=======
+    const dietRaw = assessmentDetails?.nutrition?.diet_type || 'none';
+    const dietFa = ({ none: 'بدون محدودیت', no_restriction: 'بدون محدودیت', vegetarian: 'گیاه‌خواری', vegan: 'وگان', celiac: 'سلیاک', lactose_intolerance: 'حساسیت به لاکتوز', gout: 'نقرس', low_carb: 'لوکرب', ketogenic: 'کتوژنیک', fasting: 'فستینگ', professional: 'حرفه‌ای', competition: 'مسابقه ای', iranian: 'سفره ایرانی' })[dietRaw] || dietRaw;
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
     const noteEl = document.getElementById('coachNote');
 
     let modal = document.getElementById('aiAssessmentModal');
@@ -238,9 +251,15 @@ ${safetyText}
               <span>سطح: ${esc(student?.training_level || student?.training_experience || 'متوسط')}</span>
             </div>
             <div class="ai-diag-card">
+<<<<<<< HEAD
               <b>⚠️ ملاحظات و تغذیه</b>
               <span>آسیب‌ها: ${esc(injuries)}</span>
               <span>اشتها: ${esc(appetiteFa)}</span>
+=======
+              <b>⚠️ تغذیه و محدودیت</b>
+              <span>اشتها: ${esc(appetiteFa)}</span>
+              <span>رژیم: ${esc(dietFa)}</span>
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
             </div>
           </div>
 
@@ -297,6 +316,10 @@ ${safetyText}
 - سطح تمرین: ${student?.training_level || student?.training_experience || 'متوسط'}
 - آسیب‌ها: ${injuries}
 - محدودیت‌ها: ${limitations}
+<<<<<<< HEAD
+=======
+- محدودیت غذایی: ${dietFa}
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 - وضعیت اشتها و تغذیه: ${appetiteFa}
 
 یک یادداشت بازخورد مربی جامع، ساختاریافته و انگیزشی بنویس که شامل تحلیل شاخص‌ها، نکات ایمنی سطح و آسیب‌ها، ساختار جلسات و توصیه‌های تغذیه و آب‌رسانی باشد.`;
@@ -332,7 +355,12 @@ ${safetyText}
           level: student?.training_level || student?.training_experience || 'متوسط',
           injuries,
           limitations,
+<<<<<<< HEAD
           appetiteStatus: appetiteFa
+=======
+          appetiteStatus: appetiteFa,
+          dietStatus: dietFa
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
         });
         textarea.value = fallbackNote;
         indicator.textContent = '✅ تحلیل بر مبنای الگوی علمی فیزیولوژی آماده شد.';

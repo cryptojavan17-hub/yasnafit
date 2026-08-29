@@ -11,7 +11,13 @@
     active:'فعال',used:'استفاده‌شده',expired:'منقضی‌شده',revoked:'لغوشده',
     INITIAL:'اولیه',MONTHLY:'ماهانه',
     low:'کم',medium:'متوسط',high:'زیاد',gym:'باشگاه',home:'منزل',
+<<<<<<< HEAD
     iranian:'سفره ایرانی',professional:'رژیم حرفه‌ای',low_eating:'کم‌خوری',grazing:'ریزخوری',overeating:'پرخوری',emotional_overeating:'پرخوری عصبی',anorexia:'بی‌اشتهایی عصبی',
+=======
+    iranian:'سفره ایرانی',professional:'حرفه‌ای',competition:'مسابقه ای',no_restriction:'بدون محدودیت',
+    vegetarian:'گیاه‌خواری',vegan:'وگان',celiac:'سلیاک',lactose_intolerance:'حساسیت به لاکتوز',gout:'نقرس',low_carb:'لوکرب',ketogenic:'کتوژنیک',fasting:'فستینگ',
+    low_eating:'کم‌خوری',grazing:'ریزه‌خوری',overeating:'پرخوری',emotional_overeating:'پرخوری عصبی',anorexia:'بی‌اشتهایی عصبی',
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
     none:'بدون مشکل',constipation:'یبوست',diarrhea:'اسهال',difficult_defecation:'دفع سخت',
     exercise:'تمرینی',diet:'غذایی',supplement:'مکمل',corrective:'اصلاحی',normal:'معمولی',REPEAT:'تکرار',TIME:'ثانیه',MINUTE:'دقیقه',SECONDS:'ثانیه',FAILURE:'ماکسیمم توان',AMRAP:'بیشترین تکرار',DROPSET:'دراپ ست',SUPERSET:'سوپرست',GIANT_SET:'جاینت‌ست',REST_PAUSE:'استراحت‌ـ‌توقف',
     weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'

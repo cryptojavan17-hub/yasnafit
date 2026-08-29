@@ -667,6 +667,40 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
   const limitations = s.limitations || medicalDetails.disease_details || 'بدون محدودیت خاص';
   const weeklyDays = Number(sportsDetails.sessions_per_week || s.sessions_per_week || s.weekly_days || daysCount || 3);
 
+<<<<<<< HEAD
+=======
+  // Nutrition & Diet Restrictions
+  const nutritionDetails = d.nutrition || {};
+  const dietCode = nutritionDetails.diet_type || 'none';
+  const dietLabels = {
+    none: 'بدون محدودیت',
+    no_restriction: 'بدون محدودیت',
+    vegetarian: 'گیاه‌خواری',
+    vegan: 'وگان',
+    celiac: 'سلیاک',
+    lactose_intolerance: 'حساسیت به لاکتوز',
+    gout: 'نقرس',
+    low_carb: 'لوکرب',
+    ketogenic: 'کتوژنیک',
+    fasting: 'فستینگ',
+    professional: 'حرفه‌ای',
+    competition: 'مسابقه ای',
+    iranian: 'سفره ایرانی'
+  };
+  const dietFa = dietLabels[dietCode] || dietCode;
+  const appetiteCode = nutritionDetails.appetite_status || 'normal';
+  const appetiteLabels = {
+    normal: 'معمولی و طبیعی',
+    normal_eating: 'معمولی و طبیعی',
+    low_eating: 'کم‌خوری',
+    grazing: 'ریزه‌خوری',
+    overeating: 'پرخوری',
+    emotional_overeating: 'پرخوری عصبی',
+    anorexia: 'بی‌اشتهایی عصبی'
+  };
+  const appetiteFa = appetiteLabels[appetiteCode] || appetiteCode;
+
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
   // 1. Training Level Rationale
   let trainingLevelRationale = '';
   if (isBeginner) {
@@ -721,6 +755,10 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
 • **هدف اصلی دوره:** ${goal}
 • **محیط و امکانات تمرینی:** ${locationFa}
 • **تعداد جلسات هفتگی:** دقیقاً ${daysCount.toLocaleString('fa-IR')} جلسه در هفته (منطبق با درخواست ${weeklyDays.toLocaleString('fa-IR')} روزه شاگرد در ارزیابی)
+<<<<<<< HEAD
+=======
+• **محدودیت غذایی و اشتها:** ${dietFa} • اشتهای ${appetiteFa}
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 • **وضعیت سلامت مفاصل و آسیب‌ها:** ${injuriesText}
 • **محدودیت‌ها و ملاحظات:** ${limitations}
 
@@ -1099,6 +1137,39 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   const injuries = student.injuries || details.medical?.orthopedic_issues || 'بدون آسیب';
   const limitations = student.limitations || 'ندارد';
 
+<<<<<<< HEAD
+=======
+  const nutritionDetails = details.nutrition || {};
+  const dietCode = nutritionDetails.diet_type || 'none';
+  const dietLabels = {
+    none: 'بدون محدودیت',
+    no_restriction: 'بدون محدودیت',
+    vegetarian: 'گیاه‌خواری',
+    vegan: 'وگان',
+    celiac: 'سلیاک',
+    lactose_intolerance: 'حساسیت به لاکتوز',
+    gout: 'نقرس',
+    low_carb: 'لوکرب',
+    ketogenic: 'کتوژنیک',
+    fasting: 'فستینگ',
+    professional: 'حرفه‌ای',
+    competition: 'مسابقه ای',
+    iranian: 'سفره ایرانی'
+  };
+  const dietFa = dietLabels[dietCode] || dietCode;
+  const appetiteCode = nutritionDetails.appetite_status || 'normal';
+  const appetiteLabels = {
+    normal: 'معمولی و طبیعی',
+    normal_eating: 'معمولی و طبیعی',
+    low_eating: 'کم‌خوری',
+    grazing: 'ریزه‌خوری',
+    overeating: 'پرخوری',
+    emotional_overeating: 'پرخوری عصبی',
+    anorexia: 'بی‌اشتهایی عصبی'
+  };
+  const appetiteFa = appetiteLabels[appetiteCode] || appetiteCode;
+
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
   const rawWeeklyDays = details.sports?.sessions_per_week || student.sessions_per_week || student.weekly_days || 3;
   const targetDays = Math.min(Math.max(Number(rawWeeklyDays) || 3, 3), 5);
 
@@ -1119,6 +1190,11 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
 - هدف اصلی: ${goal}
 - سطح تمرین: ${level}
 - محل تمرین: ${location === 'home' ? 'منزل' : 'باشگاه'}
+<<<<<<< HEAD
+=======
+- محدودیت غذایی: ${dietFa}
+- وضعیت اشتها: ${appetiteFa}
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 - تعداد جلسات درخواستی شاگرد در هفته: دقیقا ${targetDays} روز در هفته (رعایت این تعداد روز کاملاً اجباری است؛ برنامه باید حتماً و منحصراً ${targetDays} روزه باشد و مجاز به افزایش روزها نیستید)
 - آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
 ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}

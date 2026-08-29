@@ -10,7 +10,11 @@ function complete(db,id,studentId,gender='male'){
   assessments.saveSection(db,id,studentId,'measurements',{height:'۱۷۵',weight:'۷۵/۵',around_the_arm:'۳۱',around_the_chest:95,around_the_belly:82,around_the_hips:98,around_the_leg:36,around_the_thigh:56,around_the_wrist:17});
   assessments.saveSection(db,id,studentId,'medical',{has_disease:false,has_medication:false,has_injury:false,has_surgery:false,last_blood_test_notes:'normal',corrective_notes:'',items:[{kind:'corrective',category:'ناهنجاری اصلاحی',name:'سر به جلو',notes:''}]});
   assessments.saveSection(db,id,studentId,'sports',{average_daily_activity:'medium',practice_history:false,practice_now:false,practice_place:'gym',home_equipment:'',sessions_per_week:3,supplement_history:false,doping_history:''});
+<<<<<<< HEAD
   assessments.saveSection(db,id,studentId,'nutrition',{diet_type:'iranian',previous_diet:false,food_allergies:'',weight_changes:'',appetite_status:'normal',appetite_notes:'اشتهای طبیعی و منظم',defecation_problem:'none',breakfast:'',lunch:'',dinner:''});
+=======
+  assessments.saveSection(db,id,studentId,'nutrition',{diet_type:'vegetarian',previous_diet:false,food_allergies:'',weight_changes:'',appetite_status:'normal',appetite_notes:'اشتهای طبیعی و منظم',defecation_problem:'none',breakfast:'',lunch:'',dinner:''});
+>>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
   assessments.saveSection(db,id,studentId,'habits',{smoking:false,alcohol:false});
   if(gender==='female')assessments.saveSection(db,id,studentId,'pregnancy',{childbirth_history:false,breastfeeding:false,formula_use:false,child_food_allergy:false});
 }
