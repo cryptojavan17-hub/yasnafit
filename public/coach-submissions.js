@@ -19,11 +19,7 @@
     surgery_details: 'شرح جراحی', last_blood_test_notes: 'آزمایش خون', corrective_notes: 'ناهنجاری اصلاحی',
     average_daily_activity: 'فعالیت روزانه', practice_history_details: 'شرح سابقه تمرین',
     current_practice_details: 'شرح تمرین فعلی', supplement_details: 'شرح مکمل', doping_history: 'سابقه دوپینگ',
-<<<<<<< HEAD
-    diet_type: 'الگوی غذایی', previous_diet: 'سابقه رژیم', previous_diet_duration: 'مدت رژیم',
-=======
     diet_type: 'محدودیت غذایی', previous_diet: 'سابقه رژیم', previous_diet_duration: 'مدت رژیم',
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
     previous_diet_type: 'نوع رژیم قبلی', previous_diet_notes: 'توضیح رژیم قبلی', food_allergies: 'حساسیت غذایی',
     weight_changes: 'تغییرات وزن', appetite_status: 'وضعیت اشتها', appetite_notes: 'توضیح اشتها',
     defecation_problem: 'وضعیت دفع', breakfast: 'صبحانه', lunch: 'ناهار', dinner: 'شام',
@@ -38,13 +34,6 @@
   const enumLabels = {
     female: 'خانم', male: 'آقا', gym: 'باشگاه', home: 'منزل',
     low: 'کم', medium: 'متوسط', high: 'زیاد',
-<<<<<<< HEAD
-    iranian: 'سفره ایرانی', professional: 'رژیم حرفه‌ای',
-    normal: 'معمولی و طبیعی', normal_eating: 'معمولی و طبیعی',
-    low_eating: 'کم‌خوری', grazing: 'ریزه‌خوری', overeating: 'پرخوری',
-    emotional_overeating: 'پرخوری عصبی', anorexia: 'بی‌اشتهایی عصبی',
-    none: 'بدون مشکل', constipation: 'یبوست', diarrhea: 'اسهال',
-=======
     none: 'بدون محدودیت', no_restriction: 'بدون محدودیت',
     vegetarian: 'گیاه‌خواری', vegan: 'وگان', celiac: 'سلیاک',
     lactose_intolerance: 'حساسیت به لاکتوز', gout: 'نقرس',
@@ -55,7 +44,6 @@
     low_eating: 'کم‌خوری', grazing: 'ریزه‌خوری', overeating: 'پرخوری',
     emotional_overeating: 'پرخوری عصبی', anorexia: 'بی‌اشتهایی عصبی',
     constipation: 'یبوست', diarrhea: 'اسهال',
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
     difficult_defecation: 'دفع سخت', natural: 'طبیعی', cesarean: 'سزارین'
   };
 
@@ -215,8 +203,6 @@
           }
           return isTrue ? '<span class="status-pill active">✓ بله</span>' : '<span class="status-pill muted">خیر</span>';
         }
-<<<<<<< HEAD
-=======
         if (key === 'diet_type') {
           if (val === 'none' || val === 'no_restriction') return '<span class="status-pill default">بدون محدودیت</span>';
           return `<span class="status-pill active">🥗 ${esc(enumLabels[val] || val)}</span>`;
@@ -224,7 +210,6 @@
         if (key === 'defecation_problem') {
           return val === 'none' ? '<span class="status-pill success">✓ بدون مشکل</span>' : `<span class="status-pill warning">⚠️ ${esc(enumLabels[val] || val)}</span>`;
         }
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
         if (enumLabels[val]) {
           if (val === 'gym') return '<span class="status-pill active">🏋️ باشگاه</span>';
           if (val === 'home') return '<span class="status-pill active">🏠 منزل</span>';

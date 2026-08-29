@@ -667,8 +667,6 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
   const limitations = s.limitations || medicalDetails.disease_details || 'بدون محدودیت خاص';
   const weeklyDays = Number(sportsDetails.sessions_per_week || s.sessions_per_week || s.weekly_days || daysCount || 3);
 
-<<<<<<< HEAD
-=======
   // Nutrition & Diet Restrictions
   const nutritionDetails = d.nutrition || {};
   const dietCode = nutritionDetails.diet_type || 'none';
@@ -700,7 +698,6 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
   };
   const appetiteFa = appetiteLabels[appetiteCode] || appetiteCode;
 
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
   // 1. Training Level Rationale
   let trainingLevelRationale = '';
   if (isBeginner) {
@@ -755,10 +752,7 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
 • **هدف اصلی دوره:** ${goal}
 • **محیط و امکانات تمرینی:** ${locationFa}
 • **تعداد جلسات هفتگی:** دقیقاً ${daysCount.toLocaleString('fa-IR')} جلسه در هفته (منطبق با درخواست ${weeklyDays.toLocaleString('fa-IR')} روزه شاگرد در ارزیابی)
-<<<<<<< HEAD
-=======
 • **محدودیت غذایی و اشتها:** ${dietFa} • اشتهای ${appetiteFa}
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 • **وضعیت سلامت مفاصل و آسیب‌ها:** ${injuriesText}
 • **محدودیت‌ها و ملاحظات:** ${limitations}
 
@@ -810,21 +804,25 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
       locationFa,
       injuries: injuriesText,
       limitations,
-      weeklyDays
+      weeklyDays,
+      diet: dietFa,
+      appetite: appetiteFa
     },
     dataSources: [
       `پرونده هویتی شاگرد: ${fullName} (شماره پرونده: ${caseNumber})`,
       `شاخص‌های آنتروپومتریک ارزیابی بدنی: وزن ${weight} kg، قد ${height} cm، شاخص توده بدنی BMI: ${bmi || '—'} (${bmiCategory})`,
       `سابقه و سطح آمادگی ورزشی: سطح ${level} — ${experience}`,
+      `تعداد جلسات درخواستی در ارزیابی: ${weeklyDays} جلسه در هفته`,
+      `محدودیت غذایی و الگوی اشتها: ${dietFa} • اشتهای ${appetiteFa}`,
       `سوابق پزشکی و سلامت مفاصل: ${injuriesText}`,
       `محل تمرین و امکانات در دسترس: ${locationFa}`,
       `هدف اولیه و اولویت فیزیولوژیک: ${goal}`
     ],
     decisionLogic: [
       `تحلیل سطح آمادگی و سابقه تمرینی (${level}): ${trainingLevelRationale}`,
+      `توجیه تعداد جلسات (${daysCount.toLocaleString('fa-IR')} روزه): ${splitVolumeRationale}`,
       `تحلیل هدف اصلی، ترکیب بدنی و BMI (${goal} / BMI: ${bmi || '—'}): ${goalBmiRationale}`,
       `تدابیر ارتوپدی و ایمنی مفاصل: ${injurySafetyRationale}`,
-      `چیدمان تفکیک عضلانی (Split) و مدیریت حجم: ${splitVolumeRationale}`,
       `سیستم‌های تمرینی و تنوع انقباضی: ${systemsRationale}`
     ],
     sixPhaseBreakdown: [
@@ -836,7 +834,7 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
       { phase: 6, name: 'سردکردن و کشش ایستا (Cool-down)', duration: '۵ دقیقه', reason: 'افت تدریجی ضربان قلب، بازگشت سیستم خودمختار به فاز پاراسمپاتیک و تسریع ریکاوری.' }
     ],
     mismatchReport: [
-      { item: 'تعداد جلسات هفتگی', requested: `${weeklyDays} جلسه در هفته`, delivered: `${daysCount} روز تمرینی استاندارد`, status: 'منطبق', note: 'توزیع بهینه حجم و ریکاوری ۴۸-۷۲ ساعته' },
+      { item: 'تعداد جلسات هفتگی', requested: `${weeklyDays.toLocaleString('fa-IR')} جلسه در هفته`, delivered: `${daysCount.toLocaleString('fa-IR')} روز تمرینی استاندارد`, status: (daysCount === weeklyDays ? 'کاملاً منطبق (۱۰۰٪)' : 'نیازمند اصلاح'), note: `رعایت دقیق درخواست شاگرد (${weeklyDays} روز در هفته)` },
       { item: 'محیط و تجهیزات تمرینی', requested: location === 'home' ? 'منزل' : 'باشگاه', delivered: locationFa, status: 'منطبق', note: 'استفاده از بانک حرکات استاندارد' },
       { item: 'ملاحظات ارتوپدی و آسیب‌ها', requested: injuriesText, delivered: 'طراحی ایمن با خط کشش کنترل‌شده', status: 'رعایت‌شده', note: 'حذف حرکات پرریسک و محافظت از مفاصل' }
     ],
@@ -1137,8 +1135,6 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   const injuries = student.injuries || details.medical?.orthopedic_issues || 'بدون آسیب';
   const limitations = student.limitations || 'ندارد';
 
-<<<<<<< HEAD
-=======
   const nutritionDetails = details.nutrition || {};
   const dietCode = nutritionDetails.diet_type || 'none';
   const dietLabels = {
@@ -1169,7 +1165,6 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   };
   const appetiteFa = appetiteLabels[appetiteCode] || appetiteCode;
 
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
   const rawWeeklyDays = details.sports?.sessions_per_week || student.sessions_per_week || student.weekly_days || 3;
   const targetDays = Math.min(Math.max(Number(rawWeeklyDays) || 3, 3), 5);
 
@@ -1190,11 +1185,8 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
 - هدف اصلی: ${goal}
 - سطح تمرین: ${level}
 - محل تمرین: ${location === 'home' ? 'منزل' : 'باشگاه'}
-<<<<<<< HEAD
-=======
 - محدودیت غذایی: ${dietFa}
 - وضعیت اشتها: ${appetiteFa}
->>>>>>> de7f2b2 (feat(assessment): add dietary restrictions dropdown with exact options and integrate across wizard, coach review, and AI engine)
 - تعداد جلسات درخواستی شاگرد در هفته: دقیقا ${targetDays} روز در هفته (رعایت این تعداد روز کاملاً اجباری است؛ برنامه باید حتماً و منحصراً ${targetDays} روزه باشد و مجاز به افزایش روزها نیستید)
 - آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
 ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}
@@ -1536,7 +1528,7 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 
   // Retrieve built program and construct comprehensive scientific rationale
   const builtProg = programService.buildProgramFromDB(db, createdProgId);
-  const daysCount = builtProg?.programData?.days?.length || 4;
+  const daysCount = builtProg?.programData?.days?.length || targetDays || 3;
   const rationaleReport = buildComprehensiveProgramRationale({
     student,
     assessment,
