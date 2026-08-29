@@ -146,7 +146,7 @@ function validateProgram(program){
   if(!isNonEmptyString(program.title)) errors.push('عنوان برنامه الزامی است');
   if(program.title && program.title.length > 200) errors.push('عنوان حداکثر 200 کاراکتر');
 
-  if(program.coach_note && program.coach_note.length > 2000) errors.push('توضیحات مربی حداکثر 2000 کاراکتر');
+  if(program.coach_note && program.coach_note.length > 50000) errors.push('توضیحات مربی حداکثر 50000 کاراکتر');
 
   if(program.start_date && !isValidDateString(program.start_date)) errors.push('تاریخ شروع نامعتبر');
   if(program.end_date && !isValidDateString(program.end_date)) errors.push('تاریخ پایان نامعتبر');

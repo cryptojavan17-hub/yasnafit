@@ -142,7 +142,7 @@ height:'قد',weight:'وزن',around_the_arm:'دور بازو',around_the_chest:
               <section class="review-decision-card">
                 <div><p class="eyebrow">تصمیم مربی</p><h2>${reviewable?'نتیجه بررسی را ثبت کنید':esc(lifecycleLabels[lifecycle]||fa(lifecycle))}</h2></div>
                 <button type="button" class="btn btn-secondary btn-small" id="btnAiAnalyze" style="width:100%;margin-bottom:8px;font-size:10px;font-weight:750;">🤖 تحلیل ارزیابی و پیشنهاد یادداشت با AI</button>
-                <label>یادداشت برای شاگرد<textarea id="coachNote" maxlength="4000" placeholder="توضیح کوتاه و روشن…">${esc(ass.coach_note||'')}</textarea></label>
+                <label>یادداشت برای شاگرد<textarea id="coachNote" maxlength="50000" placeholder="توضیح و تحلیل بازخورد برای شاگرد…">${esc(ass.coach_note||'')}</textarea></label>
                 <div class="review-actions">
                   <button class="review-action approve" id="btnApprove" ${reviewable?'':'disabled'}>✓ <span>تأیید</span></button>
                   <button class="review-action revise" id="btnRequestChanges" ${reviewable?'':'disabled'}>↻ <span>درخواست اصلاح</span></button>

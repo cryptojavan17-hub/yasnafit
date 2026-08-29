@@ -206,7 +206,7 @@ function validateAssessmentFields(data){
     }
   }
   for(const key of ['goal','training_experience','limitations','injuries','student_note','coach_note']){
-    if(data[key] != null && (typeof data[key] !== 'string' || data[key].length > 4000)) errors.push(`${key} نامعتبر است`);
+    if(data[key] != null && (typeof data[key] !== 'string' || data[key].length > 50000)) errors.push(`${key} نامعتبر است`);
   }
   if(data.measurements != null && (typeof data.measurements !== 'object' || Array.isArray(data.measurements))) errors.push('اندازه‌گیری‌ها نامعتبر است');
   if(data.body_photos_preference !== undefined && data.body_photos_preference !== null && !['willing','declined'].includes(data.body_photos_preference)){
