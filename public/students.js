@@ -75,7 +75,17 @@
 
   function renderListShell(){
     return `<div class="students-page">
-      <div class="page-head students-head"><div><p class="eyebrow">مدیریت ارتباط با شاگرد</p><h1>شاگرد های من</h1><p>دعوت، ارزیابی، برنامه ماهانه و تاریخچه هر شاگرد در یک محل</p></div><button class="primary" id="addStudentButton">＋ افزودن شاگرد</button></div>
+      <div class="page-head students-head">
+        <div>
+          <p class="eyebrow">مدیریت ارتباط با شاگرد</p>
+          <h1>شاگرد های من</h1>
+          <p>دعوت، ارزیابی، برنامه ماهانه و تاریخچه هر شاگرد در یک محل</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <a class="btn btn-secondary" href="/students/submissions" style="display:inline-flex;align-items:center;gap:6px;font-weight:750;text-decoration:none;">📋 بررسی ارزیابی‌ها</a>
+          <button class="primary" id="addStudentButton">＋ افزودن شاگرد</button>
+        </div>
+      </div>
       <div class="student-stat-grid" id="studentStats"></div>
       <section class="students-panel">
         <div class="student-toolbar">
@@ -110,14 +120,26 @@
       <td><button class="student-identity-cell" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b><span>شماره پرونده <bdi>${esc(student.case_number)}</bdi></span></button></td>
       <td class="student-mobile" dir="ltr">${esc(student.mobile||'—')}</td>
       <td>${statusBadge(student.management_status)}<small class="record-status">${esc(fa(student.student_record_status||''))}</small></td>
-      <td>${student.current_assessment_id?`<b>ارزیابی ${student.current_assessment_number}</b><small>${esc(assessmentLabels[student.current_assessment_status]||fa(student.current_assessment_status))}</small>`:'<span class="muted">ثبت نشده</span>'}</td>
+      <td>${student.current_assessment_id?`<div style="display:flex;flex-direction:column;gap:3px;"><button type="button" class="text-button" data-review-assessment="${student.current_assessment_id}" style="text-align:right;padding:0;color:var(--accent-hover);font-weight:850;font-size:11.5px;cursor:pointer;" title="بررسی ارزیابی شماره #${student.current_assessment_number}"><b>ارزیابی ${student.current_assessment_number}</b> ↗</button><small>${esc(assessmentLabels[student.current_assessment_status]||fa(student.current_assessment_status))}</small></div>`:'<span class="muted">ثبت نشده</span>'}</td>
       <td>${student.current_program_id?`<b>${esc(programLabels[student.current_program_status]||fa(student.current_program_status))}</b><small>${formatDate(student.current_program_start_date)} تا ${formatDate(student.current_program_end_date)}</small>`:'<span class="muted">بدون برنامه</span>'}</td>
       <td>${formatDate(student.last_assessment_submitted_at||student.last_assessment_created_at)}</td>
       <td><span class="next-assessment ${String(student.next_assessment_status).toLowerCase()}">${esc(nextLabels[student.next_assessment_status]||fa(student.next_assessment_status))}</span></td>
       <td>${formatDate(student.created_at)}</td>
-      <td><div class="student-row-actions"><button class="secondary" data-open-student="${student.case_number}">مشاهده</button><button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button></div></td>
+      <td>
+        <div class="student-row-actions">
+          <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
+          ${student.current_assessment_id?`<button class="secondary" data-review-assessment="${student.current_assessment_id}" title="بررسی ارزیابی شماره #${student.current_assessment_number}">📋 بررسی ارزیابی</button>`:''}
+          <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
+        </div>
+      </td>
     </tr>`).join('')}</tbody></table></div>`;
     host.querySelectorAll('[data-open-student]').forEach(button=>button.onclick=()=>{ location.href=`/users-list/${button.dataset.openStudent}`; });
+    host.querySelectorAll('[data-review-assessment]').forEach(button=>{
+      button.onclick=(e)=>{
+        e.stopPropagation();
+        location.href=`/assessments/${button.dataset.reviewAssessment}`;
+      };
+    });
     host.querySelectorAll('[data-access-student]').forEach(button=>{
       button.onclick=()=>{
         const student=items[Number(button.dataset.accessStudent)];
@@ -229,7 +251,7 @@
                 <button class="primary" data-copy-perm-all style="min-height:34px;font-size:9px;font-weight:750;margin-top:2px;">📋 کپی کامل مشخصات ورود شاگرد</button>
               </div>
             </section>
-            <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div></dl>${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}">ساخت برنامه ماهانه</button>`:''}</section>
+            <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div></dl>${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:8px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.assessment_number}</button>`:''}${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}</section>
             <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت سریع</h2><button class="text-button" data-new-invite>＋ توکن جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted">توکنی ساخته نشده است.</p>'}</div></section>
             <section class="detail-section"><h2>عملکرد واقعی تمرین</h2><div class="profile-data"><div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div><div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div><div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div></div></section>
             <section class="detail-section"><h2>پیام‌های مربی و شاگرد</h2><div class="coach-message-list">${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}</b><span>${esc(message.body)}</span></div>`).join('')||'<p class="muted">پیامی ثبت نشده است.</p>'}</div><form id="coachMessageForm" class="coach-message-form"><textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea><button class="primary">ارسال</button></form></section>
