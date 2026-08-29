@@ -5,7 +5,7 @@ const GOALS=['weight_loss','weight_gain','fitness','maintenance','muscle_gain','
 const ACTIVITY=['low','medium','high'];
 const PLACE=['gym','home'];
 const DIET=['iranian','professional'];
-const APPETITE=['low_eating','grazing','overeating','emotional_overeating','anorexia'];
+const APPETITE=['normal','normal_eating','low_eating','grazing','overeating','emotional_overeating','anorexia'];
 const DEFECATION=['none','constipation','diarrhea','difficult_defecation'];
 const CATALOGS={
   corrective:['اسکولیوز','کیفوز','لوردوز','سر به جلو','شانه‌های نابرابر','تیلت لگن','نابرابری پاها','زانوی ضربدری','زانوی پرانتزی','پای پرانتزی'],

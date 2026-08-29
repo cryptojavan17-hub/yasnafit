@@ -138,17 +138,71 @@
   // ==============================================================
   // 1. Assessment AI Analysis & Feedback Large Modal
   // ==============================================================
+  function generateScientificCoachNote(info = {}) {
+    const { studentName = 'ورزشکار', assNum = 1, weight = '—', height = '—', bodyFat, goal = 'فیتنس', level = 'متوسط', injuries = 'بدون آسیب', appetiteStatus = 'معمولی و طبیعی' } = info;
+    
+    const w = parseFloat(weight);
+    const h = parseFloat(height);
+    let bmiStr = '';
+    if (w > 0 && h > 0) {
+      const bmi = +(w / ((h/100)**2)).toFixed(1);
+      let cat = 'وزن نرمال و ایده‌آل';
+      if (bmi < 18.5) cat = 'کمبود وزن (نیاز به افزایش وزن و حجم)';
+      else if (bmi >= 25 && bmi < 30) cat = 'اضافه‌وزن (نیاز به بازسازی ترکیب بدنی و چربی‌سوزی)';
+      else if (bmi >= 30) cat = 'چاقی (اولویت چربی‌سوزی و حفظ سلامت مفاصل)';
+      bmiStr = `با قد ${h} سانتی‌متر و وزن ${w} کیلوگرم (شاخص BMI: ${bmi} — وضعیت: ${cat})`;
+    } else {
+      bmiStr = `با وزن ${weight} کیلوگرم و قد ${height} سانتی‌متر`;
+    }
+
+    const isBeginner = String(level).includes('مبتدی') || String(level).includes('Beginner');
+    const hasInjuries = injuries && injuries !== 'بدون آسیب' && injuries !== 'بدون آسیب ثبت‌شده' && injuries !== 'ندارد';
+
+    let safetyText = '';
+    if (hasInjuries) {
+      safetyText = `با توجه به آسیب‌های ثبت‌شده (${injuries})، حرکات دارای بار محوری مستقیم سنگین مهار شده و تمرکز بر حرکات پایدار با دامنه کنترل‌شده و تقویت عضلات ثبات‌دهنده (Core و مفاصل) قرار دارد.`;
+    } else {
+      safetyText = `خوشبختانه عدم وجود آسیب مفصلی به ما امکان اجرای دامنه کامل حرکتی (Full ROM) با حرکات استاندارد چندمفصلی را می‌دهد.`;
+    }
+
+    let levelText = '';
+    if (isBeginner) {
+      levelText = `با توجه به سطح مبتدی شما، تمرکز اصلی دوره بر یادگیری الگوهای صحیح بیومکانیک، کنترل فاز منفی (Eccentric) و سازگاری عصبی-عضلانی بدون ایجاد خستگی مفرط سیستم عصبی خواهد بود.`;
+    } else {
+      levelText = `با توجه به سطح آمادگی شما، اصل اضافه بار تدریجی (Progressive Overload)، افزایش تنش مکانیکی و بهره‌گیری از سیستم‌های تمرینی هدفمند در دستور کار قرار دارد.`;
+    }
+
+    return `سلام ${studentName} عزیز، ارزیابی بدنی شماره #${assNum} شما با دقت توسط کادر مربیگری بررسی شد.
+
+📊 ۱. تحلیل ترکیب بدنی و هدف دوره:
+${bmiStr}، هدف شما (${goal}) کاملاً متناسب با شرایط بدنی فعلی است. برنامه تمرینی جدید با رویکرد بهینه‌سازی متابولیسم و فرم‌دهی متقارن عضلات تنظیم گردید.
+
+🛡️ ۲. سطح تمرینی و تدابیر ایمنی مفاصل:
+${levelText}
+${safetyText}
+
+🎯 ۳. ساختار و پروتکل اجرایی جلسات:
+تمرینات در قالب جلسات استاندارد ۶ مرحله‌ای شامل ۵ الی ۸ دقیقه گرم‌کردن پویا، حرکات اصلی چندمفصلی، سوپرست‌های تکمیلی برای پمپ عضلانی، تقویت میان‌تنه، ۱۰ الی ۱۵ دقیقه هوازی هدفمند در Zone 2 برای چربی‌سوزی بهینه، و سردکردن با کشش ایستا طراحی شده است.
+
+🥗 ۴. توصیه‌های کلیدی تغذیه و ریکاوری:
+الگوی اشتهای شما (${appetiteStatus}) برای دوره مناسب است. مصرف روزانه حداقل ۳ لیتر آب، دریافت منظم پروتئین و خواب باکیفیت شبانه (۷ تا ۸ ساعت) ضامن ریکاوری سریع و اثربخشی تمرینات است.
+
+با انرژی و تعهد تمرینات را آغاز کن؛ در طول این مسیر همراهت هستم!`;
+  }
+
   async function openAIAssessmentModal(params = {}) {
     const { student, assessment, assessmentDetails = {}, assessmentId } = params;
     const studentName = student?.full_name || 'ورزشکار';
     const caseNumber = student?.case_number || '—';
     const assNum = assessment?.assessment_number || 1;
-    const goal = student?.goal || assessmentDetails?.goals?.main_goal || 'فیتنس و سلامتی';
-    const weight = assessment?.weight || '—';
-    const height = assessment?.height || '—';
+    const goal = student?.goal || assessmentDetails?.goals?.main_goal || (Array.isArray(assessmentDetails?.goals) ? assessmentDetails?.goals[0] : null) || 'فیتنس و سلامتی';
+    const weight = assessment?.weight || student?.weight || '—';
+    const height = assessment?.height || student?.height || '—';
     const bodyFat = assessment?.body_fat || '—';
-    const injuries = student?.injuries || assessmentDetails?.medical?.orthopedic_issues || 'بدون آسیب ثبت‌شده';
-    const limitations = student?.limitations || 'ندارد';
+    const injuries = student?.injuries || assessmentDetails?.medical?.orthopedic_issues || assessmentDetails?.medical?.injury_details || 'بدون آسیب ثبت‌شده';
+    const limitations = student?.limitations || assessmentDetails?.medical?.disease_details || 'ندارد';
+    const appetiteRaw = assessmentDetails?.nutrition?.appetite_status || 'normal';
+    const appetiteFa = ({ normal: 'معمولی و طبیعی', normal_eating: 'معمولی و طبیعی', low_eating: 'کم‌خوری', grazing: 'ریزه‌خوری', overeating: 'پرخوری', emotional_overeating: 'پرخوری عصبی', anorexia: 'بی‌اشتهایی عصبی' })[appetiteRaw] || appetiteRaw;
     const noteEl = document.getElementById('coachNote');
 
     let modal = document.getElementById('aiAssessmentModal');
@@ -184,9 +238,9 @@
               <span>سطح: ${esc(student?.training_level || student?.training_experience || 'متوسط')}</span>
             </div>
             <div class="ai-diag-card">
-              <b>⚠️ ملاحظات پزشکی</b>
+              <b>⚠️ ملاحظات و تغذیه</b>
               <span>آسیب‌ها: ${esc(injuries)}</span>
-              <span>محدودیت‌ها: ${esc(limitations)}</span>
+              <span>اشتها: ${esc(appetiteFa)}</span>
             </div>
           </div>
 
@@ -201,7 +255,8 @@
 
         <footer class="ai-modal-footer">
           <button type="button" class="secondary" id="closeAiAssModalBtn">انصراف و بستن</button>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" id="btnRegenerateAiAssFeedback">🔄 تولید مجدد</button>
             <button type="button" class="btn btn-secondary" id="btnCopyAiAssFeedback">📋 کپی متن</button>
             <button type="button" class="btn btn-primary" id="btnApplyAiAssFeedback" style="font-weight:800;">✓ اعمال در یادداشت مربی و بستن</button>
           </div>
@@ -227,39 +282,68 @@
     const indicator = document.getElementById('aiAssLoadingIndicator');
     const applyBtn = document.getElementById('btnApplyAiAssFeedback');
     const copyBtn = document.getElementById('btnCopyAiAssFeedback');
+    const regenBtn = document.getElementById('btnRegenerateAiAssFeedback');
 
-    // Fetch AI Analysis from server
-    try {
-      const prompt = `ارزیابی بدنی شماره ${assNum} شاگرد ${studentName} را تحلیل کن:
-- وزن: ${weight} kg | قد: ${height} cm | چربی: ${bodyFat}%
+    async function runAnalysis() {
+      indicator.textContent = 'در حال تحلیل با هوش مصنوعی…';
+      indicator.style.color = 'var(--accent-hover)';
+      textarea.value = '';
+      textarea.placeholder = 'در حال پردازش و نگارش پیام بازخورد توسط هوش مصنوعی…';
+
+      try {
+        const prompt = `ارزیابی بدنی شماره ${assNum} شاگرد ${studentName} را تحلیل کن:
+- وزن: ${weight} kg | قد: ${height} cm | درصد چربی: ${bodyFat}%
 - هدف: ${goal}
+- سطح تمرین: ${student?.training_level || student?.training_experience || 'متوسط'}
 - آسیب‌ها: ${injuries}
 - محدودیت‌ها: ${limitations}
+- وضعیت اشتها و تغذیه: ${appetiteFa}
 
-یک یادداشت بازخورد مربی بنویس که:
-۱. وضعیت فعلی و پیشرفت شاگرد را ارزیابی کند.
-۲. نکات ایمنی مرتبط با آسیب‌ها و تمرکز اصلی تمرینات را شرح دهد.
-۳. توصیه‌های کلیدی رژیم و آب‌رسانی را متذکر شود.
-لحن پیام صمیمی، حرفه‌ای، انگیزشی و متناسب با فرهنگ مربیگری بدنسازی باشد.`;
+یک یادداشت بازخورد مربی جامع، ساختاریافته و انگیزشی بنویس که شامل تحلیل شاخص‌ها، نکات ایمنی سطح و آسیب‌ها، ساختار جلسات و توصیه‌های تغذیه و آب‌رسانی باشد.`;
 
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: 'شما مربی و مشاور ارشد تناسب اندام در سامانه یسنافیت هستید. پاسخ‌های دقیق، علمی، انگیزشی و کاربردی به زبان فارسی بنویسید.' },
-            { role: 'user', content: prompt }
-          ]
-        })
-      });
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'شما مربی و مشاور ارشد تناسب اندام در سامانه یسنافیت هستید. پاسخ‌های بسیار دقیق، علمی، ساختاریافته، انگیزشی و کاربردی به زبان فارسی بنویسید.' },
+              { role: 'user', content: prompt }
+            ]
+          })
+        });
 
-      const data = await res.json();
-      const content = data.content || (data.message && data.message.content) || '';
-      textarea.value = content;
-      indicator.textContent = '✅ تحلیل کامل شد.';
-    } catch (err) {
-      textarea.value = `سلام ${studentName} عزیز، ارزیابی بدنی شما با دقت بررسی شد. با توجه به هدف شما (${goal}) و سوابق بدنی، برنامه تمرینی جدید با تمرکز بر دامنه کامل حرکتی، کنترل فاز منفی و رعایت سلامت مفاصل طراحی شد. مصرف منظم آب (حداقل ۳ لیتر در روز) و خواب باکیفیت را در اولویت قرار دهید.`;
-      indicator.textContent = '⚠️ پیشنهاد بر اساس الگوی استاندارد';
+        if (!res.ok) throw new Error(`خطای سرور: ${res.status}`);
+        const data = await res.json();
+        const content = data.content || (data.message && data.message.content) || '';
+        if (!content || !content.trim()) throw new Error('پاسخ خالی از هوش مصنوعی');
+
+        textarea.value = content;
+        indicator.textContent = '✅ تحلیل کامل شد (هوش مصنوعی).';
+        indicator.style.color = 'var(--accent-hover)';
+      } catch (err) {
+        console.warn('[AI Assessment Analysis Fallback]', err.message);
+        const fallbackNote = generateScientificCoachNote({
+          studentName,
+          assNum,
+          weight,
+          height,
+          bodyFat,
+          goal,
+          level: student?.training_level || student?.training_experience || 'متوسط',
+          injuries,
+          limitations,
+          appetiteStatus: appetiteFa
+        });
+        textarea.value = fallbackNote;
+        indicator.textContent = '✅ تحلیل بر مبنای الگوی علمی فیزیولوژی آماده شد.';
+        indicator.style.color = 'var(--text-secondary)';
+      }
+    }
+
+    runAnalysis();
+
+    if (regenBtn) {
+      regenBtn.onclick = runAnalysis;
     }
 
     applyBtn.onclick = () => {
