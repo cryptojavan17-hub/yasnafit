@@ -466,7 +466,7 @@
             <input name="image_path" value="${esc(item?.image_path||'')}" placeholder="اختیاری — در صورت خالی بودن تصویر سفید قرار می‌گیرد">
           </label>
           <label>مسیر ویدیو (اختیاری)
-            <input name="video_path" value="${esc(item?.video_path||'')}" placeholder="/files/exercise/videos/4.mp4">
+            <input name="video_path" value="${esc(item?.video_path||'')}" placeholder="مسیر فایل ویدیو (اختیاری)">
           </label>
           <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
             <label style="font-weight: 700; font-size: 11px;">عضلات هدف درگیر
