@@ -38,6 +38,7 @@ const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
 const dietProgramService = require('./src/diet-program-service');
+const supplementProgramService = require('./src/supplement-program-service');
 const studentService = require('./src/student-service');
 const uploadService = require('./src/upload-service');
 const releaseService = require('./src/release-service');
@@ -1045,6 +1046,102 @@ async function handleDietPrograms(req, res, url) {
   return null;
 }
 
+async function handleSupplementPrograms(req, res, url) {
+  if (requireCoach(req, res)) return true;
+  const p = url.pathname;
+
+  if (p === '/api/supplement-catalog' && req.method === 'GET') {
+    const catalog = supplementProgramService.getSupplementCatalog();
+    return send(res, 200, catalog);
+  }
+
+  if (p === '/api/supplement-programs' && req.method === 'GET') {
+    const type = url.searchParams.get('type') || 'all';
+    const search = url.searchParams.get('search') || '';
+    const category = url.searchParams.get('category') || '';
+    const studentId = url.searchParams.get('student_id');
+    const list = supplementProgramService.listSupplementPrograms(db, { type, search, category, student_id: studentId });
+    return send(res, 200, list);
+  }
+
+  if (p === '/api/supplement-programs' && req.method === 'POST') {
+    try {
+      const b = await readBody(req);
+      const result = supplementProgramService.createSupplementProgram(db, b);
+      log('نمونه برنامه مکمل جدید ساخته شد', result.title);
+      auditService.record(db, {
+        actorType: 'coach',
+        action: 'supplement_program.created',
+        entityType: 'supplement_program',
+        entityId: Number(result.id),
+        entityStableId: result.stable_id,
+        metadata: { student_id: result.student_id, title: result.title, category: result.category }
+      });
+      return send(res, 201, result);
+    } catch (e) {
+      return sendError(res, 400, e.message);
+    }
+  }
+
+  if (p === '/api/supplement-programs/analyze-ai' && req.method === 'POST') {
+    try {
+      const b = await readBody(req);
+      const analysis = await supplementProgramService.analyzeSupplementsWithAI(db, b);
+      return send(res, 200, analysis);
+    } catch (e) {
+      return sendError(res, 400, e.message);
+    }
+  }
+
+  const spMatch = p.match(/^\/api\/supplement-programs\/(\d+)$/);
+  if (spMatch) {
+    const id = Number(spMatch[1]);
+    if (req.method === 'GET') {
+      const prog = supplementProgramService.getSupplementProgram(db, id);
+      if (!prog) return sendError(res, 404, 'برنامه مکمل پیدا نشد');
+      return send(res, 200, prog);
+    }
+
+    if (req.method === 'PUT') {
+      try {
+        const b = await readBody(req);
+        const result = supplementProgramService.updateSupplementProgram(db, id, b);
+        log('برنامه مکمل ویرایش شد', result.title);
+        auditService.record(db, {
+          actorType: 'coach',
+          action: 'supplement_program.updated',
+          entityType: 'supplement_program',
+          entityId: Number(result.id),
+          entityStableId: result.stable_id,
+          metadata: { student_id: result.student_id, title: result.title, category: result.category }
+        });
+        return send(res, 200, result);
+      } catch (e) {
+        return sendError(res, 400, e.message);
+      }
+    }
+
+    if (req.method === 'DELETE') {
+      try {
+        const result = supplementProgramService.deleteSupplementProgram(db, id);
+        log('برنامه مکمل حذف شد', `id ${id}`);
+        auditService.record(db, {
+          actorType: 'coach',
+          action: 'supplement_program.deleted',
+          entityType: 'supplement_program',
+          entityId: Number(id),
+          metadata: { id }
+        });
+        return send(res, 200, result);
+      } catch (e) {
+        return sendError(res, 400, e.message);
+      }
+    }
+  }
+
+  return null;
+}
+
 async function handleStudentInvites(req,res,url){
   if(requireCoach(req,res)) return true;
   const p=url.pathname;
@@ -2015,6 +2112,11 @@ async function api(req,res,url){
 
     if(p.startsWith('/api/diet-programs')){
       const r = await handleDietPrograms(req,res,url);
+      if(r) return r;
+    }
+
+    if(p.startsWith('/api/supplement-programs') || p === '/api/supplement-catalog'){
+      const r = await handleSupplementPrograms(req,res,url);
       if(r) return r;
     }
 

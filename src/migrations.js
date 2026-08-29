@@ -1189,6 +1189,51 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_diet_meals_program ON diet_program_meals(diet_program_id);
       `);
     }
+  },
+  {
+    id: '026_supplement_programs_and_items',
+    description: 'Dedicated supplement programs and item timing builder structure with AI interaction engine',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS supplement_programs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT UNIQUE NOT NULL,
+          student_id INTEGER,
+          title TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT 'muscle_building',
+          description TEXT,
+          is_template INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'DRAFT',
+          program_data TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          version INTEGER NOT NULL DEFAULT 1,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS supplement_program_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT UNIQUE NOT NULL,
+          supplement_program_id INTEGER NOT NULL,
+          supplement_name TEXT NOT NULL,
+          timing TEXT NOT NULL,
+          notes TEXT,
+          icon TEXT,
+          category TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(supplement_program_id) REFERENCES supplement_programs(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_supp_programs_student ON supplement_programs(student_id);
+        CREATE INDEX IF NOT EXISTS idx_supp_programs_template ON supplement_programs(is_template);
+        CREATE INDEX IF NOT EXISTS idx_supp_programs_deleted ON supplement_programs(deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_supp_items_program ON supplement_program_items(supplement_program_id);
+      `);
+    }
   }
 ];
 
