@@ -75,26 +75,54 @@
 
   function renderListShell(){
     return `<div class="students-page">
-      <div class="page-head students-head">
-        <div>
-          <p class="eyebrow">مدیریت ارتباط با شاگرد</p>
-          <h1>شاگرد های من</h1>
-          <p>دعوت، ارزیابی، برنامه ماهانه و تاریخچه هر شاگرد در یک محل</p>
+      <div class="students-head-wrap">
+        <div class="students-head-right">
+          <h1 class="students-main-title">شاگرد های من</h1>
+          <p class="students-sub-title">مدیریت جامع پرونده‌ها، پایش وضعیت ارزیابی و برنامه‌های فعال شاگردان</p>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <a class="btn btn-secondary" href="/students/submissions" style="display:inline-flex;align-items:center;gap:6px;font-weight:750;text-decoration:none;">📋 بررسی ارزیابی‌ها</a>
-          <button class="primary" id="addStudentButton">＋ افزودن شاگرد</button>
+        <div class="students-head-left">
+          <a class="btn-ghost-header" href="/students/submissions">
+            <span>📋</span>
+            <span>بررسی ارزیابی‌ها</span>
+          </a>
+          <button class="btn-primary-header" id="addStudentButton">
+            <span>＋</span>
+            <span>افزودن شاگرد</span>
+          </button>
         </div>
       </div>
       <div class="student-stat-grid" id="studentStats"></div>
       <section class="students-panel">
-        <div class="student-toolbar">
-          <label class="student-search"><span>⌕</span><input id="studentSearch" placeholder="جستجو با نام، موبایل یا شماره پرونده" autocomplete="off"></label>
-          <select id="studentStatusFilter" aria-label="فیلتر وضعیت">
-            <option value="ALL">همه وضعیت‌ها</option><option value="NEW">جدید</option><option value="PROFILE_PENDING">در انتظار تکمیل اطلاعات</option>
-            <option value="PENDING_REVIEW">در انتظار بررسی</option><option value="UNDER_REVIEW">در حال بررسی</option>
-            <option value="CHANGES_REQUESTED">نیاز به اصلاح</option><option value="APPROVED_AWAITING_PROGRAM">در انتظار برنامه</option>
-            <option value="ACTIVE_PROGRAM">برنامه فعال</option><option value="NEEDS_ASSESSMENT">نیاز به ارزیابی جدید</option><option value="INACTIVE">غیرفعال</option>
+        <div class="students-filter-toolbar">
+          <div class="students-search-box">
+            <span class="search-icon">🔍</span>
+            <input id="studentSearch" placeholder="جستجو با نام، موبایل یا شماره پرونده" autocomplete="off" value="${esc(listState.search)}">
+          </div>
+          <div class="students-pill-filters">
+            <button type="button" class="pill-filter ${listState.status==='ALL'?'active':''}" data-pill-status="ALL">
+              همه وضعیت‌ها
+            </button>
+            <button type="button" class="pill-filter ${listState.status==='NEEDS_ASSESSMENT'?'active':''}" data-pill-status="NEEDS_ASSESSMENT">
+              <span class="dot dot-orange"></span>
+              نیازمند ارزیابی
+            </button>
+            <button type="button" class="pill-filter ${listState.status==='APPROVED_AWAITING_PROGRAM'?'active':''}" data-pill-status="APPROVED_AWAITING_PROGRAM">
+              <span class="dot dot-blue"></span>
+              در انتظار برنامه
+            </button>
+            <button type="button" class="pill-filter ${listState.status==='ACTIVE_PROGRAM'?'active':''}" data-pill-status="ACTIVE_PROGRAM">
+              <span class="dot dot-green"></span>
+              فعال
+            </button>
+          </div>
+          <select id="studentStatusFilter" class="student-status-more-select" aria-label="سایر وضعیت‌ها">
+            <option value="ALL">سایر وضعیت‌ها...</option>
+            <option value="NEW">جدید</option>
+            <option value="PROFILE_PENDING">در انتظار تکمیل اطلاعات</option>
+            <option value="PENDING_REVIEW">در انتظار بررسی</option>
+            <option value="UNDER_REVIEW">در حال بررسی</option>
+            <option value="CHANGES_REQUESTED">نیاز به اصلاح</option>
+            <option value="INACTIVE">غیرفعال</option>
           </select>
         </div>
         <div id="studentsResult"><div class="students-loading">در حال دریافت شاگردها...</div></div>
@@ -103,8 +131,52 @@
     </div>`;
   }
   function renderStats(stats){
-    const cards=[['شاگردان کل',stats.total,'👥'],['شاگردان فعال',stats.active,'●'],['در انتظار بررسی',stats.pending_review,'📋'],['برنامه فعال',stats.active_programs,'🏋️'],['نیازمند ارزیابی',stats.needs_assessment,'↻']];
-    document.querySelector('#studentStats').innerHTML=cards.map(([label,value,icon])=>`<article><span>${icon} ${label}</span><strong>${Number(value||0).toLocaleString('fa-IR')}</strong></article>`).join('');
+    document.querySelector('#studentStats').innerHTML = `
+      <!-- کارت نارنجی: نیازمند ارزیابی -->
+      <article class="metric-card metric-orange">
+        <div class="metric-card-head">
+          <span class="metric-card-label">نیازمند ارزیابی</span>
+          <span class="metric-card-icon">📋</span>
+        </div>
+        <div class="metric-card-val">${Number(stats.needs_assessment || 0).toLocaleString('fa-IR')}</div>
+      </article>
+
+      <!-- کارت طوسی: برنامه فعال -->
+      <article class="metric-card metric-gray">
+        <div class="metric-card-head">
+          <span class="metric-card-label">برنامه فعال</span>
+          <span class="metric-card-icon">🏋️</span>
+        </div>
+        <div class="metric-card-val">${Number(stats.active_programs || 0).toLocaleString('fa-IR')}</div>
+      </article>
+
+      <!-- کارت بنفش: در انتظار بررسی -->
+      <article class="metric-card metric-purple">
+        <div class="metric-card-head">
+          <span class="metric-card-label">در انتظار بررسی</span>
+          <span class="metric-card-icon">⏱️</span>
+        </div>
+        <div class="metric-card-val">${Number(stats.pending_review || 0).toLocaleString('fa-IR')}</div>
+      </article>
+
+      <!-- کارت سبز: شاگردان فعال -->
+      <article class="metric-card metric-green">
+        <div class="metric-card-head">
+          <span class="metric-card-label">شاگردان فعال</span>
+          <span class="metric-card-icon">👥</span>
+        </div>
+        <div class="metric-card-val">${Number(stats.active || 0).toLocaleString('fa-IR')}</div>
+      </article>
+
+      <!-- کارت آبی-طوسی: شاگردان کل -->
+      <article class="metric-card metric-blue">
+        <div class="metric-card-head">
+          <span class="metric-card-label">شاگردان کل</span>
+          <span class="metric-card-icon">👥</span>
+        </div>
+        <div class="metric-card-val">${Number(stats.total || 0).toLocaleString('fa-IR')}</div>
+      </article>
+    `;
   }
   function renderStudents(items){
     const host=document.querySelector('#studentsResult');
@@ -314,9 +386,29 @@
     document.querySelector('#addStudentButton').onclick=openAddStudent;
     document.querySelector('#studentSearch').value=listState.search;
     document.querySelector('#studentStatusFilter').value=listState.status;
+    
+    // Pill filters binding
+    content.querySelectorAll('[data-pill-status]').forEach(btn=>{
+      btn.onclick=()=>{
+        content.querySelectorAll('[data-pill-status]').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        listState.status=btn.dataset.pillStatus;
+        listState.page=1;
+        document.querySelector('#studentStatusFilter').value='ALL';
+        loadStudentList();
+      };
+    });
+
     let searchTimer;
     document.querySelector('#studentSearch').oninput=event=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{listState.search=event.target.value.trim();listState.page=1;loadStudentList();},350);};
-    document.querySelector('#studentStatusFilter').onchange=event=>{listState.status=event.target.value;listState.page=1;loadStudentList();};
+    document.querySelector('#studentStatusFilter').onchange=event=>{
+      listState.status=event.target.value;
+      listState.page=1;
+      content.querySelectorAll('[data-pill-status]').forEach(b=>{
+        b.classList.toggle('active', b.dataset.pillStatus===listState.status);
+      });
+      loadStudentList();
+    };
     await loadStudentList();
   };
 })();
