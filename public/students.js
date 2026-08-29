@@ -205,7 +205,6 @@
             <option value="diet">🥗 برنامه غذایی</option>
             <option value="supplement">💊 برنامه مکمل</option>
           </select>
-          <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
         </div>
       </td>
     </tr>`).join('')}</tbody></table></div>`;
@@ -231,12 +230,6 @@
       button.onclick=(e)=>{
         e.stopPropagation();
         location.href=`/assessments/${button.dataset.reviewAssessment}`;
-      };
-    });
-    host.querySelectorAll('[data-access-student]').forEach(button=>{
-      button.onclick=()=>{
-        const student=items[Number(button.dataset.accessStudent)];
-        if(student) showInvitation(student.id, {join_url:'/student/login', temporary_password:student.mobile?student.mobile.slice(-4):''}, `اطلاعات ورود ${student.full_name}`);
       };
     });
     host.querySelectorAll('[data-invite-student]').forEach(button=>button.onclick=async()=>{ try{await generateInvitation(button.dataset.inviteStudent);}catch(error){alert(error.message);} });
