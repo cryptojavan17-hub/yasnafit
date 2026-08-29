@@ -192,20 +192,20 @@
       <td><button class="student-identity-cell" data-open-student="${student.case_number}"><b>${esc(student.full_name)}</b><span>شماره پرونده <bdi>${esc(student.case_number)}</bdi></span></button></td>
       <td class="student-mobile" dir="ltr">${esc(student.mobile||'—')}</td>
       <td>${statusBadge(student.management_status)}<small class="record-status">${esc(fa(student.student_record_status||''))}</small></td>
-      <td>${student.current_assessment_id?`<div style="display:flex;flex-direction:column;gap:3px;"><button type="button" class="text-button" data-review-assessment="${student.current_assessment_id}" style="text-align:right;padding:0;color:var(--accent-hover);font-weight:850;font-size:11.5px;cursor:pointer;" title="بررسی ارزیابی شماره #${student.current_assessment_number}"><b>ارزیابی ${student.current_assessment_number}</b> ↗</button><small>${esc(assessmentLabels[student.current_assessment_status]||fa(student.current_assessment_status))}</small></div>`:'<span class="muted">ثبت نشده</span>'}</td>
-      <td>${student.current_program_id?`<b>${esc(programLabels[student.current_program_status]||fa(student.current_program_status))}</b><small>${formatDate(student.current_program_start_date)} تا ${formatDate(student.current_program_end_date)}</small>`:'<span class="muted">بدون برنامه</span>'}</td>
-      <td>${formatDate(student.last_assessment_submitted_at||student.last_assessment_created_at)}</td>
+      <td>${student.current_assessment_id?`<div style="display:flex;flex-direction:column;gap:3px;"><button type="button" class="text-button" data-review-assessment="${student.current_assessment_id}" style="text-align:right;padding:2px 6px;color:var(--accent-hover);font-weight:850;font-size:11.5px;cursor:pointer;" title="بررسی ارزیابی شماره #${student.current_assessment_number}"><b>ارزیابی ${student.current_assessment_number}</b> ↗</button><small class="record-status">${esc(assessmentLabels[student.current_assessment_status]||fa(student.current_assessment_status))}</small></div>`:'<span class="cell-muted">ثبت نشده</span>'}</td>
+      <td>${student.current_program_id?`<div style="display:flex;flex-direction:column;gap:2px;"><span class="program-status ${student.current_program_status==='ACTIVE'?'active':'draft'}">${esc(programLabels[student.current_program_status]||fa(student.current_program_status))}</span><small class="cell-dates">${formatDate(student.current_program_start_date)} تا ${formatDate(student.current_program_end_date)}</small></div>`:'<span class="cell-muted">بدون برنامه</span>'}</td>
+      <td><span style="font-size:11.5px;color:var(--text-muted);">${formatDate(student.last_assessment_submitted_at||student.last_assessment_created_at)}</span></td>
       <td><span class="next-assessment ${String(student.next_assessment_status).toLowerCase()}">${esc(nextLabels[student.next_assessment_status]||fa(student.next_assessment_status))}</span></td>
-      <td>${formatDate(student.created_at)}</td>
+      <td><span style="font-size:11.5px;color:var(--text-muted);">${formatDate(student.created_at)}</span></td>
       <td>
         <div class="student-row-actions">
-          <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
           <select class="student-program-dropdown" data-program-select="${student.id}" title="انتخاب و طراحی برنامه شاگرد">
             <option value="" disabled selected>📋 برنامه‌ها ▾</option>
             <option value="exercise">🏋️ برنامه تمرینی</option>
             <option value="diet">🥗 برنامه غذایی</option>
             <option value="supplement">💊 برنامه مکمل</option>
           </select>
+          <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
           ${student.current_assessment_id?`<button class="secondary" data-review-assessment="${student.current_assessment_id}" title="بررسی ارزیابی شماره #${student.current_assessment_number}">📋 بررسی ارزیابی</button>`:''}
           <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
         </div>

@@ -6,9 +6,9 @@
 .students-page {
   display: flex;
   flex-direction: column;
-  gap: var(--component-gap);
+  gap: 16px;
   padding: var(--component-padding);
-  max-width: 1440px;
+  max-width: 1480px;
   margin: 0 auto;
   width: 100%;
 }
@@ -20,7 +20,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 18px 22px;
+  padding: 20px 24px;
   background: var(--component-card);
   border: 1px solid var(--component-border);
   border-radius: var(--component-radius-lg);
@@ -36,7 +36,7 @@
 .students-main-title {
   margin: 0;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 850;
   color: var(--text-primary);
   letter-spacing: -0.02em;
 }
@@ -59,7 +59,7 @@
   color: var(--on-accent);
   border: none;
   border-radius: var(--component-control-radius);
-  padding: 10px 20px;
+  padding: 10px 22px;
   font-size: 13.5px;
   font-weight: 750;
   cursor: pointer;
@@ -80,7 +80,7 @@
   border: 1px solid var(--border);
   color: var(--text-secondary);
   border-radius: var(--component-control-radius);
-  padding: 9px 16px;
+  padding: 9px 18px;
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
@@ -98,7 +98,7 @@
   transform: translateY(-1px);
 }
 
-/* 5 Metric Cards in a Row */
+/* 5 Metric KPI Cards in a Balanced Row */
 .student-stat-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -106,14 +106,14 @@
 }
 
 .metric-card {
-  padding: 16px;
+  padding: 16px 18px;
   border-radius: var(--radius-lg);
   background: var(--component-card);
   border: 1px solid var(--component-border);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
@@ -132,7 +132,7 @@
 }
 
 .metric-card-label {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--text-muted);
 }
@@ -152,11 +152,12 @@
 
 /* Colored Metric Variants */
 .metric-orange {
-  border-color: var(--warning-surface);
+  border-color: rgba(251, 191, 36, 0.25);
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.04), rgba(18, 18, 22, 0.8));
 }
 .metric-orange:hover {
-  border-color: rgba(251, 191, 36, 0.45);
-  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.14);
 }
 .metric-orange .metric-card-val {
   color: var(--warning);
@@ -167,21 +168,23 @@
 }
 
 .metric-purple {
-  border-color: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.25);
+  background: linear-gradient(145deg, rgba(168, 85, 247, 0.04), rgba(18, 18, 22, 0.8));
 }
 .metric-purple:hover {
-  border-color: rgba(168, 85, 247, 0.45);
-  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.14);
 }
 .metric-purple .metric-card-val {
   color: rgba(192, 132, 252, 1);
 }
 
 .metric-green {
-  border-color: var(--success-border);
+  border-color: rgba(52, 211, 153, 0.25);
+  background: linear-gradient(145deg, rgba(52, 211, 153, 0.04), rgba(18, 18, 22, 0.8));
 }
 .metric-green:hover {
-  border-color: rgba(52, 211, 153, 0.45);
+  border-color: rgba(52, 211, 153, 0.5);
   box-shadow: var(--success-shadow);
 }
 .metric-green .metric-card-val {
@@ -189,10 +192,11 @@
 }
 
 .metric-blue {
-  border-color: var(--accent-border);
+  border-color: rgba(96, 165, 250, 0.25);
+  background: linear-gradient(145deg, rgba(96, 165, 250, 0.04), rgba(18, 18, 22, 0.8));
 }
 .metric-blue:hover {
-  border-color: rgba(96, 165, 250, 0.5);
+  border-color: rgba(96, 165, 250, 0.55);
   box-shadow: var(--accent-shadow);
 }
 .metric-blue .metric-card-val {
@@ -204,25 +208,25 @@
   background: var(--component-card);
   border: 1px solid var(--component-border);
   border-radius: var(--component-radius-lg);
-  padding: 16px;
+  padding: 18px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .students-filter-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 14px;
 }
 
 .students-search-box {
   position: relative;
-  flex: 1;
-  min-width: 260px;
+  width: 320px;
+  flex-shrink: 0;
 }
 
 .students-search-box .search-icon {
@@ -237,10 +241,11 @@
 
 .students-search-box input {
   width: 100%;
+  height: 38px;
   background: var(--surface-inset);
   border: 1px solid var(--border);
   border-radius: var(--component-control-radius);
-  padding: 9px 36px 9px 12px;
+  padding: 0 36px 0 12px;
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
@@ -252,11 +257,17 @@
   background: var(--surface-2);
 }
 
+.students-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .students-pill-filters {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
 }
 
 .pill-filter {
@@ -264,13 +275,14 @@
   border: 1px solid var(--border);
   color: var(--text-secondary);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 7px 15px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   transition: var(--transition);
 }
 
@@ -291,32 +303,42 @@
   height: 7px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .dot-orange {
   background: var(--warning);
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
 }
 
 .dot-blue {
   background: var(--accent-hover);
-  box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
+  box-shadow: 0 0 6px rgba(96, 165, 250, 0.6);
 }
 
 .dot-green {
   background: var(--success);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
 }
 
 .student-status-more-select {
+  height: 36px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-secondary);
   border-radius: var(--component-control-radius);
-  padding: 7px 12px;
+  padding: 0 12px;
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
+  min-width: 140px;
+  transition: var(--transition);
+}
+
+.student-status-more-select:hover, .student-status-more-select:focus {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 /* Data Table */
@@ -329,6 +351,7 @@
 
 .students-table {
   width: 100%;
+  min-width: 1260px;
   border-collapse: collapse;
   text-align: right;
   font-size: 12.5px;
@@ -340,7 +363,7 @@
 }
 
 .students-table th {
-  padding: 12px 14px;
+  padding: 13px 14px;
   font-size: 11.5px;
   font-weight: 800;
   color: var(--text-muted);
@@ -353,11 +376,11 @@
 }
 
 .students-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .students-table td {
-  padding: 12px 14px;
+  padding: 13px 14px;
   vertical-align: middle;
   color: var(--text-secondary);
 }
@@ -368,7 +391,8 @@
   font-size: 12px;
   color: var(--text-muted);
   font-weight: 700;
-  width: 40px;
+  text-align: center;
+  width: 50px;
 }
 
 .student-identity-cell {
@@ -379,12 +403,13 @@
   text-align: right;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .student-identity-cell b {
-  font-size: 13.5px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 850;
   color: var(--text-primary);
   transition: var(--transition);
 }
@@ -393,27 +418,28 @@
   color: var(--accent-hover);
 }
 
-.student-identity-cell span {
-  font-size: 10.5px;
+.student-identity-cell span, .student-case-tag {
+  font-size: 11px;
   color: var(--text-muted);
   font-weight: 600;
 }
 
 .student-mobile {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-primary);
   font-family: inherit;
-  font-weight: 700;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
 /* Status Badges */
 .student-status, .program-status, .next-assessment {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -446,34 +472,48 @@
   display: block;
   font-size: 10px;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-/* Actions Row */
+.cell-muted {
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.cell-dates {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Actions Row (Spacious & Clean, Never Cut Off!) */
 .student-row-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
-.student-row-actions button, .text-button {
+.student-row-actions button, .text-button, .btn-action-view, .btn-action-review, .btn-action-link {
   min-height: 32px;
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 750;
   cursor: pointer;
   transition: var(--transition);
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
-.student-row-actions button:hover, .text-button:hover {
+.student-row-actions button:hover, .text-button:hover, .btn-action-view:hover, .btn-action-review:hover, .btn-action-link:hover {
   background: var(--glass-hover);
   color: var(--text-primary);
   border-color: var(--border-strong);
@@ -487,15 +527,16 @@
   border-radius: var(--radius-sm);
   background: var(--accent-surface);
   color: var(--accent-hover);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   cursor: pointer;
   outline: none;
+  min-width: 115px;
   transition: var(--transition);
 }
 
 .student-program-dropdown:hover, .student-program-dropdown:focus {
-  background: rgba(59, 130, 246, 0.24);
+  background: rgba(59, 130, 246, 0.28);
   border-color: var(--border-focus);
   color: var(--text-primary);
 }
@@ -503,8 +544,8 @@
 .student-program-dropdown option {
   background: var(--surface-3);
   color: var(--text-primary);
-  font-size: 12px;
-  padding: 6px;
+  font-size: 12.5px;
+  padding: 8px;
 }
 
 /* Empty & Loading States */
@@ -537,11 +578,12 @@
 
 .student-pagination button {
   min-height: 32px;
-  padding: 4px 12px;
+  padding: 4px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--glass);
   color: var(--text-secondary);
+  font-weight: 650;
   cursor: pointer;
 }
 
@@ -668,6 +710,15 @@
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 1080px) {
+  .students-filter-toolbar {
+    flex-wrap: wrap;
+  }
+  .students-search-box {
+    width: 100%;
+  }
 }
 
 @media (max-width: 900px) {
