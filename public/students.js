@@ -205,8 +205,6 @@
             <option value="diet">🥗 برنامه غذایی</option>
             <option value="supplement">💊 برنامه مکمل</option>
           </select>
-          <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
-          ${student.current_assessment_id?`<button class="secondary" data-review-assessment="${student.current_assessment_id}" title="بررسی ارزیابی شماره #${student.current_assessment_number}">📋 بررسی ارزیابی</button>`:''}
           <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
         </div>
       </td>
