@@ -497,6 +497,12 @@
       } catch (e) {
         alert('خطا در بارگذاری برنامه غذایی: ' + e.message);
       }
+    } else {
+      const paramStudentId = urlParams.get('student_id');
+      if (paramStudentId && document.getElementById('dietProgStudent')) {
+        document.getElementById('dietProgStudent').value = String(paramStudentId);
+        builderState.studentId = Number(paramStudentId);
+      }
     }
 
     // Bind Calorie Target Confirm
@@ -604,6 +610,8 @@
         description,
         student_id: studentId,
         total_calories: totalCalories,
+        status: studentId ? 'ACTIVE' : 'DRAFT',
+        notify_student: Boolean(studentId),
         meals: builderState.meals
       };
 
@@ -618,13 +626,13 @@
             method: 'PUT',
             body: JSON.stringify(payload)
           });
-          if (window.toast) window.toast('برنامه غذایی با موفقیت ویرایش شد.', 'success');
+          if (window.toast) window.toast(studentId ? 'برنامه غذایی بروزرسانی شد و در پنل شاگرد قرار گرفت.' : 'برنامه غذایی با موفقیت ویرایش شد.', 'success');
         } else {
           res = await api('/api/diet-programs', {
             method: 'POST',
             body: JSON.stringify(payload)
           });
-          if (window.toast) window.toast('برنامه غذایی با موفقیت ثبت شد.', 'success');
+          if (window.toast) window.toast(studentId ? 'برنامه غذایی برای شاگرد ثبت شد و به پنل شاگرد منتقل گردید.' : 'برنامه غذایی با موفقیت ثبت شد.', 'success');
         }
 
         location.href = '/programs/diet/list';

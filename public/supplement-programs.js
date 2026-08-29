@@ -374,6 +374,12 @@
           <!-- Bottom Action Bar -->
           <div class="supp-form-actions-bar">
             <div class="supp-actions-left">
+              ${builderState.studentId ? `
+                <button class="btn-supp-green" id="btnFinalizeProgram" type="button">
+                  <span>🚀</span>
+                  <span>ثبت نهایی و ارسال به شاگرد</span>
+                </button>
+              ` : ''}
               <button class="btn-supp-primary" id="btnSaveProgram" type="button">
                 <span>💾</span>
                 <span>ذخیره و بازگشت</span>
@@ -485,7 +491,11 @@
 
     // Save & Return Button
     const saveBtn = document.querySelector('#btnSaveProgram');
-    if (saveBtn) saveBtn.onclick = handleSaveProgram;
+    if (saveBtn) saveBtn.onclick = () => handleSaveProgram(false);
+
+    // Finalize Button
+    const finalizeBtn = document.querySelector('#btnFinalizeProgram');
+    if (finalizeBtn) finalizeBtn.onclick = () => handleSaveProgram(true);
 
     // AI Analysis Button
     const aiBtn = document.querySelector('#btnAIAnalyze');
@@ -1008,7 +1018,7 @@
   // ==============================================================
   // SAVE PROGRAM
   // ==============================================================
-  async function handleSaveProgram() {
+  async function handleSaveProgram(isFinalize = false) {
     const title = (builderState.title || '').trim();
     if (!title) {
       showToast('لطفاً عنوان برنامه مکمل را وارد کنید.', 'error');
@@ -1029,7 +1039,8 @@
       category: builderState.category,
       description: builderState.description,
       is_template: isStudentAssigned ? 0 : 1,
-      status: 'DRAFT',
+      status: isFinalize ? 'ACTIVE' : 'DRAFT',
+      notify_student: isFinalize || isStudentAssigned,
       items: builderState.items.map((it, idx) => ({
         supplement_name: it.supplement_name,
         timing: it.timing,
@@ -1040,10 +1051,11 @@
       }))
     };
 
-    const saveBtn = document.querySelector('#btnSaveProgram');
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.innerHTML = '<span>⏳</span> <span>در حال ذخیره…</span>';
+    const targetBtn = isFinalize ? document.querySelector('#btnFinalizeProgram') : document.querySelector('#btnSaveProgram');
+    const originalText = targetBtn ? targetBtn.innerHTML : '';
+    if (targetBtn) {
+      targetBtn.disabled = true;
+      targetBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت…</span>';
     }
 
     try {
@@ -1052,21 +1064,21 @@
           method: 'PUT',
           body: JSON.stringify(payload)
         });
-        showToast(isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» بروزرسانی شد.` : 'نمونه برنامه مکمل با موفقیت ویرایش شد.', 'success');
+        showToast(isFinalize ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» نهایی شد و به پنل شاگرد منتقل گردید.` : (isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» بروزرسانی شد.` : 'نمونه برنامه مکمل با موفقیت ویرایش شد.'), 'success');
       } else {
         await api('/api/supplement-programs', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
-        showToast(isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» با موفقیت ذخیره شد.` : 'نمونه برنامه مکمل جدید با موفقیت ایجاد شد.', 'success');
+        showToast(isFinalize ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» نهایی شد و به پنل شاگرد منتقل گردید.` : (isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» با موفقیت ذخیره شد.` : 'نمونه برنامه مکمل جدید با موفقیت ایجاد شد.'), 'success');
       }
 
       window.goToRoute('برنامه‌های مکمل', '/programs/supplement/list');
     } catch (err) {
       showToast('خطا در ذخیره برنامه مکمل: ' + err.message, 'error');
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = '<span>💾</span> <span>ذخیره و بازگشت</span>';
+      if (targetBtn) {
+        targetBtn.disabled = false;
+        targetBtn.innerHTML = originalText;
       }
     }
   }

@@ -30,6 +30,9 @@
 .student-row-actions, .history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .student-row-actions button, .history-actions button, .invite-card button, .back-link, .text-button { min-height: 32px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-secondary); font-size: 10.5px; font-weight: 750; cursor: pointer; transition: var(--transition); text-decoration: none; display: inline-flex; align-items: center; }
 .student-row-actions button:hover, .history-actions button:hover, .invite-card button:hover, .back-link:hover, .text-button:hover { border-color: var(--border-strong); background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
+.student-program-dropdown { min-height: 32px; padding: 4px 10px; border: 1px solid var(--accent-border); border-radius: 8px; background: var(--accent-surface); color: var(--accent-hover); font-size: 11px; font-weight: 800; cursor: pointer; outline: none; transition: var(--transition); }
+.student-program-dropdown:hover, .student-program-dropdown:focus { background: rgba(59, 130, 246, 0.24); border-color: var(--border-focus); color: var(--text-primary); }
+.student-program-dropdown option { background: var(--surface-3); color: var(--text-primary); font-size: 12px; padding: 6px; }
 .students-loading, .students-error, .students-empty { padding: 48px; color: var(--text-muted); text-align: center; }
 .students-empty > div { font-size: 40px; filter: grayscale(1); }
 .students-empty h2 { margin: 10px 0 4px; font-size: 16px; color: var(--text); }

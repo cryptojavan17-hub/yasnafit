@@ -7,8 +7,19 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const statusLabels={PROFILE_INCOMPLETE:'در حال تکمیل',ASSESSMENT_PENDING:'در حال تکمیل',DRAFT:'پیش‌نویس',SUBMITTED:'ارسال‌شده',PENDING_REVIEW:'در انتظار بررسی',UNDER_REVIEW:'در حال بررسی',CHANGES_REQUESTED:'نیاز به اصلاح',APPROVED:'تأیید شده',REJECTED:'رد شده',PROGRAM_ASSIGNED:'برنامه اختصاص داده شد',ACTIVE:'فعال',COMPLETED:'تکمیل‌شده',ARCHIVED:'آرشیو'};
   const photoLabels={front:'جلو',side:'بغل',back:'پشت',front_flex:'جلو با فیگور بازو',back_flex:'پشت با فیگور بازو'};
-  const routes=[['/student/dashboard','⌂','خانه'],['/student/program','▤','برنامه من'],['/student/workouts','✓','ثبت تمرین'],['/student/assessment','◫','ارزیابی من'],['/student/history','◷','تاریخچه'],['/student/messages','✉','پیام‌ها'],['/student/notifications','◉','اعلان‌ها'],['/student/profile','○','پروفایل من']];
-  const mobileRoutes=routes.filter(([href])=>['/student/dashboard','/student/program','/student/workouts','/student/messages','/student/history'].includes(href));
+  const routes=[
+    ['/student/dashboard','⌂','خانه'],
+    ['/student/program','🏋️','برنامه تمرینی'],
+    ['/student/diet','🥗','برنامه غذایی'],
+    ['/student/supplement','💊','برنامه مکمل'],
+    ['/student/workouts','✓','ثبت تمرین'],
+    ['/student/assessment','◫','ارزیابی من'],
+    ['/student/history','◷','تاریخچه'],
+    ['/student/messages','✉','پیام‌ها'],
+    ['/student/notifications','◉','اعلان‌ها'],
+    ['/student/profile','○','پروفایل من']
+  ];
+  const mobileRoutes=routes.filter(([href])=>['/student/dashboard','/student/program','/student/diet','/student/supplement','/student/workouts','/student/messages'].includes(href));
   let me=null;
 
   async function api(url,options={}){
@@ -82,8 +93,117 @@
     loading();if(!await loadMe())return;
     const data=await api('/api/student/dashboard');
     if(data.onboarding_required)return location.replace('/student/onboarding');
-    const program=data.program,assessment=data.assessment;
-    shell('/student/dashboard',`<div class="student-page-head"><h1>خانه</h1><p>وضعیت فعلی برنامه و ارزیابی شما</p></div><div class="student-grid"><article class="student-card"><h2>برنامه فعلی</h2>${program?`<div class="student-program-head"><div><h2>${esc(program.title)}</h2><span class="student-program-dates">${dateFa(program.start_date)} ← ${dateFa(program.end_date)}</span></div>${status(program.status)}</div>${program.coach_note?`<div class="coach-note"><b>یادداشت مربی</b><br>${esc(program.coach_note)}</div>`:''}<div class="student-actions"><a class="primary" href="/student/program">مشاهده برنامه</a></div>`:'<div class="student-empty"><span>▤</span><h2>هنوز برنامه فعالی برای شما ثبت نشده است.</h2><p>پس از بررسی مربی، برنامه در این بخش نمایش داده می‌شود.</p></div>'}</article><article class="student-card"><h2>آخرین ارزیابی</h2>${assessment?`<div class="student-stat"><span>ارزیابی ${assessment.assessment_number}</span><strong>${assessment.weight??'—'} کیلوگرم</strong>${status(assessment.status)}</div>${assessment.coach_note?`<div class="coach-note">${esc(assessment.coach_note)}</div>`:''}<div class="student-actions"><a class="secondary" href="/student/assessment">مشاهده ارزیابی</a></div>`:'<div class="student-empty"><span>◫</span><p>هنوز ارزیابی ثبت نشده است.</p></div>'}</article></div><div class="student-grid" style="margin-top:13px"><article class="student-card"><h2>عملکرد تمرین</h2><div class="student-assessment-data"><div><span>جلسات تکمیل‌شده</span><b>${data.performance.sessions_completed}</b></div><div><span>نرخ تکمیل</span><b>${data.performance.completion_rate==null?'داده‌ای نیست':`${data.performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${dateFa(data.performance.last_workout)}</b></div></div><div class="student-actions"><a class="secondary" href="/student/workouts">ثبت و مشاهده تمرین‌ها</a></div></article><article class="student-card"><h2>اعلان‌ها ${data.unread_notifications?`(${data.unread_notifications})`:''}</h2>${data.notifications.length?data.notifications.slice(0,3).map(item=>`<div class="notification-item"><b>${esc(item.title)}</b><small>${esc(item.body)} • ${dateFa(item.created_at)}</small></div>`).join(''):'<p class="muted">اعلان جدیدی ندارید.</p>'}<div class="student-actions"><a class="secondary" href="/student/notifications">همه اعلان‌ها</a></div></article></div>`);
+    const program=data.program, diet=data.diet, supplement=data.supplement, assessment=data.assessment;
+
+    shell('/student/dashboard',`
+      <div class="student-page-head">
+        <h1>خانه</h1>
+        <p>وضعیت فعلی برنامه‌های تمرین، تغذیه، مکمل و ارزیابی شما</p>
+      </div>
+
+      <!-- ۳ برنامه اصلی شاگرد: تمرینی، غذایی، مکمل -->
+      <div class="student-programs-tri-grid">
+        <!-- ۱. برنامه تمرینی -->
+        <article class="student-tri-card">
+          <div class="student-tri-head">
+            <span class="student-tri-title">🏋️ برنامه تمرینی</span>
+            ${program?status(program.status):'<span class="student-status-pill">ثبت نشده</span>'}
+          </div>
+          ${program?`
+            <div>
+              <h3 style="margin:0 0 4px 0;font-size:14px;color:var(--text-primary);">${esc(program.title)}</h3>
+              <small class="muted">${dateFa(program.start_date)} ← ${dateFa(program.end_date)}</small>
+            </div>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="primary" href="/student/program" style="width:100%;text-align:center;">مشاهده برنامه تمرینی</a>
+            </div>
+          `:`
+            <p class="muted" style="font-size:12px;margin:0;">هنوز برنامه تمرینی ثبت نشده است.</p>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="secondary" href="/student/program" style="width:100%;text-align:center;">مشاهده وضعیت</a>
+            </div>
+          `}
+        </article>
+
+        <!-- ۲. برنامه غذایی -->
+        <article class="student-tri-card">
+          <div class="student-tri-head">
+            <span class="student-tri-title">🥗 برنامه غذایی</span>
+            ${diet?status(diet.status):'<span class="student-status-pill">ثبت نشده</span>'}
+          </div>
+          ${diet?`
+            <div>
+              <h3 style="margin:0 0 4px 0;font-size:14px;color:var(--text-primary);">${esc(diet.title)}</h3>
+              <small class="muted">${Number(diet.total_calories||0).toLocaleString('fa-IR')} کالری روزانه</small>
+            </div>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="primary" href="/student/diet" style="width:100%;text-align:center;">مشاهده برنامه غذایی</a>
+            </div>
+          `:`
+            <p class="muted" style="font-size:12px;margin:0;">هنوز برنامه غذایی ثبت نشده است.</p>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="secondary" href="/student/diet" style="width:100%;text-align:center;">مشاهده وضعیت</a>
+            </div>
+          `}
+        </article>
+
+        <!-- ۳. برنامه مکمل -->
+        <article class="student-tri-card">
+          <div class="student-tri-head">
+            <span class="student-tri-title">💊 برنامه مکمل</span>
+            ${supplement?status(supplement.status):'<span class="student-status-pill">ثبت نشده</span>'}
+          </div>
+          ${supplement?`
+            <div>
+              <h3 style="margin:0 0 4px 0;font-size:14px;color:var(--text-primary);">${esc(supplement.title)}</h3>
+              <small class="muted">${esc(supplement.category_fa||supplement.category||'پکیج مکمل')}</small>
+            </div>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="primary" href="/student/supplement" style="width:100%;text-align:center;">مشاهده برنامه مکمل</a>
+            </div>
+          `:`
+            <p class="muted" style="font-size:12px;margin:0;">هنوز برنامه مکملی ثبت نشده است.</p>
+            <div class="student-actions" style="margin-top:auto;">
+              <a class="secondary" href="/student/supplement" style="width:100%;text-align:center;">مشاهده وضعیت</a>
+            </div>
+          `}
+        </article>
+      </div>
+
+      <!-- آخرین ارزیابی و عملکرد تمرینی و اعلان‌ها -->
+      <div class="student-grid" style="margin-top:13px">
+        <article class="student-card">
+          <h2>آخرین ارزیابی</h2>
+          ${assessment?`
+            <div class="student-stat">
+              <span>ارزیابی ${assessment.assessment_number}</span>
+              <strong>${assessment.weight??'—'} کیلوگرم</strong>
+              ${status(assessment.status)}
+            </div>
+            ${assessment.coach_note?`<div class="coach-note">${esc(assessment.coach_note)}</div>`:''}
+            <div class="student-actions"><a class="secondary" href="/student/assessment">مشاهده ارزیابی</a></div>
+          `:'<div class="student-empty"><span>◫</span><p>هنوز ارزیابی ثبت نشده است.</p></div>'}
+        </article>
+
+        <article class="student-card">
+          <h2>عملکرد تمرین</h2>
+          <div class="student-assessment-data">
+            <div><span>جلسات تکمیل‌شده</span><b>${data.performance.sessions_completed}</b></div>
+            <div><span>نرخ تکمیل</span><b>${data.performance.completion_rate==null?'داده‌ای نیست':`${data.performance.completion_rate}%`}</b></div>
+            <div><span>آخرین تمرین</span><b>${dateFa(data.performance.last_workout)}</b></div>
+          </div>
+          <div class="student-actions"><a class="secondary" href="/student/workouts">ثبت و مشاهده تمرین‌ها</a></div>
+        </article>
+      </div>
+
+      <div class="student-grid" style="margin-top:13px">
+        <article class="student-card" style="grid-column: 1 / -1;">
+          <h2>اعلان‌ها ${data.unread_notifications?`(${data.unread_notifications})`:''}</h2>
+          ${data.notifications.length?data.notifications.slice(0,3).map(item=>`<div class="notification-item"><b>${esc(item.title)}</b><small>${esc(item.body)} • ${dateFa(item.created_at)}</small></div>`).join(''):'<p class="muted">اعلان جدیدی ندارید.</p>'}
+          <div class="student-actions"><a class="secondary" href="/student/notifications">همه اعلان‌ها</a></div>
+        </article>
+      </div>
+    `);
   }
   const studentMuscleCatalog=[
     {id:'front_deltoid_anterior',label:'دلتوئید قدامی (سرشانه جلو)',side:'front',file:'front_deltoid_anterior.webp'},
@@ -245,6 +365,89 @@
       };
     });
   }
+
+  async function renderDietProgram(){
+    loading();if(!await loadMe())return;
+    const {program}=await api('/api/student/diet');
+    if(!program)return shell('/student/diet',`<div class="student-page-head"><h1>برنامه غذایی من</h1></div><div class="student-empty"><span>🥗</span><h2>هنوز برنامه غذایی فعالی برای شما ثبت نشده است.</h2><p>پس از بررسی و تنظیم توسط مربی، برنامه تغذیه شما در این بخش قرار می‌گیرد.</p></div>`);
+
+    const meals=program.meals||[];
+    const mealsHtml=meals.map((meal,idx)=>`
+      <div class="student-meal-box">
+        <div class="student-meal-head">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">🍽️</span>
+            <strong style="font-size:14px;color:var(--text-primary);">${idx+1}. ${esc(meal.meal_name)}</strong>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${meal.start_time?`<span class="student-status-pill" style="font-size:11px;">⏱️ ${esc(meal.start_time)}${meal.end_time?' تا '+esc(meal.end_time):''}</span>`:''}
+            <span class="student-status-pill" style="background:var(--accent-surface);border-color:var(--accent-border);color:var(--accent-hover);font-weight:750;">🔥 ${Number(meal.calories||0).toLocaleString('fa-IR')} کالری</span>
+          </div>
+        </div>
+        ${meal.notes?`<p style="margin:4px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.7;">${esc(meal.notes)}</p>`:''}
+      </div>
+    `).join('');
+
+    shell('/student/diet',`
+      <div class="student-page-head">
+        <h1>برنامه غذایی من</h1>
+        <p>برنامه تغذیه و زمان‌بندی وعده‌ها اختصاص داده‌شده توسط مربی</p>
+      </div>
+      <article class="student-card">
+        <div class="student-program-head">
+          <div>
+            <h2>${esc(program.title)}</h2>
+            <span class="student-program-dates">محدودیت غذایی: <b>${esc(program.diet_restriction_fa||program.diet_restriction||'بدون محدودیت')}</b> • کل کالری: <b>${Number(program.total_calories||0).toLocaleString('fa-IR')} kcal</b></span>
+          </div>
+          ${status(program.status)}
+        </div>
+        ${program.description?`<div class="coach-note"><b>توضیحات و راهنمای مربی</b><br>${esc(program.description)}</div>`:''}
+      </article>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+        ${mealsHtml||'<div class="student-empty"><p>وعده‌ای برای این برنامه ثبت نشده است.</p></div>'}
+      </div>
+    `);
+  }
+
+  async function renderSupplementProgram(){
+    loading();if(!await loadMe())return;
+    const {program}=await api('/api/student/supplement');
+    if(!program)return shell('/student/supplement',`<div class="student-page-head"><h1>برنامه مکمل من</h1></div><div class="student-empty"><span>💊</span><h2>هنوز برنامه مکمل فعالی برای شما ثبت نشده است.</h2><p>پس از بررسی و تنظیم توسط مربی، برنامه مکمل‌های شما در این بخش قرار می‌گیرد.</p></div>`);
+
+    const items=program.items||[];
+    const itemsHtml=items.map((item,idx)=>`
+      <div class="student-supp-item-box">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:38px;height:38px;border-radius:8px;background:var(--accent-surface);border:1px solid var(--accent-border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${esc(item.icon||'💊')}</div>
+          <div>
+            <strong style="font-size:14px;color:var(--text-primary);display:block;">${idx+1}. ${esc(item.supplement_name)}</strong>
+            ${item.notes?`<small style="font-size:11px;color:var(--text-secondary);display:block;margin-top:2px;">✏️ ${esc(item.notes)}</small>`:''}
+          </div>
+        </div>
+        <span class="student-status-pill" style="background:var(--accent-surface);border-color:var(--accent-border);color:var(--accent-hover);font-weight:750;">⏱️ ${esc(item.timing)}</span>
+      </div>
+    `).join('');
+
+    shell('/student/supplement',`
+      <div class="student-page-head">
+        <h1>برنامه مکمل من</h1>
+        <p>دستور مصرف و زمان‌بندی مکمل‌های ورزشی و تغذیه‌ای</p>
+      </div>
+      <article class="student-card">
+        <div class="student-program-head">
+          <div>
+            <h2>${esc(program.title)}</h2>
+            <span class="student-program-dates">دسته‌بندی: <b>${esc(program.category_fa||program.category||'عمومی')}</b> • تعداد: <b>${fa(items.length)} مکمل</b></span>
+          </div>
+          ${status(program.status)}
+        </div>
+        ${program.description?`<div class="coach-note"><b>توضیحات و پروتکل مصرف آب مربی</b><br>${esc(program.description)}</div>`:''}
+      </article>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+        ${itemsHtml||'<div class="student-empty"><p>مکملی در این برنامه ثبت نشده است.</p></div>'}
+      </div>
+    `);
+  }
   async function renderAssessment(){
     loading();if(!await loadMe())return;const {assessment,details}=await api('/api/student/assessment');
     if(!assessment)return shell('/student/assessment',`<div class="student-page-head"><h1>ارزیابی من</h1></div><div class="student-empty"><span>◫</span><h2>هنوز ارزیابی ثبت نشده است.</h2></div>`);
@@ -289,7 +492,21 @@
     if(path.startsWith('/join/'))return renderJoin();
     if(path==='/student/login')return renderLogin();
     if(path==='/student/logout')return renderLogout();
-    const pages={'/student/change-password':renderChangePassword,'/student/onboarding':renderOnboarding,'/document/edit-document':renderOnboarding,'/student/dashboard':renderDashboard,'/student/program':renderProgram,'/student/workouts':renderWorkouts,'/student/messages':renderMessages,'/student/notifications':renderNotifications,'/student/assessment':renderAssessment,'/student/history':renderHistory,'/student/profile':renderProfile};
+    const pages={
+      '/student/change-password':renderChangePassword,
+      '/student/onboarding':renderOnboarding,
+      '/document/edit-document':renderOnboarding,
+      '/student/dashboard':renderDashboard,
+      '/student/program':renderProgram,
+      '/student/diet':renderDietProgram,
+      '/student/supplement':renderSupplementProgram,
+      '/student/workouts':renderWorkouts,
+      '/student/messages':renderMessages,
+      '/student/notifications':renderNotifications,
+      '/student/assessment':renderAssessment,
+      '/student/history':renderHistory,
+      '/student/profile':renderProfile
+    };
     return (pages[path]||(()=>errorPage('صفحه پیدا نشد','مسیر درخواستی وجود ندارد.')))();
   }
   start().catch(error=>{console.error(error);errorPage('خطای غیرمنتظره','لطفاً دوباره تلاش کنید.');});

@@ -996,6 +996,17 @@ async function handleDietPrograms(req, res, url) {
       const result = dietProgramService.createDietProgram(db, b);
       log('برنامه غذایی جدید ساخته شد', result.title);
       auditService.record(db, { actorType: 'coach', action: 'diet_program.created', entityType: 'diet_program', entityId: Number(result.id), entityStableId: result.stable_id, metadata: { student_id: result.student_id, title: result.title } });
+      if (result.student_id) {
+        engagementService.notify(db, {
+          audienceType: 'student',
+          studentId: result.student_id,
+          type: 'diet_program_assigned',
+          title: 'برنامه غذایی جدید شما آماده است',
+          body: `برنامه غذایی «${result.title}» توسط مربی ثبت شد و در پنل شما قرار گرفت.`,
+          entityType: 'diet_program',
+          entityId: Number(result.id)
+        });
+      }
       return send(res, 201, result);
     } catch (e) {
       return sendError(res, 400, e.message);
@@ -1026,6 +1037,18 @@ async function handleDietPrograms(req, res, url) {
         const b = await readBody(req);
         const result = dietProgramService.updateDietProgram(db, id, b);
         log('برنامه غذایی ویرایش شد', result.title);
+        auditService.record(db, { actorType: 'coach', action: 'diet_program.updated', entityType: 'diet_program', entityId: Number(result.id), entityStableId: result.stable_id, metadata: { student_id: result.student_id, title: result.title } });
+        if (result.student_id && (b.notify_student || result.status === 'ACTIVE')) {
+          engagementService.notify(db, {
+            audienceType: 'student',
+            studentId: result.student_id,
+            type: 'diet_program_assigned',
+            title: 'برنامه غذایی شما بروزرسانی شد',
+            body: `برنامه غذایی «${result.title}» توسط مربی بروزرسانی شد.`,
+            entityType: 'diet_program',
+            entityId: Number(result.id)
+          });
+        }
         return send(res, 200, result);
       } catch (e) {
         return sendError(res, 400, e.message);
@@ -1068,7 +1091,7 @@ async function handleSupplementPrograms(req, res, url) {
     try {
       const b = await readBody(req);
       const result = supplementProgramService.createSupplementProgram(db, b);
-      log('نمونه برنامه مکمل جدید ساخته شد', result.title);
+      log('برنامه مکمل جدید ساخته شد', result.title);
       auditService.record(db, {
         actorType: 'coach',
         action: 'supplement_program.created',
@@ -1077,6 +1100,17 @@ async function handleSupplementPrograms(req, res, url) {
         entityStableId: result.stable_id,
         metadata: { student_id: result.student_id, title: result.title, category: result.category }
       });
+      if (result.student_id) {
+        engagementService.notify(db, {
+          audienceType: 'student',
+          studentId: result.student_id,
+          type: 'supplement_program_assigned',
+          title: 'برنامه مکمل جدید شما آماده است',
+          body: `برنامه مکمل «${result.title}» توسط مربی ثبت شد و در پنل شما قرار گرفت.`,
+          entityType: 'supplement_program',
+          entityId: Number(result.id)
+        });
+      }
       return send(res, 201, result);
     } catch (e) {
       return sendError(res, 400, e.message);
@@ -1115,6 +1149,17 @@ async function handleSupplementPrograms(req, res, url) {
           entityStableId: result.stable_id,
           metadata: { student_id: result.student_id, title: result.title, category: result.category }
         });
+        if (result.student_id && (b.notify_student || result.status === 'ACTIVE')) {
+          engagementService.notify(db, {
+            audienceType: 'student',
+            studentId: result.student_id,
+            type: 'supplement_program_assigned',
+            title: 'برنامه مکمل شما بروزرسانی شد',
+            body: `برنامه مکمل «${result.title}» توسط مربی بروزرسانی شد.`,
+            entityType: 'supplement_program',
+            entityId: Number(result.id)
+          });
+        }
         return send(res, 200, result);
       } catch (e) {
         return sendError(res, 400, e.message);
@@ -1409,8 +1454,20 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/dashboard' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId);
     const active=one("SELECT * FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY program_number DESC,id DESC LIMIT 1",studentId);
+    const activeDiet=one("SELECT * FROM diet_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1",studentId);
+    const activeSupp=one("SELECT * FROM supplement_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 1",studentId);
     engagementService.ensureProgramEndReminder(db,studentId);const notifications=engagementService.listNotifications(db,'student',studentId,10),performance=engagementService.performance(db,studentId);
-    return send(res,200,{student:studentSessionService.safeStudent(context.student),assessment:studentAssessmentView(assessment),program:studentProgramView(active),notifications,unread_notifications:notifications.filter(item=>!item.read_at).length,performance,onboarding_required:studentNextRoute(studentId)==='/student/onboarding'});
+    return send(res,200,{
+      student:studentSessionService.safeStudent(context.student),
+      assessment:studentAssessmentView(assessment),
+      program:studentProgramView(active),
+      diet:activeDiet,
+      supplement:activeSupp,
+      notifications,
+      unread_notifications:notifications.filter(item=>!item.read_at).length,
+      performance,
+      onboarding_required:studentNextRoute(studentId)==='/student/onboarding'
+    });
   }
   if(p==='/api/student/onboarding' && req.method==='GET'){
     const assessment=one(`SELECT * FROM body_assessments WHERE student_id=? AND status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND deleted_at IS NULL ORDER BY assessment_number DESC,id DESC LIMIT 1`,studentId);
@@ -1470,6 +1527,18 @@ async function handleStudentSessionApi(req,res,url){
     if(!program)return send(res,200,{program:null});
     const built=programService.buildProgramFromDB(db,program.id);
     return send(res,200,{program:{...studentProgramView(program),program_data:studentProgramData(built?.programData)}});
+  }
+  if((p==='/api/student/diet' || p==='/api/student/diet-program') && req.method==='GET'){
+    const prog = one("SELECT * FROM diet_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT 1", studentId);
+    if(!prog) return send(res, 200, { program: null });
+    const meals = rows("SELECT * FROM diet_program_meals WHERE diet_program_id=? AND deleted_at IS NULL ORDER BY sort_order ASC, id ASC", prog.id);
+    return send(res, 200, { program: { ...prog, meals, meals_count: meals.length } });
+  }
+  if((p==='/api/student/supplement' || p==='/api/student/supplement-program') && req.method==='GET'){
+    const prog = one("SELECT * FROM supplement_programs WHERE student_id=? AND deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT 1", studentId);
+    if(!prog) return send(res, 200, { program: null });
+    const items = rows("SELECT * FROM supplement_program_items WHERE supplement_program_id=? AND deleted_at IS NULL ORDER BY sort_order ASC, id ASC", prog.id);
+    return send(res, 200, { program: { ...prog, items, items_count: items.length } });
   }
   if(p==='/api/student/programs' && req.method==='GET'){
     const programs=rows("SELECT * FROM training_programs WHERE student_id=? AND status IN ('ACTIVE','COMPLETED','ARCHIVED') AND deleted_at IS NULL ORDER BY program_number ASC,id ASC",studentId);

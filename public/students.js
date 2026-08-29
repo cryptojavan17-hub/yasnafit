@@ -128,24 +128,39 @@
       <td>
         <div class="student-row-actions">
           <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
+          <select class="student-program-dropdown" data-program-select="${student.id}" title="انتخاب و طراحی برنامه شاگرد">
+            <option value="" disabled selected>📋 برنامه‌ها ▾</option>
+            <option value="exercise">🏋️ برنامه تمرینی</option>
+            <option value="diet">🥗 برنامه غذایی</option>
+            <option value="supplement">💊 برنامه مکمل</option>
+          </select>
           ${student.current_assessment_id?`<button class="secondary" data-review-assessment="${student.current_assessment_id}" title="بررسی ارزیابی شماره #${student.current_assessment_number}">📋 بررسی ارزیابی</button>`:''}
-          <button class="secondary" data-supp-student="${student.id}" title="طراحی یا مشاهده برنامه مکمل">💊 برنامه مکمل</button>
           <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
         </div>
       </td>
     </tr>`).join('')}</tbody></table></div>`;
     host.querySelectorAll('[data-open-student]').forEach(button=>button.onclick=()=>{ location.href=`/users-list/${button.dataset.openStudent}`; });
+    host.querySelectorAll('[data-program-select]').forEach(select=>{
+      select.onchange=(e)=>{
+        const studentId=select.dataset.programSelect;
+        const val=select.value;
+        if(val==='exercise'){
+          if(window.goToRoute) window.goToRoute('برنامه تمرینی', `/programs/exercise/form?student_id=${studentId}`);
+          else location.href=`/programs/exercise/form?student_id=${studentId}`;
+        }else if(val==='diet'){
+          if(window.goToRoute) window.goToRoute('طراحی برنامه غذایی', `/programs/diet/form?student_id=${studentId}`);
+          else location.href=`/programs/diet/form?student_id=${studentId}`;
+        }else if(val==='supplement'){
+          if(window.goToRoute) window.goToRoute('افزودن برنامه مکمل', `/programs/supplement/form?student_id=${studentId}`);
+          else location.href=`/programs/supplement/form?student_id=${studentId}`;
+        }
+        select.value='';
+      };
+    });
     host.querySelectorAll('[data-review-assessment]').forEach(button=>{
       button.onclick=(e)=>{
         e.stopPropagation();
         location.href=`/assessments/${button.dataset.reviewAssessment}`;
-      };
-    });
-    host.querySelectorAll('[data-supp-student]').forEach(button=>{
-      button.onclick=(e)=>{
-        e.stopPropagation();
-        if(window.goToRoute) window.goToRoute('افزودن برنامه مکمل', `/programs/supplement/form?student_id=${button.dataset.suppStudent}`);
-        else location.href=`/programs/supplement/form?student_id=${button.dataset.suppStudent}`;
       };
     });
     host.querySelectorAll('[data-access-student]').forEach(button=>{
