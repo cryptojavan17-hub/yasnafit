@@ -307,53 +307,208 @@
     const content=document.querySelector('#content');
     content.innerHTML='<div class="students-loading">در حال دریافت پرونده شاگرد...</div>';
     try{
-      const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);const student=data.student,summary=data.summary,internalStudentId=student.id,caseNumber=student.case_number;
+      const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);
+      const student=data.student,summary=data.summary,internalStudentId=student.id,caseNumber=student.case_number;
       document.querySelector('#breadcrumb').textContent='پرونده شاگرد';
+
       content.innerHTML=`<div class="student-detail-page">
-        <div class="page-head student-detail-head"><div><button class="back-link" data-back-students>← شاگرد های من</button><h1>${esc(student.full_name)}</h1><div class="student-case-chip">شماره پرونده <b>${esc(student.case_number)}</b></div><p>${esc(student.mobile||'بدون موبایل')} • ${esc(student.goal||'بدون هدف')}</p>${statusBadge(summary.management_status)}</div><div class="detail-head-actions"><button class="secondary" data-new-invite>ایجاد لینک جدید</button><button class="primary" data-request-assessment>درخواست ارزیابی جدید</button></div></div>
+        <!-- Hero Header -->
+        <div class="student-detail-head">
+          <div class="student-detail-head-right">
+            <button class="btn-ghost-header back-link" data-back-students type="button">
+              <span>←</span>
+              <span>شاگرد های من</span>
+            </button>
+            <div style="display:flex; align-items:center; gap:14px; margin-top:8px;">
+              <div class="student-detail-avatar">
+                ${esc((student.full_name || 'ش')[0])}
+              </div>
+              <div>
+                <h1 class="student-detail-name">${esc(student.full_name)}</h1>
+                <div class="student-detail-chips">
+                  <span class="student-case-chip">شماره پرونده <b>${esc(student.case_number)}</b></span>
+                  <span class="supp-item-chip" dir="ltr">📱 ${esc(student.mobile||'—')}</span>
+                  <span class="supp-item-chip">🎯 ${esc(student.goal||'بدون هدف')}</span>
+                  ${statusBadge(summary.management_status)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-head-actions">
+            <select class="student-program-dropdown" id="detailHeaderProgramSelect" title="طراحی برنامه جدید">
+              <option value="" disabled selected>➕ ساخت برنامه ▾</option>
+              <option value="exercise">🏋️ برنامه تمرینی</option>
+              <option value="diet">🥗 برنامه غذایی</option>
+              <option value="supplement">💊 برنامه مکمل</option>
+            </select>
+            <button class="btn-ghost-header" data-new-invite type="button">
+              <span>🔑</span>
+              <span>لینک ورود جدید</span>
+            </button>
+            <button class="btn-primary-header" data-request-assessment type="button">
+              <span>📋</span>
+              <span>درخواست ارزیابی جدید</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2-Column Dashboard Grid -->
         <div class="student-detail-grid">
+          <!-- Main Left Column -->
           <main>
-            <section class="detail-section"><h2>اطلاعات شاگرد</h2><div class="profile-data">
-              <div><span>شماره پرونده</span><b class="case-number-value">${esc(student.case_number)}</b></div><div><span>نام</span><b>${esc(student.full_name)}</b></div><div><span>موبایل</span><b>${esc(student.mobile||'—')}</b></div><div><span>هدف</span><b>${esc(student.goal||'—')}</b></div><div><span>قد</span><b>${student.height??'—'} cm</b></div><div><span>وزن</span><b>${student.weight??'—'} kg</b></div><div><span>سطح تمرین</span><b>${esc(student.training_level||student.training_experience||'—')}</b></div><div><span>محدودیت‌ها</span><b>${esc(student.limitations||'—')}</b></div><div><span>آسیب‌ها</span><b>${esc(student.injuries||'—')}</b></div><div class="wide"><span>یادداشت پزشکی</span><b>${esc(student.medical_notes||'—')}</b></div><div class="wide"><span>یادداشت مربی</span><b>${esc(student.coach_notes||'—')}</b></div>
-            </div></section>
-            <section class="detail-section"><div class="section-title"><h2>ارزیابی‌ها</h2><span>${data.assessments.length.toLocaleString('fa-IR')} سابقه</span></div><div class="history-grid">${data.assessments.length?data.assessments.slice().reverse().map((assessment,index)=>assessmentCard(assessment,index===0)).join(''):'<p class="muted">هنوز ارزیابی ثبت نشده است.</p>'}</div></section>
-            <section class="detail-section"><div class="section-title"><h2>برنامه‌های ماهانه</h2><span>${data.programs.length.toLocaleString('fa-IR')} برنامه</span></div><div class="history-grid">${data.programs.length?data.programs.slice().reverse().map(programCard).join(''):'<p class="muted">هنوز برنامه‌ای ثبت نشده است.</p>'}</div></section>
+            <!-- 1. اطلاعات پرونده شاگرد -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>👤 اطلاعات شاگرد</h2>
+                <span class="supp-item-chip">پرونده: <bdi>${esc(student.case_number)}</bdi></span>
+              </div>
+              <div class="profile-data">
+                <div><span>شماره پرونده</span><b class="case-number-value">${esc(student.case_number)}</b></div>
+                <div><span>نام</span><b>${esc(student.full_name)}</b></div>
+                <div><span>موبایل</span><b dir="ltr">${esc(student.mobile||'—')}</b></div>
+                <div><span>هدف</span><b>${esc(student.goal||'—')}</b></div>
+                <div><span>قد</span><b>${student.height ? student.height + ' cm' : '—'}</b></div>
+                <div><span>وزن</span><b>${student.weight ? student.weight + ' kg' : '—'}</b></div>
+                <div><span>سطح تمرین</span><b>${esc(fa(student.training_level||student.training_experience)||'—')}</b></div>
+                <div><span>محدودیت‌ها</span><b>${esc(student.limitations||'—')}</b></div>
+                <div><span>آسیب‌ها</span><b>${esc(student.injuries||'—')}</b></div>
+                <div class="wide"><span>یادداشت پزشکی</span><b>${esc(student.medical_notes||'—')}</b></div>
+                <div class="wide"><span>یادداشت مربی</span><b>${esc(student.coach_notes||'—')}</b></div>
+              </div>
+            </section>
+
+            <!-- 2. برنامه‌های ماهانه -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>🏋️ برنامه‌های ماهانه</h2>
+                <span class="supp-item-chip">${data.programs.length.toLocaleString('fa-IR')} برنامه</span>
+              </div>
+              <div class="history-grid">
+                ${data.programs.length ? data.programs.slice().reverse().map(programCard).join('') : '<div class="students-empty" style="padding:24px 0;"><p class="muted">هنوز برنامه‌ای ثبت نشده است.</p></div>'}
+              </div>
+            </section>
+
+            <!-- 3. سوابق ارزیابی‌ها -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>📋 ارزیابی‌ها</h2>
+                <span class="supp-item-chip">${data.assessments.length.toLocaleString('fa-IR')} سابقه</span>
+              </div>
+              <div class="history-grid">
+                ${data.assessments.length ? data.assessments.slice().reverse().map((assessment,index)=>assessmentCard(assessment,index===0)).join('') : '<div class="students-empty" style="padding:24px 0;"><p class="muted">هنوز ارزیابی ثبت نشده است.</p></div>'}
+              </div>
+            </section>
           </main>
+
+          <!-- Sidebar Aside Column -->
           <aside>
-            <section class="detail-section permanent-access-card" style="border:1px solid var(--accent-border);background:var(--accent-surface);">
+            <!-- 1. لینک و دسترسی دائمی شاگرد -->
+            <section class="detail-section permanent-access-card">
               <div class="section-title">
                 <h2>🔐 لینک و دسترسی دائمی شاگرد</h2>
               </div>
-              <p style="margin:0 0 8px;font-size:9px;color:var(--text-secondary);">لینک دائمی ورود شاگرد به پرتال. نیازی به ایجاد مجدد لینک نیست.</p>
-              <div style="display:flex;flex-direction:column;gap:7px;">
+              <p style="margin:0 0 10px;font-size:11px;color:var(--text-muted);line-height:1.6;">لینک دائمی ورود شاگرد به پرتال. نیازی به ایجاد مجدد لینک نیست.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;">
                 <div>
-                  <span class="credential-label" style="font-size:8px;color:var(--text-muted);display:block;margin-bottom:2px;">لینک ورود به پرتال</span>
-                  <div class="credential-link-row" style="display:flex;gap:5px;">
-                    <div class="generated-link" style="flex:1;overflow:hidden;"><code style="font-size:10px;">${location.origin}/student/login</code></div>
-                    <button class="secondary" data-copy-perm-url style="min-height:28px;padding:2px 8px;font-size:9px;white-space:nowrap;">کپی لینک</button>
+                  <span class="credential-label">لینک ورود به پرتال</span>
+                  <div class="credential-link-row">
+                    <div class="generated-link"><code>${location.origin}/student/login</code></div>
+                    <button class="secondary" data-copy-perm-url style="min-height:34px;padding:4px 10px;font-size:11px;white-space:nowrap;">کپی لینک</button>
                   </div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                  <div style="padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-inset);">
-                    <span style="font-size:8px;color:var(--text-muted);display:block;">شماره همراه</span>
-                    <b style="font-size:10px;color:var(--text);display:block;" dir="ltr">${esc(student.mobile||'—')}</b>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);">
+                    <span style="font-size:10px;color:var(--text-muted);display:block;">شماره همراه</span>
+                    <b style="font-size:12px;color:var(--text-primary);display:block;margin-top:2px;" dir="ltr">${esc(student.mobile||'—')}</b>
                   </div>
-                  <div class="temporary-password" style="padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-inset);">
-                    <span style="font-size:8px;color:var(--text-muted);display:block;">رمز موقت</span>
-                    <b style="font-size:11px;color:var(--accent-hover);display:block;">${esc(student.temporary_password||(student.mobile?student.mobile.slice(-4):'—'))}</b>
+                  <div class="temporary-password" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);margin:0;">
+                    <span style="font-size:10px;color:var(--text-muted);display:block;">رمز موقت</span>
+                    <b style="font-size:14px;color:var(--accent-hover);display:block;margin-top:2px;">${esc(student.temporary_password||(student.mobile?student.mobile.slice(-4):'—'))}</b>
                   </div>
                 </div>
-                <button class="primary" data-copy-perm-all style="min-height:34px;font-size:9px;font-weight:750;margin-top:2px;">📋 کپی کامل مشخصات ورود شاگرد</button>
+                <button class="primary" data-copy-perm-all style="min-height:36px;font-size:11.5px;font-weight:750;margin-top:4px;">📋 کپی کامل مشخصات ورود شاگرد</button>
               </div>
             </section>
-            <section class="detail-section current-state"><h2>وضعیت فعلی</h2><dl><div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div><div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div><div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div><div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div></dl>${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:8px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.assessment_number}</button>`:''}${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}</section>
-            <section class="detail-section"><div class="section-title"><h2>لینک‌های دعوت سریع</h2><button class="text-button" data-new-invite>＋ توکن جدید</button></div><div class="invite-list">${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted">توکنی ساخته نشده است.</p>'}</div></section>
-            <section class="detail-section"><h2>عملکرد واقعی تمرین</h2><div class="profile-data"><div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div><div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div><div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div><div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div></div></section>
-            <section class="detail-section"><h2>پیام‌های مربی و شاگرد</h2><div class="coach-message-list">${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}</b><span>${esc(message.body)}</span></div>`).join('')||'<p class="muted">پیامی ثبت نشده است.</p>'}</div><form id="coachMessageForm" class="coach-message-form"><textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea><button class="primary">ارسال</button></form></section>
-            <section class="detail-section"><h2>تایم‌لاین شاگرد</h2><ol class="student-timeline">${data.timeline.length?data.timeline.map(timelineItem).join(''):'<li class="muted">رویدادی ثبت نشده است.</li>'}</ol></section>
+
+            <!-- 2. وضعیت فعلی -->
+            <section class="detail-section current-state">
+              <div class="section-title">
+                <h2>📊 وضعیت فعلی</h2>
+              </div>
+              <dl>
+                <div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div>
+                <div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div>
+                <div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div>
+                <div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div>
+              </dl>
+              ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.assessment_number}</button>`:''}
+              ${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}
+            </section>
+
+            <!-- 3. لینک‌های دعوت سریع -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>🔗 لینک‌های دعوت سریع</h2>
+                <button class="text-button" data-new-invite>＋ توکن جدید</button>
+              </div>
+              <div class="invite-list">
+                ${data.invites.length?data.invites.map(invite=>invitationCard(invite,internalStudentId)).join(''):'<p class="muted" style="font-size:12px;margin:8px 0;">توکنی ساخته نشده است.</p>'}
+              </div>
+            </section>
+
+            <!-- 4. عملکرد واقعی تمرین -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>⚡ عملکرد واقعی تمرین</h2>
+              </div>
+              <div class="profile-data" style="grid-template-columns:1fr 1fr;">
+                <div><span>جلسات تکمیل‌شده</span><b>${performance.sessions_completed}</b></div>
+                <div><span>جلسات از دست‌رفته</span><b>${performance.sessions_skipped}</b></div>
+                <div><span>نرخ تکمیل</span><b>${performance.completion_rate==null?'داده‌ای نیست':`${performance.completion_rate}%`}</b></div>
+                <div><span>آخرین تمرین</span><b>${formatDate(performance.last_workout)}</b></div>
+              </div>
+            </section>
+
+            <!-- 5. پیام‌های مربی و شاگرد -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>💬 پیام‌های مربی و شاگرد</h2>
+              </div>
+              <div class="coach-message-list">
+                ${messageData.messages.slice(-6).map(message=>`<div><b>${message.sender_type==='coach'?'مربی':'شاگرد'}:</b> <span style="color:var(--text-secondary);">${esc(message.body)}</span></div>`).join('')||'<p class="muted" style="font-size:12px;margin:8px 0;">پیامی ثبت نشده است.</p>'}
+              </div>
+              <form id="coachMessageForm" class="coach-message-form">
+                <textarea name="body" required maxlength="2000" placeholder="پیام برای شاگرد..."></textarea>
+                <button class="primary" style="align-self:flex-end;">ارسال پیام</button>
+              </form>
+            </section>
+
+            <!-- 6. تایم‌لاین شاگرد -->
+            <section class="detail-section">
+              <div class="section-title">
+                <h2>⏳ تایم‌لاین شاگرد</h2>
+              </div>
+              <ol class="student-timeline">
+                ${data.timeline.length?data.timeline.map(timelineItem).join(''):'<li class="muted">رویدادی ثبت نشده است.</li>'}
+              </ol>
+            </section>
           </aside>
         </div>
       </div>`;
+
+      // Event bindings
+      const progSelect = content.querySelector('#detailHeaderProgramSelect');
+      if (progSelect) {
+        progSelect.onchange = (e) => {
+          const val = e.target.value;
+          if (val === 'exercise') window.goToRoute('برنامه تمرینی', `/programs/exercise/form?student_id=${internalStudentId}`);
+          else if (val === 'diet') window.goToRoute('طراحی برنامه غذایی', `/programs/diet/form?student_id=${internalStudentId}`);
+          else if (val === 'supplement') window.goToRoute('افزودن برنامه مکمل', `/programs/supplement/form?student_id=${internalStudentId}`);
+          progSelect.value = '';
+        };
+      }
+
       content.querySelectorAll('[data-copy-perm-url]').forEach(button=>button.onclick=async()=>{await copyText(`${location.origin}/student/login`);button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-copy-perm-all]').forEach(button=>button.onclick=async()=>{
         const tempPass=student.temporary_password||(student.mobile?student.mobile.slice(-4):'—');
