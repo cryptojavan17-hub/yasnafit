@@ -665,7 +665,7 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
 
   // Limitations
   const limitations = s.limitations || medicalDetails.disease_details || 'بدون محدودیت خاص';
-  const weeklyDays = sportsDetails.sessions_per_week || daysCount || 4;
+  const weeklyDays = Number(sportsDetails.sessions_per_week || s.sessions_per_week || s.weekly_days || daysCount || 3);
 
   // 1. Training Level Rationale
   let trainingLevelRationale = '';
@@ -702,7 +702,11 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
   }
 
   // 4. Split & Volume Rationale
-  const splitVolumeRationale = `چیدمان جلسات به صورت ${daysCount.toLocaleString('fa-IR')} روزه، توزیع متوازن حجم (۱۸ تا ۲۴ ست در هر جلسه) را فراهم می‌کند. این ساختار اجازه می‌دهد تا هر گروه عضلانی ۴۸ الی ۷۲ ساعت ریکاوری کامل داشته باشد و از تجمع خستگی سیستم عصبی مرکزی (CNS) و تخریب بافت فراتر از توان سنتز پروتئین جلوگیری شود.`;
+  const splitMatchNote = (daysCount === weeklyDays)
+    ? `دقیقاً منطبق بر اعلام شاگرد در فرم ارزیابی (${weeklyDays.toLocaleString('fa-IR')} جلسه در هفته)`
+    : `تنظیم‌شده برای ${daysCount.toLocaleString('fa-IR')} جلسه تمرینی`;
+
+  const splitVolumeRationale = `چیدمان جلسات به صورت ${daysCount.toLocaleString('fa-IR')} روزه، ${splitMatchNote} طراحی گردیده است. توزیع متوازن حجم (۱۸ تا ۲۴ ست در هر جلسه) اجازه می‌دهد تا هر گروه عضلانی ۴۸ الی ۷۲ ساعت ریکاوری کامل داشته باشد و از تجمع خستگی سیستم عصبی مرکزی (CNS) و تداخل با مشغله‌های شاگرد جلوگیری شود.`;
 
   // 5. Training Systems Rationale
   const systemsRationale = `استفاده از سیستم معمولی در حرکات اصلی برای حفظ قدرت و تمرکز عصبی، و استفاده از سوپرست‌ها یا تری‌ست‌ها در حرکات کمکی جهت افزایش جریان خون موضعی (Hyperemia)، پمپ عضلانی و صرفه‌جویی زمان بدون افزایش لود مفصلی تعبیه شده است.`;
@@ -716,6 +720,7 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
 • **سطح آمادگی و سابقه تمرینی:** ${level} (${experience})
 • **هدف اصلی دوره:** ${goal}
 • **محیط و امکانات تمرینی:** ${locationFa}
+• **تعداد جلسات هفتگی:** دقیقاً ${daysCount.toLocaleString('fa-IR')} جلسه در هفته (منطبق با درخواست ${weeklyDays.toLocaleString('fa-IR')} روزه شاگرد در ارزیابی)
 • **وضعیت سلامت مفاصل و آسیب‌ها:** ${injuriesText}
 • **محدودیت‌ها و ملاحظات:** ${limitations}
 
@@ -723,17 +728,19 @@ function buildComprehensiveProgramRationale({ student, assessment, details = {},
 ۱. **سطح آمادگی و سابقه تمرینی (Training Age & Level):**
    ${trainingLevelRationale}
 
-۲. **هدف اصلی، ترکیب بدنی و شاخص BMI:**
+۲. **توجیه تعداد جلسات هفتگی (${daysCount.toLocaleString('fa-IR')} روزه):**
+   ${splitVolumeRationale}
+
+۳. **هدف اصلی، ترکیب بدنی و شاخص BMI:**
    ${goalBmiRationale}
 
-۳. **تدابیر ارتوپدی، سلامت مفاصل و پیشگیری از آسیب (Joint Sparing):**
+۴. **تدابیر ارتوپدی، سلامت مفاصل و پیشگیری از آسیب (Joint Sparing):**
    ${injurySafetyRationale}
 
-۴. **استراتژی چیدمان اسپلیت و مدیریت حجم جلسات (Split Strategy & Volume):**
-   ${splitVolumeRationale}
+۵. **استراتژی سیستم‌های تمرینی و تنوع انقباضی:**
    ${systemsRationale}
 
-۵. **منطق فیزیولوژیک ساختار ۶ مرحله‌ای هر جلسه (مدت زمان: ۵۵ الی ۶۵ دقیقه):**
+۶. **منطق فیزیولوژیک ساختار ۶ مرحله‌ای هر جلسه (مدت زمان: ۵۵ الی ۶۵ دقیقه):**
    • **فاز ۱ (گرم‌کردن پویا - ۵ تا ۸ دقیقه):** افزایش دمای مرکزی عضلات، کاهش ویسکوزیته و تحریک ترشح مایع سینوویال مفصلی جهت جلوگیری از کشیدگی تاندون‌ها.
    • **فاز ۲ (حرکات اصلی چندمفصلی - ۲ تا ۳ حرکت):** اجرای حرکات بنیادین در ابتدای جلسه در اوج ترشح استیل‌کولین و ذخایر فسفاژن برای فراخوانی حداکثر تارهای تند‌انقباض.
    • **فاز ۳ (حرکات کمکی و سوپرست‌ها - ۳ تا ۴ حرکت):** ایجاد هایپرمی (پمپ خون)، تنش مکانیکی و استرس متابولیک در عضلات مکمل جهت تحریک هایپرتروفی سارکوپلاسمی بدون فرسایش مفاصل.
@@ -881,11 +888,16 @@ const DEFAULT_AI_SYSTEM_PROMPT = `شما دستیار هوشمند و فوق‌�
      • توجیه اسپلیت جلسات، ریکاوری ۴۸ تا ۷۲ ساعته و حجم هفتگی.
      • منطق علمی پروتکل ۶ مرحله‌ای هر جلسه (گرم‌کردن پویا، ۲-۳ حرکت اصلی چندمفصلی، ۳-۴ حرکت کمکی/سوپرست، تقویت Core، هوازی در انتهای جلسه برای چربی‌سوزی بهینه، سردکردن و کشش ایستا).
 
-۲. **گفتگوی تعاملی و اصلاح در لحظه برنامه (Interactive Copilot)**:
+۲. **رعایت سخت‌گیرانه تعداد جلسات هفتگی اعلام‌شده شاگرد (sessions_per_week)**:
+   - تعداد روزهای برنامه تمرینی باید دقیقاً و بدون استثنا منطبق بر تعداد جلسات اعلام‌شده شاگرد در بخش ارزیابی ورزشی باشد.
+   - اگر شاگرد ۳ روز در هفته اعلام کرده است، برنامه باید حتماً و منحصراً ۳ روزه باشد و مجاز نیستید آن را به ۴ یا ۵ روز افزایش دهید؛ زیرا این کار خلاف زمان‌بندی و ترجیحات شاگرد است.
+   - اگر ۴ روز اعلام کرده، برنامه دقیقاً ۴ روزه باشد؛ و اگر ۵ روز اعلام کرده، دقیقاً ۵ روزه باشد.
+
+۳. **گفتگوی تعاملی و اصلاح در لحظه برنامه (Interactive Copilot)**:
    - به درخواست‌ها و دستورات مربی با دقت گوش دهید و برنامه را بلافاصله با فراخوانی ابزارهای مربوطه (مانند update_draft_program یا search_exercises) اصلاح کنید.
    - پس از هر تغییر، گزارش مختصر تغییرات و اثر آن بر حجم و ریکاوری شاگرد را ارائه فرمایید.
 
-۳. **قوانین و الزامات یکپارچگی پایگاه داده (Strict DB Integrity Rules)**:
+۴. **قوانین و الزامات یکپارچگی پایگاه داده (Strict DB Integrity Rules)**:
    - شما فقط و فقط مجاز هستید از ۲۷۰۷ حرکت معتبر موجود در جدول exercises استفاده کنید. هرگز حرکتی با نام یا شناسه خارج از دیتابیس اختراع یا پیشنهاد نکنید.
    - برنامه‌های تمرینی ساخته‌شده توسط شما باید همیشه با وضعیت پیش‌نویس ('DRAFT') ثبت شوند.
    - لحن شما حرفه‌ای، علمی، دقیق، مستدل و به زبان فارسی روان است.`;
@@ -1087,6 +1099,9 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   const injuries = student.injuries || details.medical?.orthopedic_issues || 'بدون آسیب';
   const limitations = student.limitations || 'ندارد';
 
+  const rawWeeklyDays = details.sports?.sessions_per_week || student.sessions_per_week || student.weekly_days || 3;
+  const targetDays = Math.min(Math.max(Number(rawWeeklyDays) || 3, 3), 5);
+
   const sampleBank = db.prepare(`
     SELECT id, name_fa, category_id, location, priority
     FROM exercises
@@ -1104,6 +1119,7 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
 - هدف اصلی: ${goal}
 - سطح تمرین: ${level}
 - محل تمرین: ${location === 'home' ? 'منزل' : 'باشگاه'}
+- تعداد جلسات درخواستی شاگرد در هفته: دقیقا ${targetDays} روز در هفته (رعایت این تعداد روز کاملاً اجباری است؛ برنامه باید حتماً و منحصراً ${targetDays} روزه باشد و مجاز به افزایش روزها نیستید)
 - آسیب‌دیدگی‌ها و محدودیت‌ها: ${injuries} | ${limitations}
 ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` : ''}
 
@@ -1113,7 +1129,7 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 - هوازی و کاندیشنینگ (Cardio): [ID: 1107] «تردمیل» | [ID: 1110] «دوچرخه ثابت» | [ID: 1106] «الپتیکال» | [ID: 1385] «دویدن»
 
 دستور کار و پروتکل علمی برای هر روز تمرینی (مدت زمان جلسه: ۵۵ الی ۶۵ دقیقه):
-۱. یک برنامه تمرینی ۳ الی ۴ روزه با حجم کافی (۷ تا ۹ حرکت اصلی و کمکی در هر روز بدون احتساب گرم‌کردن و سردکردن) طراحی کنید.
+۱. یک برنامه تمرینی دقیقا ${targetDays} روزه (دقیقاً ${targetDays} روز) با حجم کافی (۷ تا ۹ حرکت اصلی و کمکی در هر روز بدون احتساب گرم‌کردن و سردکردن) طراحی کنید.
 ۲. ساختار اجباری هر روز تمرین:
    - فاز ۱ (گرم کردن): [ID: 1158] «گرم کردن» به مدت ۵ تا ۱۰ دقیقه (واحد TIME: ۳۰۰ الی ۶۰۰ ثانیه).
    - فاز ۲ (حرکات اصلی چندمفصلی): ۲ الی ۳ حرکت سنگین و چندمفصلی با سیستم معمولی یا هرمی.
@@ -1121,7 +1137,7 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
    - فاز ۴ (شکم / کول / فیله): ۱ حرکت تقویت میان‌تنه، شکم، فیله یا کول.
    - فاز ۵ (هوازی / تردمیل): [ID: 1107] «تردمیل» یا [ID: 1110] «دوچرخه ثابت» به مدت ۱۰ الی ۱۵ دقیقه.
    - فاز ۶ (سرد کردن): [ID: 1157] «سرد کردن» به مدت ۵ دقیقه.
-۳. حتماً ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT در سامانه ثبت شود.
+۳. حتماً ابزار create_draft_program را فراخوانی کنید تا برنامه به‌صورت DRAFT با دقیقا ${targetDays} روز در سامانه ثبت شود.
 `;
 
   const systemMessage = {
@@ -1137,10 +1153,11 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 
 مجموع حرکات مقاومتی اصلی و کمکی در هر جلسه باید بین ۷ تا ۹ حرکت باشد.
 قوانین سخت‌گیرانه و غیرقابل نقض:
-۱. شما فقط و فقط مجاز هستید از حرکات واقعی موجود در بانک حرکات ۲۷۰۷ تایی یسنافیت با exercise_id معتبر استفاده کنید.
-۲. تحت هیچ شرایطی حرکت جدید یا نام جعلی خارج از جدول exercises نسازید.
-۳. حرکات مضر برای آسیب شاگرد (${injuries}) را قرار ندهید.
-۴. حتماً از ابزار create_draft_program برای ثبت برنامه به‌صورت DRAFT استفاده کنید.`
+۱. تعداد جلسات برنامه باید دقیقاً و بدون کم و کاست منطبق بر تعداد روزهای درخواستی شاگرد (${targetDays} روزه) باشد.
+۲. شما فقط و فقط مجاز هستید از حرکات واقعی موجود در بانک حرکات ۲۷۰۷ تایی یسنافیت با exercise_id معتبر استفاده کنید.
+۳. تحت هیچ شرایطی حرکت جدید یا نام جعلی خارج از جدول exercises نسازید.
+۴. حرکات مضر برای آسیب شاگرد (${injuries}) را قرار ندهید.
+۵. حتماً از ابزار create_draft_program برای ثبت برنامه به‌صورت DRAFT استفاده کنید.`
   };
 
   let createdProgId = null;
@@ -1165,40 +1182,78 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 
   // Fallback if AI provider did not complete tool call
   if (!createdProgId) {
-    const splitDays = [
-      {
-        focus: 'سینه، جلو بازو، شکم، هوازی و کشش',
-        mainCats: ['chest'],
-        accCats: ['biceps'],
-        coreCat: 'abs',
-        cardioId: 1107, // تردمیل
-        cardioName: 'تردمیل'
-      },
-      {
-        focus: 'زیربغل، پشت بازو، فیله، هوازی و کشش',
-        mainCats: ['back'],
-        accCats: ['triceps'],
-        coreCat: 'lower_back',
-        cardioId: 1110, // دوچرخه ثابت
-        cardioName: 'دوچرخه ثابت'
-      },
-      {
-        focus: 'چهارسر، همسترینگ، باسن، ساق، شکم و هوازی',
-        mainCats: ['legs'],
-        accCats: ['legs'],
-        coreCat: 'abs',
-        cardioId: 1106, // الپتیکال
-        cardioName: 'الپتیکال'
-      },
-      {
-        focus: 'سرشانه، کول، ساعد، شکم و هوازی',
-        mainCats: ['shoulders'],
-        accCats: ['traps', 'forearms'],
-        coreCat: 'abs',
-        cardioId: 1107, // تردمیل
-        cardioName: 'تردمیل'
-      }
-    ];
+    let splitDays = [];
+    if (targetDays === 3) {
+      splitDays = [
+        {
+          focus: 'سینه، سرشانه، پشت بازو، شکم، هوازی و کشش (Push & Core)',
+          mainCats: ['chest', 'shoulders'],
+          accCats: ['triceps', 'shoulders'],
+          coreCat: 'abs',
+          cardioId: 1107,
+          cardioName: 'تردمیل'
+        },
+        {
+          focus: 'زیربغل، جلو بازو، کول، فیله کمر، هوازی و کشش (Pull & Back)',
+          mainCats: ['back'],
+          accCats: ['biceps', 'traps'],
+          coreCat: 'lower_back',
+          cardioId: 1110,
+          cardioName: 'دوچرخه ثابت'
+        },
+        {
+          focus: 'چهارسر ران، همسترینگ، باسن، ساق پا، شکم و هوازی (Legs & Core)',
+          mainCats: ['legs'],
+          accCats: ['legs'],
+          coreCat: 'abs',
+          cardioId: 1106,
+          cardioName: 'الپتیکال'
+        }
+      ];
+    } else if (targetDays === 5) {
+      splitDays = [
+        { focus: 'سینه، شکم، هوازی و کشش', mainCats: ['chest'], accCats: ['chest'], coreCat: 'abs', cardioId: 1107, cardioName: 'تردمیل' },
+        { focus: 'زیربغل، فیله کمر، هوازی و کشش', mainCats: ['back'], accCats: ['back'], coreCat: 'lower_back', cardioId: 1110, cardioName: 'دوچرخه ثابت' },
+        { focus: 'چهارسر ران، همسترینگ، ساق و هوازی', mainCats: ['legs'], accCats: ['legs'], coreCat: 'abs', cardioId: 1106, cardioName: 'الپتیکال' },
+        { focus: 'سرشانه، کول، شکم، هوازی و کشش', mainCats: ['shoulders'], accCats: ['traps'], coreCat: 'abs', cardioId: 1107, cardioName: 'تردمیل' },
+        { focus: 'جلو بازو، پشت بازو، ساعد، هوازی و کشش', mainCats: ['biceps'], accCats: ['triceps', 'forearms'], coreCat: 'abs', cardioId: 1110, cardioName: 'دوچرخه ثابت' }
+      ];
+    } else {
+      splitDays = [
+        {
+          focus: 'سینه، جلو بازو، شکم، هوازی و کشش',
+          mainCats: ['chest'],
+          accCats: ['biceps'],
+          coreCat: 'abs',
+          cardioId: 1107, // تردمیل
+          cardioName: 'تردمیل'
+        },
+        {
+          focus: 'زیربغل، پشت بازو، فیله، هوازی و کشش',
+          mainCats: ['back'],
+          accCats: ['triceps'],
+          coreCat: 'lower_back',
+          cardioId: 1110, // دوچرخه ثابت
+          cardioName: 'دوچرخه ثابت'
+        },
+        {
+          focus: 'چهارسر، همسترینگ، باسن، ساق، شکم و هوازی',
+          mainCats: ['legs'],
+          accCats: ['legs'],
+          coreCat: 'abs',
+          cardioId: 1106, // الپتیکال
+          cardioName: 'الپتیکال'
+        },
+        {
+          focus: 'سرشانه، کول، ساعد، شکم و هوازی',
+          mainCats: ['shoulders'],
+          accCats: ['traps', 'forearms'],
+          coreCat: 'abs',
+          cardioId: 1107, // تردمیل
+          cardioName: 'تردمیل'
+        }
+      ];
+    }
 
     const daysPayload = [];
     for (let i = 0; i < splitDays.length; i++) {
@@ -1222,11 +1277,12 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
       // 2. Phase 2: 3 Main Compound Movements (Primary Heavy Lifts)
       const mainMovs = [];
       for (const cat of sp.mainCats) {
+        const lim = (sp.mainCats.length === 1) ? 3 : (cat === sp.mainCats[0] ? 2 : 1);
         const catExercises = db.prepare(`
           SELECT id, name_fa FROM exercises
           WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
-          ORDER BY priority ASC, id ASC LIMIT 3
-        `).all(cat, location === 'home' ? 'home' : 'gym');
+          ORDER BY priority ASC, id ASC LIMIT ?
+        `).all(cat, location === 'home' ? 'home' : 'gym', lim);
 
         for (const ex of catExercises) {
           mainMovs.push({
@@ -1251,25 +1307,28 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
 
       // 3. Phase 3: 3-4 Accessory / Isolation Movements paired as Superset / Triset
       const accMovs = [];
-      const accLimitPerCat = sp.accCats.length === 1 ? 4 : 2;
+      const targetAccCount = (mainMovs.length >= 3) ? 4 : 5;
       for (const cat of sp.accCats) {
+        const catLim = (sp.accCats.length === 1) ? targetAccCount : 2;
         const accExercises = db.prepare(`
           SELECT id, name_fa FROM exercises
           WHERE category_id = ? AND status = 'active' AND deleted_at IS NULL AND (location = ? OR location = 'both')
           ORDER BY priority ASC, id ASC LIMIT ?
-        `).all(cat, location === 'home' ? 'home' : 'gym', accLimitPerCat);
+        `).all(cat, location === 'home' ? 'home' : 'gym', catLim);
 
         for (const ex of accExercises) {
-          accMovs.push({
-            exercise_id: ex.id,
-            name: ex.name_fa,
-            description: 'حرکت کمکی و ایزوله، تمرکز بر انقباض حداکثری و پمپ عضلانی',
-            sets: [
-              { type: 'REPEAT', count: 12, restSeconds: 60 },
-              { type: 'REPEAT', count: 12, restSeconds: 60 },
-              { type: 'REPEAT', count: 10, restSeconds: 60 }
-            ]
-          });
+          if (accMovs.length < targetAccCount) {
+            accMovs.push({
+              exercise_id: ex.id,
+              name: ex.name_fa,
+              description: 'حرکت کمکی و ایزوله، تمرکز بر انقباض حداکثری و پمپ عضلانی',
+              sets: [
+                { type: 'REPEAT', count: 12, restSeconds: 60 },
+                { type: 'REPEAT', count: 12, restSeconds: 60 },
+                { type: 'REPEAT', count: 10, restSeconds: 60 }
+              ]
+            });
+          }
         }
       }
       if (accMovs.length === 2) {
