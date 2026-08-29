@@ -31,6 +31,8 @@ async function render(label,route){
   if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);
   if(route==='/programs/exercise/form' && window.renderProgramBuilder) return window.renderProgramBuilder(label,route);
   if(route==='/templates/exercise/list' && window.renderTrainingProgramsList) return window.renderTrainingProgramsList(label,route);
+  if((route==='/programs/diet/list' || route==='/diet-programs') && window.renderDietProgramsList) return window.renderDietProgramsList(label,route);
+  if((route==='/programs/diet/form' || route.startsWith('/programs/diet/form')) && window.renderDietProgramBuilder) return window.renderDietProgramBuilder(label,route);
   if(route==='/students/submissions' && window.renderCoachSubmissions) return window.renderCoachSubmissions(label,route);
   if(((route.startsWith('/students/')&&route.includes('/timeline'))||/^\/coach\/students\/\d+\/assessments$/.test(route)) && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
@@ -118,6 +120,7 @@ async function render(label,route){
           <div class="db-quick-grid">
             <a href="/users-list"><span>👤</span>افزودن شاگرد</a>
             <a href="/programs/exercise/form"><span>📋</span>ساخت برنامه تمرینی</a>
+            <a href="/programs/diet/form"><span>🥗</span>ثبت برنامه غذایی</a>
             <a href="/students/submissions"><span>🧾</span>بررسی ارزیابی‌ها</a>
             <a href="/templates/exercise/list"><span>🗂</span>بانک برنامه‌ها</a>
             <a href="/programs/exercise/movements-list"><span>🏋️</span>بانک حرکات</a>

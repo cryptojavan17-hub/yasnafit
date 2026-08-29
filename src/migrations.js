@@ -1143,6 +1143,52 @@ const migrations = [
         VALUES (1, 'https://9router-production-6a92.up.railway.app/v1', '', 0.7, 1.0, 2000, 30000)
       `).run();
     }
+  },
+  {
+    id: '025_diet_programs_and_meals',
+    description: 'Dedicated diet programs and meals structure with calorie balancing',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS diet_programs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT UNIQUE NOT NULL,
+          student_id INTEGER,
+          title TEXT NOT NULL,
+          diet_restriction TEXT NOT NULL DEFAULT 'none',
+          description TEXT,
+          total_calories INTEGER NOT NULL DEFAULT 2000,
+          is_template INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'DRAFT',
+          program_data TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          version INTEGER NOT NULL DEFAULT 1,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS diet_program_meals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT UNIQUE NOT NULL,
+          diet_program_id INTEGER NOT NULL,
+          meal_name TEXT NOT NULL,
+          calories INTEGER NOT NULL DEFAULT 0,
+          start_time TEXT,
+          end_time TEXT,
+          notes TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(diet_program_id) REFERENCES diet_programs(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_diet_programs_student ON diet_programs(student_id);
+        CREATE INDEX IF NOT EXISTS idx_diet_programs_template ON diet_programs(is_template);
+        CREATE INDEX IF NOT EXISTS idx_diet_programs_deleted ON diet_programs(deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_diet_meals_program ON diet_program_meals(diet_program_id);
+      `);
+    }
   }
 ];
 

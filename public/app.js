@@ -9,6 +9,10 @@ const sidebarMenu = [
     ['برنامه‌های تمرینی','/templates/exercise/list'],
     ['بانک حرکات','/programs/exercise/movements-list']
   ]],
+  ['برنامه غذایی',null,'🥗',[
+    ['برنامه‌های غذایی','/programs/diet/list'],
+    ['طراحی برنامه غذایی','/programs/diet/form']
+  ]],
   ['سیستم',null,'⚙',[
     ['پیکربندی هوش مصنوعی (AI)','/settings/ai'],
     ['تنظیمات و پشتیبان','/coach/settings'],
@@ -31,6 +35,8 @@ function renderRoute(label,route){
   if(route==='/programs/exercise/movements-list' && window.renderExerciseManager) return window.renderExerciseManager(label,route);
   if(route==='/programs/exercise/form' && window.renderProgramBuilder) return window.renderProgramBuilder(label,route);
   if(route==='/templates/exercise/list' && window.renderTrainingProgramsList) return window.renderTrainingProgramsList(label,route);
+  if((route==='/programs/diet/list' || route==='/diet-programs') && window.renderDietProgramsList) return window.renderDietProgramsList(label,route);
+  if((route==='/programs/diet/form' || route.startsWith('/programs/diet/form')) && window.renderDietProgramBuilder) return window.renderDietProgramBuilder(label,route);
   if(route==='/students/submissions' && window.renderCoachSubmissions) return window.renderCoachSubmissions(label,route);
   if(((route.startsWith('/students/')&&route.includes('/timeline'))||/^\/coach\/students\/\d+\/assessments$/.test(route)) && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);

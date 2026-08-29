@@ -37,6 +37,7 @@ const LOCAL_COACH_ACCESS_TOKEN = loadLocalCoachAccessToken();
 const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
+const dietProgramService = require('./src/diet-program-service');
 const studentService = require('./src/student-service');
 const uploadService = require('./src/upload-service');
 const releaseService = require('./src/release-service');
@@ -968,6 +969,75 @@ async function handleTrainingPrograms(req,res,url){
       } catch(e){
         console.error('Delete program error:', e);
         return sendError(res,500,'خطا در حذف برنامه: ' + e.message);
+      }
+    }
+  }
+
+  return null;
+}
+
+async function handleDietPrograms(req, res, url) {
+  if (requireCoach(req, res)) return true;
+  const p = url.pathname;
+
+  if (p === '/api/diet-programs' && req.method === 'GET') {
+    const type = url.searchParams.get('type') || 'all';
+    const search = url.searchParams.get('search') || '';
+    const restriction = url.searchParams.get('diet_restriction') || '';
+    const studentId = url.searchParams.get('student_id');
+    const list = dietProgramService.listDietPrograms(db, { type, search, diet_restriction: restriction, student_id: studentId });
+    return send(res, 200, list);
+  }
+
+  if (p === '/api/diet-programs' && req.method === 'POST') {
+    try {
+      const b = await readBody(req);
+      const result = dietProgramService.createDietProgram(db, b);
+      log('برنامه غذایی جدید ساخته شد', result.title);
+      auditService.record(db, { actorType: 'coach', action: 'diet_program.created', entityType: 'diet_program', entityId: Number(result.id), entityStableId: result.stable_id, metadata: { student_id: result.student_id, title: result.title } });
+      return send(res, 201, result);
+    } catch (e) {
+      return sendError(res, 400, e.message);
+    }
+  }
+
+  if (p === '/api/diet-programs/analyze-ai' && req.method === 'POST') {
+    try {
+      const b = await readBody(req);
+      const analysis = await dietProgramService.analyzeDietWithAI(db, b);
+      return send(res, 200, analysis);
+    } catch (e) {
+      return sendError(res, 400, e.message);
+    }
+  }
+
+  const dpMatch = p.match(/^\/api\/diet-programs\/(\d+)$/);
+  if (dpMatch) {
+    const id = Number(dpMatch[1]);
+    if (req.method === 'GET') {
+      const prog = dietProgramService.getDietProgram(db, id);
+      if (!prog) return sendError(res, 404, 'برنامه غذایی پیدا نشد');
+      return send(res, 200, prog);
+    }
+
+    if (req.method === 'PUT') {
+      try {
+        const b = await readBody(req);
+        const result = dietProgramService.updateDietProgram(db, id, b);
+        log('برنامه غذایی ویرایش شد', result.title);
+        return send(res, 200, result);
+      } catch (e) {
+        return sendError(res, 400, e.message);
+      }
+    }
+
+    if (req.method === 'DELETE') {
+      try {
+        const result = dietProgramService.deleteDietProgram(db, id);
+        log('برنامه غذایی حذف شد', `id ${id}`);
+        return send(res, 200, result);
+      } catch (e) {
+        return sendError(res, 400, e.message);
       }
     }
   }
@@ -1940,6 +2010,11 @@ async function api(req,res,url){
 
     if(p.startsWith('/api/training-programs')){
       const r = await handleTrainingPrograms(req,res,url);
+      if(r) return r;
+    }
+
+    if(p.startsWith('/api/diet-programs')){
+      const r = await handleDietPrograms(req,res,url);
       if(r) return r;
     }
 
