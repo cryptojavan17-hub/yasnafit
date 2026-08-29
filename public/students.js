@@ -205,10 +205,62 @@
             <option value="diet">🥗 برنامه غذایی</option>
             <option value="supplement">💊 برنامه مکمل</option>
           </select>
+          <div class="student-action-menu-wrap">
+            <button class="btn-action-dots" data-action-menu-toggle="${student.id}" type="button" title="عملیات">
+              <span>⋮</span>
+            </button>
+            <div class="student-action-menu-dropdown" id="actionMenu-${student.id}" hidden>
+              <button type="button" class="action-menu-item btn-edit-student" data-edit-student="${index}">
+                <span>✏️</span>
+                <span>ویرایش</span>
+              </button>
+              <button type="button" class="action-menu-item danger btn-delete-student" data-delete-student="${student.id}" data-student-name="${esc(student.full_name)}" data-case-number="${esc(student.case_number)}">
+                <span>🗑️</span>
+                <span>حذف</span>
+              </button>
+            </div>
+          </div>
         </div>
       </td>
     </tr>`).join('')}</tbody></table></div>`;
     host.querySelectorAll('[data-open-student]').forEach(button=>button.onclick=()=>{ location.href=`/users-list/${button.dataset.openStudent}`; });
+    host.querySelectorAll('[data-action-menu-toggle]').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        const id=btn.dataset.actionMenuToggle;
+        const menu=host.querySelector(`#actionMenu-${id}`);
+        if(!menu) return;
+        const wasHidden=menu.hidden;
+        host.querySelectorAll('.student-action-menu-dropdown').forEach(m=>{ m.hidden=true; });
+        menu.hidden=!wasHidden;
+      };
+    });
+    host.querySelectorAll('.btn-edit-student').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        btn.closest('.student-action-menu-dropdown').hidden=true;
+        const idx=Number(btn.dataset.editStudent);
+        const student=items[idx];
+        if(student) openEditStudentModal(student);
+      };
+    });
+    host.querySelectorAll('.btn-delete-student').forEach(btn=>{
+      btn.onclick=async(e)=>{
+        e.stopPropagation();
+        btn.closest('.student-action-menu-dropdown').hidden=true;
+        const studentId=btn.dataset.deleteStudent;
+        const studentName=btn.dataset.studentName;
+        const caseNumber=btn.dataset.caseNumber;
+        if(confirm(`آیا از حذف شاگرد «${studentName}» (شماره پرونده ${caseNumber}) اطمینان دارید؟`)){
+          try{
+            await api(`/api/students/${studentId}`,{method:'DELETE'});
+            loadStudentList();
+          }catch(err){
+            alert('خطا در حذف شاگرد: '+err.message);
+          }
+        }
+      };
+    });
     host.querySelectorAll('[data-program-select]').forEach(select=>{
       select.onchange=(e)=>{
         const studentId=select.dataset.programSelect;
@@ -249,6 +301,70 @@
       renderStats(result.stats);renderStudents(result.items);renderPagination(result.pagination);
     }catch(error){host.innerHTML=`<div class="students-error">${esc(error.message)}</div>`;}
   }
+  function openEditStudentModal(student){
+    const cleanMobile = student.mobile ? (student.mobile.startsWith('09') ? student.mobile.slice(2) : (student.mobile.startsWith('9') ? student.mobile.slice(1) : student.mobile)) : '';
+    const modal=createModal(`
+      <form id="editStudentForm">
+        <div class="student-modal-head">
+          <h2>✏️ ویرایش اطلاعات شاگرد</h2>
+          <button type="button" data-close-modal>×</button>
+        </div>
+        <div class="student-form-grid" style="display:flex; flex-direction:column; gap:12px;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
+            <span>نام و نام خانوادگی *</span>
+            <input name="full_name" required maxlength="100" autocomplete="name" value="${esc(student.full_name)}" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
+            <span>شماره همراه *</span>
+            <div class="prefixed-input" dir="ltr" style="display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); overflow:hidden;">
+              <span style="padding:0 12px; color:var(--text-muted); background:var(--surface-2); font-weight:700;">09-</span>
+              <input name="mobile" required maxlength="10" inputmode="tel" autocomplete="tel" placeholder="0000000000" value="${esc(cleanMobile)}" style="flex:1; height:40px; border:none; padding:0 12px; background:transparent; color:var(--text-primary); outline:none;">
+            </div>
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
+            <span>هدف تمرینی</span>
+            <input name="goal" maxlength="200" placeholder="مثال: کاهش وزن، هایپرتروفی، فیتنس" value="${esc(student.goal||'')}" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
+          </label>
+        </div>
+        <div class="student-modal-actions" style="margin-top:18px;">
+          <button type="button" class="secondary" data-close-modal>انصراف</button>
+          <button type="submit" class="primary">ذخیره تغییرات</button>
+        </div>
+      </form>
+    `);
+
+    modal.querySelectorAll('[data-close-modal]').forEach(b=>b.onclick=()=>modal.remove());
+
+    modal.querySelector('#editStudentForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.currentTarget);
+      const fullName = String(form.get('full_name')||'').trim();
+      const rawMobile = asciiDigits(String(form.get('mobile')||''));
+      const goal = String(form.get('goal')||'').trim();
+      const fullMobile = rawMobile.startsWith('09') ? rawMobile : (rawMobile.startsWith('9') ? `0${rawMobile}` : `09${rawMobile}`);
+
+      if (!fullName) return alert('نام و نام خانوادگی الزامی است.');
+      if (rawMobile.length < 9) return alert('شماره همراه را کامل وارد کنید.');
+
+      const submitBtn = e.currentTarget.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'در حال ذخیره…';
+
+      try {
+        await api(`/api/students/${student.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ full_name: fullName, mobile: fullMobile, goal })
+        });
+        modal.remove();
+        loadStudentList();
+      } catch (err) {
+        alert('خطا در ویرایش: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ذخیره تغییرات';
+      }
+    };
+  }
+
   function openAddStudent(){
     const modal=createModal(`<form id="addStudentForm"><div class="student-modal-head"><h2>افزودن شاگرد</h2><button type="button" data-close-modal>×</button></div>
       <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100" autocomplete="name"></label><label>شماره همراه *<div class="prefixed-input" dir="ltr"><span>09-</span><input name="mobile" required maxlength="10" inputmode="tel" autocomplete="tel" placeholder="0000000000"></div></label></div>

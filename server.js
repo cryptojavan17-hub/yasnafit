@@ -460,7 +460,44 @@ async function handleStudentsDelete(req,res,url){
     const r=db.prepare('UPDATE students SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
     if(!r.changes) return sendError(res,404,'شاگرد پیدا نشد');
     log('شاگرد حذف شد (soft)', `id ${id}`);
+    auditService.record(db,{actorType:'coach',action:'student.deleted',entityType:'student',entityId:id,metadata:{case_number:student.case_number}});
     return send(res,200,{id, soft_deleted:true});
+  }
+  if(req.method==='PUT'){
+    try{
+      const b=await readBody(req);
+      const fullName = String(b.full_name || '').trim();
+      if(!fullName) return sendError(res, 400, 'نام و نام خانوادگی الزامی است');
+      
+      let mobileNormalized = student.mobile_normalized;
+      if (b.mobile) {
+        const auth = studentAuthService.authColumnsForMobile(b.mobile);
+        mobileNormalized = auth.mobile_normalized;
+        const dup = one('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL', mobileNormalized, id);
+        if(dup) return sendError(res, 409, 'این شماره همراه برای شاگرد دیگری ثبت شده است');
+      }
+
+      db.prepare(`
+        UPDATE students
+        SET full_name = ?, mobile = ?, mobile_normalized = ?,
+            goal = COALESCE(?, goal), updated_at = CURRENT_TIMESTAMP, version = version + 1
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(fullName, mobileNormalized, mobileNormalized, b.goal !== undefined ? String(b.goal).trim() : null, id);
+
+      log('اطلاعات شاگرد ویرایش شد', `${student.case_number} - ${fullName}`);
+      auditService.record(db, {
+        actorType: 'coach',
+        action: 'student.updated',
+        entityType: 'student',
+        entityId: id,
+        metadata: { case_number: student.case_number, full_name: fullName }
+      });
+
+      const updated = studentService.getManagedStudentDetail(db, id);
+      return send(res, 200, updated);
+    }catch(e){
+      return sendError(res, 400, e.message);
+    }
   }
   if(req.method==='GET'){
     const detail=studentService.getManagedStudentDetail(db,id);
