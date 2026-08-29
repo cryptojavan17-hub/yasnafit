@@ -129,6 +129,7 @@
         <div class="student-row-actions">
           <button class="secondary" data-open-student="${student.case_number}">مشاهده</button>
           ${student.current_assessment_id?`<button class="secondary" data-review-assessment="${student.current_assessment_id}" title="بررسی ارزیابی شماره #${student.current_assessment_number}">📋 بررسی ارزیابی</button>`:''}
+          <button class="secondary" data-supp-student="${student.id}" title="طراحی یا مشاهده برنامه مکمل">💊 برنامه مکمل</button>
           <button class="secondary" data-access-student="${index}">🔗 لینک شاگرد</button>
         </div>
       </td>
@@ -138,6 +139,13 @@
       button.onclick=(e)=>{
         e.stopPropagation();
         location.href=`/assessments/${button.dataset.reviewAssessment}`;
+      };
+    });
+    host.querySelectorAll('[data-supp-student]').forEach(button=>{
+      button.onclick=(e)=>{
+        e.stopPropagation();
+        if(window.goToRoute) window.goToRoute('افزودن برنامه مکمل', `/programs/supplement/form?student_id=${button.dataset.suppStudent}`);
+        else location.href=`/programs/supplement/form?student_id=${button.dataset.suppStudent}`;
       };
     });
     host.querySelectorAll('[data-access-student]').forEach(button=>{

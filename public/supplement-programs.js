@@ -1,6 +1,6 @@
 /**
  * Yasnafit — Supplement Programs Module (برنامه‌های مکمل)
- * High-Performance Supplement Program Template Builder, Grid Selector, Detail Editor & AI Clinical Analysis
+ * High-Performance Supplement Program Template Builder, Student Manager, Grid Selector, Detail Editor & AI Clinical Analysis
  */
 (() => {
   'use strict';
@@ -168,11 +168,28 @@
     return catalogCache;
   }
 
+  async function fetchStudentsList() {
+    try {
+      const data = await api('/api/students?view=management&page_size=100');
+      return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+    } catch (e) {
+      try {
+        const raw = await api('/api/students');
+        return Array.isArray(raw) ? raw : [];
+      } catch (err) {
+        return [];
+      }
+    }
+  }
+
   // ==============================================================
   // 1. MAIN SUPPLEMENT PROGRAM FORM BUILDER (افزودن نمونه برنامه مکمل)
   // ==============================================================
   let builderState = {
     programId: null,
+    studentId: null,
+    studentName: null,
+    studentsList: [],
     title: '',
     category: 'muscle_building',
     description: '',
@@ -188,16 +205,22 @@
     content.innerHTML = '<div class="loading-state"><span class="spinner"></span><p>در حال آماده‌سازی فرم برنامه مکمل…</p></div>';
 
     await loadCatalog();
+    const students = await fetchStudentsList();
 
-    // Check if editing existing program
+    // Check if editing existing program or creating for a specific student
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('id');
+    const paramStudentId = urlParams.get('student_id');
+    const paramStudentName = urlParams.get('student_name');
 
     if (editId) {
       try {
         const prog = await api(`/api/supplement-programs/${editId}`);
         builderState = {
           programId: prog.id,
+          studentId: prog.student_id || null,
+          studentName: prog.student_name || null,
+          studentsList: students,
           title: prog.title || '',
           category: prog.category || 'muscle_building',
           description: prog.description || '',
@@ -215,6 +238,9 @@
         showToast('خطا در بارگذاری برنامه مکمل: ' + err.message, 'error');
         builderState = {
           programId: null,
+          studentId: null,
+          studentName: null,
+          studentsList: students,
           title: '',
           category: 'muscle_building',
           description: '',
@@ -223,9 +249,16 @@
         };
       }
     } else {
+      const selectedStudent = paramStudentId ? students.find(s => String(s.id) === String(paramStudentId)) : null;
+      const initialStudentName = selectedStudent ? selectedStudent.full_name : (paramStudentName || null);
+      const defaultTitle = initialStudentName ? `برنامه مکمل تخصصی ${initialStudentName}` : '';
+
       builderState = {
         programId: null,
-        title: '',
+        studentId: paramStudentId ? Number(paramStudentId) : null,
+        studentName: initialStudentName,
+        studentsList: students,
+        title: defaultTitle,
         category: 'muscle_building',
         description: '',
         items: [],
@@ -244,6 +277,15 @@
       <option value="${c.id}" ${builderState.category === c.id ? 'selected' : ''}>${esc(c.label)}</option>
     `).join('');
 
+    const studentOptionsHtml = `
+      <option value="">📦 نمونه برنامه عمومی (بدون شاگرد - Template)</option>
+      ${builderState.studentsList.map(s => `
+        <option value="${s.id}" ${String(builderState.studentId) === String(s.id) ? 'selected' : ''}>
+          👤 ${esc(s.full_name)} (پرونده: ${esc(s.case_number)})
+        </option>
+      `).join('')}
+    `;
+
     content.innerHTML = `
       <div class="supp-page">
         <!-- Top Header -->
@@ -251,7 +293,7 @@
           <div class="supp-header-title">
             <span class="supp-header-icon">💊</span>
             <div>
-              <h1>${isEdit ? 'ویرایش نمونه برنامه مکمل' : 'افزودن نمونه برنامه مکمل'}</h1>
+              <h1>${isEdit ? 'ویرایش برنامه مکمل' : (builderState.studentId ? `طراحی برنامه مکمل شاگرد: ${esc(builderState.studentName || '')}` : 'افزودن نمونه برنامه مکمل')}</h1>
               <p>طراحی علمی بسته مکمل‌ها با تنظیم دقیق زمان‌بندی و پایش هوشمند تداخلات</p>
             </div>
           </div>
@@ -265,6 +307,17 @@
         <!-- Main Form Container -->
         <div class="supp-form-container">
           <div class="supp-form-grid">
+            <!-- تخصیص به شاگرد -->
+            <div class="supp-form-group">
+              <label class="supp-label" for="suppStudentSelect">
+                <span>👤</span>
+                <span>تخصیص به شاگرد (اختیاری):</span>
+              </label>
+              <select class="supp-select" id="suppStudentSelect">
+                ${studentOptionsHtml}
+              </select>
+            </div>
+
             <!-- دسته بندی -->
             <div class="supp-form-group">
               <label class="supp-label" for="suppCategory">
@@ -277,7 +330,7 @@
             </div>
 
             <!-- عنوان نمونه برنامه -->
-            <div class="supp-form-group">
+            <div class="supp-form-group full-width">
               <label class="supp-label" for="suppTitle">
                 <span>📝</span>
                 <span>عنوان نمونه برنامه:</span>
@@ -400,10 +453,23 @@
     const titleInput = document.querySelector('#suppTitle');
     const descInput = document.querySelector('#suppDescription');
     const catSelect = document.querySelector('#suppCategory');
+    const studentSelect = document.querySelector('#suppStudentSelect');
 
     if (titleInput) titleInput.addEventListener('input', e => { builderState.title = e.target.value; });
     if (descInput) descInput.addEventListener('input', e => { builderState.description = e.target.value; });
     if (catSelect) catSelect.addEventListener('change', e => { builderState.category = e.target.value; });
+    if (studentSelect) {
+      studentSelect.addEventListener('change', e => {
+        const val = e.target.value;
+        builderState.studentId = val ? Number(val) : null;
+        const found = builderState.studentsList.find(s => String(s.id) === String(val));
+        builderState.studentName = found ? found.full_name : null;
+        if (found && (!builderState.title || builderState.title.startsWith('برنامه مکمل') || builderState.title.startsWith('پکیج'))) {
+          builderState.title = `برنامه مکمل تخصصی ${found.full_name}`;
+          if (titleInput) titleInput.value = builderState.title;
+        }
+      });
+    }
 
     // Add Supplement Buttons
     const addFirst = document.querySelector('#btnAddFirstSupp');
@@ -427,14 +493,14 @@
 
     // Edit & Delete row buttons
     document.querySelectorAll('.btn-edit-item').forEach(btn => {
-      btn.onclick = (e) => {
+      btn.onclick = () => {
         const idx = Number(btn.dataset.index);
         openDetailEditModal(idx);
       };
     });
 
     document.querySelectorAll('.btn-delete-item').forEach(btn => {
-      btn.onclick = (e) => {
+      btn.onclick = () => {
         const idx = Number(btn.dataset.index);
         const item = builderState.items[idx];
         if (confirm(`آیا از حذف مکمل «${item?.supplement_name}» اطمینان دارید؟`)) {
@@ -447,7 +513,7 @@
   }
 
   // ==============================================================
-  // 2. GRID SELECTOR MODAL (مودال انتخاب مکمل)
+  // 2. GRID SELECTOR MODAL (مودال انتخاب مکمل - ۶۹ آیتم)
   // ==============================================================
   let selectorSearchQuery = '';
   let selectorActiveCat = 'all';
@@ -466,7 +532,7 @@
         <div class="supp-modal-header">
           <h3>
             <span>💊</span>
-            <span>انتخاب مکمل ورزشی و تغذیه‌ای</span>
+            <span>انتخاب مکمل ورزشی و تغذیه‌ای (۶۹ مکمل)</span>
           </h3>
           <button class="supp-modal-close" id="btnCloseGridModal" type="button" aria-label="بستن">✕</button>
         </div>
@@ -481,7 +547,7 @@
 
             <!-- تب‌های دسته‌بندی مکمل‌ها -->
             <div class="supp-category-pills">
-              <button class="supp-cat-pill active" data-cat="all" type="button">همه مکمل‌ها</button>
+              <button class="supp-cat-pill active" data-cat="all" type="button">همه مکمل‌ها (${fa(catalog.length)})</button>
               <button class="supp-cat-pill" data-cat="protein" type="button">پروتئین و آمینو</button>
               <button class="supp-cat-pill" data-cat="performance" type="button">عملکرد و پمپ</button>
               <button class="supp-cat-pill" data-cat="vitamins_minerals" type="button">ویتامین و املاح</button>
@@ -945,7 +1011,7 @@
   async function handleSaveProgram() {
     const title = (builderState.title || '').trim();
     if (!title) {
-      showToast('لطفاً عنوان نمونه برنامه مکمل را وارد کنید.', 'error');
+      showToast('لطفاً عنوان برنامه مکمل را وارد کنید.', 'error');
       document.querySelector('#suppTitle')?.focus();
       return;
     }
@@ -955,11 +1021,14 @@
       return;
     }
 
+    const isStudentAssigned = Boolean(builderState.studentId);
+
     const payload = {
       title,
+      student_id: builderState.studentId || null,
       category: builderState.category,
       description: builderState.description,
-      is_template: 1,
+      is_template: isStudentAssigned ? 0 : 1,
       status: 'DRAFT',
       items: builderState.items.map((it, idx) => ({
         supplement_name: it.supplement_name,
@@ -983,13 +1052,13 @@
           method: 'PUT',
           body: JSON.stringify(payload)
         });
-        showToast('نمونه برنامه مکمل با موفقیت ویرایش شد.', 'success');
+        showToast(isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» بروزرسانی شد.` : 'نمونه برنامه مکمل با موفقیت ویرایش شد.', 'success');
       } else {
         await api('/api/supplement-programs', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
-        showToast('نمونه برنامه مکمل جدید با موفقیت ایجاد شد.', 'success');
+        showToast(isStudentAssigned ? `برنامه مکمل برای «${builderState.studentName || 'شاگرد'}» با موفقیت ذخیره شد.` : 'نمونه برنامه مکمل جدید با موفقیت ایجاد شد.', 'success');
       }
 
       window.goToRoute('برنامه‌های مکمل', '/programs/supplement/list');
@@ -1003,7 +1072,7 @@
   }
 
   // ==============================================================
-  // 5. SUPPLEMENT PROGRAMS LIST VIEW (لیست برنامه‌های مکمل)
+  // 5. SUPPLEMENT PROGRAMS LIST VIEW (لیست برنامه‌های مکمل + لیست شاگردان)
   // ==============================================================
   let listState = {
     activeTab: 'template', // 'template' | 'student'
@@ -1062,9 +1131,9 @@
           </select>
         </div>
 
-        <!-- Programs Grid -->
+        <!-- Programs Grid / Students List -->
         <div id="suppListContainer">
-          <div class="loading-state"><span class="spinner"></span><p>در حال دریافت برنامه‌های مکمل…</p></div>
+          <div class="loading-state"><span class="spinner"></span><p>در حال بارگذاری…</p></div>
         </div>
       </div>
     `;
@@ -1109,116 +1178,302 @@
 
     try {
       const type = listState.activeTab;
-      const search = listState.search;
+      const search = listState.search.toLowerCase();
       const category = listState.category;
 
-      let url = `/api/supplement-programs?type=${encodeURIComponent(type)}`;
-      if (search) url += `&search=${encodeURIComponent(search)}`;
-      if (category && category !== 'all') url += `&category=${encodeURIComponent(category)}`;
+      // Always fetch template programs and student programs to update badges accurately
+      const [templateProgs, studentProgs, allStudents] = await Promise.all([
+        api('/api/supplement-programs?type=template'),
+        api('/api/supplement-programs?type=student'),
+        fetchStudentsList()
+      ]);
 
-      const list = await api(url);
+      const templateBadge = document.querySelector('#templateCountBadge');
+      const studentBadge = document.querySelector('#studentCountBadge');
+      if (templateBadge) templateBadge.textContent = fa(templateProgs.length);
+      if (studentBadge) studentBadge.textContent = fa(allStudents.length);
 
-      // Update badge counts
+      // ==========================================
+      // TAB 1: TEMPLATE PROGRAMS (نمونه برنامه‌های من)
+      // ==========================================
       if (type === 'template') {
-        const badge = document.querySelector('#templateCountBadge');
-        if (badge) badge.textContent = fa(list.length);
-      } else {
-        const badge = document.querySelector('#studentCountBadge');
-        if (badge) badge.textContent = fa(list.length);
+        let list = templateProgs;
+        if (category && category !== 'all') {
+          list = list.filter(p => p.category === category);
+        }
+        if (search) {
+          list = list.filter(p => (p.title || '').toLowerCase().includes(search) || (p.description || '').toLowerCase().includes(search));
+        }
+
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div class="supp-empty-state-box" style="margin-top: 20px;">
+              <div class="supp-empty-state-text">
+                ${listState.search ? 'نمونه برنامه‌ای با این عبارت یافت نشد.' : 'هنوز هیچ نمونه برنامه مکملی ثبت نشده است.'}
+              </div>
+              <button class="btn-supp-green" id="btnEmptyStateNewProg" type="button">
+                افزودن نمونه برنامه مکمل +
+              </button>
+            </div>
+          `;
+          const btn = container.querySelector('#btnEmptyStateNewProg');
+          if (btn) btn.onclick = () => window.goToRoute('افزودن نمونه برنامه مکمل', '/programs/supplement/form');
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="supp-grid">
+            ${list.map(prog => `
+              <div class="supp-card" data-id="${prog.id}">
+                <div class="supp-card-header">
+                  <div>
+                    <h3 class="supp-card-title">${esc(prog.title)}</h3>
+                    <span class="supp-card-category">${esc(prog.category_fa || prog.category)}</span>
+                  </div>
+                  <span class="supp-tab-count">${fa(prog.items_count || 0)} مکمل</span>
+                </div>
+
+                ${prog.description ? `<p class="supp-card-desc">${esc(prog.description)}</p>` : ''}
+
+                ${prog.items && prog.items.length > 0 ? `
+                  <div class="supp-card-items-preview">
+                    ${prog.items.slice(0, 4).map(it => `
+                      <span class="supp-item-chip">
+                        <span>${esc(it.icon || '💊')}</span>
+                        <span>${esc(it.supplement_name)} (${esc(it.timing)})</span>
+                      </span>
+                    `).join('')}
+                    ${prog.items.length > 4 ? `<span class="supp-item-chip">+${fa(prog.items.length - 4)} مورد دیگر</span>` : ''}
+                  </div>
+                ` : ''}
+
+                <div class="supp-card-footer">
+                  <div class="supp-card-actions">
+                    <button class="btn-supp-primary btn-edit-prog" data-id="${prog.id}" type="button" style="padding: 6px 14px; font-size: 12px;">
+                      ✏️ ویرایش
+                    </button>
+                    <button class="btn-supp-ai btn-ai-prog" data-id="${prog.id}" type="button" style="padding: 6px 12px; font-size: 12px;">
+                      ✨ تحلیل AI
+                    </button>
+                  </div>
+                  <button class="btn-supp-icon btn-danger btn-del-prog" data-id="${prog.id}" data-title="${esc(prog.title)}" type="button" title="حذف برنامه">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        bindTemplateListEvents(container);
+        return;
       }
 
-      if (list.length === 0) {
+      // ==========================================
+      // TAB 2: STUDENT SUPPLEMENT PROGRAMS (برنامه‌های مکمل شاگردان)
+      // Display ALL registered students with their supplement programs status!
+      // ==========================================
+      if (allStudents.length === 0) {
         container.innerHTML = `
           <div class="supp-empty-state-box" style="margin-top: 20px;">
             <div class="supp-empty-state-text">
-              ${listState.search ? 'برنامه‌ای با عبارت جستجو شده یافت نشد.' : 'هنوز هیچ برنامه مکملی در این بخش ثبت نشده است.'}
+              هنوز هیچ شاگردی در سیستم ثبت نشده است.
             </div>
-            <button class="btn-supp-green" id="btnEmptyStateNewProg" type="button">
-              افزودن نمونه برنامه مکمل +
+            <p style="font-size:13px; color:var(--text-muted); margin:0;">ابتدا از بخش مدیریت شاگردها، شاگردان خود را ثبت و دعوت کنید.</p>
+            <button class="btn-supp-green" id="btnGoToStudents" type="button">
+              👥 رفتن به مدیریت شاگردها
             </button>
           </div>
         `;
-        const btn = container.querySelector('#btnEmptyStateNewProg');
-        if (btn) btn.onclick = () => window.goToRoute('افزودن نمونه برنامه مکمل', '/programs/supplement/form');
+        const btn = container.querySelector('#btnGoToStudents');
+        if (btn) btn.onclick = () => window.goToRoute('لیست شاگردها', '/users-list');
+        return;
+      }
+
+      // Map programs by student_id
+      const programsByStudentId = {};
+      studentProgs.forEach(p => {
+        if (!programsByStudentId[p.student_id]) {
+          programsByStudentId[p.student_id] = [];
+        }
+        programsByStudentId[p.student_id].push(p);
+      });
+
+      // Filter students by search
+      let filteredStudents = allStudents;
+      if (search) {
+        filteredStudents = allStudents.filter(s => {
+          const nameMatch = (s.full_name || '').toLowerCase().includes(search);
+          const caseMatch = (s.case_number || '').toLowerCase().includes(search);
+          const mobileMatch = (s.mobile || '').toLowerCase().includes(search);
+          const progs = programsByStudentId[s.id] || [];
+          const progMatch = progs.some(p => (p.title || '').toLowerCase().includes(search));
+          return nameMatch || caseMatch || mobileMatch || progMatch;
+        });
+      }
+
+      if (filteredStudents.length === 0) {
+        container.innerHTML = `
+          <div class="supp-empty-state-box" style="margin-top: 20px;">
+            <div class="supp-empty-state-text">
+              شاگردی با عبارت جستجو شده یافت نشد.
+            </div>
+          </div>
+        `;
         return;
       }
 
       container.innerHTML = `
-        <div class="supp-grid">
-          ${list.map(prog => `
-            <div class="supp-card" data-id="${prog.id}">
-              <div class="supp-card-header">
-                <div>
-                  <h3 class="supp-card-title">${esc(prog.title)}</h3>
-                  <span class="supp-card-category">${esc(prog.category_fa || prog.category)}</span>
-                  ${prog.student_name ? `<span class="supp-item-chip" style="margin-right:6px;">👤 شاگرد: ${esc(prog.student_name)}</span>` : ''}
-                </div>
-                <span class="supp-tab-count">${fa(prog.items_count || 0)} مکمل</span>
-              </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          ${filteredStudents.map(student => {
+            const progs = programsByStudentId[student.id] || [];
+            const hasPrograms = progs.length > 0;
 
-              ${prog.description ? `<p class="supp-card-desc">${esc(prog.description)}</p>` : ''}
+            return `
+              <div class="supp-student-card" data-student-id="${student.id}">
+                <!-- Head -->
+                <div class="supp-student-head">
+                  <div class="supp-student-profile">
+                    <div class="supp-student-avatar">
+                      ${esc((student.full_name || 'ش')[0])}
+                    </div>
+                    <div class="supp-student-meta">
+                      <h3 class="supp-student-name">${esc(student.full_name)}</h3>
+                      <div class="supp-student-sub">
+                        <span class="supp-item-chip">📁 پرونده: <bdi>${esc(student.case_number || '—')}</bdi></span>
+                        <span class="supp-item-chip" dir="ltr">📱 ${esc(student.mobile || '—')}</span>
+                        <span class="supp-item-chip">${hasPrograms ? `🟢 ${fa(progs.length)} برنامه مکمل` : '⚪ بدون برنامه مکمل'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-              <div class="supp-card-footer">
-                <div class="supp-card-actions">
-                  <button class="btn-supp-primary btn-edit-prog" data-id="${prog.id}" type="button" style="padding: 6px 14px; font-size: 12px;">
-                    ✏️ ویرایش
-                  </button>
-                  <button class="btn-supp-ai btn-ai-prog" data-id="${prog.id}" type="button" style="padding: 6px 12px; font-size: 12px;">
-                    ✨ تحلیل AI
+                  <button class="btn-supp-green btn-assign-student-supp" data-student-id="${student.id}" data-student-name="${esc(student.full_name)}" type="button" style="padding: 7px 16px; font-size: 13px;">
+                    <span>➕</span>
+                    <span>${hasPrograms ? 'افزودن برنامه دیگر' : 'تخصیص و طراحی برنامه مکمل'}</span>
                   </button>
                 </div>
-                <button class="btn-supp-icon btn-danger btn-del-prog" data-id="${prog.id}" data-title="${esc(prog.title)}" type="button" title="حذف برنامه">
-                  🗑️
-                </button>
+
+                <!-- Programs for this student -->
+                <div class="supp-student-prog-section">
+                  ${hasPrograms ? `
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                      ${progs.map(p => `
+                        <div class="supp-student-prog-card" data-prog-id="${p.id}">
+                          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                              <span style="font-size:16px;">📋</span>
+                              <strong style="font-size:14px; color:var(--text-primary);">${esc(p.title)}</strong>
+                              <span class="supp-card-category">${esc(p.category_fa || p.category)}</span>
+                            </div>
+                            <span class="supp-tab-count">${fa(p.items_count || 0)} مکمل</span>
+                          </div>
+
+                          ${p.description ? `<p style="font-size:12px; color:var(--text-muted); margin:0; line-height:1.5;">${esc(p.description)}</p>` : ''}
+
+                          ${p.items && p.items.length > 0 ? `
+                            <div class="supp-card-items-preview">
+                              ${p.items.map(it => `
+                                <span class="supp-item-chip">
+                                  <span>${esc(it.icon || '💊')}</span>
+                                  <span>${esc(it.supplement_name)} (${esc(it.timing)})</span>
+                                </span>
+                              `).join('')}
+                              ${p.items.length > 6 ? `<span class="supp-item-chip">+${fa(p.items.length - 6)} مورد دیگر</span>` : ''}
+                            </div>
+                          ` : ''}
+
+                          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:4px;">
+                            <div style="display:flex; gap:6px;">
+                              <button class="btn-supp-primary btn-edit-prog" data-id="${p.id}" type="button" style="padding: 6px 14px; font-size: 12px;">
+                                ✏️ ویرایش برنامه
+                              </button>
+                              <button class="btn-supp-ai btn-ai-prog" data-id="${p.id}" type="button" style="padding: 6px 12px; font-size: 12px;">
+                                ✨ تحلیل هوشمند AI
+                              </button>
+                            </div>
+                            <button class="btn-supp-icon btn-danger btn-del-prog" data-id="${p.id}" data-title="${esc(p.title)}" type="button" title="حذف این برنامه">
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : `
+                    <div class="supp-student-no-prog-box">
+                      <div class="supp-student-no-prog-text">
+                        <span>ℹ️</span>
+                        <span>هنوز هیچ برنامه مکملی برای ${esc(student.full_name)} ثبت نشده است.</span>
+                      </div>
+                      <button class="btn-supp-secondary btn-assign-student-supp" data-student-id="${student.id}" data-student-name="${esc(student.full_name)}" type="button" style="font-size: 12px; padding: 6px 12px;">
+                        طراحی برنامه مکمل برای این شاگرد ↲
+                      </button>
+                    </div>
+                  `}
+                </div>
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
 
-      // Bind card actions
-      container.querySelectorAll('.btn-edit-prog').forEach(btn => {
-        btn.onclick = () => {
-          const id = btn.dataset.id;
-          window.goToRoute('ویرایش برنامه مکمل', `/programs/supplement/form?id=${id}`);
-        };
-      });
-
-      container.querySelectorAll('.btn-ai-prog').forEach(btn => {
-        btn.onclick = async () => {
-          const id = btn.dataset.id;
-          try {
-            const prog = await api(`/api/supplement-programs/${id}`);
-            const analysis = await api('/api/supplement-programs/analyze-ai', {
-              method: 'POST',
-              body: JSON.stringify(prog)
-            });
-            openAIAnalysisModal(analysis);
-          } catch (e) {
-            showToast('خطا در تحلیل هوشمند: ' + e.message, 'error');
-          }
-        };
-      });
-
-      container.querySelectorAll('.btn-del-prog').forEach(btn => {
-        btn.onclick = async () => {
-          const id = btn.dataset.id;
-          const title = btn.dataset.title;
-          if (confirm(`آیا از حذف برنامه مکمل «${title}» اطمینان دارید؟`)) {
-            try {
-              await api(`/api/supplement-programs/${id}`, { method: 'DELETE' });
-              showToast('برنامه مکمل با موفقیت حذف شد.', 'success');
-              loadAndRenderList();
-            } catch (e) {
-              showToast('خطا در حذف برنامه: ' + e.message, 'error');
-            }
-          }
-        };
-      });
+      bindStudentListEvents(container);
 
     } catch (err) {
-      container.innerHTML = `<div class="supp-empty-state-box"><div class="supp-empty-state-text" style="color:var(--danger);">خطا در دریافت لیست: ${esc(err.message)}</div></div>`;
+      container.innerHTML = `<div class="supp-empty-state-box"><div class="supp-empty-state-text" style="color:var(--danger);">خطا در دریافت اطلاعات: ${esc(err.message)}</div></div>`;
     }
+  }
+
+  function bindTemplateListEvents(container) {
+    container.querySelectorAll('.btn-edit-prog').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.id;
+        window.goToRoute('ویرایش برنامه مکمل', `/programs/supplement/form?id=${id}`);
+      };
+    });
+
+    container.querySelectorAll('.btn-ai-prog').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        try {
+          const prog = await api(`/api/supplement-programs/${id}`);
+          const analysis = await api('/api/supplement-programs/analyze-ai', {
+            method: 'POST',
+            body: JSON.stringify(prog)
+          });
+          openAIAnalysisModal(analysis);
+        } catch (e) {
+          showToast('خطا در تحلیل هوشمند: ' + e.message, 'error');
+        }
+      };
+    });
+
+    container.querySelectorAll('.btn-del-prog').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title;
+        if (confirm(`آیا از حذف برنامه مکمل «${title}» اطمینان دارید؟`)) {
+          try {
+            await api(`/api/supplement-programs/${id}`, { method: 'DELETE' });
+            showToast('برنامه مکمل با موفقیت حذف شد.', 'success');
+            loadAndRenderList();
+          } catch (e) {
+            showToast('خطا در حذف برنامه: ' + e.message, 'error');
+          }
+        }
+      };
+    });
+  }
+
+  function bindStudentListEvents(container) {
+    container.querySelectorAll('.btn-assign-student-supp').forEach(btn => {
+      btn.onclick = () => {
+        const studentId = btn.dataset.studentId;
+        const studentName = btn.dataset.studentName;
+        window.goToRoute('افزودن برنامه مکمل', `/programs/supplement/form?student_id=${studentId}&student_name=${encodeURIComponent(studentName)}`);
+      };
+    });
+
+    bindTemplateListEvents(container);
   }
 
   // Export functions to global window object

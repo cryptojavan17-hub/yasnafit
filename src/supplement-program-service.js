@@ -332,10 +332,19 @@ function listSupplementPrograms(db, filters = {}) {
   query += ` ORDER BY p.updated_at DESC, p.id DESC`;
 
   const rows = db.prepare(query).all(...params);
-  return rows.map(r => ({
-    ...r,
-    category_fa: CATEGORIES[r.category] || r.category
-  }));
+  return rows.map(r => {
+    const items = db.prepare(`
+      SELECT * FROM supplement_program_items
+      WHERE supplement_program_id = ? AND deleted_at IS NULL
+      ORDER BY sort_order ASC, id ASC
+      LIMIT 6
+    `).all(r.id);
+    return {
+      ...r,
+      items,
+      category_fa: CATEGORIES[r.category] || r.category
+    };
+  });
 }
 
 /**
