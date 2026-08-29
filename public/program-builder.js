@@ -688,7 +688,11 @@
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-summary-row">
                       <div class="movement-image">
+<<<<<<< HEAD
                         <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/assets/images/blank-white.svg'))}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
+=======
+                        <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/blank-white.svg'))}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+>>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
                       </div>
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <div class="mov-name-group">
@@ -1465,10 +1469,17 @@
       return;
     }
     host.innerHTML = `<div class="drawer-results-head"><b>${items.length.toLocaleString('fa-IR')} حرکت</b><span>برای افزودن روی حرکت بزنید — بانک باز می‌ماند</span></div>` + items.map(ex=>{
+<<<<<<< HEAD
       const thumbSrc = (ex.image_path && ex.image_path.trim()) ? ex.image_path : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/assets/images/blank-white.svg');
       return `
       <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}" data-ex-img="${esc(ex.image_path||'')}">
         <img src="${esc(thumbSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
+=======
+      const thumbSrc = (ex.image_path && ex.image_path.trim()) ? ex.image_path : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/blank-white.svg');
+      return `
+      <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}" data-ex-img="${esc(ex.image_path||'')}">
+        <img src="${esc(thumbSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+>>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
         <div>
           <b>${esc(ex.name_fa)}</b>
           <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)} • ${ex.location==='gym'?'باشگاه':ex.location==='home'?'منزل':'همه محل‌ها'}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
@@ -2010,11 +2021,43 @@
         `;
       }).join('');
       host.querySelectorAll('[data-del]').forEach(b=>{
+<<<<<<< HEAD
         b.onclick=async()=>{
           const id=b.dataset.del;
           if(confirm('برنامه حذف شود؟')){
             await api(`/api/training-programs/${id}`, {method:'DELETE'});
             location.reload();
+=======
+        b.onclick=async(e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          const id=b.dataset.del;
+          if(confirm('آیا از حذف این برنامه تمرینی اطمینان دارید؟')){
+            b.disabled=true;
+            b.textContent='در حال حذف...';
+            try {
+              const res = await api(`/api/training-programs/${id}`, {method:'DELETE'});
+              if(window.toast) window.toast(res.message || 'برنامه با موفقیت حذف شد.', 'success');
+              const card = b.closest('.program-card');
+              if(card){
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                card.style.transition = 'all 200ms ease';
+                setTimeout(() => {
+                  card.remove();
+                  if(document.querySelectorAll('.program-card').length === 0){
+                    location.reload();
+                  }
+                }, 200);
+              } else {
+                location.reload();
+              }
+            } catch(err){
+              alert('خطا در حذف برنامه: ' + (err.message || err));
+              b.disabled=false;
+              b.textContent='🗑 حذف';
+            }
+>>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
           }
         };
       });
