@@ -49,15 +49,87 @@ const publicDir = path.join(root, 'public');
   const uniqueTimings = new Set(suppService.TIMING_OPTIONS);
   assert.equal(uniqueTimings.size, 16, 'Timing options must not contain duplicates');
 
-  console.log('--- 3. Testing Supplement Catalog ---');
+  console.log('--- 3. Testing Supplement Catalog (Exact 69 Items in Order) ---');
   const catalog = suppService.getSupplementCatalog();
   assert.ok(Array.isArray(catalog), 'Catalog must be an array');
-  assert.ok(catalog.length >= 25, 'Catalog must contain at least 25 common supplements');
-  
-  const sampleSupp = catalog.find(s => s.name === 'پروتئین وی' || s.name === 'ویتامین B' || s.name === 'کراتین');
-  assert.ok(sampleSupp, 'Catalog must include essential supplements like Whey, Vitamin B, or Creatine');
-  assert.ok(sampleSupp.icon, 'Catalog item must have an icon');
-  assert.ok(sampleSupp.category, 'Catalog item must have a category');
+  assert.equal(catalog.length, 69, 'Catalog must contain exactly 69 supplement items');
+
+  const expected69 = [
+    'ویتامین B6',
+    'مولتی ویتامین',
+    'ویتامین B',
+    'ویتامین K',
+    'ویتامین E',
+    'ویتامین D',
+    'ویتامین C',
+    'ویتامین A',
+    'بی کمپلکس',
+    'قرص منیزیوم',
+    'روی (Zinc)',
+    'قرص سلنیوم',
+    'ویتامین B12',
+    'ویتامین B1',
+    'ویتامین B3',
+    'ویتامین B2',
+    'ویتامین B5',
+    'ویتامین B6',
+    'ویتامین B7',
+    'ویتامین B8',
+    'ویتامین B9',
+    'ویتامین B10',
+    'ویتامین B11',
+    'ویتامین B12',
+    'کوآنزیم Q10',
+    'آهن',
+    'آلفا لیپوئیک اسید (ALA)',
+    'رزوراترول',
+    'بتا کاروتن',
+    'بیوتین (B7)',
+    'پروتئین وی',
+    'پروتئین کازئین',
+    'کراتین',
+    'مکمل BCAA',
+    'مکمل لوسین',
+    'مکمل ایزولوسین',
+    'مکمل والین',
+    'مکمل EAA',
+    'گینر',
+    'پمپ ورزشی',
+    'بتا آلانین',
+    'سیترولین مالات',
+    'کافئین',
+    'ترموژنیک‌ها',
+    'ال-کارنیتین',
+    'چربی سوز CLA',
+    'گلوتامین',
+    'زینک + منیزیم (ZMA)',
+    'جوشان سایز بزرگ',
+    'مکمل HMB',
+    'آرژنین',
+    'پروتئین ایزوله',
+    'قرص کلسیم',
+    'قرص کرومیوم',
+    'مکمل Inositol',
+    'قرص سلنیوم پلاس',
+    'زینک پلاس',
+    'سدیم',
+    'امگا ۳',
+    'آستا',
+    'امگا',
+    'لیپوسیکس',
+    'کلاژن ویتامین C',
+    'نوروبیون خوراکی',
+    'قرص مالتودکسترین',
+    'پودر دکستروز یا مالتودکسترین',
+    'منیزیم سیترات',
+    'پودر سفیده تخم مرغ',
+    'قرص فاکسید'
+  ];
+
+  for (let i = 0; i < expected69.length; i++) {
+    assert.equal(catalog[i].name, expected69[i], `Supplement at index ${i} must be '${expected69[i]}'`);
+    assert.ok(catalog[i].icon, `Supplement '${catalog[i].name}' must have an icon`);
+  }
 
   console.log('--- 4. Testing Supplement Program Creation ---');
   // 4a. Reject program without title
