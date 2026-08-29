@@ -207,11 +207,7 @@ function studentProgramData(programData={}){
           original_exercise_id:movement.original_exercise_id||null,
           name:movement.nameFa||movement.name||'حرکت',
           description:movement.description||'',
-<<<<<<< HEAD
-          image_path:movement.image_path||(movement.original_exercise_id ? `/api/exercise-image/${movement.original_exercise_id}` : '/assets/images/blank-white.svg'),
-=======
           image_path:movement.image_path||(movement.original_exercise_id ? `/api/exercise-image/${movement.original_exercise_id}` : '/blank-white.svg'),
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
           video_path:movement.video_path||(movement.original_exercise_id ? `/files/exercise/videos/${movement.original_exercise_id}.mp4` : null),
           target_muscles:movement.target_muscles||[],
           sets:(movement.sets||[]).map(set=>({
@@ -962,16 +958,6 @@ async function handleTrainingPrograms(req,res,url){
 
     if(req.method==='DELETE'){
       try {
-<<<<<<< HEAD
-        // Soft delete
-        const r=db.prepare("UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND status='DRAFT' AND deleted_at IS NULL").run(id);
-        if(!r.changes) return sendError(res,409,'فقط پیش‌نویس قابل حذف است؛ برنامه تاریخی باید آرشیو شود');
-        log('برنامه تمرینی حذف شد (soft)', `id ${id}`);
-        return send(res,200,{id, soft_deleted:true});
-      } catch(e){
-        console.error('Delete program error:', e);
-        return sendError(res,500,'خطا در حذف');
-=======
         const existing = one('SELECT id, stable_id, student_id, status FROM training_programs WHERE id=? AND deleted_at IS NULL', id);
         if(!existing) return sendError(res,404,'برنامه پیدا نشد یا قبلاً حذف شده است');
 
@@ -982,7 +968,6 @@ async function handleTrainingPrograms(req,res,url){
       } catch(e){
         console.error('Delete program error:', e);
         return sendError(res,500,'خطا در حذف برنامه: ' + e.message);
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
       }
     }
   }
@@ -2095,16 +2080,12 @@ const server=http.createServer(async(req,res)=>{
       (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
     if(isCoachSpaRoute && !isCoachAuthorized(req)) return sendError(res,401,'دسترسی مربی احراز نشد');
 
-<<<<<<< HEAD
-=======
     // Blank white placeholder image serving
     if(url.pathname==='/blank-white.svg' || url.pathname==='/assets/images/blank-white.svg'){
       const blankWhiteSvg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>');
       res.writeHead(200,{'Content-Type':'image/svg+xml','Cache-Control':'public, max-age=86400'});
       return res.end(blankWhiteSvg);
     }
-
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
     // Secure image serving
     if(url.pathname.startsWith('/files/exercise/') || url.pathname.startsWith('/assets/images/exercises/') || url.pathname.startsWith('/assets/videos/')){
       const relative = url.pathname.replace('/files/exercise/','').replace('/assets/images/exercises/','').replace('/assets/videos/','');

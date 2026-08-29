@@ -67,20 +67,12 @@
   function imageHtml(ex) {
     const imgSrc = (ex.image_path && ex.image_path.trim())
       ? ex.image_path
-<<<<<<< HEAD
-      : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/assets/images/blank-white.svg');
-=======
       : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/blank-white.svg');
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
 
     return `
       <div class="image-wrap has-image" id="wrap-${ex.original_id||'m'}-${ex.id}">
         <img class="exercise-image" src="${esc(imgSrc)}" alt="${esc(ex.name_fa)}"
-<<<<<<< HEAD
-          onerror="this.src='/assets/images/blank-white.svg'"
-=======
           onerror="this.onerror=null; this.src='/blank-white.svg';"
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
           loading="lazy"
         >
       </div>
@@ -493,11 +485,7 @@
             <div id="modalMuscleChips" style="display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px;"></div>
           </div>
         </div>
-<<<<<<< HEAD
-        ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;background:rgba(255,255,255,1);" onerror="this.src='/assets/images/blank-white.svg'"></div>` : ''}
-=======
         ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;background:rgba(255,255,255,1);" onerror="this.onerror=null; this.src='/blank-white.svg';"></div>` : ''}
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
         <div class="modal-actions">
           <button class="secondary close" type="button">انصراف</button>
           <button class="primary">💾 ذخیره</button>

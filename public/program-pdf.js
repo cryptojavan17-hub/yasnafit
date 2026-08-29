@@ -169,21 +169,13 @@
             const targetMusclesStr = resolveMusclesLabel(mov.target_muscles);
             const imgSrc = (mov.image_path && mov.image_path.trim())
               ? mov.image_path
-<<<<<<< HEAD
-              : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
-=======
               : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/blank-white.svg');
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
             const setsHTML = renderSetsHTML(mov.sets);
 
             return `
               <div class="pdf-combo-row">
                 <div class="pdf-mov-img">
-<<<<<<< HEAD
-                  <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
-=======
                   <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
                 </div>
                 <div class="pdf-mov-info">
                   <div class="pdf-mov-name-row">
@@ -225,11 +217,7 @@
           const targetMusclesStr = resolveMusclesLabel(mov.target_muscles);
           const imgSrc = (mov.image_path && mov.image_path.trim())
             ? mov.image_path
-<<<<<<< HEAD
-            : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
-=======
             : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/blank-white.svg');
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
 
           let inlineSystemTag = '';
           if (sysId === 5) inlineSystemTag = '<span class="pdf-system-inline-pill">💧 دراپ‌ست</span>';
@@ -247,11 +235,7 @@
           return `
             <div class="pdf-mov-row">
               <div class="pdf-mov-img">
-<<<<<<< HEAD
-                <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'" loading="lazy">
-=======
                 <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
               </div>
               <div class="pdf-mov-info">
                 <div class="pdf-mov-name-row">

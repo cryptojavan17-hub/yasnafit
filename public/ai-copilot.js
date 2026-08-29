@@ -488,20 +488,12 @@
                 const mNum = movCounter++;
                 const imgSrc = (mov.image_path && mov.image_path.trim())
                   ? mov.image_path
-<<<<<<< HEAD
-                  : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
-=======
                   : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/blank-white.svg');
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
                 return `
                   <div class="ai-preview-mov-row">
                     <div class="ai-preview-mov-right">
                       <div class="ai-preview-mov-img">
-<<<<<<< HEAD
-                        <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
-=======
                         <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';">
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
                       </div>
                       <div class="ai-preview-mov-info">
                         <div class="ai-preview-mov-name-group">
@@ -526,11 +518,7 @@
           const movName = mov.nameFa || mov.name || 'حرکت تمرینی';
           const imgSrc = (mov.image_path && mov.image_path.trim())
             ? mov.image_path
-<<<<<<< HEAD
-            : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/assets/images/blank-white.svg');
-=======
             : (mov.original_exercise_id ? `/api/exercise-image/${mov.original_exercise_id}` : '/blank-white.svg');
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
 
           let inlineTag = '';
           if (sysId === 5) inlineTag = '<span class="ai-preview-system-tag">💧 دراپ‌ست</span>';
@@ -544,11 +532,7 @@
             <div class="ai-preview-mov-row">
               <div class="ai-preview-mov-right">
                 <div class="ai-preview-mov-img">
-<<<<<<< HEAD
-                  <img src="${esc(imgSrc)}" alt="" onerror="this.src='/assets/images/blank-white.svg'">
-=======
                   <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';">
->>>>>>> 025511f (fix: resolve blank image flickering with robust fallback and fix program deletion in bank)
                 </div>
                 <div class="ai-preview-mov-info">
                   <div class="ai-preview-mov-name-group">
