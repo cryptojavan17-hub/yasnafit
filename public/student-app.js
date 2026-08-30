@@ -151,7 +151,7 @@
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginFullName"><span>نام و نام خانوادگی</span></label><input class="auth-input" id="loginFullName" name="full_name" autocomplete="name" value="${esc(studentName||'')}" placeholder="نام و نام خانوادگی خود را وارد کنید"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
+              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginFullName"><span>نام و نام خانوادگی</span></label><input class="auth-input" id="loginFullName" name="full_name" autocomplete="name" value="${esc(studentName||'')}" placeholder="نام و نام خانوادگی خود را وارد کنید"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
 
                 <div class="auth-field-group">
                   <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
@@ -165,7 +165,7 @@
                   <button type="button" class="auth-forgot-link" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
                 </div>
 
-                <button class="btn-auth-turquoise btn-auth-submit" id="btnLoginSubmit">
+                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnLoginSubmit">
                   <span>ورود</span>
                 </button>
 
@@ -180,6 +180,7 @@
             <!-- TAB 2: REGISTER FORM -->
             <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
               <form class="student-auth-form" id="studentRegisterForm">
+                <div id="registerSuccessBanner" class="auth-success-banner" style="display:none;"></div>
                 <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
 
                 <div class="auth-field-group">
@@ -291,7 +292,7 @@
                   <span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span>
                 </label>
 
-                <button class="btn-auth-turquoise btn-auth-submit" id="btnRegisterSubmit">
+                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnRegisterSubmit">
                   <span>ثبت‌نام</span>
                 </button>
 
@@ -411,14 +412,60 @@
 
     // Login Form Submit Handler
     const loginFormEl = root.querySelector('#studentLoginForm');
+    // Login Form Submit Handler
+    const loginFormEl = root.querySelector('#studentLoginForm');
+    const loginErrBanner = root.querySelector('#loginErrorBanner');
+    const loginSuccBanner = root.querySelector('#loginSuccessBanner');
+
+    function showLoginErr(msg) {
+      if(loginSuccBanner) loginSuccBanner.style.display = 'none';
+      if(loginErrBanner){
+        loginErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`;
+        loginErrBanner.style.display = 'flex';
+      }
+      toast(msg, 'error');
+      const formPanel = root.querySelector('.auth-form-panel');
+      if(formPanel) formPanel.scrollTop = 0;
+    }
+
+    function showLoginSucc(msg) {
+      if(loginErrBanner) loginErrBanner.style.display = 'none';
+      if(loginSuccBanner){
+        loginSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`;
+        loginSuccBanner.style.display = 'flex';
+      }
+      toast(msg.replace(/<[^>]+>/g, ''), 'success');
+      const formPanel = root.querySelector('.auth-form-panel');
+      if(formPanel) formPanel.scrollTop = 0;
+    }
+
     if(loginFormEl){
       loginFormEl.onsubmit = async event => {
         event.preventDefault();
-        const button = event.currentTarget.querySelector('button');
+        if(loginErrBanner) loginErrBanner.style.display = 'none';
+        if(loginSuccBanner) loginSuccBanner.style.display = 'none';
+
+        const submitBtn = event.currentTarget.querySelector('#btnLoginSubmit') || event.currentTarget.querySelector('button.btn-auth-submit') || event.currentTarget.querySelector('button');
         const form = new FormData(event.currentTarget);
-        const originalText = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<span>⏳</span> <span>در حال ورود امن…</span>';
+        const originalText = submitBtn ? submitBtn.innerHTML : '<span>ورود</span>';
+
+        const rawMobile = String(form.get('mobile')||'').trim();
+        const password = String(form.get('password')||'');
+
+        if(!rawMobile){
+          showLoginErr('لطفاً شماره همراه خود را وارد فرمایید.');
+          return;
+        }
+        if(!password){
+          showLoginErr('لطفاً رمز عبور خود را وارد فرمایید.');
+          return;
+        }
+
+        if(submitBtn){
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>⏳</span> <span>در حال بررسی اطلاعات و ورود امن…</span>';
+        }
+
         try{
           const result = await api('/api/student/auth/login', {
             method: 'POST',
@@ -429,23 +476,55 @@
               invitation_token: token || undefined
             })
           });
-          location.replace(result.next_route);
+          showLoginSucc('ورود با موفقیت انجام شد. در حال هدایت به پنل شخصی…');
+          setTimeout(() => {
+            location.replace(result.next_route || '/student/dashboard');
+          }, 800);
         }catch(error){
-          toast(error.message, 'error');
-          button.disabled = false;
-          button.innerHTML = originalText;
+          showLoginErr(error.message || 'شماره همراه یا رمز عبور وارد شده نادرست است.');
+          if(submitBtn){
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+          }
         }
       };
     }
 
     // Register Form Submit Handler
     const registerFormEl = root.querySelector('#studentRegisterForm');
-    const errorBanner = root.querySelector('#registerErrorBanner');
+    const regErrBanner = root.querySelector('#registerErrorBanner');
+    const regSuccBanner = root.querySelector('#registerSuccessBanner');
+
+    function showRegErr(msg) {
+      if(regSuccBanner) regSuccBanner.style.display = 'none';
+      if(regErrBanner){
+        regErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`;
+        regErrBanner.style.display = 'flex';
+      }
+      toast(msg, 'error');
+      const formPanel = root.querySelector('.auth-form-panel');
+      if(formPanel) formPanel.scrollTop = 0;
+    }
+
+    function showRegSucc(msg) {
+      if(regErrBanner) regErrBanner.style.display = 'none';
+      if(regSuccBanner){
+        regSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`;
+        regSuccBanner.style.display = 'flex';
+      }
+      toast(msg.replace(/<[^>]+>/g, ''), 'success');
+      const formPanel = root.querySelector('.auth-form-panel');
+      if(formPanel) formPanel.scrollTop = 0;
+    }
 
     if(registerFormEl){
       registerFormEl.onsubmit = async event => {
         event.preventDefault();
-        if(errorBanner) errorBanner.style.display = 'none';
+        if(regErrBanner) regErrBanner.style.display = 'none';
+        if(regSuccBanner) regSuccBanner.style.display = 'none';
+
+        const submitBtn = event.currentTarget.querySelector('#btnRegisterSubmit') || event.currentTarget.querySelector('button.btn-auth-submit') || event.currentTarget.querySelector('button');
+        const originalText = submitBtn ? submitBtn.innerHTML : '<span>ثبت‌نام</span>';
 
         const form = new FormData(event.currentTarget);
         const fullName = String(form.get('full_name')||'').trim();
@@ -462,34 +541,50 @@
         const weight = form.get('weight') ? Number(form.get('weight')) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
 
+        if(!fullName || fullName.length < 2){
+          showRegErr('لطفاً نام و نام خانوادگی خود را کامل وارد فرمایید (حداقل ۲ حرف).');
+          return;
+        }
+
+        if(!rawMobile){
+          showRegErr('لطفاً شماره همراه خود را وارد فرمایید.');
+          return;
+        }
+
+        if(!dob){
+          showRegErr('لطفاً تاریخ تولد خود را وارد فرمایید.');
+          return;
+        }
+
         if(!province || !city){
-          if(errorBanner){
-            errorBanner.textContent = 'لطفاً استان و شهر محل سکونت خود را انتخاب فرمایید.';
-            errorBanner.style.display = 'flex';
-          }
+          showRegErr('لطفاً استان و شهر محل سکونت خود را انتخاب فرمایید.');
           return;
         }
 
         if(!address || address.length < 5){
-          if(errorBanner){
-            errorBanner.textContent = 'لطفاً آدرس کامل محل سکونت را وارد نمایید.';
-            errorBanner.style.display = 'flex';
-          }
+          showRegErr('لطفاً آدرس کامل محل سکونت خود را وارد فرمایید (حداقل ۵ حرف).');
+          return;
+        }
+
+        if(!password || password.length < 8){
+          showRegErr('رمز عبور باید حداقل ۸ کاراکتر باشد.');
           return;
         }
 
         if(password !== confirmPassword){
-          if(errorBanner){
-            errorBanner.textContent = 'تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.';
-            errorBanner.style.display = 'flex';
-          }
+          showRegErr('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.');
           return;
         }
 
-        const button = event.currentTarget.querySelector('button[type="submit"]');
-        const originalText = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<span>⏳</span> <span>در حال ساخت حساب و شروع ارزیابی…</span>';
+        if(!termsAccepted){
+          showRegErr('لطفاً تیک پذیرش شرایط استفاده و قوانین سامانه را بزنید.');
+          return;
+        }
+
+        if(submitBtn){
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت اطلاعات و ایجاد پرونده ورزشی…</span>';
+        }
 
         try{
           const payload = {
@@ -513,17 +608,18 @@
             body: jsonBody(payload)
           });
 
-          toast('ثبت‌نام با موفقیت انجام شد. هدایت به فرم ارزیابی…', 'success');
-          location.replace(result.next_route || '/student/onboarding');
+          const caseNum = result.student?.case_number || '';
+          showRegSucc(`ثبت‌نام شما با موفقیت انجام شد! ${caseNum ? `(شماره پرونده: <strong>${esc(caseNum)}</strong>)` : ''} در حال انتقال به فرم ارزیابی اولیه…`);
+
+          setTimeout(() => {
+            location.replace(result.next_route || '/student/onboarding');
+          }, 1200);
         }catch(error){
-          if(errorBanner){
-            errorBanner.textContent = error.message;
-            errorBanner.style.display = 'flex';
-          } else {
-            toast(error.message, 'error');
+          showRegErr(error.message || 'خطا در ثبت‌نام. لطفاً مجدداً تلاش فرمایید.');
+          if(submitBtn){
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
           }
-          button.disabled = false;
-          button.innerHTML = originalText;
         }
       };
     }
