@@ -534,3 +534,7 @@
   gap: 10px;
 }
 
+.anim-fade {
+  animation: modalIn 200ms ease;
+}
+

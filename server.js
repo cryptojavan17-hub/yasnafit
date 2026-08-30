@@ -2201,6 +2201,9 @@ async function api(req,res,url){
       return send(res, 200, { ok: true });
     }
     if(p==='/api/health') return await handleHealth(req,res);
+    if(p==='/api/location/provinces' && req.method==='GET'){
+      return send(res, 200, studentAuthService.IRAN_PROVINCES_AND_CITIES);
+    }
     if(p==='/api/version' || p==='/api/releases' || p.startsWith('/api/releases/')){
       const releaseResponse=await handleReleaseInfo(req,res,url);
       if(releaseResponse) return releaseResponse;

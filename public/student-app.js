@@ -81,9 +81,45 @@
     return { score: 1, label: 'ضعیف', class: 'weak' };
   }
 
+  const IRAN_PROVINCES_AND_CITIES = {
+    'تهران': ['تهران', 'ری', 'شمیرانات', 'اسلامشهر', 'شهریار', 'قدس', 'ملارد', 'ورامین', 'پاکدشت', 'بهارستان', 'دماوند', 'پردیس', 'قرچک', 'رباط‌کریم', 'فیروزکوه'],
+    'اصفهان': ['اصفهان', 'کاشان', 'نجف‌آباد', 'خمینی‌شهر', 'شاهین‌شهر', 'لنجان', 'فلاورجان', 'فولادشهر', 'مبارکه', 'شهرضا', 'گلپایگان', 'نائین', 'نطنز', 'خوانسار', 'اردستان', 'سمیرم'],
+    'خراسان رضوی': ['مشهد', 'نیشابور', 'سبزوار', 'تربت حیدریه', 'کاشمر', 'قوچان', 'تربت جام', 'چناران', 'تایباد', 'سرخس', 'گناباد', 'فریمان', 'درگز'],
+    'فارس': ['شیراز', 'مرودشت', 'کازرون', 'جهرم', 'فسا', 'لارستان', 'داراب', 'آباده', 'اقلید', 'فیروزآباد', 'نی‌ریز', 'ممسنی', 'استهبان', 'سپیدان'],
+    'خوزستان': ['اهواز', 'دزفول', 'آبادان', 'ماهشهر', 'خرمشهر', 'بهبهان', 'ایذه', 'شوشتر', 'شوش', 'اندیمشک', 'مسجدسلیمان', 'رامهرمز', 'امیدیه', 'هندیجان'],
+    'آذربایجان شرقی': ['تبریز', 'مراغه', 'مرند', 'میانه', 'اهر', 'بناب', 'شبستر', 'سراب', 'آذرشهر', 'اسکو', 'هریس', 'عجب‌شیر', 'جلفا', 'ملکان'],
+    'مازندران': ['ساری', 'بابل', 'آمل', 'قائم‌شهر', 'بهشهر', 'بابلسر', 'تنکابن', 'نوشهر', 'چالوس', 'نکا', 'نور', 'رامسر', 'محمودآباد', 'فریدونکنار'],
+    'گیلان': ['رشت', 'انزلی', 'لاهیجان', 'لنگرود', 'تالش', 'رودسر', 'فومن', 'صومعه‌سرا', 'آستارا', 'رودبار', 'املش', 'ماسال', 'شفت', 'سیاهکل'],
+    'البرز': ['کرج', 'فردیس', 'ساوجبلاغ', 'نظرآباد', 'اشتهارد', 'هشتگرد', 'طالقان', 'چهارباغ'],
+    'آذربایجان غربی': ['ارومیه', 'خوی', 'بوکان', 'مهاباد', 'میاندوآب', 'سلماس', 'پیرانشهر', 'نقده', 'سردشت', 'شاهین‌دژ', 'تکاب', 'ماکو'],
+    'کرمان': ['کرمان', 'سیرجان', 'رفسنجان', 'جیرفت', 'بم', 'زرند', 'بافت', 'کهنوج', 'شهربابک', 'بردسیر', 'عنبرآباد', 'منوجان'],
+    'هرمزگان': ['بندرعباس', 'قشم', 'کیش', 'میناب', 'بندرلنگه', 'رودان', 'بستک', 'حاجی‌آباد', 'جاسک', 'پارسیان', 'خمیر'],
+    'کرمانشاه': ['کرمانشاه', 'اسلام‌آباد غرب', 'کنگاور', 'سنقر', 'هرسین', 'صحنه', 'پاوه', 'سرپل ذهاب', 'جوانرود', 'روانسر'],
+    'یزد': ['یزد', 'میبد', 'اردکان', 'بافق', 'مهریز', 'ابرکوه', 'تفت', 'خاتم', 'اشکذر', 'بهاباد'],
+    'مرکزی': ['اراک', 'ساوه', 'خمین', 'محلات', 'دلیجان', 'شازند', 'زرندیه', 'تفرش', 'فراهان', 'آشتیان'],
+    'قم': ['قم', 'قنوات', 'سلفچگان', 'جعفریه', 'کهک', 'دستجرد'],
+    'همدان': ['همدان', 'ملایر', 'نهاوند', 'تویسرکان', 'اسدآباد', 'کبودرآهنگ', 'بهار', 'رزن', 'درگزین', 'فامنین'],
+    'قزوین': ['قزوین', 'تاکستان', 'الوند', 'بویین‌زهرا', 'آبیک', 'اقبالیه', 'محمدیه', 'محمودآباد نمونه'],
+    'گلستان': ['گرگان', 'گنبد کاووس', 'علی‌آباد کتول', 'بندر ترکمن', 'کلاله', 'آق‌قلا', 'کردکوی', 'مینودشت', 'آزادشهر'],
+    'لرستان': ['خرم‌آباد', 'بروجرد', 'دورود', 'کوهدشت', 'الیگودرز', 'نورآباد', 'ازنا', 'پلدختر', 'الشتر', 'چگنی'],
+    'اردبیل': ['اردبیل', 'پارس‌آباد', 'مشگین‌شهر', 'خلخال', 'گرمی', 'بیله‌سوار', 'نمین', 'سرعین', 'کوثر', 'اصلاندوز'],
+    'کردستان': ['سنندج', 'سقز', 'مریوان', 'بانه', 'قروه', 'کامیاران', 'بیجار', 'دیواندره', 'دهگلان', 'سروآباد'],
+    'سمنان': ['سمنان', 'شاهرود', 'دامغان', 'گرمسار', 'مهدی‌شهر', 'ایوانکی', 'شهمیرزاد', 'آرادان', 'سرخه'],
+    'سیستان و بلوچستان': ['زاهدان', 'زابل', 'چابهار', 'ایرانشهر', 'سراوان', 'خاش', 'کنارک', 'نیک‌شهر', 'دشتیاری', 'راسک'],
+    'بوشهر': ['بوشهر', 'برازجان', 'کنگان', 'گناوه', 'عسلویه', 'خورموج', 'جم', 'دیر', 'دیلم', 'تنگستان'],
+    'زنجان': ['زنجان', 'ابهر', 'خرمدره', 'قیدار', 'هیدج', 'صائین‌قلعه', 'ماهنشان', 'آب‌بر', 'زرین‌رود'],
+    'چهارمحال و بختیاری': ['شهرکرد', 'بروجن', 'لردگان', 'فرخ‌شهر', 'فارسان', 'هفشجان', 'سامان', 'بن', 'کیار'],
+    'خراسان جنوبی': ['بیرجند', 'قائنات', 'طبس', 'فردوس', 'نهبندان', 'سرایان', 'سربیشه', 'درمیان', 'بشرویه'],
+    'خراسان شمالی': ['بجنورد', 'شیروان', 'اسفراین', 'آشخانه', 'جاجرم', 'گرمه', 'فاروج', 'راز و جرگلان'],
+    'کهگیلویه و بویراحمد': ['یاسوج', 'دوگنبدان', 'دهدشت', 'چرام', 'سی‌سخت', 'باشت', 'لنده', 'لیکک'],
+    'ایلام': ['ایلام', 'دهلران', 'ایوان', 'آبدانان', 'دره‌شهر', 'مهران', 'سرابله', 'لومار', 'ملکشاهی', 'چوار']
+  };
+
   function loginForm({token='',studentName='',caseNumber='',initialTab='login'}={}){
     const isJoin = Boolean(token);
     const activeTab = isJoin ? 'login' : (initialTab === 'register' ? 'register' : 'login');
+
+    const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
 
     root.innerHTML = `
       <section class="student-auth-page">
@@ -143,7 +179,7 @@
 
               <div class="auth-field-group">
                 <label for="regFullName">نام و نام خانوادگی *</label>
-                <input class="auth-input" id="regFullName" name="full_name" required maxlength="100" autocomplete="name" placeholder="مثال: سارا محمدی">
+                <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="مثال: سارا محمدی">
               </div>
 
               <div class="auth-field-group">
@@ -152,6 +188,35 @@
                   <span>09-</span>
                   <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="10" placeholder="0000000000">
                 </div>
+              </div>
+
+              <!-- تاریخ تولد -->
+              <div class="auth-field-group">
+                <label for="regDob">تاریخ تولد *</label>
+                <input class="auth-input" id="regDob" name="date_of_birth" data-jalali required placeholder="مثلاً: ۱۳۷۵/۰۴/۱۵">
+              </div>
+
+              <!-- استان و شهر وابسته -->
+              <div class="auth-grid-2">
+                <div class="auth-field-group">
+                  <label for="regProvince">استان محل سکونت *</label>
+                  <select class="auth-input" id="regProvince" name="province" required>
+                    <option value="" disabled selected>انتخاب استان...</option>
+                    ${provinceOptionsHtml}
+                  </select>
+                </div>
+                <div class="auth-field-group">
+                  <label for="regCity">شهر محل سکونت *</label>
+                  <select class="auth-input" id="regCity" name="city" required disabled>
+                    <option value="" disabled selected>ابتدا استان را انتخاب کنید...</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- آدرس کامل محل سکونت -->
+              <div class="auth-field-group">
+                <label for="regAddress">آدرس کامل محل سکونت *</label>
+                <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..." style="height:64px; padding:8px 12px; resize:vertical;"></textarea>
               </div>
 
               <div class="auth-field-group">
@@ -229,6 +294,233 @@
         </div>
       </section>
     `;
+
+    if (window.YasnaJalali) window.YasnaJalali.autoInit();
+
+    // Tab switching bindings
+    const tabLogin = root.querySelector('#tabBtnLogin');
+    const tabRegister = root.querySelector('#tabBtnRegister');
+    const panelLogin = root.querySelector('#authLoginPanel');
+    const panelRegister = root.querySelector('#authRegisterPanel');
+
+    if(tabLogin && tabRegister){
+      tabLogin.onclick = () => {
+        tabLogin.classList.add('active');
+        tabLogin.setAttribute('aria-selected', 'true');
+        tabRegister.classList.remove('active');
+        tabRegister.setAttribute('aria-selected', 'false');
+        panelLogin.style.display = 'block';
+        panelRegister.style.display = 'none';
+      };
+      tabRegister.onclick = () => {
+        tabRegister.classList.add('active');
+        tabRegister.setAttribute('aria-selected', 'true');
+        tabLogin.classList.remove('active');
+        tabLogin.setAttribute('aria-selected', 'false');
+        panelRegister.style.display = 'block';
+        panelLogin.style.display = 'none';
+      };
+    }
+
+    // Dependent Province & City Dropdowns Binding
+    const provSelect = root.querySelector('#regProvince');
+    const citySelect = root.querySelector('#regCity');
+    if(provSelect && citySelect){
+      provSelect.addEventListener('change', () => {
+        const prov = provSelect.value;
+        const cities = IRAN_PROVINCES_AND_CITIES[prov] || [];
+        citySelect.innerHTML = '<option value="" disabled selected>انتخاب شهر...</option>' +
+          cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        citySelect.disabled = false;
+        citySelect.classList.remove('anim-fade');
+        void citySelect.offsetWidth; // trigger reflow
+        citySelect.classList.add('anim-fade');
+      });
+    }
+
+    // Password show/hide toggle
+    root.querySelectorAll('.password-toggle-btn').forEach(btn => {
+      btn.onclick = () => {
+        const targetId = btn.dataset.toggleFor;
+        const input = root.querySelector(`#${targetId}`);
+        if(input){
+          const isPass = input.type === 'password';
+          input.type = isPass ? 'text' : 'password';
+          btn.textContent = isPass ? '🙈' : '👁️';
+        }
+      };
+    });
+
+    // Password strength meter binding
+    const regPassInput = root.querySelector('#regPassword');
+    const strengthBox = root.querySelector('#regPasswordStrength');
+    const seg1 = root.querySelector('#strengthSeg1');
+    const seg2 = root.querySelector('#strengthSeg2');
+    const seg3 = root.querySelector('#strengthSeg3');
+    const strengthLabel = root.querySelector('#strengthTextLabel');
+
+    if(regPassInput && strengthBox){
+      regPassInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if(!val){
+          strengthBox.style.display = 'none';
+          return;
+        }
+        strengthBox.style.display = 'flex';
+        const str = evaluatePasswordStrength(val);
+        strengthLabel.textContent = str.label;
+        seg1.className = 'strength-seg ' + (str.score >= 1 ? str.class : '');
+        seg2.className = 'strength-seg ' + (str.score >= 2 ? str.class : '');
+        seg3.className = 'strength-seg ' + (str.score >= 3 ? str.class : '');
+      });
+    }
+
+    // Confirm password live match check
+    const regConfirmInput = root.querySelector('#regConfirmPassword');
+    const matchHint = root.querySelector('#passwordMatchHint');
+    if(regConfirmInput && regPassInput && matchHint){
+      regConfirmInput.addEventListener('input', () => {
+        if(!regConfirmInput.value){
+          matchHint.style.display = 'none';
+          return;
+        }
+        matchHint.style.display = 'block';
+        if(regConfirmInput.value === regPassInput.value){
+          matchHint.textContent = '✓ تکرار رمز عبور مطابقت دارد.';
+          matchHint.style.color = 'var(--success)';
+        } else {
+          matchHint.textContent = '✕ رمز عبور و تکرار آن یکسان نیستند.';
+          matchHint.style.color = 'var(--danger)';
+        }
+      });
+    }
+
+    // Forgot password info trigger
+    const forgotBtn = root.querySelector('#btnForgotPassword');
+    if(forgotBtn){
+      forgotBtn.onclick = () => {
+        alert('در صورت فراموشی رمز عبور شخصی، با مربی خود تماس بگیرید یا از رمز موقت ۴ رقمی پایان شماره همراه خود استفاده کنید.');
+      };
+    }
+
+    // Login Form Submit Handler
+    const loginFormEl = root.querySelector('#studentLoginForm');
+    if(loginFormEl){
+      loginFormEl.onsubmit = async event => {
+        event.preventDefault();
+        const button = event.currentTarget.querySelector('button');
+        const form = new FormData(event.currentTarget);
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span>⏳</span> <span>در حال ورود امن…</span>';
+        try{
+          const result = await api('/api/student/auth/login', {
+            method: 'POST',
+            body: jsonBody({
+              mobile:completeMobile(form.get('mobile')),
+              password: form.get('password'),
+              invitation_token: token || undefined
+            })
+          });
+          location.replace(result.next_route);
+        }catch(error){
+          toast(error.message, 'error');
+          button.disabled = false;
+          button.innerHTML = originalText;
+        }
+      };
+    }
+
+    // Register Form Submit Handler
+    const registerFormEl = root.querySelector('#studentRegisterForm');
+    const errorBanner = root.querySelector('#registerErrorBanner');
+
+    if(registerFormEl){
+      registerFormEl.onsubmit = async event => {
+        event.preventDefault();
+        if(errorBanner) errorBanner.style.display = 'none';
+
+        const form = new FormData(event.currentTarget);
+        const fullName = String(form.get('full_name')||'').trim();
+        const rawMobile = String(form.get('mobile')||'').trim();
+        const dob = String(form.get('date_of_birth')||'').trim();
+        const province = String(form.get('province')||'').trim();
+        const city = String(form.get('city')||'').trim();
+        const address = String(form.get('address')||'').trim();
+        const password = String(form.get('password')||'');
+        const confirmPassword = String(form.get('confirm_password')||'');
+        const goal = String(form.get('goal')||'').trim();
+        const gender = String(form.get('gender')||'unspecified');
+        const height = form.get('height') ? Number(form.get('height')) : null;
+        const weight = form.get('weight') ? Number(form.get('weight')) : null;
+        const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
+
+        if(!province || !city){
+          if(errorBanner){
+            errorBanner.textContent = 'لطفاً استان و شهر محل سکونت خود را انتخاب فرمایید.';
+            errorBanner.style.display = 'flex';
+          }
+          return;
+        }
+
+        if(!address || address.length < 5){
+          if(errorBanner){
+            errorBanner.textContent = 'لطفاً آدرس کامل محل سکونت را وارد نمایید.';
+            errorBanner.style.display = 'flex';
+          }
+          return;
+        }
+
+        if(password !== confirmPassword){
+          if(errorBanner){
+            errorBanner.textContent = 'تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.';
+            errorBanner.style.display = 'flex';
+          }
+          return;
+        }
+
+        const button = event.currentTarget.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span>⏳</span> <span>در حال ساخت حساب و شروع ارزیابی…</span>';
+
+        try{
+          const payload = {
+            full_name: fullName,
+            mobile: completeMobile(rawMobile),
+            date_of_birth: dob,
+            province,
+            city,
+            address,
+            password,
+            confirm_password: confirmPassword,
+            goal,
+            gender,
+            height,
+            weight,
+            terms_accepted: termsAccepted
+          };
+
+          const result = await api('/api/student/auth/register', {
+            method: 'POST',
+            body: jsonBody(payload)
+          });
+
+          toast('ثبت‌نام با موفقیت انجام شد. هدایت به فرم ارزیابی…', 'success');
+          location.replace(result.next_route || '/student/onboarding');
+        }catch(error){
+          if(errorBanner){
+            errorBanner.textContent = error.message;
+            errorBanner.style.display = 'flex';
+          } else {
+            toast(error.message, 'error');
+          }
+          button.disabled = false;
+          button.innerHTML = originalText;
+        }
+      };
+    }
+  }
 
     // Tab switching bindings
     const tabLogin = root.querySelector('#tabBtnLogin');

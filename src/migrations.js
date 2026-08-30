@@ -1234,6 +1234,16 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_supp_items_program ON supplement_program_items(supplement_program_id);
       `);
     }
+  },
+  {
+    id: '027_student_location_and_registration_fields',
+    description: 'Add province, city, and full address fields for comprehensive student self-registration',
+    up(db) {
+      const columns = new Set(db.prepare("PRAGMA table_info('students')").all().map(c => c.name));
+      if (!columns.has('province')) db.exec('ALTER TABLE students ADD COLUMN province TEXT');
+      if (!columns.has('city')) db.exec('ALTER TABLE students ADD COLUMN city TEXT');
+      if (!columns.has('address')) db.exec('ALTER TABLE students ADD COLUMN address TEXT');
+    }
   }
 ];
 

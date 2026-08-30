@@ -80,16 +80,88 @@ function setPersonalPassword(db,studentId,newPassword){
   return {password_state:'PERSONAL',password_changed_at:new Date().toISOString()};
 }
 
+const IRAN_PROVINCES_AND_CITIES = {
+  'تهران': ['تهران', 'ری', 'شمیرانات', 'اسلامشهر', 'شهریار', 'قدس', 'ملارد', 'ورامین', 'پاکدشت', 'بهارستان', 'دماوند', 'پردیس', 'قرچک', 'رباط‌کریم', 'فیروزکوه'],
+  'اصفهان': ['اصفهان', 'کاشان', 'نجف‌آباد', 'خمینی‌شهر', 'شاهین‌شهر', 'لنجان', 'فلاورجان', 'فولادشهر', 'مبارکه', 'شهرضا', 'گلپایگان', 'نائین', 'نطنز', 'خوانسار', 'اردستان', 'سمیرم'],
+  'خراسان رضوی': ['مشهد', 'نیشابور', 'سبزوار', 'تربت حیدریه', 'کاشمر', 'قوچان', 'تربت جام', 'چناران', 'تایباد', 'سرخس', 'گناباد', 'فریمان', 'درگز'],
+  'فارس': ['شیراز', 'مرودشت', 'کازرون', 'جهرم', 'فسا', 'لارستان', 'داراب', 'آباده', 'اقلید', 'فیروزآباد', 'نی‌ریز', 'ممسنی', 'استهبان', 'سپیدان'],
+  'خوزستان': ['اهواز', 'دزفول', 'آبادان', 'ماهشهر', 'خرمشهر', 'بهبهان', 'ایذه', 'شوشتر', 'شوش', 'اندیمشک', 'مسجدسلیمان', 'رامهرمز', 'امیدیه', 'هندیجان'],
+  'آذربایجان شرقی': ['تبریز', 'مراغه', 'مرند', 'میانه', 'اهر', 'بناب', 'شبستر', 'سراب', 'آذرشهر', 'اسکو', 'هریس', 'عجب‌شیر', 'جلفا', 'ملکان'],
+  'مازندران': ['ساری', 'بابل', 'آمل', 'قائم‌شهر', 'بهشهر', 'بابلسر', 'تنکابن', 'نوشهر', 'چالوس', 'نکا', 'نور', 'رامسر', 'محمودآباد', 'فریدونکنار'],
+  'گیلان': ['رشت', 'انزلی', 'لاهیجان', 'لنگرود', 'تالش', 'رودسر', 'فومن', 'صومعه‌سرا', 'آستارا', 'رودبار', 'املش', 'ماسال', 'شفت', 'سیاهکل'],
+  'البرز': ['کرج', 'فردیس', 'ساوجبلاغ', 'نظرآباد', 'اشتهارد', 'هشتگرد', 'طالقان', 'چهارباغ'],
+  'آذربایجان غربی': ['ارومیه', 'خوی', 'بوکان', 'مهاباد', 'میاندوآب', 'سلماس', 'پیرانشهر', 'نقده', 'سردشت', 'شاهین‌دژ', 'تکاب', 'ماکو'],
+  'کرمان': ['کرمان', 'سیرجان', 'رفسنجان', 'جیرفت', 'بم', 'زرند', 'بافت', 'کهنوج', 'شهربابک', 'بردسیر', 'عنبرآباد', 'منوجان'],
+  'هرمزگان': ['بندرعباس', 'قشم', 'کیش', 'میناب', 'بندرلنگه', 'رودان', 'بستک', 'حاجی‌آباد', 'جاسک', 'پارسیان', 'خمیر'],
+  'کرمانشاه': ['کرمانشاه', 'اسلام‌آباد غرب', 'کنگاور', 'سنقر', 'هرسین', 'صحنه', 'پاوه', 'سرپل ذهاب', 'جوانرود', 'روانسر'],
+  'یزد': ['یزد', 'میبد', 'اردکان', 'بافق', 'مهریز', 'ابرکوه', 'تفت', 'خاتم', 'اشکذر', 'بهاباد'],
+  'مرکزی': ['اراک', 'ساوه', 'خمین', 'محلات', 'دلیجان', 'شازند', 'زرندیه', 'تفرش', 'فراهان', 'آشتیان'],
+  'قم': ['قم', 'قنوات', 'سلفچگان', 'جعفریه', 'کهک', 'دستجرد'],
+  'همدان': ['همدان', 'ملایر', 'نهاوند', 'تویسرکان', 'اسدآباد', 'کبودرآهنگ', 'بهار', 'رزن', 'درگزین', 'فامنین'],
+  'قزوین': ['قزوین', 'تاکستان', 'الوند', 'بویین‌زهرا', 'آبیک', 'اقبالیه', 'محمدیه', 'محمودآباد نمونه'],
+  'گلستان': ['گرگان', 'گنبد کاووس', 'علی‌آباد کتول', 'بندر ترکمن', 'کلاله', 'آق‌قلا', 'کردکوی', 'مینودشت', 'آزادشهر'],
+  'لرستان': ['خرم‌آباد', 'بروجرد', 'دورود', 'کوهدشت', 'الیگودرز', 'نورآباد', 'ازنا', 'پلدختر', 'الشتر', 'چگنی'],
+  'اردبیل': ['اردبیل', 'پارس‌آباد', 'مشگین‌شهر', 'خلخال', 'گرمی', 'بیله‌سوار', 'نمین', 'سرعین', 'کوثر', 'اصلاندوز'],
+  'کردستان': ['سنندج', 'سقز', 'مریوان', 'بانه', 'قروه', 'کامیاران', 'بیجار', 'دیواندره', 'دهگلان', 'سروآباد'],
+  'سمنان': ['سمنان', 'شاهرود', 'دامغان', 'گرمسار', 'مهدی‌شهر', 'ایوانکی', 'شهمیرزاد', 'آرادان', 'سرخه'],
+  'سیستان و بلوچستان': ['زاهدان', 'زابل', 'چابهار', 'ایرانشهر', 'سراوان', 'خاش', 'کنارک', 'نیک‌شهر', 'دشتیاری', 'راسک'],
+  'بوشهر': ['بوشهر', 'برازجان', 'کنگان', 'گناوه', 'عسلویه', 'خورموج', 'جم', 'دیر', 'دیلم', 'تنگستان'],
+  'زنجان': ['زنجان', 'ابهر', 'خرمدره', 'قیدار', 'هیدج', 'صائین‌قلعه', 'ماهنشان', 'آب‌بر', 'زرین‌رود'],
+  'چهارمحال و بختیاری': ['شهرکرد', 'بروجن', 'لردگان', 'فرخ‌شهر', 'فارسان', 'هفشجان', 'سامان', 'بن', 'کیار'],
+  'خراسان جنوبی': ['بیرجند', 'قائنات', 'طبس', 'فردوس', 'نهبندان', 'سرایان', 'سربیشه', 'درمیان', 'بشرویه'],
+  'خراسان شمالی': ['بجنورد', 'شیروان', 'اسفراین', 'آشخانه', 'جاجرم', 'گرمه', 'فاروج', 'راز و جرگلان'],
+  'کهگیلویه و بویراحمد': ['یاسوج', 'دوگنبدان', 'دهدشت', 'چرام', 'سی‌سخت', 'باشت', 'لنده', 'لیکک'],
+  'ایلام': ['ایلام', 'دهلران', 'ایوان', 'آبدانان', 'دره‌شهر', 'مهران', 'سرابله', 'لومار', 'ملکشاهی', 'چوار']
+};
+
+function normalizeDateOfBirth(input) {
+  const raw = String(input || '').trim()
+    .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\/\-\.]/g, '-');
+  
+  if (!raw) return null;
+  // If in YYYY-MM-DD format (either Jalali or Gregorian)
+  const parts = raw.split('-');
+  if (parts.length === 3) {
+    const y = parts[0].padStart(4, '13');
+    const m = parts[1].padStart(2, '0');
+    const d = parts[2].padStart(2, '0');
+    return `${y}/${m}/${d}`;
+  }
+  return raw;
+}
+
 function registerStudent(db, data = {}) {
   const fullName = String(data.full_name || '').trim();
   if (!fullName || fullName.length < 2 || fullName.length > 100) {
-    throw Object.assign(new Error('نام و نام خانوادگی الزامی است (بین ۲ تا ۱۰۰ کاراکتر).'), { statusCode: 400 });
+    throw Object.assign(new Error('نام و نام خانوادگی الزامی است (حداقل ۲ کاراکتر).'), { statusCode: 400 });
   }
 
   const normalizedMobile = normalizeMobile(data.mobile);
   const existing = db.prepare('SELECT id FROM students WHERE mobile_normalized = ? AND deleted_at IS NULL').get(normalizedMobile);
   if (existing) {
     throw Object.assign(new Error('این شماره همراه قبلاً در سامانه ثبت شده است. لطفاً وارد شوید یا از شماره دیگری استفاده کنید.'), { statusCode: 409, code: 'MOBILE_EXISTS' });
+  }
+
+  const dateOfBirth = normalizeDateOfBirth(data.date_of_birth);
+  if (!dateOfBirth) {
+    throw Object.assign(new Error('تاریخ تولد الزامی است.'), { statusCode: 400 });
+  }
+
+  const province = String(data.province || '').trim();
+  if (!province || !IRAN_PROVINCES_AND_CITIES[province]) {
+    throw Object.assign(new Error('لطفاً استان محل سکونت را به درستی انتخاب کنید.'), { statusCode: 400 });
+  }
+
+  const city = String(data.city || '').trim();
+  if (!city || !IRAN_PROVINCES_AND_CITIES[province].includes(city)) {
+    throw Object.assign(new Error('لطفاً شهر محل سکونت را متناسب با استان انتخاب کنید.'), { statusCode: 400 });
+  }
+
+  const address = String(data.address || '').trim();
+  if (!address || address.length < 5) {
+    throw Object.assign(new Error('آدرس کامل محل سکونت الزامی است (حداقل ۵ کاراکتر).'), { statusCode: 400 });
   }
 
   const password = validatePersonalPassword(data.password);
@@ -118,8 +190,9 @@ function registerStudent(db, data = {}) {
       INSERT INTO students (
         stable_id, full_name, mobile, mobile_normalized,
         password_hash, password_state, status, profile_status, goal,
-        height, weight, gender, version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'PERSONAL', 'فعال', 'INVITED', ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        height, weight, gender, date_of_birth, province, city, address,
+        version, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'PERSONAL', 'فعال', 'INVITED', ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `).run(
       stableId,
       fullName,
@@ -129,7 +202,11 @@ function registerStudent(db, data = {}) {
       goal,
       height,
       weight,
-      gender
+      gender,
+      dateOfBirth,
+      province,
+      city,
+      address
     );
 
     const studentId = Number(insertRes.lastInsertRowid);
@@ -143,4 +220,4 @@ function registerStudent(db, data = {}) {
   }
 }
 
-module.exports={normalizeMobile,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,registerStudent};
+module.exports={IRAN_PROVINCES_AND_CITIES,normalizeMobile,normalizeDateOfBirth,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,registerStudent};
