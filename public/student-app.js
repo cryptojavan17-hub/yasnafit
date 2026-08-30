@@ -124,75 +124,39 @@
     root.innerHTML = `
       <section class="student-auth-page">
         <div class="join-card glass-auth-card auth-split-card">
-          <!-- Left Side: Welcome Diagonal Section -->
+          <!-- Left Side: Pure Minimal Welcome Section -->
           <div class="auth-welcome-panel">
             <div class="auth-welcome-head">
               <div class="join-logo">Y</div>
               <div>
                 <span class="join-brand">YASNAFIT</span>
-                <small style="display:block; font-size:10.5px; color:rgba(45,212,191,0.85);">پرتال اختصاصی شاگردان</small>
               </div>
             </div>
 
             <div class="auth-welcome-content">
               <h2 class="auth-welcome-title">خوش آمدید!</h2>
-              <p class="auth-welcome-desc">
-                به پورتال شاگردان Yasnafit خوش آمدید. وارد حساب کاربری خود شوید یا در چند ثانیه به صورت آزاد ثبت‌نام نمایید.
-              </p>
-
-              <div class="auth-feature-pills">
-                <div class="auth-feat-item">
-                  <span class="auth-feat-icon">⚡</span>
-                  <span>برنامه‌های تمرینی اختصاصی و هوشمند</span>
-                </div>
-                <div class="auth-feat-item">
-                  <span class="auth-feat-icon">🥗</span>
-                  <span>برنامه غذایی و زمان‌بندی دقیق وعده‌ها</span>
-                </div>
-                <div class="auth-feat-item">
-                  <span class="auth-feat-icon">💊</span>
-                  <span>برنامه مکمل‌های تخصصی با پایش تداخلات</span>
-                </div>
-              </div>
+              <p class="auth-welcome-desc">به پورتال شاگردان Yasnafit خوش آمدید.</p>
             </div>
 
-            <div class="auth-welcome-footer">
-              <p id="welcomeFooterText">${activeTab === 'login' ? 'هنوز حساب کاربری ندارید؟' : 'قبلاً ثبت‌نام کرده‌اید؟'}</p>
-              <button type="button" class="btn-switch-welcome" id="btnSwitchWelcome">
-                <span>${activeTab === 'login' ? '✨ ثبت‌نام شاگرد جدید' : '🔑 ورود به حساب کاربری'}</span>
-              </button>
-            </div>
+            <div class="auth-welcome-footer"></div>
           </div>
 
-          <!-- Right Side: Form Section -->
+          <!-- Right Side: Clean Form Section -->
           <div class="auth-form-panel">
             <div class="auth-form-header">
-              <h1 class="auth-form-title" id="authFormTitle">${activeTab === 'login' ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود به حساب کاربری') : 'ثبت‌نام شاگرد جدید'}</h1>
-              <p class="auth-form-subtitle" id="authFormSubtitle">${activeTab === 'login' ? 'شماره همراه و رمز عبور خود را وارد نمایید' : 'فرم ثبت‌نام را تکمیل و ارزیابی بدنی خود را شروع کنید'}</p>
-              ${studentName ? `<p style="margin:8px 0 0; font-size:13px; color:var(--text-primary);">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
-              ${caseNumber ? `<div class="created-case-number" style="margin-top:4px;"><span style="font-size:11px;color:var(--text-muted);">شماره پرونده: </span><b style="color:rgba(45,212,191,1);">${esc(caseNumber)}</b></div>` : ''}
+              <h1 class="auth-form-title" id="authFormTitle">${activeTab === 'login' ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام'}</h1>
+              ${studentName ? `<p style="margin:4px 0 0; font-size:13px; color:var(--text-primary);">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
+              ${caseNumber ? `<div class="created-case-number" style="margin-top:2px;"><span style="font-size:11px;color:var(--text-muted);">شماره پرونده: </span><b style="color:rgba(45,212,191,1);">${esc(caseNumber)}</b></div>` : ''}
             </div>
-
-            <!-- Segmented Mini Tabs -->
-            ${!isJoin ? `
-              <div class="auth-tabs" role="tablist">
-                <button type="button" class="auth-tab-btn ${activeTab==='login'?'active':''}" id="tabBtnLogin" role="tab" aria-selected="${activeTab==='login'}">
-                  <span>🔑 ورود</span>
-                </button>
-                <button type="button" class="auth-tab-btn ${activeTab==='register'?'active':''}" id="tabBtnRegister" role="tab" aria-selected="${activeTab==='register'}">
-                  <span>✨ ثبت‌نام</span>
-                </button>
-              </div>
-            ` : ''}
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginMobile"><span>📱</span><span>شماره همراه</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
+              <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
 
                 <div class="auth-field-group">
-                  <label for="loginPassword"><span>🔒</span><span>رمز عبور</span></label>
+                  <label for="loginPassword"><span>رمز عبور</span></label>
                   <div class="password-input-wrap">
-                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور شخصی یا موقت">
+                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="loginPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                 </div>
@@ -202,7 +166,7 @@
                 </div>
 
                 <button class="btn-auth-turquoise btn-auth-submit" id="btnLoginSubmit">
-                  <span>ورود به حساب کاربری</span>
+                  <span>ورود</span>
                 </button>
 
                 <div class="auth-bottom-switch">
@@ -210,7 +174,7 @@
                   <button type="button" id="btnGoToRegister">ثبت‌نام کنید</button>
                 </div>
               </form>
-              ${token ? '<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : '<small class="join-meta">اگر مربی برای شما حساب ساخته، رمز موقت چهار رقم آخر موبایل شماست.</small>'}
+              ${token ? '<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : ''}
             </div>
 
             <!-- TAB 2: REGISTER FORM -->
@@ -219,12 +183,12 @@
                 <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
 
                 <div class="auth-field-group">
-                  <label for="regFullName"><span>👤</span><span>نام و نام خانوادگی *</span></label>
-                  <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="مثال: سارا محمدی">
+                  <label for="regFullName"><span>نام و نام خانوادگی *</span></label>
+                  <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="نام و نام خانوادگی">
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regMobile"><span>📱</span><span>شماره همراه *</span></label>
+                  <label for="regMobile"><span>شماره همراه *</span></label>
                   <div class="prefixed-input" dir="ltr">
                     <span>09-</span>
                     <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="10" placeholder="0000000000">
@@ -233,37 +197,37 @@
 
                 <!-- تاریخ تولد -->
                 <div class="auth-field-group">
-                  <label for="regDob"><span>📅</span><span>تاریخ تولد *</span></label>
+                  <label for="regDob"><span>تاریخ تولد *</span></label>
                   <input class="auth-input" id="regDob" name="date_of_birth" data-jalali required placeholder="مثلاً: ۱۳۷۵/۰۴/۱۵">
                 </div>
 
                 <!-- استان و شهر وابسته -->
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
-                    <label for="regProvince"><span>🗺️</span><span>استان محل سکونت *</span></label>
+                    <label for="regProvince"><span>استان *</span></label>
                     <select class="auth-input" id="regProvince" name="province" required>
                       <option value="" disabled selected>انتخاب استان...</option>
                       ${provinceOptionsHtml}
                     </select>
                   </div>
                   <div class="auth-field-group">
-                    <label for="regCity"><span>🏙️</span><span>شهر محل سکونت *</span></label>
+                    <label for="regCity"><span>شهر *</span></label>
                     <select class="auth-input" id="regCity" name="city" required disabled>
-                      <option value="" disabled selected>ابتدا استان را انتخاب کنید...</option>
+                      <option value="" disabled selected>انتخاب شهر...</option>
                     </select>
                   </div>
                 </div>
 
                 <!-- آدرس کامل محل سکونت -->
                 <div class="auth-field-group">
-                  <label for="regAddress"><span>🏠</span><span>آدرس کامل محل سکونت *</span></label>
-                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..." style="height:60px; padding:8px 12px; resize:vertical;"></textarea>
+                  <label for="regAddress"><span>آدرس کامل محل سکونت *</span></label>
+                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="آدرس پستی و محل سکونت..." style="height:56px; padding:8px 12px; resize:vertical;"></textarea>
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regPassword"><span>🔒</span><span>رمز عبور دلخواه * (حداقل ۸ کاراکتر)</span></label>
+                  <label for="regPassword"><span>رمز عبور * (حداقل ۸ کاراکتر)</span></label>
                   <div class="password-input-wrap">
-                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="حداقل ۸ کاراکتر">
+                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                   <div class="password-strength-wrap" id="regPasswordStrength" style="display:none;">
@@ -273,16 +237,16 @@
                       <div class="strength-seg" id="strengthSeg3"></div>
                     </div>
                     <div class="password-strength-text">
-                      <span>قدرت رمز عبور:</span>
+                      <span>قدرت رمز:</span>
                       <strong id="strengthTextLabel">ضعیف</strong>
                     </div>
                   </div>
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regConfirmPassword"><span>🔑</span><span>تکرار رمز عبور *</span></label>
+                  <label for="regConfirmPassword"><span>تکرار رمز عبور *</span></label>
                   <div class="password-input-wrap">
-                    <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار همان رمز">
+                    <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regConfirmPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                   <small id="passwordMatchHint" style="font-size:10.5px; color:var(--text-muted); display:none;"></small>
@@ -290,7 +254,7 @@
 
                 <!-- Optional Profile Fields -->
                 <div class="auth-field-group">
-                  <label for="regGoal"><span>🎯</span><span>هدف اصلی تمرین (اختیاری)</span></label>
+                  <label for="regGoal"><span>هدف اصلی تمرین (اختیاری)</span></label>
                   <select class="auth-input" id="regGoal" name="goal">
                     <option value="فیتنس و تناسب اندام عمومی">فیتنس و تناسب اندام عمومی</option>
                     <option value="کاهش وزن و چربی‌سوزی">کاهش وزن و چربی‌سوزی</option>
@@ -303,7 +267,7 @@
 
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
-                    <label for="regGender"><span>⚧️</span><span>جنسیت</span></label>
+                    <label for="regGender"><span>جنسیت</span></label>
                     <select class="auth-input" id="regGender" name="gender">
                       <option value="male">آقا</option>
                       <option value="female">خانم</option>
@@ -312,11 +276,11 @@
                   </div>
                   <div class="auth-grid-2">
                     <div class="auth-field-group">
-                      <label for="regHeight"><span>📏</span><span>قد (cm)</span></label>
+                      <label for="regHeight"><span>قد (cm)</span></label>
                       <input class="auth-input" id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵">
                     </div>
                     <div class="auth-field-group">
-                      <label for="regWeight"><span>⚖️</span><span>وزن (kg)</span></label>
+                      <label for="regWeight"><span>وزن (kg)</span></label>
                       <input class="auth-input" id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰">
                     </div>
                   </div>
@@ -328,7 +292,7 @@
                 </label>
 
                 <button class="btn-auth-turquoise btn-auth-submit" id="btnRegisterSubmit">
-                  <span>ثبت‌نام و شروع ارزیابی بدنی 🚀</span>
+                  <span>ثبت‌نام</span>
                 </button>
 
                 <div class="auth-bottom-switch">
@@ -345,41 +309,20 @@
     if (window.YasnaJalali) window.YasnaJalali.autoInit();
 
     // Elements
-    const tabLogin = root.querySelector('#tabBtnLogin');
-    const tabRegister = root.querySelector('#tabBtnRegister');
     const panelLogin = root.querySelector('#authLoginPanel');
     const panelRegister = root.querySelector('#authRegisterPanel');
     const formTitle = root.querySelector('#authFormTitle');
-    const formSubtitle = root.querySelector('#authFormSubtitle');
-    const switchBtnWelcome = root.querySelector('#btnSwitchWelcome');
-    const welcomeFooterText = root.querySelector('#welcomeFooterText');
     const goToRegBtn = root.querySelector('#btnGoToRegister');
     const goToLogBtn = root.querySelector('#btnGoToLogin');
 
     function switchToTab(tab) {
       activeTab = tab;
       const isLog = tab === 'login';
-      if (tabLogin && tabRegister) {
-        tabLogin.classList.toggle('active', isLog);
-        tabLogin.setAttribute('aria-selected', String(isLog));
-        tabRegister.classList.toggle('active', !isLog);
-        tabRegister.setAttribute('aria-selected', String(!isLog));
-      }
       panelLogin.style.display = isLog ? 'block' : 'none';
       panelRegister.style.display = !isLog ? 'block' : 'none';
-      if (formTitle) formTitle.textContent = isLog ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود به حساب کاربری') : 'ثبت‌نام شاگرد جدید';
-      if (formSubtitle) formSubtitle.textContent = isLog ? 'شماره همراه و رمز عبور خود را وارد نمایید' : 'فرم ثبت‌نام را تکمیل و ارزیابی بدنی خود را شروع کنید';
-      if (welcomeFooterText) welcomeFooterText.textContent = isLog ? 'هنوز حساب کاربری ندارید؟' : 'قبلاً ثبت‌نام کرده‌اید؟';
-      if (switchBtnWelcome) switchBtnWelcome.innerHTML = isLog ? '<span>✨ ثبت‌نام شاگرد جدید</span>' : '<span>🔑 ورود به حساب کاربری</span>';
+      if (formTitle) formTitle.textContent = isLog ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام';
     }
 
-    if (tabLogin && tabRegister) {
-      tabLogin.onclick = () => switchToTab('login');
-      tabRegister.onclick = () => switchToTab('register');
-    }
-    if (switchBtnWelcome) {
-      switchBtnWelcome.onclick = () => switchToTab(activeTab === 'login' ? 'register' : 'login');
-    }
     if (goToRegBtn) goToRegBtn.onclick = () => switchToTab('register');
     if (goToLogBtn) goToLogBtn.onclick = () => switchToTab('login');
 
