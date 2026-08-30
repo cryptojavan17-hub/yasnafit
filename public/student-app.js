@@ -183,12 +183,12 @@
                 <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
 
                 <div class="auth-field-group">
-                  <label for="regFullName"><span>نام و نام خانوادگی *</span></label>
-                  <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="نام و نام خانوادگی">
+                  <label for="regFullName"><span>نام و نام خانوادگی</span><span class="req-star">*</span></label>
+                  <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="نام و نام خانوادگی خود را وارد کنید">
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regMobile"><span>شماره همراه *</span></label>
+                  <label for="regMobile"><span>شماره همراه</span><span class="req-star">*</span></label>
                   <div class="prefixed-input" dir="ltr">
                     <span>09-</span>
                     <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="10" placeholder="0000000000">
@@ -197,21 +197,21 @@
 
                 <!-- تاریخ تولد -->
                 <div class="auth-field-group">
-                  <label for="regDob"><span>تاریخ تولد *</span></label>
+                  <label for="regDob"><span>تاریخ تولد</span><span class="req-star">*</span></label>
                   <input class="auth-input" id="regDob" name="date_of_birth" data-jalali required placeholder="مثلاً: ۱۳۷۵/۰۴/۱۵">
                 </div>
 
                 <!-- استان و شهر وابسته -->
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
-                    <label for="regProvince"><span>استان *</span></label>
+                    <label for="regProvince"><span>استان محل سکونت</span><span class="req-star">*</span></label>
                     <select class="auth-input" id="regProvince" name="province" required>
                       <option value="" disabled selected>انتخاب استان...</option>
                       ${provinceOptionsHtml}
                     </select>
                   </div>
                   <div class="auth-field-group">
-                    <label for="regCity"><span>شهر *</span></label>
+                    <label for="regCity"><span>شهر محل سکونت</span><span class="req-star">*</span></label>
                     <select class="auth-input" id="regCity" name="city" required disabled>
                       <option value="" disabled selected>انتخاب شهر...</option>
                     </select>
@@ -220,14 +220,14 @@
 
                 <!-- آدرس کامل محل سکونت -->
                 <div class="auth-field-group">
-                  <label for="regAddress"><span>آدرس کامل محل سکونت *</span></label>
-                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="آدرس پستی و محل سکونت..." style="height:56px; padding:8px 12px; resize:vertical;"></textarea>
+                  <label for="regAddress"><span>آدرس کامل محل سکونت</span><span class="req-star">*</span></label>
+                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..." style="height:64px; padding:10px 14px; resize:vertical;"></textarea>
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regPassword"><span>رمز عبور * (حداقل ۸ کاراکتر)</span></label>
+                  <label for="regPassword"><span>رمز عبور دلخواه</span><span class="req-star">* (حداقل ۸ کاراکتر)</span></label>
                   <div class="password-input-wrap">
-                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور">
+                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور دلخواه">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                   <div class="password-strength-wrap" id="regPasswordStrength" style="display:none;">
@@ -237,19 +237,19 @@
                       <div class="strength-seg" id="strengthSeg3"></div>
                     </div>
                     <div class="password-strength-text">
-                      <span>قدرت رمز:</span>
+                      <span>قدرت رمز عبور:</span>
                       <strong id="strengthTextLabel">ضعیف</strong>
                     </div>
                   </div>
                 </div>
 
                 <div class="auth-field-group">
-                  <label for="regConfirmPassword"><span>تکرار رمز عبور *</span></label>
+                  <label for="regConfirmPassword"><span>تکرار رمز عبور</span><span class="req-star">*</span></label>
                   <div class="password-input-wrap">
                     <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regConfirmPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
-                  <small id="passwordMatchHint" style="font-size:10.5px; color:var(--text-muted); display:none;"></small>
+                  <small id="passwordMatchHint" style="font-size:11px; color:var(--text-muted); display:none;"></small>
                 </div>
 
                 <!-- Optional Profile Fields -->
