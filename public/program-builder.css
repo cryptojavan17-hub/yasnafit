@@ -329,3 +329,17 @@ input.jalali-bad { border-color: var(--danger); }
 .day-header { border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; }
 .movement-card { position: relative; }
 .builder-menu { z-index: 85; }
+
+/* ===== مودال ویرایش حرکت: کارت‌های ست با واحد+مقدار ===== */
+.mv-name-label { display: flex; flex-direction: column; gap: 5px; color: var(--text-secondary); font-size: 10px; }
+.mv-name-label input { font-size: 13px; font-weight: 750; }
+.mv-preset-label { display: flex; flex-direction: column; gap: 5px; color: var(--text-secondary); font-size: 10px; font-weight: 700; }
+.mv-preset-label select { min-height: 42px; }
+.mv-req { color: var(--danger); }
+.mv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 7px; }
+.mv-setcard { display: flex; align-items: flex-end; gap: 7px; padding: 8px 9px; border: 1px solid var(--border); border-radius: 11px; background: var(--glass); }
+.mv-setcard label { flex: 1; display: flex; flex-direction: column; gap: 3px; color: var(--text-muted); font-size: 8px; }
+.mv-setcard label:first-child { flex: 1.2; }
+.mv-setcard input, .mv-setcard select { min-height: 34px; margin: 0; font-size: 10px; padding: 5px 8px; }
+.mv-x { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border: 1px solid var(--danger-border); border-radius: 8px; background: var(--danger-surface); color: var(--danger); font-size: 14px; cursor: pointer; }
+.mv-x:hover { filter: brightness(1.15); }

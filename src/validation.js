@@ -49,7 +49,7 @@ function validateExercise(data){
 }
 
 // ESetType from PROMPT
-const ESetType = ['REPEAT','TIME','FAILURE','AMRAP','DROPSET','SUPERSET','GIANT_SET'];
+const ESetType = ['REPEAT','TIME','FAILURE','AMRAP','DROPSET','SUPERSET','GIANT_SET','MINUTE'];
 const SystemTypes = ['normal','superset','triset','giant','drop','rest_pause','post_exhaustion','fst7','twenty_one','partial_reps','ladder_20_10_5','mammoth'];
 const ExerciseSystemIds = [1,2,3,4,5,6,7,8,9,10,11,12];
 
