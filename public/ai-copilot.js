@@ -139,7 +139,6 @@
   // 1. Assessment AI Analysis & Feedback Large Modal
   // ==============================================================
   function generateScientificCoachNote(info = {}) {
-  function generateScientificCoachNote(info = {}) {
     const { studentName = 'ورزشکار', assNum = 1, weight = '—', height = '—', bodyFat, goal = 'فیتنس', level = 'متوسط', injuries = 'بدون آسیب', appetiteStatus = 'معمولی و طبیعی', dietStatus = 'بدون محدودیت' } = info;
     
     const w = parseFloat(weight);
