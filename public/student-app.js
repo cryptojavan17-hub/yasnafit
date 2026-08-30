@@ -151,10 +151,10 @@
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
+              <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginFullName"><span>نام و نام خانوادگی</span></label><input class="auth-input" id="loginFullName" name="full_name" autocomplete="name" value="${esc(studentName||'')}" placeholder="نام و نام خانوادگی خود را وارد کنید"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
 
                 <div class="auth-field-group">
-                  <label for="loginPassword"><span>رمز عبور</span></label>
+                  <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
                   <div class="password-input-wrap">
                     <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="loginPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
@@ -321,6 +321,8 @@
       panelLogin.style.display = isLog ? 'block' : 'none';
       panelRegister.style.display = !isLog ? 'block' : 'none';
       if (formTitle) formTitle.textContent = isLog ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام';
+      const formPanel = root.querySelector('.auth-form-panel');
+      if (formPanel) formPanel.scrollTop = 0;
     }
 
     if (goToRegBtn) goToRegBtn.onclick = () => switchToTab('register');
@@ -421,6 +423,7 @@
           const result = await api('/api/student/auth/login', {
             method: 'POST',
             body: jsonBody({
+              full_name: form.get('full_name') || undefined,
               mobile:completeMobile(form.get('mobile')),
               password: form.get('password'),
               invitation_token: token || undefined

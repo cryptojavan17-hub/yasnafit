@@ -49,10 +49,19 @@ function safeStudent(row){
   const {password_hash,mobile_normalized,password_state,password_changed_at,temporary_login_at,auth_failed_attempts,auth_locked_until,last_login_at,...safe}=row;
   return safe;
 }
-function authenticate(db,mobile,password){
-  let normalized;
-  try{normalized=normalizeMobile(mobile);}catch(error){verifyPassword(password,DUMMY_HASH);return {error:'INVALID_CREDENTIALS'};}
-  const student=db.prepare('SELECT * FROM students WHERE mobile_normalized=? AND deleted_at IS NULL').get(normalized);
+function authenticate(db,mobile,password,fullName=null){
+  let normalized=null;
+  try{normalized=normalizeMobile(mobile);}catch(error){normalized=null;}
+  let student=null;
+  if(normalized){
+    student=db.prepare('SELECT * FROM students WHERE mobile_normalized=? AND deleted_at IS NULL').get(normalized);
+  }
+  if(!student && fullName && typeof fullName === 'string' && fullName.trim()){
+    student=db.prepare('SELECT * FROM students WHERE full_name=? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1').get(fullName.trim());
+  }
+  if(!student && !normalized && typeof mobile === 'string' && mobile.trim()){
+    student=db.prepare('SELECT * FROM students WHERE (full_name=? OR case_number=?) AND deleted_at IS NULL ORDER BY id DESC LIMIT 1').get(mobile.trim(), mobile.trim());
+  }
   if(!student){verifyPassword(password,DUMMY_HASH);return {error:'INVALID_CREDENTIALS'};}
   if(student.auth_locked_until&&new Date(student.auth_locked_until)>new Date())return {error:'AUTH_LOCKED'};
   if(!PASSWORD_STATES.has(student.password_state))return {error:'AUTH_SETUP_REQUIRED'};

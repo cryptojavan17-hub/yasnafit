@@ -1332,7 +1332,7 @@ async function handleStudentAuth(req,res,url){
     if(invited&&!invitedMobile){try{invitedMobile=studentAuthService.normalizeMobile(invited.mobile);if(!one('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL',invitedMobile,invited.id))db.prepare('UPDATE students SET mobile_normalized=? WHERE id=?').run(invitedMobile,invited.id);}catch(error){}}
     if(!invited||invitedMobile!==normalized)return studentAuthError(res,'INVALID_CREDENTIALS');
   }
-  const authenticated=studentAuthService.authenticate(db,body.mobile,body.password);
+  const authenticated=studentAuthService.authenticate(db,body.mobile,body.password,body.full_name);
   if(authenticated.error)return studentAuthError(res,authenticated.error);
   let invitationId=null;
   if(body.invitation_token){

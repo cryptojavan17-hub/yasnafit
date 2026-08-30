@@ -117,14 +117,15 @@
 
 /* Right Side: Form Panel */
 .auth-form-panel{
-  padding:clamp(32px, 5vw, 46px);
+  padding:clamp(28px, 4.5vw, 44px);
   display:flex;
   flex-direction:column;
-  justify-content:center;
-  gap:16px;
+  justify-content:flex-start;
+  gap:18px;
   max-height:88vh;
   overflow-y:auto;
   background:rgba(8, 8, 8, 0.6);
+  scroll-behavior:smooth;
 }
 
 .auth-form-header{
@@ -148,22 +149,24 @@
 .student-auth-form{
   display:flex;
   flex-direction:column;
-  gap:13px;
+  gap:16px;
 }
 
 .auth-field-group{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:6px;
+  margin-bottom:2px;
 }
 
 .auth-field-group label{
-  font-size:11.5px;
-  font-weight:700;
-  color:var(--text-secondary);
+  font-size:13px;
+  font-weight:750;
+  color:var(--text-primary);
   display:flex;
   align-items:center;
   gap:6px;
+  letter-spacing:0.01em;
 }
 
 /* Underline Minimalist Input Fields */
