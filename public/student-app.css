@@ -3,12 +3,331 @@
 .student-app{min-height:100vh;width:100%}
 .student-loading{min-height:70vh;display:grid;place-content:center;justify-items:center;gap:12px;color:var(--text-muted)}
 .student-spinner{width:34px;height:34px;border:2px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-.student-auth-page{min-height:100vh;padding:24px;display:grid;place-items:center;position:relative;overflow:hidden}
-.student-auth-page::before{content:"";position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),transparent 68%);top:-260px;left:50%;transform:translateX(-50%);pointer-events:none}
-.join-card{width:min(520px,100%);padding:clamp(24px,6vw,42px);position:relative;border:1px solid var(--border-strong);border-radius:var(--radius-xl);background:rgba(18,18,18,.82);box-shadow:var(--shadow-deep);backdrop-filter:blur(24px);text-align:center;animation:modalIn 260ms ease}
+
+/* Modern Glassmorphism Authentication Container */
+.student-auth-page{
+  min-height:100vh;
+  padding:24px 16px;
+  display:grid;
+  place-items:center;
+  position:relative;
+  overflow:hidden;
+  background:radial-gradient(circle at 50% 0%, rgba(30, 41, 59, 0.35), transparent 70%), var(--bg);
+}
+.student-auth-page::before{
+  content:"";
+  position:absolute;
+  width:580px;
+  height:580px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(59, 130, 246, 0.14), transparent 68%);
+  top:-220px;
+  left:50%;
+  transform:translateX(-50%);
+  pointer-events:none;
+  filter:blur(40px);
+}
+.student-auth-page::after{
+  content:"";
+  position:absolute;
+  width:440px;
+  height:440px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(168, 85, 247, 0.1), transparent 68%);
+  bottom:-140px;
+  right:10%;
+  pointer-events:none;
+  filter:blur(50px);
+}
+
+.join-card, .glass-auth-card{
+  width:min(540px,100%);
+  padding:clamp(24px,5vw,38px);
+  position:relative;
+  border:1px solid rgba(255, 255, 255, 0.13);
+  border-radius:24px;
+  background:rgba(13, 16, 26, 0.74);
+  box-shadow:0 24px 70px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter:blur(28px) saturate(180%);
+  text-align:right;
+  animation:modalIn 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index:2;
+}
+
+.auth-header-brand{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  margin-bottom:20px;
+}
 .join-logo,.student-brand-mark{display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font-weight:900}
-.join-logo{width:58px;height:58px;margin:0 auto 20px;border-radius:18px;font-size:25px;box-shadow:0 14px 44px rgba(255,255,255,.1)}
-.join-card .join-brand{font-size:12px;letter-spacing:.18em;color:var(--text-muted);direction:ltr}
+.join-logo{
+  width:54px;
+  height:54px;
+  margin:0 auto 12px;
+  border-radius:16px;
+  font-size:24px;
+  box-shadow:var(--accent-shadow);
+  border:1px solid rgba(255, 255, 255, 0.2);
+}
+.join-card .join-brand{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--text-primary);direction:ltr}
+.auth-header-brand small{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+/* Segmented Auth Tabs */
+.auth-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  padding:4px;
+  background:var(--surface-inset);
+  border:1px solid var(--border);
+  border-radius:14px;
+  margin-bottom:22px;
+  gap:4px;
+}
+.auth-tab-btn{
+  height:40px;
+  border:none;
+  border-radius:10px;
+  background:transparent;
+  color:var(--text-muted);
+  font-size:13.5px;
+  font-weight:750;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  transition:var(--transition);
+}
+.auth-tab-btn:hover{
+  color:var(--text-primary);
+  background:var(--glass-hover);
+}
+.auth-tab-btn.active{
+  background:var(--accent);
+  color:var(--on-accent);
+  box-shadow:var(--accent-shadow);
+}
+
+/* Auth Forms */
+.student-auth-form{
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+}
+.auth-field-group{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.auth-field-group label{
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--text-secondary);
+}
+.auth-input, .student-auth-form input:not([type="checkbox"]):not([type="radio"]), .student-auth-form select, .student-auth-form textarea{
+  width:100%;
+  height:44px;
+  background:var(--surface-inset);
+  border:1px solid var(--border);
+  border-radius:var(--component-control-radius);
+  padding:0 14px;
+  color:var(--text-primary);
+  font-size:13.5px;
+  font-family:inherit;
+  outline:none;
+  transition:var(--transition);
+}
+.auth-input:focus, .student-auth-form input:focus, .student-auth-form select:focus, .student-auth-form textarea:focus{
+  border-color:var(--border-focus);
+  background:var(--surface-2);
+  box-shadow:0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.prefixed-input{
+  display:flex;
+  align-items:center;
+  height:44px;
+  border:1px solid var(--border);
+  border-radius:var(--component-control-radius);
+  background:var(--surface-inset);
+  overflow:hidden;
+  transition:var(--transition);
+}
+.prefixed-input:focus-within{
+  border-color:var(--border-focus);
+  background:var(--surface-2);
+  box-shadow:0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+.prefixed-input span{
+  padding:0 12px;
+  background:var(--surface-2);
+  color:var(--text-muted);
+  font-weight:800;
+  font-size:13px;
+  border-left:1px solid var(--border);
+  line-height:44px;
+  user-select:none;
+}
+.prefixed-input input{
+  flex:1;
+  border:none;
+  background:transparent;
+  padding:0 12px;
+  height:100%;
+  color:var(--text-primary);
+  font-size:14px;
+  outline:none;
+  font-family:inherit;
+}
+
+.password-input-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+.password-input-wrap input{
+  padding-left:42px;
+}
+.password-toggle-btn{
+  position:absolute;
+  left:8px;
+  background:transparent;
+  border:none;
+  color:var(--text-muted);
+  font-size:16px;
+  padding:6px;
+  cursor:pointer;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:var(--transition);
+}
+.password-toggle-btn:hover{
+  color:var(--text-primary);
+  background:var(--glass-hover);
+}
+
+/* Password Strength Meter */
+.password-strength-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-top:2px;
+}
+.password-strength-track{
+  height:4px;
+  width:100%;
+  background:var(--surface-inset);
+  border-radius:999px;
+  overflow:hidden;
+  display:flex;
+  gap:3px;
+}
+.strength-seg{
+  flex:1;
+  height:100%;
+  background:var(--border);
+  border-radius:999px;
+  transition:background var(--transition);
+}
+.strength-seg.weak{ background:var(--danger); }
+.strength-seg.medium{ background:var(--warning); }
+.strength-seg.strong{ background:var(--success); }
+
+.password-strength-text{
+  font-size:10.5px;
+  color:var(--text-muted);
+  display:flex;
+  justify-content:space-between;
+}
+
+/* 2-Column Grid for Optional Metrics in Register Form */
+.auth-grid-2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+/* Checkbox Label */
+.auth-checkbox-label{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  font-size:11.5px;
+  color:var(--text-secondary);
+  cursor:pointer;
+  line-height:1.7;
+  user-select:none;
+  margin-top:4px;
+}
+.auth-checkbox-label input[type="checkbox"]{
+  width:17px;
+  height:17px;
+  margin-top:2px;
+  flex-shrink:0;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+
+/* Error and Help Banners */
+.auth-error-banner{
+  padding:10px 14px;
+  border:1px solid var(--danger-border);
+  border-radius:var(--radius-md);
+  background:var(--danger-surface);
+  color:var(--danger);
+  font-size:12px;
+  font-weight:600;
+  line-height:1.6;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  animation:modalIn 180ms ease;
+}
+.auth-forgot-link{
+  font-size:11.5px;
+  color:var(--accent-hover);
+  text-decoration:none;
+  align-self:flex-start;
+  cursor:pointer;
+  transition:var(--transition);
+}
+.auth-forgot-link:hover{
+  text-decoration:underline;
+}
+
+/* Primary Submit Button */
+.btn-auth-submit{
+  width:100%;
+  height:48px;
+  border:none;
+  border-radius:var(--component-control-radius);
+  background:var(--accent);
+  color:var(--on-accent);
+  font-size:14.5px;
+  font-weight:800;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  transition:var(--transition);
+  box-shadow:var(--accent-shadow);
+  margin-top:8px;
+}
+.btn-auth-submit:hover{
+  background:var(--accent-hover);
+  transform:translateY(-1px);
+}
+.btn-auth-submit:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+  transform:none;
+}
+
 .join-card h1{margin:18px 0 10px;font-size:clamp(24px,6vw,34px)}
 .join-card p{margin:0;color:var(--text-secondary);font-size:13px;line-height:2}
 .join-card .student-name{color:var(--text);font-weight:700}

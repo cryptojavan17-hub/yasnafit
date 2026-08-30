@@ -1345,6 +1345,37 @@ async function handleStudentAuth(req,res,url){
   return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
 }
 
+async function handleStudentRegister(req,res,url){
+  if(url.pathname!=='/api/student/auth/register' && url.pathname!=='/api/student/register')return null;
+  if(req.method!=='POST')return sendError(res,405,'متد مجاز نیست');
+  if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');
+  if(!rateLimit(req,res,'student-register',25,15*60*1000))return true;
+  try{
+    const body=await readBody(req);
+    const created=studentAuthService.registerStudent(db,body);
+    const session=studentSessionService.createStudentSession(db,created.id,null);
+    log('ثبت‌نام شاگرد جدید آزاد',`${created.case_number} - ${created.full_name}`);
+    auditService.record(db,{
+      actorType:'student',
+      actorId:created.id,
+      action:'student.registered',
+      entityType:'student',
+      entityId:created.id,
+      entityStableId:created.stable_id,
+      metadata:{case_number:created.case_number,mobile:created.mobile_normalized}
+    });
+    return send(res,201,{
+      success:true,
+      password_change_recommended:false,
+      next_route:studentNextRoute(created.id),
+      student:studentSessionService.safeStudent(created),
+      expires_at:session.expires_at
+    },{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+  }catch(error){
+    return sendError(res,error.statusCode||400,error.message);
+  }
+}
+
 function updateStudentProfileFromSession(studentId,body){
   const allowed=['full_name','mobile','telegram_id','instagram_id','date_of_birth','gender','height','weight','goal','training_experience','training_level','preferred_location','limitations','injuries','medical_notes'];
   const updates={};
@@ -2175,6 +2206,7 @@ async function api(req,res,url){
       if(releaseResponse) return releaseResponse;
     }
     if(p==='/api/student/auth/login')return await handleStudentAuth(req,res,url);
+    if(p==='/api/student/auth/register' || p==='/api/student/register')return await handleStudentRegister(req,res,url);
     if(p.startsWith('/api/student/join/')){
       const joined=await handleStudentJoin(req,res,url);
       if(joined)return joined;
@@ -2345,9 +2377,9 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
-    const isStudentPage=['/student/login','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
+    const isStudentPage=['/student/login','/student/register','/student/diet','/student/supplement','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
-      const authenticated=isJoinPage || url.pathname==='/student/login' || Boolean(studentSessionService.resolveStudentSession(db,req));
+      const authenticated=isJoinPage || url.pathname==='/student/login' || url.pathname==='/student/register' || Boolean(studentSessionService.resolveStudentSession(db,req));
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',

@@ -68,16 +68,360 @@
     if(!documents.length)return '<div class="student-empty"><p>مدرک پزشکی ارسال نشده است. این بخش اختیاری است.</p></div>';
     return `<div class="history-list">${documents.map(document=>`<article class="history-item"><a href="/api/student-documents/${document.id}" target="_blank" rel="noopener"><b>${esc(document.original_filename)}</b><small>${esc(document.document_type)} • ${Math.ceil(document.size_bytes/1024)} KB</small></a></article>`).join('')}</div>`;
   }
-  function loginForm({token='',studentName='',caseNumber=''}={}){
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="join-logo">Y</div><span class="join-brand">YASNAFIT</span><h1>${token?'ورود به پنل دعوت‌شده':'ورود شاگرد'}</h1>${studentName?`<p>سلام <span class="student-name">${esc(studentName)}</span> 👋</p>`:''}${caseNumber?`<div class="created-case-number"><span>شماره پرونده</span><b>${esc(caseNumber)}</b></div>`:''}<form class="student-auth-form" id="studentLoginForm"><label>شماره همراه<div class="prefixed-input" dir="ltr"><span>09-</span><input name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز موقت یا رمز شخصی"></label><p class="password-help">رمز موقت همان چهار رقم آخر شماره همراه است. برای امنیت بیشتر پیشنهاد می‌کنیم بعداً آن را تغییر دهید.</p><button class="primary">ورود امن</button></form>${token?'<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>':'<small class="join-meta">اطلاعات ورود را از مربی خود دریافت کنید.</small>'}</div></section>`;
-    document.querySelector('#studentLoginForm').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button'),form=new FormData(event.currentTarget);button.disabled=true;button.textContent='در حال بررسی…';try{const result=await api('/api/student/auth/login',{method:'POST',body:jsonBody({mobile:completeMobile(form.get('mobile')),password:form.get('password'),invitation_token:token||undefined})});location.replace(result.next_route);}catch(error){toast(error.message,'error');button.disabled=false;button.textContent='ورود امن';}};
+
+  function evaluatePasswordStrength(password){
+    const val = String(password||'');
+    if(val.length < 8) return { score: 1, label: 'ضعیف', class: 'weak' };
+    let points = 1;
+    if(val.length >= 10) points++;
+    if(/[a-zA-Z]/.test(val) && /[0-9]/.test(val)) points++;
+    if(/[^a-zA-Z0-9]/.test(val)) points++;
+    if(points >= 4) return { score: 3, label: 'قوی و ایمن', class: 'strong' };
+    if(points >= 2) return { score: 2, label: 'متوسط', class: 'medium' };
+    return { score: 1, label: 'ضعیف', class: 'weak' };
   }
-  async function renderLogin(){loginForm();}
+
+  function loginForm({token='',studentName='',caseNumber='',initialTab='login'}={}){
+    const isJoin = Boolean(token);
+    const activeTab = isJoin ? 'login' : (initialTab === 'register' ? 'register' : 'login');
+
+    root.innerHTML = `
+      <section class="student-auth-page">
+        <div class="join-card glass-auth-card">
+          <!-- Top Header Brand -->
+          <div class="auth-header-brand">
+            <div class="join-logo">Y</div>
+            <span class="join-brand">YASNAFIT</span>
+            <small>پرتال اختصاصی و هوشمند شاگرد</small>
+            ${studentName ? `<p style="margin:10px 0 0; font-size:13px; color:var(--text-primary);">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
+            ${caseNumber ? `<div class="created-case-number" style="margin-top:6px;"><span style="font-size:11px;color:var(--text-muted);">شماره پرونده: </span><b style="color:var(--accent-hover);">${esc(caseNumber)}</b></div>` : ''}
+          </div>
+
+          <!-- Segmented Tab Switcher -->
+          ${!isJoin ? `
+            <div class="auth-tabs" role="tablist">
+              <button type="button" class="auth-tab-btn ${activeTab==='login'?'active':''}" id="tabBtnLogin" role="tab" aria-selected="${activeTab==='login'}">
+                <span>🔑</span>
+                <span>ورود به حساب</span>
+              </button>
+              <button type="button" class="auth-tab-btn ${activeTab==='register'?'active':''}" id="tabBtnRegister" role="tab" aria-selected="${activeTab==='register'}">
+                <span>✨</span>
+                <span>ثبت‌نام شاگرد جدید</span>
+              </button>
+            </div>
+          ` : `
+            <h1 style="margin:0 0 16px; font-size:19px; font-weight:800; color:var(--text-primary); text-align:center;">ورود به پنل دعوت‌شده</h1>
+          `}
+
+          <!-- TAB 1: LOGIN FORM -->
+          <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
+            <form class="student-auth-form" id="studentLoginForm"><div class="auth-field-group"><label for="loginMobile">شماره همراه<div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></label></div>
+
+              <div class="auth-field-group">
+                <label for="loginPassword">رمز عبور</label>
+                <div class="password-input-wrap">
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور شخصی یا موقت">
+                  <button type="button" class="password-toggle-btn" data-toggle-for="loginPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                <button type="button" class="auth-forgot-link" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
+              </div>
+
+              <button class="primary btn-auth-submit" id="btnLoginSubmit">
+                <span>ورود امن به پنل شخصی</span>
+              </button>
+            </form>
+            ${token ? '<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : '<small class="join-meta">اگر مربی برای شما حساب ساخته، رمز موقت چهار رقم آخر موبایل شماست.</small>'}
+          </div>
+
+          <!-- TAB 2: REGISTER FORM -->
+          <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
+            <form class="student-auth-form" id="studentRegisterForm">
+              <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
+
+              <div class="auth-field-group">
+                <label for="regFullName">نام و نام خانوادگی *</label>
+                <input class="auth-input" id="regFullName" name="full_name" required maxlength="100" autocomplete="name" placeholder="مثال: سارا محمدی">
+              </div>
+
+              <div class="auth-field-group">
+                <label for="regMobile">شماره همراه *</label>
+                <div class="prefixed-input" dir="ltr">
+                  <span>09-</span>
+                  <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="10" placeholder="0000000000">
+                </div>
+              </div>
+
+              <div class="auth-field-group">
+                <label for="regPassword">رمز عبور دلخواه * (حداقل ۸ کاراکتر)</label>
+                <div class="password-input-wrap">
+                  <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="حداقل ۸ کاراکتر">
+                  <button type="button" class="password-toggle-btn" data-toggle-for="regPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
+                </div>
+                <div class="password-strength-wrap" id="regPasswordStrength" style="display:none;">
+                  <div class="password-strength-track">
+                    <div class="strength-seg" id="strengthSeg1"></div>
+                    <div class="strength-seg" id="strengthSeg2"></div>
+                    <div class="strength-seg" id="strengthSeg3"></div>
+                  </div>
+                  <div class="password-strength-text">
+                    <span>قدرت رمز عبور:</span>
+                    <strong id="strengthTextLabel">ضعیف</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="auth-field-group">
+                <label for="regConfirmPassword">تکرار رمز عبور *</label>
+                <div class="password-input-wrap">
+                  <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار همان رمز">
+                  <button type="button" class="password-toggle-btn" data-toggle-for="regConfirmPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
+                </div>
+                <small id="passwordMatchHint" style="font-size:10.5px; color:var(--text-muted); display:none;"></small>
+              </div>
+
+              <!-- Optional Profile Fields -->
+              <div class="auth-field-group">
+                <label for="regGoal">هدف اصلی تمرین (اختیاری)</label>
+                <select class="auth-input" id="regGoal" name="goal">
+                  <option value="فیتنس و تناسب اندام عمومی">فیتنس و تناسب اندام عمومی</option>
+                  <option value="کاهش وزن و چربی‌سوزی">کاهش وزن و چربی‌سوزی</option>
+                  <option value="عضله‌سازی و افزایش حجم">عضله‌سازی و افزایش حجم (هایپرتروفی)</option>
+                  <option value="افزایش استقامت و توان بدنی">افزایش استقامت و توان بدنی</option>
+                  <option value="اصلاح وضعیت بدنی و سلامت">اصلاح وضعیت بدنی و سلامت</option>
+                  <option value="آمادگی مسابقه و سطح حرفه‌ای">آمادگی مسابقه و سطح حرفه‌ای</option>
+                </select>
+              </div>
+
+              <div class="auth-grid-2">
+                <div class="auth-field-group">
+                  <label for="regGender">جنسیت</label>
+                  <select class="auth-input" id="regGender" name="gender">
+                    <option value="male">آقا</option>
+                    <option value="female">خانم</option>
+                    <option value="unspecified">ترجیح می‌دهم نگویم</option>
+                  </select>
+                </div>
+                <div class="auth-grid-2">
+                  <div class="auth-field-group">
+                    <label for="regHeight">قد (cm)</label>
+                    <input class="auth-input" id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵">
+                  </div>
+                  <div class="auth-field-group">
+                    <label for="regWeight">وزن (kg)</label>
+                    <input class="auth-input" id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰">
+                  </div>
+                </div>
+              </div>
+
+              <label class="auth-checkbox-label">
+                <input type="checkbox" name="terms_accepted" id="regTerms" required checked>
+                <span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span>
+              </label>
+
+              <button class="primary btn-auth-submit" id="btnRegisterSubmit">
+                <span>ثبت‌نام و شروع ارزیابی بدنی 🚀</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    `;
+
+    // Tab switching bindings
+    const tabLogin = root.querySelector('#tabBtnLogin');
+    const tabRegister = root.querySelector('#tabBtnRegister');
+    const panelLogin = root.querySelector('#authLoginPanel');
+    const panelRegister = root.querySelector('#authRegisterPanel');
+
+    if(tabLogin && tabRegister){
+      tabLogin.onclick = () => {
+        tabLogin.classList.add('active');
+        tabLogin.setAttribute('aria-selected', 'true');
+        tabRegister.classList.remove('active');
+        tabRegister.setAttribute('aria-selected', 'false');
+        panelLogin.style.display = 'block';
+        panelRegister.style.display = 'none';
+      };
+      tabRegister.onclick = () => {
+        tabRegister.classList.add('active');
+        tabRegister.setAttribute('aria-selected', 'true');
+        tabLogin.classList.remove('active');
+        tabLogin.setAttribute('aria-selected', 'false');
+        panelRegister.style.display = 'block';
+        panelLogin.style.display = 'none';
+      };
+    }
+
+    // Password show/hide toggle
+    root.querySelectorAll('.password-toggle-btn').forEach(btn => {
+      btn.onclick = () => {
+        const targetId = btn.dataset.toggleFor;
+        const input = root.querySelector(`#${targetId}`);
+        if(input){
+          const isPass = input.type === 'password';
+          input.type = isPass ? 'text' : 'password';
+          btn.textContent = isPass ? '🙈' : '👁️';
+        }
+      };
+    });
+
+    // Password strength meter binding
+    const regPassInput = root.querySelector('#regPassword');
+    const strengthBox = root.querySelector('#regPasswordStrength');
+    const seg1 = root.querySelector('#strengthSeg1');
+    const seg2 = root.querySelector('#strengthSeg2');
+    const seg3 = root.querySelector('#strengthSeg3');
+    const strengthLabel = root.querySelector('#strengthTextLabel');
+
+    if(regPassInput && strengthBox){
+      regPassInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if(!val){
+          strengthBox.style.display = 'none';
+          return;
+        }
+        strengthBox.style.display = 'flex';
+        const str = evaluatePasswordStrength(val);
+        strengthLabel.textContent = str.label;
+        seg1.className = 'strength-seg ' + (str.score >= 1 ? str.class : '');
+        seg2.className = 'strength-seg ' + (str.score >= 2 ? str.class : '');
+        seg3.className = 'strength-seg ' + (str.score >= 3 ? str.class : '');
+      });
+    }
+
+    // Confirm password live match check
+    const regConfirmInput = root.querySelector('#regConfirmPassword');
+    const matchHint = root.querySelector('#passwordMatchHint');
+    if(regConfirmInput && regPassInput && matchHint){
+      regConfirmInput.addEventListener('input', () => {
+        if(!regConfirmInput.value){
+          matchHint.style.display = 'none';
+          return;
+        }
+        matchHint.style.display = 'block';
+        if(regConfirmInput.value === regPassInput.value){
+          matchHint.textContent = '✓ تکرار رمز عبور مطابقت دارد.';
+          matchHint.style.color = 'var(--success)';
+        } else {
+          matchHint.textContent = '✕ رمز عبور و تکرار آن یکسان نیستند.';
+          matchHint.style.color = 'var(--danger)';
+        }
+      });
+    }
+
+    // Forgot password info trigger
+    const forgotBtn = root.querySelector('#btnForgotPassword');
+    if(forgotBtn){
+      forgotBtn.onclick = () => {
+        alert('در صورت فراموشی رمز عبور شخصی، با مربی خود تماس بگیرید یا از رمز موقت ۴ رقمی پایان شماره همراه خود استفاده کنید.');
+      };
+    }
+
+    // Login Form Submit Handler
+    const loginFormEl = root.querySelector('#studentLoginForm');
+    if(loginFormEl){
+      loginFormEl.onsubmit = async event => {
+        event.preventDefault();
+        const button = event.currentTarget.querySelector('button');
+        const form = new FormData(event.currentTarget);
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span>⏳</span> <span>در حال ورود امن…</span>';
+        try{
+          const result = await api('/api/student/auth/login', {
+            method: 'POST',
+            body: jsonBody({
+              mobile:completeMobile(form.get('mobile')),
+              password: form.get('password'),
+              invitation_token: token || undefined
+            })
+          });
+          location.replace(result.next_route);
+        }catch(error){
+          toast(error.message, 'error');
+          button.disabled = false;
+          button.innerHTML = originalText;
+        }
+      };
+    }
+
+    // Register Form Submit Handler
+    const registerFormEl = root.querySelector('#studentRegisterForm');
+    const errorBanner = root.querySelector('#registerErrorBanner');
+
+    if(registerFormEl){
+      registerFormEl.onsubmit = async event => {
+        event.preventDefault();
+        if(errorBanner) errorBanner.style.display = 'none';
+
+        const form = new FormData(event.currentTarget);
+        const fullName = String(form.get('full_name')||'').trim();
+        const rawMobile = String(form.get('mobile')||'').trim();
+        const password = String(form.get('password')||'');
+        const confirmPassword = String(form.get('confirm_password')||'');
+        const goal = String(form.get('goal')||'').trim();
+        const gender = String(form.get('gender')||'unspecified');
+        const height = form.get('height') ? Number(form.get('height')) : null;
+        const weight = form.get('weight') ? Number(form.get('weight')) : null;
+        const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
+
+        if(password !== confirmPassword){
+          if(errorBanner){
+            errorBanner.textContent = 'تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.';
+            errorBanner.style.display = 'flex';
+          }
+          return;
+        }
+
+        const button = event.currentTarget.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span>⏳</span> <span>در حال ساخت حساب و شروع ارزیابی…</span>';
+
+        try{
+          const payload = {
+            full_name: fullName,
+            mobile: completeMobile(rawMobile),
+            password,
+            confirm_password: confirmPassword,
+            goal,
+            gender,
+            height,
+            weight,
+            terms_accepted: termsAccepted
+          };
+
+          const result = await api('/api/student/auth/register', {
+            method: 'POST',
+            body: jsonBody(payload)
+          });
+
+          toast('ثبت‌نام با موفقیت انجام شد. هدایت به فرم ارزیابی…', 'success');
+          location.replace(result.next_route || '/student/onboarding');
+        }catch(error){
+          if(errorBanner){
+            errorBanner.textContent = error.message;
+            errorBanner.style.display = 'flex';
+          } else {
+            toast(error.message, 'error');
+          }
+          button.disabled = false;
+          button.innerHTML = originalText;
+        }
+      };
+    }
+  }
+
+  async function renderLogin(){loginForm({initialTab:'login'});}
+  async function renderRegister(){loginForm({initialTab:'register'});}
   async function renderJoin(){
     const token=location.pathname.match(/^\/join\/([^/]+)$/)?.[1];
     if(!token)return errorPage('لینک نامعتبر است','آدرس دعوت کامل نیست.');
     loading('در حال بررسی لینک...');
-    try{const result=await api(`/api/student/join/${encodeURIComponent(token)}`);loginForm({token,studentName:result.student_name,caseNumber:result.case_number});}
+    try{const result=await api(`/api/student/join/${encodeURIComponent(token)}`);loginForm({token,studentName:result.student_name,caseNumber:result.case_number,initialTab:'login'});}
     catch(error){renderInvitationError(error);}
   }
   function renderInvitationError(error){
@@ -491,8 +835,10 @@
     const path=location.pathname;
     if(path.startsWith('/join/'))return renderJoin();
     if(path==='/student/login')return renderLogin();
+    if(path==='/student/register')return renderRegister();
     if(path==='/student/logout')return renderLogout();
     const pages={
+      '/student/register':renderRegister,
       '/student/change-password':renderChangePassword,
       '/student/onboarding':renderOnboarding,
       '/document/edit-document':renderOnboarding,

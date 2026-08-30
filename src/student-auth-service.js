@@ -80,4 +80,67 @@ function setPersonalPassword(db,studentId,newPassword){
   return {password_state:'PERSONAL',password_changed_at:new Date().toISOString()};
 }
 
-module.exports={normalizeMobile,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword};
+function registerStudent(db, data = {}) {
+  const fullName = String(data.full_name || '').trim();
+  if (!fullName || fullName.length < 2 || fullName.length > 100) {
+    throw Object.assign(new Error('نام و نام خانوادگی الزامی است (بین ۲ تا ۱۰۰ کاراکتر).'), { statusCode: 400 });
+  }
+
+  const normalizedMobile = normalizeMobile(data.mobile);
+  const existing = db.prepare('SELECT id FROM students WHERE mobile_normalized = ? AND deleted_at IS NULL').get(normalizedMobile);
+  if (existing) {
+    throw Object.assign(new Error('این شماره همراه قبلاً در سامانه ثبت شده است. لطفاً وارد شوید یا از شماره دیگری استفاده کنید.'), { statusCode: 409, code: 'MOBILE_EXISTS' });
+  }
+
+  const password = validatePersonalPassword(data.password);
+  if (data.confirm_password !== undefined && String(data.confirm_password) !== password) {
+    throw Object.assign(new Error('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.'), { statusCode: 400 });
+  }
+
+  const passwordHash = hashPassword(password);
+  const stableId = 'st_' + (crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex'));
+  const goal = data.goal ? String(data.goal).trim() : '';
+  const height = (data.height !== undefined && data.height !== '' && Number.isFinite(Number(data.height))) ? Number(data.height) : null;
+  const weight = (data.weight !== undefined && data.weight !== '' && Number.isFinite(Number(data.weight))) ? Number(data.weight) : null;
+  
+  let gender = 'unspecified';
+  if (['male', 'female', 'unspecified'].includes(data.gender)) {
+    gender = data.gender;
+  } else if (data.gender === 'مرد' || data.gender === 'آقا') {
+    gender = 'male';
+  } else if (data.gender === 'زن' || data.gender === 'خانم') {
+    gender = 'female';
+  }
+
+  db.exec('BEGIN');
+  try {
+    const insertRes = db.prepare(`
+      INSERT INTO students (
+        stable_id, full_name, mobile, mobile_normalized,
+        password_hash, password_state, status, profile_status, goal,
+        height, weight, gender, version, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'PERSONAL', 'فعال', 'INVITED', ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).run(
+      stableId,
+      fullName,
+      normalizedMobile,
+      normalizedMobile,
+      passwordHash,
+      goal,
+      height,
+      weight,
+      gender
+    );
+
+    const studentId = Number(insertRes.lastInsertRowid);
+    const created = db.prepare('SELECT * FROM students WHERE id = ?').get(studentId);
+    db.exec('COMMIT');
+
+    return created;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+module.exports={normalizeMobile,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,registerStudent};
