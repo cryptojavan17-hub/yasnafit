@@ -412,8 +412,6 @@
 
     // Login Form Submit Handler
     const loginFormEl = root.querySelector('#studentLoginForm');
-    // Login Form Submit Handler
-    const loginFormEl = root.querySelector('#studentLoginForm');
     const loginErrBanner = root.querySelector('#loginErrorBanner');
     const loginSuccBanner = root.querySelector('#loginSuccessBanner');
 
