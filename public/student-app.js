@@ -3,7 +3,8 @@
   const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const faList=value=>String(value??'').split(',').filter(Boolean).map(fa).join('، ')||'—';
   const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
-  const completeMobile=value=>{const digits=asciiDigits(value);if(digits.startsWith('09'))return digits;if(digits.startsWith('9'))return `0${digits}`;return `09${digits}`;};
+  const normalizeNumber=value=>String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'').replace(/[^\d.\-]/g,'');
+  const completeMobile=value=>{const digits=asciiDigits(value);return digits;};
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const statusLabels={PROFILE_INCOMPLETE:'در حال تکمیل',ASSESSMENT_PENDING:'در حال تکمیل',DRAFT:'پیش‌نویس',SUBMITTED:'ارسال‌شده',PENDING_REVIEW:'در انتظار بررسی',UNDER_REVIEW:'در حال بررسی',CHANGES_REQUESTED:'نیاز به اصلاح',APPROVED:'تأیید شده',REJECTED:'رد شده',PROGRAM_ASSIGNED:'برنامه اختصاص داده شد',ACTIVE:'فعال',COMPLETED:'تکمیل‌شده',ARCHIVED:'آرشیو'};
   const photoLabels={front:'جلو',side:'بغل',back:'پشت',front_flex:'جلو با فیگور بازو',back_flex:'پشت با فیگور بازو'};
@@ -603,8 +604,8 @@
         const confirmPassword = String(form.get('confirm_password')||'');
         const goal = String(form.get('goal')||'').trim();
         const gender = String(form.get('gender')||'unspecified');
-        const height = form.get('height') ? Number(form.get('height')) : null;
-        const weight = form.get('weight') ? Number(form.get('weight')) : null;
+        const height = form.get('height') ? Number(normalizeNumber(form.get('height'))) : null;
+        const weight = form.get('weight') ? Number(normalizeNumber(form.get('weight'))) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
 
         if(!firstName || firstName.length < 2){

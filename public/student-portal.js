@@ -188,8 +188,8 @@
         full_name: document.getElementById('spFullName').value.trim(),
         mobile: document.getElementById('spMobile').value.trim(),
         date_of_birth: window.YasnaJalali?(window.YasnaJalali.iso(document.getElementById('spDob'))||null):(document.getElementById('spDob').value||null),
-        height: document.getElementById('spHeight').value ? Number(document.getElementById('spHeight').value) : null,
-        weight: document.getElementById('spWeight').value ? Number(document.getElementById('spWeight').value) : null,
+        height: document.getElementById('spHeight').value ? Number(normalizeNumber(document.getElementById('spHeight').value)) : null,
+        weight: document.getElementById('spWeight').value ? Number(normalizeNumber(document.getElementById('spWeight').value)) : null,
         goal: document.getElementById('spGoal').value,
         training_experience: document.getElementById('spExp').value,
         preferred_location: document.getElementById('spLocation').value,
@@ -206,12 +206,12 @@
     // Save assessment
     document.getElementById('btnSaveAssessment').onclick = async () => {
       const payload = {
-        weight: document.getElementById('assWeight').value ? Number(document.getElementById('assWeight').value) : null,
-        waist: document.getElementById('assWaist').value ? Number(document.getElementById('assWaist').value) : null,
-        chest: document.getElementById('assChest').value ? Number(document.getElementById('assChest').value) : null,
-        hips: document.getElementById('assHips').value ? Number(document.getElementById('assHips').value) : null,
-        body_fat: document.getElementById('assFat').value ? Number(document.getElementById('assFat').value) : null,
-        muscle_mass: document.getElementById('assMuscle').value ? Number(document.getElementById('assMuscle').value) : null,
+        weight: document.getElementById('assWeight').value ? Number(normalizeNumber(document.getElementById('assWeight').value)) : null,
+        waist: document.getElementById('assWaist').value ? Number(normalizeNumber(document.getElementById('assWaist').value)) : null,
+        chest: document.getElementById('assChest').value ? Number(normalizeNumber(document.getElementById('assChest').value)) : null,
+        hips: document.getElementById('assHips').value ? Number(normalizeNumber(document.getElementById('assHips').value)) : null,
+        body_fat: document.getElementById('assFat').value ? Number(normalizeNumber(document.getElementById('assFat').value)) : null,
+        muscle_mass: document.getElementById('assMuscle').value ? Number(normalizeNumber(document.getElementById('assMuscle').value)) : null,
         student_note: document.getElementById('assStudentNote').value,
         status: 'ASSESSMENT_PENDING'
       };

@@ -302,7 +302,7 @@
     }catch(error){host.innerHTML=`<div class="students-error">${esc(error.message)}</div>`;}
   }
   function openEditStudentModal(student){
-    const cleanMobile = student.mobile || ''; // Full mobile without 09- prefix split
+    const cleanMobile = student.mobile || ''; // Full mobile
     const modal=createModal(`
       <form id="editStudentForm">
         <div class="student-modal-head">
@@ -338,10 +338,10 @@
       const fullName = String(form.get('full_name')||'').trim();
       const rawMobile = asciiDigits(String(form.get('mobile')||''));
       const goal = String(form.get('goal')||'').trim();
-      const fullMobile = rawMobile.startsWith('09') ? rawMobile : (rawMobile.startsWith('9') ? `0${rawMobile}` : `09${rawMobile}`);
+      const fullMobile = rawMobile; // No auto 09
 
       if (!fullName) return alert('نام و نام خانوادگی الزامی است.');
-      if (rawMobile.length < 9) return alert('شماره همراه را کامل وارد کنید.');
+      if (rawMobile.length < 7) return alert('شماره همراه را کامل وارد کنید.');
 
       const submitBtn = e.currentTarget.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
@@ -368,8 +368,8 @@
       <div class="student-modal-actions"><button type="button" class="secondary" data-close-modal>انصراف</button><button class="primary">ثبت شاگرد</button></div></form>`);
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
     modal.querySelector('form').onsubmit=async event=>{
-      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),rawMobile=asciiDigits(body.mobile),mobileSuffix=rawMobile.startsWith('09')?rawMobile.slice(2):rawMobile;body.mobile=rawMobile.startsWith('09')?rawMobile:rawMobile.startsWith('9')?`0${rawMobile}`:`09${rawMobile}`;
-      if(mobileSuffix.length<9)return alert('شماره همراه را کامل وارد کنید.');
+      event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),rawMobile=asciiDigits(body.mobile);body.mobile=rawMobile;
+      if(rawMobile.length<7)return alert('شماره همراه را کامل وارد کنید.');
       try{
         const created=await api('/api/students',{method:'POST',body:JSON.stringify(body)});modal.remove();await loadStudentList();showInvitation(created.id,created,'شاگرد و دسترسی ورود ایجاد شد');
       }catch(error){alert(error.message);}

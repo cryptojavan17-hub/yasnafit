@@ -11,10 +11,8 @@ function normalizeMobile(value){
     .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
     .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
     .replace(/\D/g,'');
-  if(digits.startsWith('0098'))digits=`0${digits.slice(4)}`;
-  else if(digits.startsWith('98')&&digits.length===12)digits=`0${digits.slice(2)}`;
-  else if(digits.startsWith('099')&&digits.length===12)digits=`0${digits.slice(2)}`;
-  else if(digits.length===10&&digits.startsWith('9'))digits=`0${digits}`;
+  if(digits.startsWith('0098'))digits=digits.slice(4);
+  else if(digits.startsWith('98')&&digits.length>=11)digits=digits.slice(2);
   if(digits.length<7||digits.length>15)throw Object.assign(new Error('شماره همراه معتبر نیست'),{statusCode:400});
   return digits;
 }
