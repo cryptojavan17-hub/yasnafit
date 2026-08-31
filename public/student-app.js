@@ -151,7 +151,7 @@
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
+              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><input class="auth-input" id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr"></div>
 
                 <div class="auth-field-group">
                   <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
@@ -196,10 +196,7 @@
 
                 <div class="auth-field-group">
                   <label for="regMobile"><span>شماره همراه</span><span class="req-star">*</span></label>
-                  <div class="prefixed-input" dir="ltr">
-                    <span>09-</span>
-                    <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="10" placeholder="0000000000">
-                  </div>
+                  <input class="auth-input" id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="11" placeholder="09123456789" dir="ltr">
                 </div>
 
                 <!-- تاریخ تولد ساده با ۳ انتخاب -->

@@ -302,7 +302,7 @@
     }catch(error){host.innerHTML=`<div class="students-error">${esc(error.message)}</div>`;}
   }
   function openEditStudentModal(student){
-    const cleanMobile = student.mobile ? (student.mobile.startsWith('09') ? student.mobile.slice(2) : (student.mobile.startsWith('9') ? student.mobile.slice(1) : student.mobile)) : '';
+    const cleanMobile = student.mobile || ''; // Full mobile without 09- prefix split
     const modal=createModal(`
       <form id="editStudentForm">
         <div class="student-modal-head">
@@ -316,10 +316,7 @@
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
             <span>شماره همراه *</span>
-            <div class="prefixed-input" dir="ltr" style="display:flex; align-items:center; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); overflow:hidden;">
-              <span style="padding:0 12px; color:var(--text-muted); background:var(--surface-2); font-weight:700;">09-</span>
-              <input name="mobile" required maxlength="10" inputmode="tel" autocomplete="tel" placeholder="0000000000" value="${esc(cleanMobile)}" style="flex:1; height:40px; border:none; padding:0 12px; background:transparent; color:var(--text-primary); outline:none;">
-            </div>
+            <input name="mobile" required maxlength="11" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${esc(student.mobile||'')}" dir="ltr" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
           </label>
           <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
             <span>هدف تمرینی</span>
@@ -367,7 +364,7 @@
 
   function openAddStudent(){
     const modal=createModal(`<form id="addStudentForm"><div class="student-modal-head"><h2>افزودن شاگرد</h2><button type="button" data-close-modal>×</button></div>
-      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100" autocomplete="name"></label><label>شماره همراه *<div class="prefixed-input" dir="ltr"><span>09-</span><input name="mobile" required maxlength="10" inputmode="tel" autocomplete="tel" placeholder="0000000000"></div></label></div>
+      <div class="student-form-grid"><label>نام و نام خانوادگی *<input name="full_name" required maxlength="100" autocomplete="name"></label><label>شماره همراه *<input name="mobile" required maxlength="11" inputmode="tel" autocomplete="tel" placeholder="09123456789" dir="ltr"></label></div>
       <div class="student-modal-actions"><button type="button" class="secondary" data-close-modal>انصراف</button><button class="primary">ثبت شاگرد</button></div></form>`);
     modal.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
     modal.querySelector('form').onsubmit=async event=>{
