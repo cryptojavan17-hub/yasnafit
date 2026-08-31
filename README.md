@@ -15,6 +15,24 @@ Student and coach authorization are separate. Student entry is `/join/:token`; p
 
 ---
 
+## ⚡ دریافت آخرین فیکس — Getting the latest fix
+
+> **قاعده ثابت (persistent rule):** در پایان هر گزارش، دستورهای اجرا را دقیقاً به این شکل به کاربر بدهید — فقط نام شاخه را با شاخه فعلی جلسه جایگزین کنید. نمونه (شاخه فعلی: `arena/01a05903-yasnafit`):
+
+```bat
+cd C:\Users\MAHDI\Desktop\yasnafit-git
+git fetch origin
+git checkout arena/01a05903-yasnafit
+git pull --ff-only origin arena/01a05903-yasnafit
+.\YASNAFIT-LAUNCHER.bat
+```
+
+- `git pull --ff-only` فقط جلو می‌برد؛ اگر لوکال تغییر داشته باشد، از شما می‌خواهد اول تغییرات را stash یا commit کنید.
+- بعد از آپدیت، اگر صفحه قدیمی ماند: `Ctrl+Shift+R` (پاک کردن کش مرورگر).
+- اجرا بدون Node نیز با `.\YASNAFIT-LAUNCHER.bat` (پورت ۳۰۲۰): مربی `/coach`، ثبت‌نام `/student/register`، ورود `/student/login`، ارزیابی `/student/onboarding`.
+
+---
+
 # Morabiha — User Guide | راهنمای کاربر مربیها
 
 <details>
