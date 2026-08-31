@@ -699,7 +699,7 @@
   box-shadow:0 0 0 1px rgba(0,0,0,.65), 0 30px 90px rgba(0,0,0,.85), 0 0 80px rgba(var(--lux-gold-rgb),.08);
 }
 
-/* ---------- پنل هیرو (سمت راست در RTL) ---------- */
+/* ---------- پنل هیرو (سمت راست در RTL) — فقط عکس + لوگو + تیتر ---------- */
 .lux-auth .lux-hero{
   position:relative;
   min-height:660px;
@@ -707,54 +707,48 @@
   border-left:1px solid rgba(var(--lux-gold-rgb),.22);
   overflow:hidden;
   background:linear-gradient(165deg, rgba(22,20,12,.55), rgba(6,6,5,.30));
-  padding:clamp(26px,3vw,40px);
+  padding:clamp(20px,2.4vw,30px);
 }
 .lux-hero-img{
   position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;object-position:center top;
-  filter:saturate(.94) contrast(1.07) brightness(.92);
+  object-fit:cover;
+  object-position:center 28%;
+  filter:brightness(1.07) contrast(1.06) saturate(1.03);
 }
 .lux-hero-shade{
   position:absolute;inset:0;
   background:
-    linear-gradient(180deg, rgba(5,5,5,.82) 0%, rgba(5,5,5,.22) 32%, rgba(5,5,5,.08) 55%, rgba(5,5,5,.94) 100%),
-    linear-gradient(90deg, rgba(5,5,5,.55) 0%, transparent 60%);
+    linear-gradient(180deg, rgba(5,5,5,.30) 0%, rgba(5,5,5,0) 24%, rgba(5,5,5,0) 52%, rgba(5,5,5,.60) 76%, rgba(5,5,5,.93) 100%),
+    linear-gradient(to left, rgba(5,5,5,.48) 0%, rgba(5,5,5,0) 46%);
 }
 .lux-hero-top,.lux-hero-bottom{position:relative;z-index:2;}
 
-.lux-hero-head{align-items:flex-start;}
+.lux-hero-top{display:flex;justify-content:flex-start;}
 .lux-logo{
-  width:52px;height:52px;border-radius:14px;font-size:24px;
+  width:46px;height:46px;border-radius:13px;font-size:21px;
   background:linear-gradient(135deg,var(--lux-gold-soft) 0%,var(--lux-gold) 45%,var(--lux-gold-deep) 100%);
   color:var(--lux-ink);
-  box-shadow:0 0 26px rgba(var(--lux-gold-rgb),.5), inset 0 1px 0 rgba(255,255,255,.55);
-}
-.lux-brand{font-size:16px;letter-spacing:.32em;text-shadow:0 2px 18px rgba(0,0,0,.8);}
-.lux-brand-sub{
-  display:block;margin-top:4px;
-  font-size:8.5px;font-weight:800;letter-spacing:.52em;
-  color:var(--lux-gold-soft);opacity:.9;text-shadow:0 2px 12px rgba(0,0,0,.9);
+  box-shadow:0 0 22px rgba(var(--lux-gold-rgb),.45), 0 8px 22px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.55);
 }
 
-.lux-hero-bottom{display:flex;flex-direction:column;gap:14px;padding-bottom:6px;}
-.lux-kicker{
-  font-size:11px;font-weight:850;letter-spacing:.16em;color:var(--lux-gold-soft);
-  display:inline-flex;align-items:center;gap:12px;
-}
-.lux-kicker::before{content:"";width:38px;height:1px;background:linear-gradient(90deg,transparent,var(--lux-gold-soft));}
+.lux-hero-bottom{display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:clamp(6px,1.5vw,14px);}
 .lux-hero-title{
-  font-size:clamp(36px,4.4vw,56px);
-  line-height:1.25;
-  text-shadow:0 6px 34px rgba(0,0,0,.85), 0 0 40px rgba(var(--lux-gold-rgb),.14);
+  margin:0;
+  font-size:clamp(42px,4.8vw,64px);
+  font-weight:900;
+  color:var(--text);
+  line-height:1.28;
+  letter-spacing:-.01em;
+  text-shadow:0 4px 26px rgba(0,0,0,.75), 0 0 70px rgba(0,0,0,.55);
 }
-.lux-hero-desc{max-width:420px;font-size:14px;line-height:2.1;color:rgba(255,255,255,.74);}
-.lux-hero-stats{display:flex;gap:34px;margin-top:16px;flex-wrap:wrap;}
-.lux-hero-stats div{display:flex;flex-direction:column;gap:3px;}
-.lux-hero-stats b{
-  font-size:22px;font-weight:950;color:var(--lux-gold-soft);
-  text-shadow:0 0 22px rgba(var(--lux-gold-rgb),.4);
+
+/* متن مخفی صرفاً برای سازگاری دسترس‌پذیری — از نظر بصری نامرئی */
+.sr-only{
+  position:absolute;
+  width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);
+  white-space:nowrap;border:0;
 }
-.lux-hero-stats span{font-size:11px;color:rgba(255,255,255,.55);}
 
 /* ---------- پنل فرم (سمت چپ در RTL) ---------- */
 .lux-auth .lux-form-panel{
@@ -894,16 +888,15 @@
 @media (max-width:960px){
   .lux-auth{padding:14px;}
   .lux-auth .join-card.glass-auth-card.auth-split-card{grid-template-columns:1fr;}
-  .lux-auth .lux-hero{min-height:320px;border-left:0;border-bottom:1px solid rgba(var(--lux-gold-rgb),.22);}
-  .lux-hero-stats{display:none;}
+  .lux-auth .lux-hero{min-height:300px;border-left:0;border-bottom:1px solid rgba(var(--lux-gold-rgb),.22);}
+  .lux-hero-title{font-size:clamp(34px,7vw,48px);}
   .lux-auth .lux-form-panel{max-height:none;overflow:visible;}
 }
 @media (max-width:560px){
   .lux-auth{padding:8px;}
   .lux-auth .join-card.glass-auth-card.auth-split-card{border-radius:20px;}
-  .lux-auth .lux-hero{min-height:250px;padding:20px;}
-  .lux-hero-desc{display:none;}
-  .lux-brand-sub{display:none;}
+  .lux-auth .lux-hero{min-height:230px;padding:16px;}
+  .lux-hero-title{font-size:30px;}
   .lux-auth .lux-form-panel{padding:22px 16px;}
   .lux-form-title{font-size:21px;}
 }

@@ -128,28 +128,16 @@
         <div class="lux-glow lux-glow-a"></div>
         <div class="lux-glow lux-glow-b"></div>
         <div class="join-card glass-auth-card auth-split-card lux-auth-card">
-          <!-- Hero Panel — عکس شما با استایل لوکس (سمت راست در RTL) -->
+          <!-- Hero Panel — فقط عکس شما، لوگوی کوچک و تیتر اصلی -->
           <div class="auth-welcome-panel lux-hero">
             <img class="lux-hero-img" src="/image/logo.png" alt="یاسنافیت" onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/images/auth-hero.jpg';}else{this.remove();}">
             <div class="lux-hero-shade"></div>
+            <span class="sr-only">خوش آمدید!</span>
             <div class="lux-hero-top">
-              <div class="auth-welcome-head lux-hero-head">
-                <div class="join-logo lux-logo">Y</div>
-                <div>
-                  <span class="join-brand lux-brand">YASNAFIT</span>
-                  <small class="lux-brand-sub">LUXURY FITNESS</small>
-                </div>
-              </div>
+              <div class="join-logo lux-logo" aria-label="یاسنافیت">Y</div>
             </div>
             <div class="lux-hero-bottom">
-              <span class="lux-kicker">خوش آمدید! باشگاه نخبگان تناسب اندام</span>
               <h2 class="auth-welcome-title lux-hero-title">قدرت از آنِ توست</h2>
-              <p class="auth-welcome-desc lux-hero-desc">تمرین اختصاصی، تغذیه حرفه‌ای و پشتیبانی مربی — همه در یک پنل شخصی لوکس و اختصاصی برای شما.</p>
-              <div class="lux-hero-stats">
-                <div><b>۲۷۰۰+</b><span>حرکت تخصصی</span></div>
-                <div><b>۱۰۰٪</b><span>برنامه اختصاصی</span></div>
-                <div><b>۲۴/۷</b><span>پشتیبانی مربی</span></div>
-              </div>
             </div>
           </div>
 
