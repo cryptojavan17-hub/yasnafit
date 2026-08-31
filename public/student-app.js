@@ -119,223 +119,232 @@
   function loginForm({token='',studentName='',caseNumber='',initialTab='login'}={}){
     const isJoin = Boolean(token);
     let activeTab = isJoin ? 'login' : (initialTab === 'register' ? 'register' : 'login');
-
     const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
 
     root.innerHTML = `
-      <section class="student-auth-page">
-        <div class="join-card glass-auth-card auth-split-card">
-          <!-- Left Side: Pure Minimal Welcome Section -->
-          <div class="auth-welcome-panel">
-            <div class="auth-welcome-head">
-              <div class="join-logo">Y</div>
-              <div>
-                <span class="join-brand">YASNAFIT</span>
-              </div>
+      <section class="yasna-luxury-auth" dir="rtl">
+        <div class="luxury-container">
+          <!-- LEFT: Exact hero photo - DO NOT MODIFY -->
+          <div class="luxury-hero">
+            <img src="/assets/hero-login.jpg" alt="Yasnafit" class="luxury-hero-img">
+            <div class="luxury-hero-overlay"></div>
+            <div class="luxury-quote-box">
+              <div class="q-mark">"</div>
+              <h3>قدرت واقعی در درون توست</h3>
+              <p>هر روز یک قدم به بهترین نسخه خودت نزدیک‌تر شو.</p>
+              <div class="q-mark end">"</div>
             </div>
-
-            <div class="auth-welcome-content">
-              <h2 class="auth-welcome-title">خوش آمدید!</h2>
-              <p class="auth-welcome-desc">به پورتال شاگردان Yasnafit خوش آمدید.</p>
-            </div>
-
-            <div class="auth-welcome-footer"></div>
           </div>
 
-          <!-- Right Side: Clean Form Section -->
-          <div class="auth-form-panel">
-            <div class="auth-form-header">
-              <h1 class="auth-form-title" id="authFormTitle">${activeTab === 'login' ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام'}</h1>
-              ${studentName ? `<p style="margin:4px 0 0; font-size:13px; color:var(--text-primary);">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
-              ${caseNumber ? `<div class="created-case-number" style="margin-top:2px;"><span style="font-size:11px;color:var(--text-muted);">شماره پرونده: </span><b style="color:rgba(45,212,191,1);">${esc(caseNumber)}</b></div>` : ''}
+          <!-- RIGHT: Dark glass panel with form -->
+          <div class="luxury-form-panel">
+            <!-- 1. Logo + teal Y badge (top right) -->
+            <div class="luxury-brand">
+              <div class="brand-text"><span>YASNA</span><span class="fit">FIT</span></div>
+              <div class="brand-y">Y</div>
             </div>
 
-            <!-- TAB 1: LOGIN FORM -->
-            <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><input class="auth-input" id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr"></div>
+            <!-- 2. Title -->
+            <!-- 3. Subtitle -->
+            <div class="luxury-titles">
+              <h1 id="authFormTitle">${activeTab === 'login' ? 'خوش آمدید!' : 'ثبت‌نام در یسنافیت'}</h1>
+              <p>${activeTab === 'login' ? 'به پورتال شاگردان Yasnafit خوش آمدید.' : 'حساب کاربری جدید بسازید و سفر فیتنس خود را شروع کنید.'}</p>
+              ${studentName ? `<p style="margin-top:8px; font-size:13px; color:#fff;">سلام <strong style="color:#2dd4bf;">${esc(studentName)}</strong> 👋</p>` : ''}
+              ${caseNumber ? `<div style="margin-top:6px;"><span style="font-size:11px;color:rgba(255,255,255,0.4);">شماره پرونده: </span><b style="color:#2dd4bf; font-size:13px; letter-spacing:0.05em;" dir="ltr">${esc(caseNumber)}</b></div>` : ''}
+            </div>
 
-                <div class="auth-field-group">
-                  <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
-                  <div class="password-input-wrap">
-                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور">
-                    <button type="button" class="password-toggle-btn" data-toggle-for="loginPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
+            <!-- LOGIN PANEL -->
+            <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
+              <form class="luxury-form" id="studentLoginForm">
+                <div id="loginSuccessBanner" class="luxury-banner success" style="display:none;"></div>
+                <div id="loginErrorBanner" class="luxury-banner error" style="display:none;"></div>
+
+                <!-- 4. Phone field -->
+                <div class="luxury-field">
+                  <label for="loginMobile">شماره همراه</label>
+                  <div class="luxury-input-wrap">
+                    <span class="input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>
+                    </span>
+                    <input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr">
                   </div>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <button type="button" class="auth-forgot-link" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
+                <!-- 5. Password field -->
+                <div class="luxury-field">
+                  <label for="loginPassword">رمز عبور</label>
+                  <div class="luxury-input-wrap">
+                    <span class="input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>
+                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="••••••••••••">
+                    <button type="button" class="toggle-pass" data-toggle-for="loginPassword" aria-label="نمایش رمز">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  </div>
                 </div>
 
-                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnLoginSubmit">
+                <!-- 6. Forgot link -->
+                <div class="luxury-forgot">
+                  <button type="button" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
+                </div>
+
+                <!-- 7. Large teal ورود button -->
+                <button type="submit" class="luxury-submit" id="btnLoginSubmit">
                   <span>ورود</span>
                 </button>
 
-                <div class="auth-bottom-switch">
-                  <span>حساب کاربری ندارید؟</span>
-                  <button type="button" id="btnGoToRegister">ثبت‌نام کنید</button>
-                </div>
-              </form>
-              ${token ? '<small class="join-meta">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : ''}
-            </div>
+                <!-- 8. Divider یا -->
+                <div class="luxury-divider">یا</div>
 
-            <!-- TAB 2: REGISTER FORM -->
-            <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentRegisterForm">
-                <div id="registerSuccessBanner" class="auth-success-banner" style="display:none;"></div>
-                <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
-
-                <div class="auth-grid-2">
-                  <div class="auth-field-group">
-                    <label for="regFirstName"><span>نام</span><span class="req-star">*</span></label>
-                    <input class="auth-input" id="regFirstName" name="first_name" required minlength="2" maxlength="50" autocomplete="given-name" placeholder="نام">
-                  </div>
-                  <div class="auth-field-group">
-                    <label for="regLastName"><span>نام خانوادگی</span><span class="req-star">*</span></label>
-                    <input class="auth-input" id="regLastName" name="last_name" required minlength="2" maxlength="50" autocomplete="family-name" placeholder="نام خانوادگی">
-                  </div>
-                </div>
-
-                <div class="auth-field-group">
-                  <label for="regMobile"><span>شماره همراه</span><span class="req-star">*</span></label>
-                  <input class="auth-input" id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="11" placeholder="09123456789" dir="ltr">
-                </div>
-
-                <!-- تاریخ تولد ساده با ۳ انتخاب -->
-                <div class="auth-field-group">
-                  <label><span>تاریخ تولد</span><span class="req-star">*</span></label>
-                  <div class="auth-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                    <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobDay" required>
-                        <option value="" disabled selected>روز</option>
-                        <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
-                      </select>
-                    </div>
-                    <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobMonth" required>
-                        <option value="" disabled selected>ماه</option>
-                        <option value="01">فروردین</option>
-                        <option value="02">اردیبهشت</option>
-                        <option value="03">خرداد</option>
-                        <option value="04">تیر</option>
-                        <option value="05">مرداد</option>
-                        <option value="06">شهریور</option>
-                        <option value="07">مهر</option>
-                        <option value="08">آبان</option>
-                        <option value="09">آذر</option>
-                        <option value="10">دی</option>
-                        <option value="11">بهمن</option>
-                        <option value="12">اسفند</option>
-                      </select>
-                    </div>
-                    <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobYear" required>
-                        <option value="" disabled selected>سال</option>
-                        <option value="1390">1390</option><option value="1389">1389</option><option value="1388">1388</option><option value="1387">1387</option><option value="1386">1386</option><option value="1385">1385</option><option value="1384">1384</option><option value="1383">1383</option><option value="1382">1382</option><option value="1381">1381</option><option value="1380">1380</option><option value="1379">1379</option><option value="1378">1378</option><option value="1377">1377</option><option value="1376">1376</option><option value="1375">1375</option><option value="1374">1374</option><option value="1373">1373</option><option value="1372">1372</option><option value="1371">1371</option><option value="1370">1370</option><option value="1369">1369</option><option value="1368">1368</option><option value="1367">1367</option><option value="1366">1366</option><option value="1365">1365</option><option value="1364">1364</option><option value="1363">1363</option><option value="1362">1362</option><option value="1361">1361</option><option value="1360">1360</option><option value="1359">1359</option><option value="1358">1358</option><option value="1357">1357</option><option value="1356">1356</option><option value="1355">1355</option><option value="1354">1354</option><option value="1353">1353</option><option value="1352">1352</option><option value="1351">1351</option><option value="1350">1350</option><option value="1349">1349</option><option value="1348">1348</option><option value="1347">1347</option><option value="1346">1346</option><option value="1345">1345</option><option value="1344">1344</option><option value="1343">1343</option><option value="1342">1342</option><option value="1341">1341</option><option value="1340">1340</option><option value="1339">1339</option><option value="1338">1338</option><option value="1337">1337</option><option value="1336">1336</option><option value="1335">1335</option><option value="1334">1334</option><option value="1333">1333</option><option value="1332">1332</option><option value="1331">1331</option><option value="1330">1330</option><option value="1329">1329</option><option value="1328">1328</option><option value="1327">1327</option><option value="1326">1326</option><option value="1325">1325</option><option value="1324">1324</option><option value="1323">1323</option><option value="1322">1322</option><option value="1321">1321</option><option value="1320">1320</option><option value="1319">1319</option><option value="1318">1318</option><option value="1317">1317</option><option value="1316">1316</option><option value="1315">1315</option><option value="1314">1314</option><option value="1313">1313</option><option value="1312">1312</option><option value="1311">1311</option><option value="1310">1310</option>
-                      </select>
-                    </div>
-                  </div>
-                  <input type="hidden" id="regDob" name="date_of_birth">
-                  <small style="font-size:11px;color:var(--text-muted);margin-top:4px;display:block;">مثال: ۱۳۷۵ / تیر / ۱۵ - فقط انتخاب کنید</small>
-                </div>
-
-                <!-- استان و شهر وابسته -->
-                <div class="auth-grid-2">
-                  <div class="auth-field-group">
-                    <label for="regProvince"><span>استان محل سکونت</span><span class="req-star">*</span></label>
-                    <select class="auth-input" id="regProvince" name="province" required>
-                      <option value="" disabled selected>انتخاب استان...</option>
-                      ${provinceOptionsHtml}
-                    </select>
-                  </div>
-                  <div class="auth-field-group">
-                    <label for="regCity"><span>شهر محل سکونت</span><span class="req-star">*</span></label>
-                    <select class="auth-input" id="regCity" name="city" required disabled>
-                      <option value="" disabled selected>انتخاب شهر...</option>
-                    </select>
-                  </div>
-                </div>
-
-                <!-- آدرس کامل محل سکونت -->
-                <div class="auth-field-group">
-                  <label for="regAddress"><span>آدرس کامل محل سکونت</span><span class="req-star">*</span></label>
-                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..." style="height:64px; padding:10px 14px; resize:vertical;"></textarea>
-                </div>
-
-                <div class="auth-field-group">
-                  <label for="regPassword"><span>رمز عبور دلخواه</span><span class="req-star">* (حداقل ۸ کاراکتر)</span></label>
-                  <div class="password-input-wrap">
-                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور دلخواه">
-                    <button type="button" class="password-toggle-btn" data-toggle-for="regPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
-                  </div>
-                  <div class="password-strength-wrap" id="regPasswordStrength" style="display:none;">
-                    <div class="password-strength-track">
-                      <div class="strength-seg" id="strengthSeg1"></div>
-                      <div class="strength-seg" id="strengthSeg2"></div>
-                      <div class="strength-seg" id="strengthSeg3"></div>
-                    </div>
-                    <div class="password-strength-text">
-                      <span>قدرت رمز عبور:</span>
-                      <strong id="strengthTextLabel">ضعیف</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="auth-field-group">
-                  <label for="regConfirmPassword"><span>تکرار رمز عبور</span><span class="req-star">*</span></label>
-                  <div class="password-input-wrap">
-                    <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز عبور">
-                    <button type="button" class="password-toggle-btn" data-toggle-for="regConfirmPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
-                  </div>
-                  <small id="passwordMatchHint" style="font-size:11px; color:var(--text-muted); display:none;"></small>
-                </div>
-
-                <!-- Optional Profile Fields -->
-                <div class="auth-field-group">
-                  <label for="regGoal"><span>هدف اصلی تمرین (اختیاری)</span></label>
-                  <select class="auth-input" id="regGoal" name="goal">
-                    <option value="فیتنس و تناسب اندام عمومی">فیتنس و تناسب اندام عمومی</option>
-                    <option value="کاهش وزن و چربی‌سوزی">کاهش وزن و چربی‌سوزی</option>
-                    <option value="عضله‌سازی و افزایش حجم">عضله‌سازی و افزایش حجم (هایپرتروفی)</option>
-                    <option value="افزایش استقامت و توان بدنی">افزایش استقامت و توان بدنی</option>
-                    <option value="اصلاح وضعیت بدنی و سلامت">اصلاح وضعیت بدنی و سلامت</option>
-                    <option value="آمادگی مسابقه و سطح حرفه‌ای">آمادگی مسابقه و سطح حرفه‌ای</option>
-                  </select>
-                </div>
-
-                <div class="auth-grid-2">
-                  <div class="auth-field-group">
-                    <label for="regGender"><span>جنسیت</span></label>
-                    <select class="auth-input" id="regGender" name="gender">
-                      <option value="male">آقا</option>
-                      <option value="female">خانم</option>
-                      <option value="unspecified">ترجیح می‌دهم نگویم</option>
-                    </select>
-                  </div>
-                  <div class="auth-grid-2">
-                    <div class="auth-field-group">
-                      <label for="regHeight"><span>قد (cm)</span></label>
-                      <input class="auth-input" id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵">
-                    </div>
-                    <div class="auth-field-group">
-                      <label for="regWeight"><span>وزن (kg)</span></label>
-                      <input class="auth-input" id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰">
-                    </div>
-                  </div>
-                </div>
-
-                <label class="auth-checkbox-label">
-                  <input type="checkbox" name="terms_accepted" id="regTerms" required checked>
-                  <span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span>
-                </label>
-
-                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnRegisterSubmit">
-                  <span>ثبت‌نام</span>
+                <!-- 9. Outline ثبت‌نام button -->
+                <button type="button" class="luxury-secondary" id="btnGoToRegister">
+                  <span>حساب کاربری ندارید؟</span> <b>ثبت‌نام کنید</b> <span style="font-size:16px;">👤</span>
                 </button>
 
-                <div class="auth-bottom-switch">
-                  <span>قبلاً ثبت‌نام کرده‌اید؟</span>
-                  <button type="button" id="btnGoToLogin">وارد شوید</button>
+                ${token ? '<small style="display:block; margin-top:12px; text-align:center; color:rgba(255,255,255,0.3); font-size:10px;">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : ''}
+
+                <!-- 10. Three feature icons -->
+                <div class="luxury-features">
+                  <div class="luxury-feature">
+                    <div class="f-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </div>
+                    <div>
+                      <b>امن و مطمئن</b>
+                      <small>اطلاعات شما محفوظ است</small>
+                    </div>
+                  </div>
+                  <div class="luxury-feature">
+                    <div class="f-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <div>
+                      <b>پیشرفت خود را ببینید</b>
+                      <small>گزارش و آنالیز حرفه‌ای</small>
+                    </div>
+                  </div>
+                  <div class="luxury-feature">
+                    <div class="f-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><path d="M6.5 6.5h11l-1 6.5h-9z"/><path d="M4 10h2"/><path d="M18 10h2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M6 21v-3"/><path d="M18 21v-3"/></svg>
+                    </div>
+                    <div>
+                      <b>برنامه تمرینی شخصی</b>
+                      <small>متناسب با هدف شما</small>
+                    </div>
+                  </div>
                 </div>
+
+                <!-- 11. Footer -->
+                <div class="luxury-footer">
+                  <div class="luxury-footer-badge">🛡️ YASNAFIT © 2025</div>
+                </div>
+              </form>
+            </div>
+
+            <!-- REGISTER PANEL - same luxury style -->
+            <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
+              <form class="luxury-form" id="studentRegisterForm">
+                <div id="registerSuccessBanner" class="luxury-banner success" style="display:none;"></div>
+                <div id="registerErrorBanner" class="luxury-banner error" style="display:none;"></div>
+
+                <div class="luxury-grid-2">
+                  <div class="luxury-field">
+                    <label for="regFirstName">نام *</label>
+                    <div class="luxury-input-wrap"><input id="regFirstName" name="first_name" required minlength="2" maxlength="50" autocomplete="given-name" placeholder="نام"></div>
+                  </div>
+                  <div class="luxury-field">
+                    <label for="regLastName">نام خانوادگی *</label>
+                    <div class="luxury-input-wrap"><input id="regLastName" name="last_name" required minlength="2" maxlength="50" autocomplete="family-name" placeholder="نام خانوادگی"></div>
+                  </div>
+                </div>
+
+                <div class="luxury-field">
+                  <label for="regMobile">شماره همراه *</label>
+                  <div class="luxury-input-wrap">
+                    <span class="input-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>
+                    </span>
+                    <input id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="11" placeholder="09123456789" dir="ltr">
+                  </div>
+                </div>
+
+                <div class="luxury-field">
+                  <label>تاریخ تولد *</label>
+                  <div class="luxury-grid-3">
+                    <select class="luxury-select" id="regDobDay" required><option value="" disabled selected>روز</option><option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select>
+                    <select class="luxury-select" id="regDobMonth" required><option value="" disabled selected>ماه</option><option value="01">فروردین</option><option value="02">اردیبهشت</option><option value="03">خرداد</option><option value="04">تیر</option><option value="05">مرداد</option><option value="06">شهریور</option><option value="07">مهر</option><option value="08">آبان</option><option value="09">آذر</option><option value="10">دی</option><option value="11">بهمن</option><option value="12">اسفند</option></select>
+                    <select class="luxury-select" id="regDobYear" required><option value="" disabled selected>سال</option><option value="1390">1390</option><option value="1389">1389</option><option value="1388">1388</option><option value="1387">1387</option><option value="1386">1386</option><option value="1385">1385</option><option value="1384">1384</option><option value="1383">1383</option><option value="1382">1382</option><option value="1381">1381</option><option value="1380">1380</option><option value="1379">1379</option><option value="1378">1378</option><option value="1377">1377</option><option value="1376">1376</option><option value="1375">1375</option><option value="1374">1374</option><option value="1373">1373</option><option value="1372">1372</option><option value="1371">1371</option><option value="1370">1370</option><option value="1369">1369</option><option value="1368">1368</option><option value="1367">1367</option><option value="1366">1366</option><option value="1365">1365</option><option value="1364">1364</option><option value="1363">1363</option><option value="1362">1362</option><option value="1361">1361</option><option value="1360">1360</option><option value="1359">1359</option><option value="1358">1358</option><option value="1357">1357</option><option value="1356">1356</option><option value="1355">1355</option><option value="1354">1354</option><option value="1353">1353</option><option value="1352">1352</option><option value="1351">1351</option><option value="1350">1350</option><option value="1349">1349</option><option value="1348">1348</option><option value="1347">1347</option><option value="1346">1346</option><option value="1345">1345</option><option value="1344">1344</option><option value="1343">1343</option><option value="1342">1342</option><option value="1341">1341</option><option value="1340">1340</option><option value="1339">1339</option><option value="1338">1338</option><option value="1337">1337</option><option value="1336">1336</option><option value="1335">1335</option><option value="1334">1334</option><option value="1333">1333</option><option value="1332">1332</option><option value="1331">1331</option><option value="1330">1330</option><option value="1329">1329</option><option value="1328">1328</option><option value="1327">1327</option><option value="1326">1326</option><option value="1325">1325</option><option value="1324">1324</option><option value="1323">1323</option><option value="1322">1322</option><option value="1321">1321</option><option value="1320">1320</option><option value="1319">1319</option><option value="1318">1318</option><option value="1317">1317</option><option value="1316">1316</option><option value="1315">1315</option><option value="1314">1314</option><option value="1313">1313</option><option value="1312">1312</option><option value="1311">1311</option><option value="1310">1310</option></select>
+                  </div>
+                  <input type="hidden" id="regDob" name="date_of_birth">
+                </div>
+
+                <div class="luxury-grid-2">
+                  <div class="luxury-field">
+                    <label for="regProvince">استان *</label>
+                    <select class="luxury-select" id="regProvince" name="province" required><option value="" disabled selected>انتخاب استان...</option>${provinceOptionsHtml}</select>
+                  </div>
+                  <div class="luxury-field">
+                    <label for="regCity">شهر *</label>
+                    <select class="luxury-select" id="regCity" name="city" required disabled><option value="" disabled selected>انتخاب شهر...</option></select>
+                  </div>
+                </div>
+
+                <div class="luxury-field">
+                  <label for="regAddress">آدرس کامل *</label>
+                  <textarea class="luxury-textarea" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک..."></textarea>
+                </div>
+
+                <div class="luxury-field">
+                  <label for="regPassword">رمز عبور دلخواه * (حداقل ۸ کاراکتر)</label>
+                  <div class="luxury-input-wrap">
+                    <input id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور">
+                    <button type="button" class="toggle-pass" data-toggle-for="regPassword">👁️</button>
+                  </div>
+                  <div id="regPasswordStrength" style="display:none; margin-top:8px;">
+                    <div style="height:4px; display:flex; gap:3px;">
+                      <div id="strengthSeg1" style="flex:1; height:100%; background:rgba(255,255,255,0.1); border-radius:99px;"></div>
+                      <div id="strengthSeg2" style="flex:1; height:100%; background:rgba(255,255,255,0.1); border-radius:99px;"></div>
+                      <div id="strengthSeg3" style="flex:1; height:100%; background:rgba(255,255,255,0.1); border-radius:99px;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.5); margin-top:4px;">
+                      <span>قدرت رمز:</span><strong id="strengthTextLabel">ضعیف</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="luxury-field">
+                  <label for="regConfirmPassword">تکرار رمز عبور *</label>
+                  <div class="luxury-input-wrap">
+                    <input id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز">
+                    <button type="button" class="toggle-pass" data-toggle-for="regConfirmPassword">👁️</button>
+                  </div>
+                  <small id="passwordMatchHint" style="font-size:11px; display:none;"></small>
+                </div>
+
+                <div class="luxury-field">
+                  <label for="regGoal">هدف اصلی (اختیاری)</label>
+                  <select class="luxury-select" id="regGoal" name="goal"><option value="فیتنس و تناسب اندام عمومی">فیتنس و تناسب اندام عمومی</option><option value="کاهش وزن و چربی‌سوزی">کاهش وزن و چربی‌سوزی</option><option value="عضله‌سازی و افزایش حجم">عضله‌سازی و افزایش حجم</option><option value="افزایش استقامت و توان بدنی">افزایش استقامت و توان بدنی</option><option value="اصلاح وضعیت بدنی و سلامت">اصلاح وضعیت بدنی و سلامت</option><option value="آمادگی مسابقه و سطح حرفه‌ای">آمادگی مسابقه و سطح حرفه‌ای</option></select>
+                </div>
+
+                <div class="luxury-grid-2">
+                  <div class="luxury-field">
+                    <label for="regGender">جنسیت</label>
+                    <select class="luxury-select" id="regGender" name="gender"><option value="male">آقا</option><option value="female">خانم</option><option value="unspecified">ترجیح می‌دهم نگویم</option></select>
+                  </div>
+                  <div class="luxury-grid-2">
+                    <div class="luxury-field"><label for="regHeight">قد (cm)</label><div class="luxury-input-wrap"><input id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵"></div></div>
+                    <div class="luxury-field"><label for="regWeight">وزن (kg)</label><div class="luxury-input-wrap"><input id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰"></div></div>
+                  </div>
+                </div>
+
+                <label class="luxury-checkbox"><input type="checkbox" name="terms_accepted" id="regTerms" required checked><span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span></label>
+
+                <button type="submit" class="luxury-submit" id="btnRegisterSubmit"><span>ثبت‌نام</span></button>
+
+                <div class="luxury-divider">یا</div>
+
+                <button type="button" class="luxury-secondary" id="btnGoToLogin"><span>قبلاً ثبت‌نام کرده‌اید؟</span> <b>وارد شوید</b></button>
               </form>
             </div>
           </div>
@@ -345,27 +354,30 @@
 
     if (window.YasnaJalali) window.YasnaJalali.autoInit();
 
-    // Elements
     const panelLogin = root.querySelector('#authLoginPanel');
     const panelRegister = root.querySelector('#authRegisterPanel');
-    const formTitle = root.querySelector('#authFormTitle');
-    const goToRegBtn = root.querySelector('#btnGoToRegister');
-    const goToLogBtn = root.querySelector('#btnGoToLogin');
 
     function switchToTab(tab) {
-      activeTab = tab;
       const isLog = tab === 'login';
       panelLogin.style.display = isLog ? 'block' : 'none';
       panelRegister.style.display = !isLog ? 'block' : 'none';
-      if (formTitle) formTitle.textContent = isLog ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام';
-      const formPanel = root.querySelector('.auth-form-panel');
+      const titleEl = root.querySelector('#authFormTitle');
+      if (titleEl) {
+        titleEl.textContent = isLog ? (token ? 'ورود به پنل دعوت‌شده' : 'خوش آمدید!') : 'ثبت‌نام در یسنافیت';
+        const sub = titleEl.nextElementSibling;
+        if (sub && sub.tagName === 'P') {
+          sub.textContent = isLog ? 'به پورتال شاگردان Yasnafit خوش آمدید.' : 'حساب کاربری جدید بسازید و سفر فیتنس خود را شروع کنید.';
+        }
+      }
+      const formPanel = root.querySelector('.luxury-form-panel');
       if (formPanel) formPanel.scrollTop = 0;
     }
 
+    const goToRegBtn = root.querySelector('#btnGoToRegister');
+    const goToLogBtn = root.querySelector('#btnGoToLogin');
     if (goToRegBtn) goToRegBtn.onclick = () => switchToTab('register');
     if (goToLogBtn) goToLogBtn.onclick = () => switchToTab('login');
 
-    // Dependent Province & City Dropdowns Binding
     const provSelect = root.querySelector('#regProvince');
     const citySelect = root.querySelector('#regCity');
     if(provSelect && citySelect){
@@ -375,13 +387,9 @@
         citySelect.innerHTML = '<option value="" disabled selected>انتخاب شهر...</option>' +
           cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
         citySelect.disabled = false;
-        citySelect.classList.remove('anim-fade');
-        void citySelect.offsetWidth; // trigger reflow
-        citySelect.classList.add('anim-fade');
       });
     }
 
-    // Simple DOB 3-select binding - updates hidden input automatically
     const dobYearSel = root.querySelector('#regDobYear');
     const dobMonthSel = root.querySelector('#regDobMonth');
     const dobDaySel = root.querySelector('#regDobDay');
@@ -389,35 +397,25 @@
     function syncDob(){
       if(dobYearSel && dobMonthSel && dobDaySel && dobHidden){
         const y = dobYearSel.value, m = dobMonthSel.value, d = dobDaySel.value;
-        if(y && m && d){
-          dobHidden.value = `${y}/${m}/${d}`;
-        } else {
-          dobHidden.value = '';
-        }
+        if(y && m && d){ dobHidden.value = `${y}/${m}/${d}`; } else { dobHidden.value = ''; }
       }
     }
     if(dobYearSel) dobYearSel.addEventListener('change', syncDob);
     if(dobMonthSel) dobMonthSel.addEventListener('change', syncDob);
     if(dobDaySel) dobDaySel.addEventListener('change', syncDob);
 
-
-
-
-
-    // Password show/hide toggle
-    root.querySelectorAll('.password-toggle-btn').forEach(btn => {
+    root.querySelectorAll('.toggle-pass').forEach(btn => {
       btn.onclick = () => {
         const targetId = btn.dataset.toggleFor;
         const input = root.querySelector(`#${targetId}`);
         if(input){
           const isPass = input.type === 'password';
           input.type = isPass ? 'text' : 'password';
-          btn.textContent = isPass ? '🙈' : '👁️';
+          btn.innerHTML = isPass ? '🙈' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
         }
       };
     });
 
-    // Password strength meter binding
     const regPassInput = root.querySelector('#regPassword');
     const strengthBox = root.querySelector('#regPasswordStrength');
     const seg1 = root.querySelector('#strengthSeg1');
@@ -428,40 +426,33 @@
     if(regPassInput && strengthBox){
       regPassInput.addEventListener('input', (e) => {
         const val = e.target.value;
-        if(!val){
-          strengthBox.style.display = 'none';
-          return;
-        }
-        strengthBox.style.display = 'flex';
+        if(!val){ strengthBox.style.display = 'none'; return; }
+        strengthBox.style.display = 'block';
         const str = evaluatePasswordStrength(val);
         strengthLabel.textContent = str.label;
-        seg1.className = 'strength-seg ' + (str.score >= 1 ? str.class : '');
-        seg2.className = 'strength-seg ' + (str.score >= 2 ? str.class : '');
-        seg3.className = 'strength-seg ' + (str.score >= 3 ? str.class : '');
+        const colorMap = {weak:'#ef4444', medium:'#f59e0b', strong:'#14b8a6'};
+        seg1.style.background = str.score >=1 ? colorMap[str.class] : 'rgba(255,255,255,0.1)';
+        seg2.style.background = str.score >=2 ? colorMap[str.class] : 'rgba(255,255,255,0.1)';
+        seg3.style.background = str.score >=3 ? colorMap[str.class] : 'rgba(255,255,255,0.1)';
       });
     }
 
-    // Confirm password live match check
     const regConfirmInput = root.querySelector('#regConfirmPassword');
     const matchHint = root.querySelector('#passwordMatchHint');
     if(regConfirmInput && regPassInput && matchHint){
       regConfirmInput.addEventListener('input', () => {
-        if(!regConfirmInput.value){
-          matchHint.style.display = 'none';
-          return;
-        }
+        if(!regConfirmInput.value){ matchHint.style.display = 'none'; return; }
         matchHint.style.display = 'block';
         if(regConfirmInput.value === regPassInput.value){
           matchHint.textContent = '✓ تکرار رمز عبور مطابقت دارد.';
-          matchHint.style.color = 'var(--success)';
+          matchHint.style.color = '#14b8a6';
         } else {
           matchHint.textContent = '✕ رمز عبور و تکرار آن یکسان نیستند.';
-          matchHint.style.color = 'var(--danger)';
+          matchHint.style.color = '#ef4444';
         }
       });
     }
 
-    // Forgot password info trigger
     const forgotBtn = root.querySelector('#btnForgotPassword');
     if(forgotBtn){
       forgotBtn.onclick = () => {
@@ -469,31 +460,21 @@
       };
     }
 
-    // Login Form Submit Handler
     const loginFormEl = root.querySelector('#studentLoginForm');
     const loginErrBanner = root.querySelector('#loginErrorBanner');
     const loginSuccBanner = root.querySelector('#loginSuccessBanner');
 
     function showLoginErr(msg) {
       if(loginSuccBanner) loginSuccBanner.style.display = 'none';
-      if(loginErrBanner){
-        loginErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`;
-        loginErrBanner.style.display = 'flex';
-      }
+      if(loginErrBanner){ loginErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`; loginErrBanner.style.display = 'flex'; }
       toast(msg, 'error');
-      const formPanel = root.querySelector('.auth-form-panel');
-      if(formPanel) formPanel.scrollTop = 0;
+      const fp = root.querySelector('.luxury-form-panel'); if(fp) fp.scrollTop = 0;
     }
-
     function showLoginSucc(msg) {
       if(loginErrBanner) loginErrBanner.style.display = 'none';
-      if(loginSuccBanner){
-        loginSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`;
-        loginSuccBanner.style.display = 'flex';
-      }
+      if(loginSuccBanner){ loginSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`; loginSuccBanner.style.display = 'flex'; }
       toast(msg.replace(/<[^>]+>/g, ''), 'success');
-      const formPanel = root.querySelector('.auth-form-panel');
-      if(formPanel) formPanel.scrollTop = 0;
+      const fp = root.querySelector('.luxury-form-panel'); if(fp) fp.scrollTop = 0;
     }
 
     if(loginFormEl){
@@ -501,76 +482,43 @@
         event.preventDefault();
         if(loginErrBanner) loginErrBanner.style.display = 'none';
         if(loginSuccBanner) loginSuccBanner.style.display = 'none';
-
-        const submitBtn = event.currentTarget.querySelector('#btnLoginSubmit') || event.currentTarget.querySelector('button.btn-auth-submit') || event.currentTarget.querySelector('button');
+        const submitBtn = event.currentTarget.querySelector('#btnLoginSubmit');
         const form = new FormData(event.currentTarget);
         const originalText = submitBtn ? submitBtn.innerHTML : '<span>ورود</span>';
-
         const rawMobile = String(form.get('mobile')||'').trim();
         const password = String(form.get('password')||'');
-
-        if(!rawMobile){
-          showLoginErr('لطفاً شماره همراه خود را وارد فرمایید.');
-          return;
-        }
-        if(!password){
-          showLoginErr('لطفاً رمز عبور خود را وارد فرمایید.');
-          return;
-        }
-
-        if(submitBtn){
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span>⏳</span> <span>در حال بررسی اطلاعات و ورود امن…</span>';
-        }
-
+        if(!rawMobile){ showLoginErr('لطفاً شماره همراه خود را وارد فرمایید.'); return; }
+        if(!password){ showLoginErr('لطفاً رمز عبور خود را وارد فرمایید.'); return; }
+        if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = '<span>⏳</span> <span>در حال بررسی...</span>'; }
         try{
           const result = await api('/api/student/auth/login', {
             method: 'POST',
-            body: jsonBody({
-              mobile:completeMobile(form.get('mobile')),
-              password: form.get('password'),
-              invitation_token: token || undefined
-            })
+            body: jsonBody({ mobile:completeMobile(form.get('mobile')), password: form.get('password'), invitation_token: token || undefined })
           });
-          showLoginSucc('ورود با موفقیت انجام شد. در حال هدایت به پنل شخصی…');
-          setTimeout(() => {
-            location.replace(result.next_route || '/student/dashboard');
-          }, 800);
+          showLoginSucc('ورود با موفقیت انجام شد. در حال هدایت...');
+          setTimeout(() => { location.replace(result.next_route || '/student/dashboard'); }, 800);
         }catch(error){
-          showLoginErr(error.message || 'شماره همراه یا رمز عبور وارد شده نادرست است.');
-          if(submitBtn){
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-          }
+          showLoginErr(error.message || 'شماره همراه یا رمز عبور نادرست است.');
+          if(submitBtn){ submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
         }
       };
     }
 
-    // Register Form Submit Handler
     const registerFormEl = root.querySelector('#studentRegisterForm');
     const regErrBanner = root.querySelector('#registerErrorBanner');
     const regSuccBanner = root.querySelector('#registerSuccessBanner');
 
     function showRegErr(msg) {
       if(regSuccBanner) regSuccBanner.style.display = 'none';
-      if(regErrBanner){
-        regErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`;
-        regErrBanner.style.display = 'flex';
-      }
+      if(regErrBanner){ regErrBanner.innerHTML = `<span>⚠️</span> <span>${esc(msg)}</span>`; regErrBanner.style.display = 'flex'; }
       toast(msg, 'error');
-      const formPanel = root.querySelector('.auth-form-panel');
-      if(formPanel) formPanel.scrollTop = 0;
+      const fp = root.querySelector('.luxury-form-panel'); if(fp) fp.scrollTop = 0;
     }
-
     function showRegSucc(msg) {
       if(regErrBanner) regErrBanner.style.display = 'none';
-      if(regSuccBanner){
-        regSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`;
-        regSuccBanner.style.display = 'flex';
-      }
+      if(regSuccBanner){ regSuccBanner.innerHTML = `<span>✅</span> <span>${msg}</span>`; regSuccBanner.style.display = 'flex'; }
       toast(msg.replace(/<[^>]+>/g, ''), 'success');
-      const formPanel = root.querySelector('.auth-form-panel');
-      if(formPanel) formPanel.scrollTop = 0;
+      const fp = root.querySelector('.luxury-form-panel'); if(fp) fp.scrollTop = 0;
     }
 
     if(registerFormEl){
@@ -578,25 +526,18 @@
         event.preventDefault();
         if(regErrBanner) regErrBanner.style.display = 'none';
         if(regSuccBanner) regSuccBanner.style.display = 'none';
-
-        const submitBtn = event.currentTarget.querySelector('#btnRegisterSubmit') || event.currentTarget.querySelector('button.btn-auth-submit') || event.currentTarget.querySelector('button');
+        const submitBtn = event.currentTarget.querySelector('#btnRegisterSubmit');
         const originalText = submitBtn ? submitBtn.innerHTML : '<span>ثبت‌نام</span>';
-
         const form = new FormData(event.currentTarget);
         const firstName = String(form.get('first_name')||'').trim();
         const lastName = String(form.get('last_name')||'').trim();
         const fullName = `${firstName} ${lastName}`.trim();
         const rawMobile = String(form.get('mobile')||'').trim();
-        // DOB from 3 selects combined
         const dobYear = document.getElementById('regDobYear')?.value || '';
         const dobMonth = document.getElementById('regDobMonth')?.value || '';
         const dobDay = document.getElementById('regDobDay')?.value || '';
         let dob = String(form.get('date_of_birth')||'').trim();
-        if(dobYear && dobMonth && dobDay){
-          dob = `${dobYear}/${dobMonth}/${dobDay}`;
-          const hidden = document.getElementById('regDob');
-          if(hidden) hidden.value = dob;
-        }
+        if(dobYear && dobMonth && dobDay){ dob = `${dobYear}/${dobMonth}/${dobDay}`; const hidden = document.getElementById('regDob'); if(hidden) hidden.value = dob; }
         const province = String(form.get('province')||'').trim();
         const city = String(form.get('city')||'').trim();
         const address = String(form.get('address')||'').trim();
@@ -608,97 +549,35 @@
         const weight = form.get('weight') ? Number(normalizeNumber(form.get('weight'))) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
 
-        if(!firstName || firstName.length < 2){
-          showRegErr('لطفاً نام خود را وارد فرمایید (حداقل ۲ حرف).');
-          return;
-        }
-        if(!lastName || lastName.length < 2){
-          showRegErr('لطفاً نام خانوادگی خود را وارد فرمایید (حداقل ۲ حرف).');
-          return;
-        }
-        if(!fullName || fullName.length < 4){
-          showRegErr('لطفاً نام و نام خانوادگی را کامل وارد کنید.');
-          return;
-        }
+        if(!firstName || firstName.length < 2){ showRegErr('لطفاً نام خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
+        if(!lastName || lastName.length < 2){ showRegErr('لطفاً نام خانوادگی خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
+        if(!fullName || fullName.length < 4){ showRegErr('لطفاً نام و نام خانوادگی را کامل وارد کنید.'); return; }
+        if(!rawMobile){ showRegErr('لطفاً شماره همراه خود را وارد فرمایید.'); return; }
+        if(!dob){ showRegErr('لطفاً تاریخ تولد خود را وارد فرمایید.'); return; }
+        if(!province || !city){ showRegErr('لطفاً استان و شهر محل سکونت خود را انتخاب فرمایید.'); return; }
+        if(!address || address.length < 5){ showRegErr('لطفاً آدرس کامل محل سکونت خود را وارد فرمایید (حداقل ۵ حرف).'); return; }
+        if(!password || password.length < 8){ showRegErr('رمز عبور باید حداقل ۸ کاراکتر باشد.'); return; }
+        if(password !== confirmPassword){ showRegErr('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.'); return; }
+        if(!termsAccepted){ showRegErr('لطفاً تیک پذیرش شرایط استفاده و قوانین سامانه را بزنید.'); return; }
 
-        if(!rawMobile){
-          showRegErr('لطفاً شماره همراه خود را وارد فرمایید.');
-          return;
-        }
-
-        if(!dob){
-          showRegErr('لطفاً تاریخ تولد خود را وارد فرمایید.');
-          return;
-        }
-
-        if(!province || !city){
-          showRegErr('لطفاً استان و شهر محل سکونت خود را انتخاب فرمایید.');
-          return;
-        }
-
-        if(!address || address.length < 5){
-          showRegErr('لطفاً آدرس کامل محل سکونت خود را وارد فرمایید (حداقل ۵ حرف).');
-          return;
-        }
-
-        if(!password || password.length < 8){
-          showRegErr('رمز عبور باید حداقل ۸ کاراکتر باشد.');
-          return;
-        }
-
-        if(password !== confirmPassword){
-          showRegErr('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.');
-          return;
-        }
-
-        if(!termsAccepted){
-          showRegErr('لطفاً تیک پذیرش شرایط استفاده و قوانین سامانه را بزنید.');
-          return;
-        }
-
-        if(submitBtn){
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت اطلاعات و ایجاد پرونده ورزشی…</span>';
-        }
+        if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت...</span>'; }
 
         try{
-          const payload = {
-            full_name: fullName,
-            mobile: completeMobile(rawMobile),
-            date_of_birth: dob,
-            province,
-            city,
-            address,
-            password,
-            confirm_password: confirmPassword,
-            goal,
-            gender,
-            height,
-            weight,
-            terms_accepted: termsAccepted
-          };
-
-          const result = await api('/api/student/auth/register', {
-            method: 'POST',
-            body: jsonBody(payload)
-          });
-
+          const payload = { full_name: fullName, mobile: completeMobile(rawMobile), date_of_birth: dob, province, city, address, password, confirm_password: confirmPassword, goal, gender, height, weight, terms_accepted: termsAccepted };
+          const result = await api('/api/student/auth/register', { method: 'POST', body: jsonBody(payload) });
           const caseNum = result.student?.case_number || '';
-          showRegSucc(`ثبت‌نام شما با موفقیت انجام شد! ${caseNum ? `(شماره پرونده: <strong>${esc(caseNum)}</strong>)` : ''} در حال انتقال به فرم ارزیابی اولیه…`);
-
-          setTimeout(() => {
-            location.replace(result.next_route || '/student/onboarding');
-          }, 1200);
+          showRegSucc(`ثبت‌نام با موفقیت انجام شد! ${caseNum ? `(شماره پرونده: <strong>${esc(caseNum)}</strong>)` : ''} در حال انتقال...`);
+          setTimeout(() => { location.replace(result.next_route || '/student/onboarding'); }, 1200);
         }catch(error){
           showRegErr(error.message || 'خطا در ثبت‌نام. لطفاً مجدداً تلاش فرمایید.');
-          if(submitBtn){
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-          }
+          if(submitBtn){ submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
         }
       };
     }
   }
+
+  async function renderLogin(){loginForm({initialTab:'login'});}
+  async function renderRegister(){loginForm({initialTab:'register'});}
 
   async function renderLogin(){loginForm({initialTab:'login'});}
   async function renderRegister(){loginForm({initialTab:'register'});}
