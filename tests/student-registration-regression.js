@@ -49,6 +49,22 @@ const publicDir = path.join(root, 'public');
   assert.equal(student.date_of_birth, '1375/04/15');
   assert.match(student.case_number, /^\d{6}$/, 'Case number must be a 6-digit number');
 
+  // 1b. Localized body numbers must be stored as numbers, not dropped to null
+  const localized = auth.registerStudent(db, {
+    full_name: 'مینا احمدی',
+    mobile: '09352223344',
+    date_of_birth: '1376/02/03',
+    province: 'تهران',
+    city: 'تهران',
+    address: 'تهران، خیابان انقلاب',
+    password: 'AnotherSecure123!',
+    confirm_password: 'AnotherSecure123!',
+    height: '۱۶۵ سانتی‌متر',
+    weight: '۵۸/۵ کیلو'
+  });
+  assert.equal(localized.height, 165, 'Persian-digit height with unit must be parsed');
+  assert.equal(localized.weight, 58.5, 'Persian-digit weight with unit must be parsed');
+
   // Verify password verification with scrypt
   assert.ok(auth.verifyPassword('SecurePassword123!', student.password_hash), 'Password must be verifiable with scrypt');
 

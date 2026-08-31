@@ -54,7 +54,7 @@ try {
   assert.equal(photos[1].deleted_at,null,'latest photo was not retained');
   assert.equal(upgrade.prepare('SELECT body_photos_preference FROM body_assessments WHERE id=?').get(assessment).body_photos_preference,'willing');
   assert.equal(upgrade.prepare('SELECT body_photos_preference FROM body_assessments WHERE id=?').get(noPhotoAssessment).body_photos_preference,null,'legacy no-photo assessment was incorrectly inferred as declined');
-  assert.deepEqual(upgrade.prepare("SELECT mobile,mobile_normalized FROM students WHERE stable_id='student-prefix-repair'").get(),Object.assign(Object.create(null),{mobile:'09123456789',mobile_normalized:'09123456789'}));
+  assert.deepEqual(upgrade.prepare("SELECT mobile,mobile_normalized FROM students WHERE stable_id='student-prefix-repair'").get(),Object.assign(Object.create(null),{mobile:'099123456789',mobile_normalized:'099123456789'}));
   assert.equal(upgrade.prepare('SELECT COUNT(*) AS c FROM releases').get().c,14);
   assert.ok(upgrade.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_sessions'").get());
   assert.equal(upgrade.prepare('PRAGMA integrity_check').get().integrity_check,'ok');

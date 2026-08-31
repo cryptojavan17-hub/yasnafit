@@ -1,6 +1,7 @@
 (() => {
   const fa=value=>window.YasnafitLocale?.text(value)||String(value??'—');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const normalizeNumber=value=>String(value??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[٫,\\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'').replace(/[^\d.\-]/g,'');
 
   async function api(url, opt={}) {
     const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opt });

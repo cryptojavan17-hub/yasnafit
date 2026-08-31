@@ -2,6 +2,17 @@
 
 Application versions follow Semantic Versioning. `package.json.version` is the current application version; SQLite migration IDs and Git commits are separate identifiers. Structured release data is also available through `GET /api/releases`.
 
+## 0.9.1 — 2026-08-31
+
+### Fixes
+- Student assessment step 2 (body measurements) now accepts localized numbers end-to-end: Persian and Arabic-Indic digits, decimal separators (`۷۵/۵`, `٧٨٫٥`), and unit suffixes (`70 کیلو`, `175 cm`) are parsed and stored as numbers instead of failing with `weight نامعتبر است`.
+- Self-registration no longer silently drops localized height/weight to null.
+- Coach-side student validation (`validateStudent`) and program-set validation (`validateSet`) accept localized weight values.
+- Student-assessment create/update validation rejects unparseable values with a clear error instead of storing raw text into numeric columns.
+- Mobile normalization canonicalizes explicit country codes (`+98…`, `0098…`, `98…`) to the local `09…` form while still never auto-adding `09` to digits entered without it.
+- Fixed a latent `ReferenceError` in the legacy token portal script (`normalizeNumber` was referenced but never defined).
+- Updated regression tests that still expected the removed auto-`09` prefix behavior.
+
 ## 0.9.0 — 2026-08-23
 
 ### Features

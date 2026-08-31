@@ -11,8 +11,10 @@ function normalizeMobile(value){
     .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
     .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
     .replace(/\D/g,'');
-  if(digits.startsWith('0098'))digits=digits.slice(4);
-  else if(digits.startsWith('98')&&digits.length>=11)digits=digits.slice(2);
+  // Canonicalize explicit country codes (+98 / 0098 / 98...) to the local 0 form.
+  // Inputs without a country code are kept exactly as typed (no auto-added 09).
+  if(digits.startsWith('0098'))digits='0'+digits.slice(4);
+  else if(digits.startsWith('98')&&digits.length>=11)digits='0'+digits.slice(2);
   if(digits.length<7||digits.length>15)throw Object.assign(new Error('شماره همراه معتبر نیست'),{statusCode:400});
   return digits;
 }
@@ -179,8 +181,21 @@ function registerStudent(db, data = {}) {
   const passwordHash = hashPassword(password);
   const stableId = 'st_' + (crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex'));
   const goal = data.goal ? String(data.goal).trim() : '';
-  const height = (data.height !== undefined && data.height !== '' && Number.isFinite(Number(data.height))) ? Number(data.height) : null;
-  const weight = (data.weight !== undefined && data.weight !== '' && Number.isFinite(Number(data.weight))) ? Number(data.weight) : null;
+  // Accept localized body numbers (e.g. '۷۰', '70 کیلو', '۱۷۵/۵') instead of
+  // silently dropping them to null when they contain Persian digits or units.
+  const parseBodyNumber = value => {
+    const raw = String(value ?? '').trim();
+    if (raw === '') return null;
+    const normalized = raw
+      .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+      .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+      .replace(/[٫,\\/]/g, '.').replace(/٬/g, '').replace(/\s+/g, '').replace(/[^\d.\-]/g, '');
+    if (normalized === '' || normalized === '-' || normalized === '.' || normalized === '-.') return null;
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : null;
+  };
+  const height = parseBodyNumber(data.height);
+  const weight = parseBodyNumber(data.weight);
   
   let gender = 'unspecified';
   if (['male', 'female', 'unspecified'].includes(data.gender)) {

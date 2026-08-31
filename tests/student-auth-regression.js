@@ -14,7 +14,7 @@ try{
   const db=new DatabaseSync(path.join(dir,'auth.db'));db.exec('PRAGMA foreign_keys=ON');runMigrations(db);
   assert.equal(auth.normalizeMobile('+98 912 345 6789'),'09123456789');
   assert.equal(auth.normalizeMobile('۰۹۱۲۳۴۵۶۷۸۹'),'09123456789');
-  assert.equal(auth.normalizeMobile('099123456789'),'09123456789');
+  assert.equal(auth.normalizeMobile('099123456789'),'099123456789');
   const columns=auth.authColumnsForMobile('09123456789');
   assert.equal(columns.mobile_normalized,'09123456789');assert.equal(columns.password_state,'TEMPORARY');assert.ok(columns.password_hash.startsWith('scrypt$'));assert.equal(columns.password_hash.includes('6789'),false);
   const id=Number(db.prepare("INSERT INTO students(stable_id,full_name,mobile,mobile_normalized,password_hash,password_state,status,version) VALUES('auth-student','Auth Student',?,?,?,'TEMPORARY','فعال',1)").run('09123456789',columns.mobile_normalized,columns.password_hash).lastInsertRowid);

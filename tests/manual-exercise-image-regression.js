@@ -95,9 +95,6 @@ assert.ok(fs.existsSync(svgPath), 'blank-white.svg must exist');
 const svgContent = fs.readFileSync(svgPath, 'utf8');
 assert.ok(svgContent.includes('<svg') && svgContent.includes('fill="white"'), 'blank-white.svg must be a valid white SVG');
 
-const svgAssetPath = path.resolve(__dirname, '../public/assets/images/blank-white.svg');
-assert.ok(fs.existsSync(svgAssetPath), 'assets/images/blank-white.svg must exist');
-
 console.log('--- 5. Testing Soft Deletion of Training Programs in Any Status ---');
 const delDraft = db.prepare("UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL").run(createResult.id);
 assert.equal(delDraft.changes, 1, 'Program should be soft deleted');

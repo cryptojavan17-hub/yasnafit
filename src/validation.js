@@ -27,13 +27,27 @@ function isValidHash(hash){
   return typeof hash === 'string' && /^[a-zA-Z0-9_-]{4,64}$/.test(hash);
 }
 
+// Accepts localized numeric input like '۷۰', '70kg', '۷۵/۵', '1,234.5' and
+// returns a finite number, or null when the value cannot be interpreted.
+function parseLocalizedNumber(value){
+  const raw=String(value??'').trim();
+  if(raw==='') return null;
+  const normalized=raw
+    .replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[٫,\\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'').replace(/[^\d.\-]/g,'');
+  if(normalized===''||normalized==='-'||normalized==='.'||normalized==='-.') return null;
+  const number=Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
 function validateStudent(data){
   const errors=[];
   if(!isNonEmptyString(data.full_name)) errors.push('نام شاگرد الزامی است');
   if(data.full_name && data.full_name.length > 100) errors.push('نام شاگرد حداکثر 100 کاراکتر');
   if(data.mobile && data.mobile.length > 20) errors.push('موبایل نامعتبر');
-  if(data.weight && (isNaN(Number(data.weight)) || Number(data.weight) < 20 || Number(data.weight) > 300)) errors.push('وزن نامعتبر');
-  if(data.height && (isNaN(Number(data.height)) || Number(data.height) < 100 || Number(data.height) > 250)) errors.push('قد نامعتبر');
+  if(data.weight && (parseLocalizedNumber(data.weight)===null || parseLocalizedNumber(data.weight) < 20 || parseLocalizedNumber(data.weight) > 300)) errors.push('وزن نامعتبر');
+  if(data.height && (parseLocalizedNumber(data.height)===null || parseLocalizedNumber(data.height) < 100 || parseLocalizedNumber(data.height) > 250)) errors.push('قد نامعتبر');
   return errors;
 }
 
@@ -66,7 +80,8 @@ function validateSet(set, path=''){
     if(countStr.length > 20) errors.push(`${path} تعداد طولانی است`);
   }
   if(set.weight !== undefined && set.weight !== null && set.weight !== ''){
-    if(isNaN(Number(set.weight)) || Number(set.weight) < 0 || Number(set.weight) > 1000) errors.push(`${path} وزن نامعتبر`);
+    const weight=parseLocalizedNumber(set.weight);
+    if(weight===null || weight < 0 || weight > 1000) errors.push(`${path} وزن نامعتبر`);
   }
   if(set.restSeconds !== undefined || set.rest_seconds !== undefined){
     const rest = set.restSeconds ?? set.rest_seconds;

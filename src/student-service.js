@@ -216,8 +216,7 @@ function validateAssessmentFields(data){
   for(const [key,[min,max]] of Object.entries(ranges)){
     if(data[key] !== undefined && data[key] !== null && data[key] !== ''){
       const value=parseLocalizedNumber(data[key]);
-      if(value===null) continue;
-      if(!Number.isFinite(value) || value<min || value>max) errors.push(`${key} نامعتبر است`);
+      if(value===null || !Number.isFinite(value) || value<min || value>max) errors.push(`${key} نامعتبر است`);
     }
   }
   for(const key of ['goal','training_experience','limitations','injuries','student_note','coach_note']){

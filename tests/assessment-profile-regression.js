@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');const {runMigrations}=require('../src/migrations');
-const students=require('../src/student-service');const assessments=require('../src/assessment-service');
+const students=require('../src/student-service');const assessments=require('../src/assessment-service');const validation=require('../src/validation');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-assessment-'));
 function complete(db,id,studentId,gender='male'){
   assessments.saveSection(db,id,studentId,'general',{goals:['fitness','fat_loss'],additional_notes:'test',gender});
@@ -16,9 +16,21 @@ function complete(db,id,studentId,gender='male'){
 }
 try{
   assert.equal(assessments.normalizeLocalizedNumber('۱۷۵'),'175');assert.equal(assessments.normalizeLocalizedNumber('۷۸/۵'),'78.5');assert.equal(assessments.normalizeLocalizedNumber('٧٨٫٥'),'78.5');
+  // Coach-side student payload validation accepts localized body numbers
+  assert.deepEqual(validation.validateStudent({full_name:'x',weight:'۷۰ کیلو',height:'۱۷۵'}),[]);
+  assert.ok(validation.validateStudent({full_name:'x',weight:'abc'}).includes('وزن نامعتبر'));
+  assert.ok(validation.validateStudent({full_name:'x',weight:500}).includes('وزن نامعتبر'));
   const db=new DatabaseSync(path.join(dir,'assessment.db'));db.exec('PRAGMA foreign_keys=ON');runMigrations(db);
   const studentId=Number(db.prepare("INSERT INTO students(stable_id,full_name,status,gender,version,created_at,updated_at) VALUES('profile-student','Student','فعال','male',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").run().lastInsertRowid);
-  const initial=students.createAssessment(db,studentId,{body_photos_preference:'declined'});assert.equal(initial.assessment_type,'INITIAL');assert.equal(initial.lifecycle_status,'DRAFT');complete(db,Number(initial.id),studentId);
+  const initial=students.createAssessment(db,studentId,{body_photos_preference:'declined'});assert.equal(initial.assessment_type,'INITIAL');assert.equal(initial.lifecycle_status,'DRAFT');
+  // Localized body numbers on the student-assessment create/update path
+  let localizedUpdate=students.updateAssessment(db,initial.id,{weight:'۷۰ کیلو',height:'۱۷۵/۵ cm',waist:'۸۰'});
+  assert.equal(localizedUpdate.weight,70);assert.equal(localizedUpdate.height,175.5);assert.equal(localizedUpdate.waist,80);
+  localizedUpdate=students.updateAssessment(db,initial.id,{weight:'70kg',height:'175 cm'});
+  assert.equal(localizedUpdate.weight,70);assert.equal(localizedUpdate.height,175);
+  assert.throws(()=>students.updateAssessment(db,initial.id,{weight:'abc'}),/weight نامعتبر است/);
+  assert.throws(()=>students.updateAssessment(db,initial.id,{weight:500}),/weight نامعتبر است/);
+  complete(db,Number(initial.id),studentId);
   const initialRow=db.prepare('SELECT * FROM body_assessments WHERE id=?').get(initial.id);assert.deepEqual(assessments.validateForSubmission(db,initialRow,db.prepare('SELECT * FROM students WHERE id=?').get(studentId)),[]);
   let submitted=students.submitAssessment(db,initial.id);assert.equal(submitted.lifecycle_status,'SUBMITTED');assert.throws(()=>students.updateAssessment(db,initial.id,{weight:70}),/frozen/);assert.throws(()=>students.reviewAssessment(db,initial.id,'approve',''),/مجاز نیست/);
   let reviewing=students.reviewAssessment(db,initial.id,'under_review','');assert.equal(reviewing.lifecycle_status,'PENDING_REVIEW');assert.throws(()=>students.reviewAssessment(db,initial.id,'request_changes',''),/یادداشت/);

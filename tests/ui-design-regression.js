@@ -104,10 +104,10 @@ const addStudentStart=studentsSource.indexOf('addStudentForm'),addStudentBlock=s
 assert.match(addStudentBlock,/name=\\?"full_name\\?"/,'student creation name field is missing');
 assert.match(addStudentBlock,/name=\\?"mobile\\?"/,'student creation mobile field is missing');
 assert.doesNotMatch(addStudentBlock,/name=\\?"(?:goal|status|weight|height)\\?"/,'student creation form contains extra fields');
-assert.match(addStudentBlock,/prefixed-input[^\n]+<span>09-<\/span>/,'student mobile prefix is missing');
-assert.match(addStudentBlock,/placeholder=\\?"0000000000\\?"/,'student mobile placeholder is missing');
+assert.doesNotMatch(addStudentBlock,/<span>09-<\/span>/,'student creation form still shows a hardcoded 09- prefix');
+assert.match(addStudentBlock,/placeholder=\\?"09123456789\\?"/,'student mobile placeholder is missing');
 assert.match(css['unified-components.css'],/\.student-mobile\{font-weight:850/,'student mobile numbers are not bold');
-assert.match(wizardSource,/prefixed-input[^\n]+<span>09-<\/span>/,'assessment mobile prefix is missing');
+assert.doesNotMatch(wizardSource,/<span>09-<\/span>/,'assessment wizard still shows a hardcoded 09- mobile prefix');
 assert.equal((wizardSource.match(/<span>@<\/span>/g)||[]).length,2,'Telegram and Instagram prefixes are missing');
 assert.match(wizardSource,/socialHandle\('personalTelegram'\).*socialHandle\('personalInstagram'\)/,'social prefixes are not normalized before save');
 assert.match(studentsSource,/data-open-student="\$\{student\.case_number\}"/,'student list does not use case number as its public route');
@@ -161,7 +161,7 @@ assert.match(wizardSource,/const button=event\.currentTarget/,'next-step button 
 assert.doesNotMatch(wizardSource,/finally\{[^}]*event\.currentTarget/,'async handler can leave the next-step button disabled');
 assert.doesNotMatch(wizardSource,/around_the_belly_from_the_navel|دور ناف/,'removed navel measurement is still visible');
 assert.match(studentAppSource,/\/student\/login/,'student login page is missing');
-assert.match(studentAppSource,/studentLoginForm[^\n]+prefixed-input[^\n]+<span>09-<\/span>/,'student login mobile prefix is missing');
+assert.doesNotMatch(studentAppSource,/studentLoginForm[^\n]+prefixed-input[^\n]+<span>09-<\/span>/,'student login still shows a hardcoded 09- mobile prefix');
 assert.match(studentAppSource,/mobile:completeMobile\(form\.get\('mobile'\)\)/,'student login does not rebuild the full mobile number');
 assert.match(studentAppSource,/\/api\/student\/auth\/login/,'student password login API is not wired');
 assert.match(studentAppSource,/\/student\/change-password/,'optional password-change route is missing');
