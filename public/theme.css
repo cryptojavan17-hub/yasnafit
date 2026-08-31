@@ -37,6 +37,11 @@
   --black: #000;
   --danger: #f87171;
   --warning: #fbbf24;
+  --lux-gold: #d4af37;
+  --lux-gold-soft: #f2d57e;
+  --lux-gold-deep: #8a6d14;
+  --lux-gold-rgb: 212, 175, 55;
+  --lux-ink: #0b0a05;
   --warning-surface: rgba(251, 191, 36, .12);
   --danger-surface: rgba(248, 113, 113, .12);
   --danger-border: rgba(248, 113, 113, .34);

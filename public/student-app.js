@@ -121,56 +121,74 @@
     let activeTab = isJoin ? 'login' : (initialTab === 'register' ? 'register' : 'login');
 
     const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
+    const yearsHtml = Array.from({length:81}, (_, i) => String(1390 - i)).map(year => `<option value="${year}">${year}</option>`).join('');
 
     root.innerHTML = `
-      <section class="student-auth-page">
-        <div class="join-card glass-auth-card auth-split-card">
-          <!-- Left Side: Pure Minimal Welcome Section -->
-          <div class="auth-welcome-panel">
-            <div class="auth-welcome-head">
-              <div class="join-logo">Y</div>
-              <div>
-                <span class="join-brand">YASNAFIT</span>
+      <section class="student-auth-page lux-auth">
+        <div class="lux-glow lux-glow-a"></div>
+        <div class="lux-glow lux-glow-b"></div>
+        <div class="join-card glass-auth-card auth-split-card lux-auth-card">
+          <!-- Hero Panel — عکس شما با استایل لوکس (سمت راست در RTL) -->
+          <div class="auth-welcome-panel lux-hero">
+            <img class="lux-hero-img" src="/images/auth-hero.jpg" alt="یاسنافیت" onerror="this.remove()">
+            <div class="lux-hero-shade"></div>
+            <div class="lux-hero-top">
+              <div class="auth-welcome-head lux-hero-head">
+                <div class="join-logo lux-logo">Y</div>
+                <div>
+                  <span class="join-brand lux-brand">YASNAFIT</span>
+                  <small class="lux-brand-sub">LUXURY FITNESS</small>
+                </div>
               </div>
             </div>
-
-            <div class="auth-welcome-content">
-              <h2 class="auth-welcome-title">خوش آمدید!</h2>
-              <p class="auth-welcome-desc">به پورتال شاگردان Yasnafit خوش آمدید.</p>
+            <div class="lux-hero-bottom">
+              <span class="lux-kicker">خوش آمدید! باشگاه نخبگان تناسب اندام</span>
+              <h2 class="auth-welcome-title lux-hero-title">قدرت از آنِ توست</h2>
+              <p class="auth-welcome-desc lux-hero-desc">تمرین اختصاصی، تغذیه حرفه‌ای و پشتیبانی مربی — همه در یک پنل شخصی لوکس و اختصاصی برای شما.</p>
+              <div class="lux-hero-stats">
+                <div><b>۲۷۰۰+</b><span>حرکت تخصصی</span></div>
+                <div><b>۱۰۰٪</b><span>برنامه اختصاصی</span></div>
+                <div><b>۲۴/۷</b><span>پشتیبانی مربی</span></div>
+              </div>
             </div>
-
-            <div class="auth-welcome-footer"></div>
           </div>
 
-          <!-- Right Side: Clean Form Section -->
-          <div class="auth-form-panel">
-            <div class="auth-form-header">
-              <h1 class="auth-form-title" id="authFormTitle">${activeTab === 'login' ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام'}</h1>
-              ${studentName ? `<p style="margin:4px 0 0; font-size:13px; color:var(--text-primary);">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
-              ${caseNumber ? `<div class="created-case-number" style="margin-top:2px;"><span style="font-size:11px;color:var(--text-muted);">شماره پرونده: </span><b style="color:rgba(45,212,191,1);">${esc(caseNumber)}</b></div>` : ''}
+          <!-- Form Panel — پنل فرم (سمت چپ در RTL) -->
+          <div class="auth-form-panel lux-form-panel">
+            <div class="auth-form-header lux-form-header">
+              <h1 class="auth-form-title lux-form-title" id="authFormTitle">${activeTab === 'login' ? (token ? 'ورود به پنل دعوت‌شده' : 'ورود') : 'ثبت‌نام'}</h1>
+              ${studentName ? `<p class="lux-hello">سلام <strong class="student-name">${esc(studentName)}</strong> 👋</p>` : ''}
+              ${caseNumber ? `<div class="created-case-number lux-case"><span>شماره پرونده: </span><b>${esc(caseNumber)}</b></div>` : ''}
             </div>
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><input class="auth-input" id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr"></div>
+              <form class="student-auth-form lux-form" id="studentLoginForm">
+                <div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div>
+                <div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div>
+
+                <div class="auth-field-group">
+                  <label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label>
+                  <input class="auth-input lux-input" id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr">
+                </div>
 
                 <div class="auth-field-group">
                   <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
-                  <div class="password-input-wrap">
-                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور">
+                  <div class="password-input-wrap lux-pass-wrap">
+                    <input class="auth-input lux-input" id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="loginPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <button type="button" class="auth-forgot-link" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
+                <div class="lux-form-actions">
+                  <button type="button" class="auth-forgot-link lux-forgot" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
                 </div>
 
-                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnLoginSubmit">
-                  <span>ورود</span>
+                <button type="submit" class="btn-auth-turquoise btn-auth-submit lux-submit" id="btnLoginSubmit">
+                  <span>ورود به دنیای یاسنافیت</span>
                 </button>
 
-                <div class="auth-bottom-switch">
+                <div class="auth-bottom-switch lux-switch">
                   <span>حساب کاربری ندارید؟</span>
                   <button type="button" id="btnGoToRegister">ثبت‌نام کنید</button>
                 </div>
@@ -180,24 +198,24 @@
 
             <!-- TAB 2: REGISTER FORM -->
             <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentRegisterForm">
+              <form class="student-auth-form lux-form" id="studentRegisterForm">
                 <div id="registerSuccessBanner" class="auth-success-banner" style="display:none;"></div>
                 <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
 
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
                     <label for="regFirstName"><span>نام</span><span class="req-star">*</span></label>
-                    <input class="auth-input" id="regFirstName" name="first_name" required minlength="2" maxlength="50" autocomplete="given-name" placeholder="نام">
+                    <input class="auth-input lux-input" id="regFirstName" name="first_name" required minlength="2" maxlength="50" autocomplete="given-name" placeholder="نام">
                   </div>
                   <div class="auth-field-group">
                     <label for="regLastName"><span>نام خانوادگی</span><span class="req-star">*</span></label>
-                    <input class="auth-input" id="regLastName" name="last_name" required minlength="2" maxlength="50" autocomplete="family-name" placeholder="نام خانوادگی">
+                    <input class="auth-input lux-input" id="regLastName" name="last_name" required minlength="2" maxlength="50" autocomplete="family-name" placeholder="نام خانوادگی">
                   </div>
                 </div>
 
                 <div class="auth-field-group">
                   <label for="regMobile"><span>شماره همراه</span><span class="req-star">*</span></label>
-                  <input class="auth-input" id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="11" placeholder="09123456789" dir="ltr">
+                  <input class="auth-input lux-input" id="regMobile" name="mobile" inputmode="tel" autocomplete="tel" required maxlength="11" placeholder="09123456789" dir="ltr">
                 </div>
 
                 <!-- تاریخ تولد ساده با ۳ انتخاب -->
@@ -205,13 +223,13 @@
                   <label><span>تاریخ تولد</span><span class="req-star">*</span></label>
                   <div class="auth-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
                     <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobDay" required>
+                      <select class="auth-input lux-input lux-select" id="regDobDay" required>
                         <option value="" disabled selected>روز</option>
                         <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
                       </select>
                     </div>
                     <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobMonth" required>
+                      <select class="auth-input lux-input lux-select" id="regDobMonth" required>
                         <option value="" disabled selected>ماه</option>
                         <option value="01">فروردین</option>
                         <option value="02">اردیبهشت</option>
@@ -228,28 +246,28 @@
                       </select>
                     </div>
                     <div class="auth-field-group" style="margin:0;">
-                      <select class="auth-input" id="regDobYear" required>
+                      <select class="auth-input lux-input lux-select" id="regDobYear" required>
                         <option value="" disabled selected>سال</option>
-                        <option value="1390">1390</option><option value="1389">1389</option><option value="1388">1388</option><option value="1387">1387</option><option value="1386">1386</option><option value="1385">1385</option><option value="1384">1384</option><option value="1383">1383</option><option value="1382">1382</option><option value="1381">1381</option><option value="1380">1380</option><option value="1379">1379</option><option value="1378">1378</option><option value="1377">1377</option><option value="1376">1376</option><option value="1375">1375</option><option value="1374">1374</option><option value="1373">1373</option><option value="1372">1372</option><option value="1371">1371</option><option value="1370">1370</option><option value="1369">1369</option><option value="1368">1368</option><option value="1367">1367</option><option value="1366">1366</option><option value="1365">1365</option><option value="1364">1364</option><option value="1363">1363</option><option value="1362">1362</option><option value="1361">1361</option><option value="1360">1360</option><option value="1359">1359</option><option value="1358">1358</option><option value="1357">1357</option><option value="1356">1356</option><option value="1355">1355</option><option value="1354">1354</option><option value="1353">1353</option><option value="1352">1352</option><option value="1351">1351</option><option value="1350">1350</option><option value="1349">1349</option><option value="1348">1348</option><option value="1347">1347</option><option value="1346">1346</option><option value="1345">1345</option><option value="1344">1344</option><option value="1343">1343</option><option value="1342">1342</option><option value="1341">1341</option><option value="1340">1340</option><option value="1339">1339</option><option value="1338">1338</option><option value="1337">1337</option><option value="1336">1336</option><option value="1335">1335</option><option value="1334">1334</option><option value="1333">1333</option><option value="1332">1332</option><option value="1331">1331</option><option value="1330">1330</option><option value="1329">1329</option><option value="1328">1328</option><option value="1327">1327</option><option value="1326">1326</option><option value="1325">1325</option><option value="1324">1324</option><option value="1323">1323</option><option value="1322">1322</option><option value="1321">1321</option><option value="1320">1320</option><option value="1319">1319</option><option value="1318">1318</option><option value="1317">1317</option><option value="1316">1316</option><option value="1315">1315</option><option value="1314">1314</option><option value="1313">1313</option><option value="1312">1312</option><option value="1311">1311</option><option value="1310">1310</option>
+                        ${yearsHtml}
                       </select>
                     </div>
                   </div>
                   <input type="hidden" id="regDob" name="date_of_birth">
-                  <small style="font-size:11px;color:var(--text-muted);margin-top:4px;display:block;">مثال: ۱۳۷۵ / تیر / ۱۵ - فقط انتخاب کنید</small>
+                  <small class="lux-hint">مثال: ۱۳۷۵ / تیر / ۱۵ - فقط انتخاب کنید</small>
                 </div>
 
                 <!-- استان و شهر وابسته -->
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
                     <label for="regProvince"><span>استان محل سکونت</span><span class="req-star">*</span></label>
-                    <select class="auth-input" id="regProvince" name="province" required>
+                    <select class="auth-input lux-input lux-select" id="regProvince" name="province" required>
                       <option value="" disabled selected>انتخاب استان...</option>
                       ${provinceOptionsHtml}
                     </select>
                   </div>
                   <div class="auth-field-group">
                     <label for="regCity"><span>شهر محل سکونت</span><span class="req-star">*</span></label>
-                    <select class="auth-input" id="regCity" name="city" required disabled>
+                    <select class="auth-input lux-input lux-select" id="regCity" name="city" required disabled>
                       <option value="" disabled selected>انتخاب شهر...</option>
                     </select>
                   </div>
@@ -258,13 +276,13 @@
                 <!-- آدرس کامل محل سکونت -->
                 <div class="auth-field-group">
                   <label for="regAddress"><span>آدرس کامل محل سکونت</span><span class="req-star">*</span></label>
-                  <textarea class="auth-input" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..." style="height:64px; padding:10px 14px; resize:vertical;"></textarea>
+                  <textarea class="auth-input lux-input lux-textarea" id="regAddress" name="address" required minlength="5" placeholder="خیابان، کوچه، پلاک، واحد..."></textarea>
                 </div>
 
                 <div class="auth-field-group">
                   <label for="regPassword"><span>رمز عبور دلخواه</span><span class="req-star">* (حداقل ۸ کاراکتر)</span></label>
-                  <div class="password-input-wrap">
-                    <input class="auth-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور دلخواه">
+                  <div class="password-input-wrap lux-pass-wrap">
+                    <input class="auth-input lux-input" id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="رمز عبور دلخواه">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
                   <div class="password-strength-wrap" id="regPasswordStrength" style="display:none;">
@@ -282,17 +300,17 @@
 
                 <div class="auth-field-group">
                   <label for="regConfirmPassword"><span>تکرار رمز عبور</span><span class="req-star">*</span></label>
-                  <div class="password-input-wrap">
-                    <input class="auth-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز عبور">
+                  <div class="password-input-wrap lux-pass-wrap">
+                    <input class="auth-input lux-input" id="regConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="تکرار رمز عبور">
                     <button type="button" class="password-toggle-btn" data-toggle-for="regConfirmPassword" aria-label="نمایش یا مخفی کردن رمز">👁️</button>
                   </div>
-                  <small id="passwordMatchHint" style="font-size:11px; color:var(--text-muted); display:none;"></small>
+                  <small id="passwordMatchHint" class="lux-hint" style="display:none;"></small>
                 </div>
 
-                <!-- Optional Profile Fields -->
+                <!-- فیلدهای اختیاری پروفایل -->
                 <div class="auth-field-group">
                   <label for="regGoal"><span>هدف اصلی تمرین (اختیاری)</span></label>
-                  <select class="auth-input" id="regGoal" name="goal">
+                  <select class="auth-input lux-input lux-select" id="regGoal" name="goal">
                     <option value="فیتنس و تناسب اندام عمومی">فیتنس و تناسب اندام عمومی</option>
                     <option value="کاهش وزن و چربی‌سوزی">کاهش وزن و چربی‌سوزی</option>
                     <option value="عضله‌سازی و افزایش حجم">عضله‌سازی و افزایش حجم (هایپرتروفی)</option>
@@ -305,7 +323,7 @@
                 <div class="auth-grid-2">
                   <div class="auth-field-group">
                     <label for="regGender"><span>جنسیت</span></label>
-                    <select class="auth-input" id="regGender" name="gender">
+                    <select class="auth-input lux-input lux-select" id="regGender" name="gender">
                       <option value="male">آقا</option>
                       <option value="female">خانم</option>
                       <option value="unspecified">ترجیح می‌دهم نگویم</option>
@@ -314,25 +332,25 @@
                   <div class="auth-grid-2">
                     <div class="auth-field-group">
                       <label for="regHeight"><span>قد (cm)</span></label>
-                      <input class="auth-input" id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵">
+                      <input class="auth-input lux-input" id="regHeight" name="height" inputmode="decimal" placeholder="۱۷۵">
                     </div>
                     <div class="auth-field-group">
                       <label for="regWeight"><span>وزن (kg)</span></label>
-                      <input class="auth-input" id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰">
+                      <input class="auth-input lux-input" id="regWeight" name="weight" inputmode="decimal" placeholder="۷۰">
                     </div>
                   </div>
                 </div>
 
-                <label class="auth-checkbox-label">
+                <label class="auth-checkbox-label lux-check">
                   <input type="checkbox" name="terms_accepted" id="regTerms" required checked>
                   <span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span>
                 </label>
 
-                <button type="submit" class="btn-auth-turquoise btn-auth-submit" id="btnRegisterSubmit">
-                  <span>ثبت‌نام</span>
+                <button type="submit" class="btn-auth-turquoise btn-auth-submit lux-submit" id="btnRegisterSubmit">
+                  <span>شروع سفر تناسب اندام</span>
                 </button>
 
-                <div class="auth-bottom-switch">
+                <div class="auth-bottom-switch lux-switch">
                   <span>قبلاً ثبت‌نام کرده‌اید؟</span>
                   <button type="button" id="btnGoToLogin">وارد شوید</button>
                 </div>

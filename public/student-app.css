@@ -670,3 +670,240 @@
   animation: modalIn 200ms ease;
 }
 
+
+/* ============================================================
+   Luxury Dark Fitness Login — طراحی لوکس دارک برای صفحه ورود
+   (فقط روی صفحه ورود/ثبت‌نام اعمال می‌شود؛ کلاس‌های lux-*)
+   ============================================================ */
+
+.lux-auth{
+  padding:24px;
+  background:
+    radial-gradient(1100px 700px at 88% -10%, rgba(var(--lux-gold-rgb),.10), transparent 60%),
+    radial-gradient(900px 640px at 6% 112%, rgba(var(--lux-gold-rgb),.08), transparent 60%),
+    var(--bg);
+}
+.lux-auth::before,
+.lux-auth::after{display:none;}
+
+.lux-glow{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:1;}
+.lux-glow-a{width:520px;height:520px;top:-160px;right:-80px;background:radial-gradient(circle,rgba(var(--lux-gold-rgb),.16),transparent 68%);}
+.lux-glow-b{width:420px;height:420px;bottom:-140px;left:-60px;background:radial-gradient(circle,rgba(var(--lux-gold-rgb),.12),transparent 68%);}
+
+.lux-auth .join-card.glass-auth-card.auth-split-card{
+  width:min(1220px,100%);
+  grid-template-columns:1.05fr 1fr;
+  border:1px solid rgba(var(--lux-gold-rgb),.30);
+  border-radius:28px;
+  background:rgba(9,9,10,.92);
+  box-shadow:0 0 0 1px rgba(0,0,0,.65), 0 30px 90px rgba(0,0,0,.85), 0 0 80px rgba(var(--lux-gold-rgb),.08);
+}
+
+/* ---------- پنل هیرو (سمت راست در RTL) ---------- */
+.lux-auth .lux-hero{
+  position:relative;
+  min-height:660px;
+  justify-content:space-between;
+  border-left:1px solid rgba(var(--lux-gold-rgb),.22);
+  overflow:hidden;
+  background:linear-gradient(165deg, rgba(22,20,12,.55), rgba(6,6,5,.30));
+  padding:clamp(26px,3vw,40px);
+}
+.lux-hero-img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center top;
+  filter:saturate(.94) contrast(1.07) brightness(.92);
+}
+.lux-hero-shade{
+  position:absolute;inset:0;
+  background:
+    linear-gradient(180deg, rgba(5,5,5,.82) 0%, rgba(5,5,5,.22) 32%, rgba(5,5,5,.08) 55%, rgba(5,5,5,.94) 100%),
+    linear-gradient(90deg, rgba(5,5,5,.55) 0%, transparent 60%);
+}
+.lux-hero-top,.lux-hero-bottom{position:relative;z-index:2;}
+
+.lux-hero-head{align-items:flex-start;}
+.lux-logo{
+  width:52px;height:52px;border-radius:14px;font-size:24px;
+  background:linear-gradient(135deg,var(--lux-gold-soft) 0%,var(--lux-gold) 45%,var(--lux-gold-deep) 100%);
+  color:var(--lux-ink);
+  box-shadow:0 0 26px rgba(var(--lux-gold-rgb),.5), inset 0 1px 0 rgba(255,255,255,.55);
+}
+.lux-brand{font-size:16px;letter-spacing:.32em;text-shadow:0 2px 18px rgba(0,0,0,.8);}
+.lux-brand-sub{
+  display:block;margin-top:4px;
+  font-size:8.5px;font-weight:800;letter-spacing:.52em;
+  color:var(--lux-gold-soft);opacity:.9;text-shadow:0 2px 12px rgba(0,0,0,.9);
+}
+
+.lux-hero-bottom{display:flex;flex-direction:column;gap:14px;padding-bottom:6px;}
+.lux-kicker{
+  font-size:11px;font-weight:850;letter-spacing:.16em;color:var(--lux-gold-soft);
+  display:inline-flex;align-items:center;gap:12px;
+}
+.lux-kicker::before{content:"";width:38px;height:1px;background:linear-gradient(90deg,transparent,var(--lux-gold-soft));}
+.lux-hero-title{
+  font-size:clamp(36px,4.4vw,56px);
+  line-height:1.25;
+  text-shadow:0 6px 34px rgba(0,0,0,.85), 0 0 40px rgba(var(--lux-gold-rgb),.14);
+}
+.lux-hero-desc{max-width:420px;font-size:14px;line-height:2.1;color:rgba(255,255,255,.74);}
+.lux-hero-stats{display:flex;gap:34px;margin-top:16px;flex-wrap:wrap;}
+.lux-hero-stats div{display:flex;flex-direction:column;gap:3px;}
+.lux-hero-stats b{
+  font-size:22px;font-weight:950;color:var(--lux-gold-soft);
+  text-shadow:0 0 22px rgba(var(--lux-gold-rgb),.4);
+}
+.lux-hero-stats span{font-size:11px;color:rgba(255,255,255,.55);}
+
+/* ---------- پنل فرم (سمت چپ در RTL) ---------- */
+.lux-auth .lux-form-panel{
+  padding:clamp(30px,4vw,50px);
+  background:linear-gradient(200deg, rgba(17,16,13,.35), rgba(8,8,9,.62));
+  max-height:92vh;
+}
+.lux-form-header{
+  border-bottom:1px solid rgba(var(--lux-gold-rgb),.16);
+  padding-bottom:16px;margin-bottom:6px;
+}
+.lux-form-title{
+  font-size:25px;font-weight:900;letter-spacing:-.02em;line-height:1.5;
+}
+.lux-form-title::after{
+  content:"";display:block;width:46px;height:3px;margin-top:10px;border-radius:3px;
+  background:linear-gradient(90deg,var(--lux-gold-soft),var(--lux-gold-deep));
+  box-shadow:0 0 14px rgba(var(--lux-gold-rgb),.5);
+}
+.lux-hello{margin:4px 0 0;font-size:13px;color:var(--text-primary);}
+.lux-case{margin-top:2px;}
+.lux-case b{color:var(--lux-gold-soft);}
+
+.lux-auth .lux-form{gap:18px;}
+.lux-auth .auth-field-group label{font-size:12.5px;color:var(--text-primary);}
+.lux-auth .req-star{color:var(--lux-gold-soft);}
+
+.lux-auth .lux-input,
+.lux-auth .student-auth-form input:not([type="checkbox"]):not([type="radio"]),
+.lux-auth .student-auth-form select,
+.lux-auth .student-auth-form textarea{
+  height:48px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.10);
+  border-bottom-color:rgba(255,255,255,.18);
+  background:rgba(255,255,255,.035);
+  padding:0 16px;
+  font-size:14px;
+  transition:border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+.lux-auth .lux-textarea{height:auto;min-height:70px;padding:12px 16px;resize:vertical;}
+.lux-auth .lux-input:focus,
+.lux-auth .student-auth-form input:focus,
+.lux-auth .student-auth-form select:focus,
+.lux-auth .student-auth-form textarea:focus{
+  border-color:rgba(var(--lux-gold-rgb),.9);
+  background:rgba(var(--lux-gold-rgb),.05);
+  box-shadow:0 0 0 3px rgba(var(--lux-gold-rgb),.13), 0 0 26px rgba(var(--lux-gold-rgb),.12);
+}
+.lux-auth .lux-input::placeholder,
+.lux-auth .student-auth-form input::placeholder,
+.lux-auth .student-auth-form textarea::placeholder{color:var(--text-placeholder);}
+
+/* سلکت‌ها: فلش طلایی سفارشی */
+.lux-auth .lux-select{
+  appearance:none;-webkit-appearance:none;
+  padding-left:42px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23d4af37' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:left 14px center;
+  cursor:pointer;
+}
+.lux-auth .lux-select:disabled{opacity:.55;cursor:not-allowed;}
+
+/* فیلد رمز عبور و دکمه نمایش */
+.lux-auth .lux-pass-wrap input{padding-left:48px;}
+.lux-auth .password-toggle-btn{
+  left:10px;right:auto;
+  color:rgba(255,255,255,.5);
+  font-size:15px;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+}
+.lux-auth .password-toggle-btn:hover{color:var(--lux-gold-soft);}
+
+.lux-form-actions{display:flex;justify-content:flex-start;}
+.lux-forgot{
+  color:var(--lux-gold);font-size:12.5px;font-weight:700;
+  background:transparent;border:0;cursor:pointer;padding:0;
+  transition:color 180ms ease, text-shadow 180ms ease;
+}
+.lux-forgot:hover{color:var(--lux-gold-soft);text-shadow:0 0 16px rgba(var(--lux-gold-rgb),.5);}
+
+/* دکمه طلایی لوکس */
+.lux-auth .lux-submit{
+  height:52px;
+  border-radius:14px;
+  border:0;
+  background:linear-gradient(135deg,var(--lux-gold-soft) 0%,var(--lux-gold) 46%,var(--lux-gold-deep) 100%);
+  color:var(--lux-ink);
+  font-weight:950;
+  font-size:15px;
+  letter-spacing:.02em;
+  box-shadow:0 14px 34px rgba(var(--lux-gold-rgb),.30), inset 0 1px 0 rgba(255,255,255,.55);
+  position:relative;overflow:hidden;
+  transition:transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+.lux-auth .lux-submit:hover{
+  transform:translateY(-2px);
+  filter:brightness(1.06);
+  box-shadow:0 20px 44px rgba(var(--lux-gold-rgb),.42), inset 0 1px 0 rgba(255,255,255,.6);
+}
+.lux-auth .lux-submit::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.38) 50%,transparent 75%);
+  transform:translateX(-140%);transition:transform 750ms ease;
+}
+.lux-auth .lux-submit:hover::after{transform:translateX(140%);}
+.lux-auth .lux-submit:disabled{filter:grayscale(.35) brightness(.82);cursor:progress;transform:none;}
+
+.lux-switch span{color:var(--text-muted);font-size:13px;}
+.lux-switch button{
+  color:var(--lux-gold-soft);font-weight:850;font-size:13px;
+  background:transparent;border:0;cursor:pointer;padding:0;
+  transition:color 180ms ease, text-shadow 180ms ease;
+}
+.lux-switch button:hover{color:var(--lux-gold-soft);text-shadow:0 0 14px rgba(var(--lux-gold-rgb),.55);}
+
+.lux-hint{font-size:11px;color:var(--text-muted);margin-top:4px;display:block;}
+.lux-check{font-size:12px;color:var(--text-secondary);}
+.lux-check a{color:var(--lux-gold-soft);}
+
+/* بنرهای خطا/موفقیت هماهنگ با پالت طلایی */
+.lux-auth .auth-success-banner,
+.lux-auth .auth-error-banner{border-radius:12px;font-size:12.5px;}
+.lux-auth .auth-success-banner{
+  background:linear-gradient(135deg,rgba(52,211,153,.16),rgba(52,211,153,.04));
+  border:1px solid rgba(52,211,153,.38);
+}
+.lux-auth .auth-error-banner{
+  background:linear-gradient(135deg,rgba(248,113,113,.16),rgba(248,113,113,.04));
+  border:1px solid rgba(248,113,113,.4);
+}
+
+/* ---------- واکنش‌گرایی ---------- */
+@media (max-width:960px){
+  .lux-auth{padding:14px;}
+  .lux-auth .join-card.glass-auth-card.auth-split-card{grid-template-columns:1fr;}
+  .lux-auth .lux-hero{min-height:320px;border-left:0;border-bottom:1px solid rgba(var(--lux-gold-rgb),.22);}
+  .lux-hero-stats{display:none;}
+  .lux-auth .lux-form-panel{max-height:none;overflow:visible;}
+}
+@media (max-width:560px){
+  .lux-auth{padding:8px;}
+  .lux-auth .join-card.glass-auth-card.auth-split-card{border-radius:20px;}
+  .lux-auth .lux-hero{min-height:250px;padding:20px;}
+  .lux-hero-desc{display:none;}
+  .lux-brand-sub{display:none;}
+  .lux-auth .lux-form-panel{padding:22px 16px;}
+  .lux-form-title{font-size:21px;}
+}
