@@ -304,6 +304,15 @@
   grid-template-columns:1fr 1fr;
   gap:10px;
 }
+.auth-grid-3{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:10px;
+}
+@media(max-width:560px){
+  .auth-grid-2{grid-template-columns:1fr;}
+  .auth-grid-3{grid-template-columns:1fr;}
+}
 
 /* Checkbox Label */
 .auth-checkbox-label{

@@ -151,7 +151,7 @@
 
             <!-- TAB 1: LOGIN FORM -->
             <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginFullName"><span>نام و نام خانوادگی</span></label><input class="auth-input" id="loginFullName" name="full_name" autocomplete="name" value="${esc(studentName||'')}" placeholder="نام و نام خانوادگی خود را وارد کنید"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
+              <form class="student-auth-form" id="studentLoginForm"><div id="loginSuccessBanner" class="auth-success-banner" style="display:none;"></div><div id="loginErrorBanner" class="auth-error-banner" style="display:none;"></div><div class="auth-field-group"><label for="loginMobile"><span>شماره همراه</span><span class="req-star">*</span></label><div class="prefixed-input" dir="ltr"><span>09-</span><input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="10" placeholder="0000000000"></div></div>
 
                 <div class="auth-field-group">
                   <label for="loginPassword"><span>رمز عبور</span><span class="req-star">*</span></label>
@@ -183,9 +183,15 @@
                 <div id="registerSuccessBanner" class="auth-success-banner" style="display:none;"></div>
                 <div id="registerErrorBanner" class="auth-error-banner" style="display:none;"></div>
 
-                <div class="auth-field-group">
-                  <label for="regFullName"><span>نام و نام خانوادگی</span><span class="req-star">*</span></label>
-                  <input class="auth-input" id="regFullName" name="full_name" required minlength="2" maxlength="100" autocomplete="name" placeholder="نام و نام خانوادگی خود را وارد کنید">
+                <div class="auth-grid-2">
+                  <div class="auth-field-group">
+                    <label for="regFirstName"><span>نام</span><span class="req-star">*</span></label>
+                    <input class="auth-input" id="regFirstName" name="first_name" required minlength="2" maxlength="50" autocomplete="given-name" placeholder="نام">
+                  </div>
+                  <div class="auth-field-group">
+                    <label for="regLastName"><span>نام خانوادگی</span><span class="req-star">*</span></label>
+                    <input class="auth-input" id="regLastName" name="last_name" required minlength="2" maxlength="50" autocomplete="family-name" placeholder="نام خانوادگی">
+                  </div>
                 </div>
 
                 <div class="auth-field-group">
@@ -196,10 +202,42 @@
                   </div>
                 </div>
 
-                <!-- تاریخ تولد -->
+                <!-- تاریخ تولد ساده با ۳ انتخاب -->
                 <div class="auth-field-group">
-                  <label for="regDob"><span>تاریخ تولد</span><span class="req-star">*</span></label>
-                  <input class="auth-input" id="regDob" name="date_of_birth" data-jalali required placeholder="مثلاً: ۱۳۷۵/۰۴/۱۵">
+                  <label><span>تاریخ تولد</span><span class="req-star">*</span></label>
+                  <div class="auth-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <div class="auth-field-group" style="margin:0;">
+                      <select class="auth-input" id="regDobDay" required>
+                        <option value="" disabled selected>روز</option>
+                        <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
+                      </select>
+                    </div>
+                    <div class="auth-field-group" style="margin:0;">
+                      <select class="auth-input" id="regDobMonth" required>
+                        <option value="" disabled selected>ماه</option>
+                        <option value="01">فروردین</option>
+                        <option value="02">اردیبهشت</option>
+                        <option value="03">خرداد</option>
+                        <option value="04">تیر</option>
+                        <option value="05">مرداد</option>
+                        <option value="06">شهریور</option>
+                        <option value="07">مهر</option>
+                        <option value="08">آبان</option>
+                        <option value="09">آذر</option>
+                        <option value="10">دی</option>
+                        <option value="11">بهمن</option>
+                        <option value="12">اسفند</option>
+                      </select>
+                    </div>
+                    <div class="auth-field-group" style="margin:0;">
+                      <select class="auth-input" id="regDobYear" required>
+                        <option value="" disabled selected>سال</option>
+                        <option value="1390">1390</option><option value="1389">1389</option><option value="1388">1388</option><option value="1387">1387</option><option value="1386">1386</option><option value="1385">1385</option><option value="1384">1384</option><option value="1383">1383</option><option value="1382">1382</option><option value="1381">1381</option><option value="1380">1380</option><option value="1379">1379</option><option value="1378">1378</option><option value="1377">1377</option><option value="1376">1376</option><option value="1375">1375</option><option value="1374">1374</option><option value="1373">1373</option><option value="1372">1372</option><option value="1371">1371</option><option value="1370">1370</option><option value="1369">1369</option><option value="1368">1368</option><option value="1367">1367</option><option value="1366">1366</option><option value="1365">1365</option><option value="1364">1364</option><option value="1363">1363</option><option value="1362">1362</option><option value="1361">1361</option><option value="1360">1360</option><option value="1359">1359</option><option value="1358">1358</option><option value="1357">1357</option><option value="1356">1356</option><option value="1355">1355</option><option value="1354">1354</option><option value="1353">1353</option><option value="1352">1352</option><option value="1351">1351</option><option value="1350">1350</option><option value="1349">1349</option><option value="1348">1348</option><option value="1347">1347</option><option value="1346">1346</option><option value="1345">1345</option><option value="1344">1344</option><option value="1343">1343</option><option value="1342">1342</option><option value="1341">1341</option><option value="1340">1340</option><option value="1339">1339</option><option value="1338">1338</option><option value="1337">1337</option><option value="1336">1336</option><option value="1335">1335</option><option value="1334">1334</option><option value="1333">1333</option><option value="1332">1332</option><option value="1331">1331</option><option value="1330">1330</option><option value="1329">1329</option><option value="1328">1328</option><option value="1327">1327</option><option value="1326">1326</option><option value="1325">1325</option><option value="1324">1324</option><option value="1323">1323</option><option value="1322">1322</option><option value="1321">1321</option><option value="1320">1320</option><option value="1319">1319</option><option value="1318">1318</option><option value="1317">1317</option><option value="1316">1316</option><option value="1315">1315</option><option value="1314">1314</option><option value="1313">1313</option><option value="1312">1312</option><option value="1311">1311</option><option value="1310">1310</option>
+                      </select>
+                    </div>
+                  </div>
+                  <input type="hidden" id="regDob" name="date_of_birth">
+                  <small style="font-size:11px;color:var(--text-muted);margin-top:4px;display:block;">مثال: ۱۳۷۵ / تیر / ۱۵ - فقط انتخاب کنید</small>
                 </div>
 
                 <!-- استان و شهر وابسته -->
@@ -345,6 +383,29 @@
       });
     }
 
+    // Simple DOB 3-select binding - updates hidden input automatically
+    const dobYearSel = root.querySelector('#regDobYear');
+    const dobMonthSel = root.querySelector('#regDobMonth');
+    const dobDaySel = root.querySelector('#regDobDay');
+    const dobHidden = root.querySelector('#regDob');
+    function syncDob(){
+      if(dobYearSel && dobMonthSel && dobDaySel && dobHidden){
+        const y = dobYearSel.value, m = dobMonthSel.value, d = dobDaySel.value;
+        if(y && m && d){
+          dobHidden.value = `${y}/${m}/${d}`;
+        } else {
+          dobHidden.value = '';
+        }
+      }
+    }
+    if(dobYearSel) dobYearSel.addEventListener('change', syncDob);
+    if(dobMonthSel) dobMonthSel.addEventListener('change', syncDob);
+    if(dobDaySel) dobDaySel.addEventListener('change', syncDob);
+
+
+
+
+
     // Password show/hide toggle
     root.querySelectorAll('.password-toggle-btn').forEach(btn => {
       btn.onclick = () => {
@@ -468,7 +529,6 @@
           const result = await api('/api/student/auth/login', {
             method: 'POST',
             body: jsonBody({
-              full_name: form.get('full_name') || undefined,
               mobile:completeMobile(form.get('mobile')),
               password: form.get('password'),
               invitation_token: token || undefined
@@ -525,9 +585,20 @@
         const originalText = submitBtn ? submitBtn.innerHTML : '<span>ثبت‌نام</span>';
 
         const form = new FormData(event.currentTarget);
-        const fullName = String(form.get('full_name')||'').trim();
+        const firstName = String(form.get('first_name')||'').trim();
+        const lastName = String(form.get('last_name')||'').trim();
+        const fullName = `${firstName} ${lastName}`.trim();
         const rawMobile = String(form.get('mobile')||'').trim();
-        const dob = String(form.get('date_of_birth')||'').trim();
+        // DOB from 3 selects combined
+        const dobYear = document.getElementById('regDobYear')?.value || '';
+        const dobMonth = document.getElementById('regDobMonth')?.value || '';
+        const dobDay = document.getElementById('regDobDay')?.value || '';
+        let dob = String(form.get('date_of_birth')||'').trim();
+        if(dobYear && dobMonth && dobDay){
+          dob = `${dobYear}/${dobMonth}/${dobDay}`;
+          const hidden = document.getElementById('regDob');
+          if(hidden) hidden.value = dob;
+        }
         const province = String(form.get('province')||'').trim();
         const city = String(form.get('city')||'').trim();
         const address = String(form.get('address')||'').trim();
@@ -539,8 +610,16 @@
         const weight = form.get('weight') ? Number(form.get('weight')) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
 
-        if(!fullName || fullName.length < 2){
-          showRegErr('لطفاً نام و نام خانوادگی خود را کامل وارد فرمایید (حداقل ۲ حرف).');
+        if(!firstName || firstName.length < 2){
+          showRegErr('لطفاً نام خود را وارد فرمایید (حداقل ۲ حرف).');
+          return;
+        }
+        if(!lastName || lastName.length < 2){
+          showRegErr('لطفاً نام خانوادگی خود را وارد فرمایید (حداقل ۲ حرف).');
+          return;
+        }
+        if(!fullName || fullName.length < 4){
+          showRegErr('لطفاً نام و نام خانوادگی را کامل وارد کنید.');
           return;
         }
 
