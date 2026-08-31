@@ -7,6 +7,9 @@ node_modules/
 public/assets/images/exercises/imported/
 public/assets/videos/
 assets/
+# Personal login hero photo — local only, never committed to the public repo
+public/image/*
+!public/image/.gitkeep
 # OS
 .DS_Store
 Thumbs.db

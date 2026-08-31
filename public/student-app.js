@@ -130,7 +130,7 @@
         <div class="join-card glass-auth-card auth-split-card lux-auth-card">
           <!-- Hero Panel — عکس شما با استایل لوکس (سمت راست در RTL) -->
           <div class="auth-welcome-panel lux-hero">
-            <img class="lux-hero-img" src="/images/auth-hero.jpg" alt="یاسنافیت" onerror="this.remove()">
+            <img class="lux-hero-img" src="/image/logo.png" alt="یاسنافیت" onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/images/auth-hero.jpg';}else{this.remove();}">
             <div class="lux-hero-shade"></div>
             <div class="lux-hero-top">
               <div class="auth-welcome-head lux-hero-head">
