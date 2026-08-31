@@ -161,9 +161,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(401,'/api/student/me',{cookie:sessionB.cookie});await expectStatus(401,'/student/dashboard',{cookie:sessionB.cookie});const reloggedB=await loginDirect(mobileB,sessionB.password);assert.ok(reloggedB.cookie);
 
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
-  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.0',name:'Yasnafit',environment:'development'});
+  const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'025_diet_programs_and_meals');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'027_student_location_and_registration_fields');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }
