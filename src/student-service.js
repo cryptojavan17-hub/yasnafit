@@ -193,6 +193,20 @@ function getPendingSubmissions(db){
   `).all();
 }
 
+function normalizePersianNumber(value){
+  return String(value??'').trim()
+    .replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\u066B,\/]/g,'.').replace(/\u060C/g,',').replace(/\u066C/g,'').replace(/\s+/g,'').replace(/[^\d.\-]/g,'');
+}
+function parseLocalizedNumber(value){
+  const raw = String(value??'').trim();
+  if(raw==='') return null;
+  const n = normalizePersianNumber(raw);
+  if(n==='' || n==='-' || n==='.' || n==='-.') return null;
+  const num = Number(n);
+  return Number.isFinite(num) ? num : null;
+}
 function validateAssessmentFields(data){
   const errors=[];
   const ranges = {
@@ -201,7 +215,8 @@ function validateAssessmentFields(data){
   };
   for(const [key,[min,max]] of Object.entries(ranges)){
     if(data[key] !== undefined && data[key] !== null && data[key] !== ''){
-      const value=Number(data[key]);
+      const value=parseLocalizedNumber(data[key]);
+      if(value===null) continue;
       if(!Number.isFinite(value) || value<min || value>max) errors.push(`${key} نامعتبر است`);
     }
   }
@@ -228,7 +243,14 @@ function createAssessment(db, studentId, data={}){
     const stableId = genUUID();
     const status = 'ASSESSMENT_PENDING';
     const assessmentType=nextNumber===1?'INITIAL':'MONTHLY';
-    const value = key => data[key] === undefined || data[key] === '' ? null : data[key];
+    const value = key => {
+      if(data[key]===undefined || data[key]==='') return null;
+      if(['weight','height','waist','chest','hips','body_fat','muscle_mass'].includes(key)){
+        const parsed = parseLocalizedNumber(data[key]);
+        return parsed!==null ? parsed : data[key];
+      }
+      return data[key];
+    };
     const res = db.prepare(`
       INSERT INTO body_assessments
       (stable_id, student_id, assessment_number, assessment_type, lifecycle_status, status, weight, height, waist, chest, hips, body_fat, muscle_mass, measurements, goal, training_experience, limitations, injuries, student_note, coach_note, body_photos_preference, draft_saved_at, version)
@@ -259,7 +281,12 @@ function updateAssessment(db, assessmentId, data){
   for(const key of updatable){
     if(data[key] !== undefined){
       fields.push(`${key}=?`);
-      params.push(key === 'measurements' ? JSON.stringify(data[key]||{}) : (data[key] === '' ? null : data[key]));
+      if(key==='measurements') params.push(JSON.stringify(data[key]||{}));
+      else if(data[key]==='') params.push(null);
+      else if(['weight','height','waist','chest','hips','body_fat','muscle_mass'].includes(key)){
+        const parsed=parseLocalizedNumber(data[key]);
+        params.push(parsed!==null?parsed:data[key]);
+      } else params.push(data[key]);
     }
   }
   if(!fields.length) return existing;

@@ -5,8 +5,8 @@
   const normalize=value=>String(value||'')
     .replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-    .replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'');
-  const number=value=>{const normalized=normalize(value);return normalized===''?null:Number(normalized);};
+    .replace(/[٫,\/]/g,'.').replace(/٬/g,'').replace(/\s+/g,'').replace(/[^\d.\-]/g,'');
+  const number=value=>{const raw=String(value||'').trim();if(raw==='')return null;const normalized=normalize(raw);if(normalized===''||normalized==='-'||normalized==='.'||normalized==='-.')return null;const n=Number(normalized);return Number.isFinite(n)?n:null;};
   const bool=value=>value===undefined||value===null?null:value==='yes';
   const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
   const photoLabels={front_flex:'جلو با حالت بازو',back_flex:'پشت با حالت بازو',side:'نمای بغل'};
@@ -24,8 +24,8 @@
   const field=id=>document.querySelector(`#${id}`)?.value?.trim()||'';
   const initJalaliInputs=()=>{if(window.YasnaJalali)window.YasnaJalali.autoInit();};
   const asciiDigits=value=>String(value??'').replace(/[۰-۹]/g,digit=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g,digit=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/\D/g,'');
-  const mobileSuffix=value=>{const digits=asciiDigits(value);return digits.startsWith('09')?digits.slice(2):digits;};
-  const completeMobile=value=>{const digits=asciiDigits(value);if(digits.startsWith('09'))return digits;if(digits.startsWith('9'))return `0${digits}`;return `09${digits}`;};
+  const mobileSuffix=value=>{const digits=asciiDigits(value);return digits;};
+  const completeMobile=value=>{const digits=asciiDigits(value);return digits;};
   const socialHandle=id=>{const value=field(id).replace(/^@+/, '').trim();return value?`@${value}`:'';};
   const checked=name=>document.querySelector(`[name="${name}"]:checked`)?.value;
   const selected=name=>[...document.querySelectorAll(`[name="${name}"]:checked`)].map(input=>input.value);
