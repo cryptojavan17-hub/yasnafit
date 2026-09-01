@@ -476,21 +476,8 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     INSERT INTO coach_otp_challenges(stable_id,coach_id,code_hash,expires_at,failed_attempts)
     VALUES(?,?,?,?,0)
   `).run(challengeId,coach.id,hashToken(code),expiresAt);
-  let delivery;
-  try{
-    delivery=await deliverEmail({
-      to:coach.email_normalized,
-      subject:'کد ورود دو مرحله‌ای مربی Yasnafit',
-      text:`کد ورود شما: ${code}\nاین کد تا ۵ دقیقه معتبر است و فقط یک‌بار قابل استفاده است.\nاگر این درخواست را شما نداده‌اید، آن را نادیده بگیرید.`,
-      code,
-      dataDir,
-      fallbackFile:'coach-otp-dev.txt'
-    });
-  }catch(error){
-    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'mail_failed'});
-    return {error:error.code||'MAIL_FAILED',message:error.message};
-  }
-  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized,delivery};
+  writeDevFile(dataDir,'coach-otp-dev.txt',code);
+  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized,delivery:'screen',code};
 }
 
 function verifyOtp(db,{challengeId,code,req=null}){

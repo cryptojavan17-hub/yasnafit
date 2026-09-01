@@ -37,9 +37,7 @@ const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log(`[Coach Auth] One-time setup required at /coach/setup (${coachBootstrap.setup_email})`);
 }
-if(!coachAuthService.smtpConfigured(path.dirname(dbPath))){
-  console.log('[Coach Auth] Gmail delivery is not configured. Open /coach/mail so codes reach crypto.javan17@gmail.com');
-}
+
 
 // --- MIME Types ---
 const types = {
@@ -201,7 +199,7 @@ async function handleCoachAuth(req,res,url){
     const body=await readBody(req);
     const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req});
     if(result.error) return coachAuthError(res,result.error,result.message);
-    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email,delivery:result.delivery});
+    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email,delivery:result.delivery,code:result.code});
   }
   if(p==='/api/coach/auth/verify' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');

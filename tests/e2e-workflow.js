@@ -68,7 +68,8 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
   assert.ok(coachLogin.data.challenge_id);
-  assert.ok(['file','smtp'].includes(coachLogin.data.delivery),JSON.stringify(coachLogin.data));
+  assert.equal(coachLogin.data.delivery,'screen');
+  assert.match(String(coachLogin.data.code||''),/^\d{6}$/);
   const otpCode=fs.readFileSync(path.join(__dirname,'..','data','coach-otp-dev.txt'),'utf8').trim();
   assert.match(otpCode,/^\d{6}$/);
   const coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:otpCode}});

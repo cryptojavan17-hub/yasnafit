@@ -146,6 +146,30 @@
   border-color:var(--accent-border);
   color:var(--accent-hover);
 }
+.coach-otp-reveal{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 16px;
+  padding:14px 16px;
+  border-radius:12px;
+  background:var(--accent-surface);
+  border:1px solid var(--accent-border);
+  color:var(--text);
+}
+.coach-otp-reveal[hidden]{
+  display:none;
+}
+.coach-otp-reveal span{
+  font-size:13px;
+  color:var(--text-secondary);
+}
+.coach-otp-reveal strong{
+  font-size:22px;
+  letter-spacing:.28em;
+  font-weight:800;
+}
 #coachOtp{
   letter-spacing:.4em;
   text-align:center;

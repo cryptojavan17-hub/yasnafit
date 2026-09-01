@@ -43,13 +43,7 @@
     let challengeId = '';
 
     loadStatus().then(status => {
-      if (status.setup_required) {
-        location.replace('/coach/setup');
-        return;
-      }
-      if (!status.mail_configured) {
-        showError('کد هنوز به جیمیل نمی‌رسد. اول رمز برنامه جیمیل را در صفحه ارسال ایمیل ذخیره کنید.');
-      }
+      if (status.setup_required) location.replace('/coach/setup');
     });
 
     passwordForm.addEventListener('submit', async event => {
@@ -61,26 +55,21 @@
           email: document.getElementById('coachEmail').value,
           password: document.getElementById('coachPassword').value
         });
-        if (result.delivery !== 'smtp') {
-          showError('کد به جیمیل ارسال نشد چون ارسال ایمیل هنوز تنظیم نشده است.');
-          location.replace('/coach/mail');
-          return;
-        }
         challengeId = result.challenge_id;
         passwordForm.hidden = true;
         otpForm.hidden = false;
-        lead.textContent = 'کد ۶ رقمی ارسال‌شده به جیمیل را وارد کنید.';
-        otpHint.textContent = result.email
-          ? `کد تأیید به ${result.email} ارسال شد و تا ۵ دقیقه معتبر است.`
-          : 'کد تأیید به جیمیل مربی ارسال شد و تا ۵ دقیقه معتبر است.';
+        lead.textContent = 'کد ۶ رقمی تأیید را وارد کنید.';
+        otpHint.textContent = 'این کد تا ۵ دقیقه معتبر است.';
+        const reveal = document.getElementById('coachOtpReveal');
+        const value = document.getElementById('coachOtpValue');
+        if (reveal && value) {
+          value.textContent = result.code || '';
+          reveal.hidden = !result.code;
+        }
         document.getElementById('coachOtp').focus();
       } catch (error) {
         if (error.code === 'SETUP_REQUIRED') {
           location.replace('/coach/setup');
-          return;
-        }
-        if (error.code === 'MAIL_FAILED') {
-          showError(error.message || 'ارسال کد به جیمیل انجام نشد.');
           return;
         }
         showError(error.message);
@@ -111,6 +100,10 @@
       otpForm.hidden = true;
       passwordForm.hidden = false;
       document.getElementById('coachOtp').value = '';
+      const reveal = document.getElementById('coachOtpReveal');
+      const value = document.getElementById('coachOtpValue');
+      if (value) value.textContent = '';
+      if (reveal) reveal.hidden = true;
       lead.textContent = 'ایمیل و رمز عبور خود را وارد کنید.';
       showError('');
     });
@@ -138,7 +131,7 @@
           email: document.getElementById('coachSetupEmail').value,
           password
         });
-        location.replace('/coach/mail');
+        location.replace('/coach/login');
       } catch (error) {
         if (error.code === 'SETUP_CLOSED') {
           location.replace('/coach/login');
@@ -155,9 +148,6 @@
   if (path === '/coach/forgot') {
     const form = document.getElementById('coachForgotForm');
     const submit = document.getElementById('coachForgotSubmit');
-    loadStatus().then(status => {
-      if (!status.mail_configured) location.replace('/coach/mail');
-    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
@@ -166,11 +156,7 @@
         const result = await api('/api/coach/auth/forgot', {
           email: document.getElementById('coachForgotEmail').value
         });
-        if (result.delivery === 'file') {
-          location.replace('/coach/mail');
-          return;
-        }
-        showError(result.message || 'اگر این ایمیل ثبت شده باشد، لینک بازیابی به جیمیل ارسال می‌شود.', true);
+        showError(result.message || 'اگر این ایمیل ثبت شده باشد، لینک بازیابی آماده می‌شود.', true);
       } catch (error) {
         showError(error.message);
       } finally {
