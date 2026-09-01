@@ -43,7 +43,13 @@
     let challengeId = '';
 
     loadStatus().then(status => {
-      if (status.setup_required) location.replace('/coach/setup');
+      if (status.setup_required) {
+        location.replace('/coach/setup');
+        return;
+      }
+      if (!status.mail_configured) {
+        showError('کد هنوز به جیمیل نمی‌رسد. اول رمز برنامه جیمیل را در صفحه ارسال ایمیل ذخیره کنید.');
+      }
     });
 
     passwordForm.addEventListener('submit', async event => {
@@ -55,17 +61,26 @@
           email: document.getElementById('coachEmail').value,
           password: document.getElementById('coachPassword').value
         });
+        if (result.delivery !== 'smtp') {
+          showError('کد به جیمیل ارسال نشد چون ارسال ایمیل هنوز تنظیم نشده است.');
+          location.replace('/coach/mail');
+          return;
+        }
         challengeId = result.challenge_id;
         passwordForm.hidden = true;
         otpForm.hidden = false;
-        lead.textContent = 'کد ۶ رقمی ارسال‌شده به ایمیل را وارد کنید.';
+        lead.textContent = 'کد ۶ رقمی ارسال‌شده به جیمیل را وارد کنید.';
         otpHint.textContent = result.email
           ? `کد تأیید به ${result.email} ارسال شد و تا ۵ دقیقه معتبر است.`
-          : 'کد تأیید به ایمیل مربی ارسال شد و تا ۵ دقیقه معتبر است.';
+          : 'کد تأیید به جیمیل مربی ارسال شد و تا ۵ دقیقه معتبر است.';
         document.getElementById('coachOtp').focus();
       } catch (error) {
         if (error.code === 'SETUP_REQUIRED') {
           location.replace('/coach/setup');
+          return;
+        }
+        if (error.code === 'MAIL_FAILED') {
+          showError(error.message || 'ارسال کد به جیمیل انجام نشد.');
           return;
         }
         showError(error.message);
@@ -123,7 +138,7 @@
           email: document.getElementById('coachSetupEmail').value,
           password
         });
-        location.replace('/coach/login');
+        location.replace('/coach/mail');
       } catch (error) {
         if (error.code === 'SETUP_CLOSED') {
           location.replace('/coach/login');
@@ -140,6 +155,9 @@
   if (path === '/coach/forgot') {
     const form = document.getElementById('coachForgotForm');
     const submit = document.getElementById('coachForgotSubmit');
+    loadStatus().then(status => {
+      if (!status.mail_configured) location.replace('/coach/mail');
+    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
@@ -148,11 +166,42 @@
         const result = await api('/api/coach/auth/forgot', {
           email: document.getElementById('coachForgotEmail').value
         });
-        showError(result.message || 'اگر این ایمیل ثبت شده باشد، لینک بازیابی ارسال می‌شود.', true);
+        if (result.delivery === 'file') {
+          location.replace('/coach/mail');
+          return;
+        }
+        showError(result.message || 'اگر این ایمیل ثبت شده باشد، لینک بازیابی به جیمیل ارسال می‌شود.', true);
       } catch (error) {
         showError(error.message);
       } finally {
         setBusy(submit, false, 'ارسال لینک بازیابی');
+      }
+    });
+    return;
+  }
+
+  if (path === '/coach/mail') {
+    const form = document.getElementById('coachMailForm');
+    const submit = document.getElementById('coachMailSubmit');
+    loadStatus().then(status => {
+      if (status.mail_configured) {
+        showError('ارسال جیمیل قبلاً تنظیم شده است. اگر کد نمی‌رسد، رمز برنامه را دوباره ذخیره کنید.', true);
+      }
+    });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      showError('');
+      setBusy(submit, true, 'در حال ارسال آزمایشی…');
+      try {
+        await api('/api/coach/auth/mail', {
+          app_password: document.getElementById('coachMailPassword').value
+        });
+        showError('ایمیل آزمایشی به crypto.javan17@gmail.com ارسال شد. اینباکس و پوشه اسپم را بررسی کنید.', true);
+        setTimeout(() => location.replace('/coach/login'), 1400);
+      } catch (error) {
+        showError(error.message || 'ارسال آزمایشی به جیمیل انجام نشد.');
+      } finally {
+        setBusy(submit, false, 'ارسال ایمیل آزمایشی و ذخیره');
       }
     });
     return;

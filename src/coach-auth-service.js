@@ -90,10 +90,75 @@ function normalizeOtp(value){
     .replace(/\D/g,'');
 }
 
-function smtpConfigured(){
-  return Boolean(String(process.env.YASNAFIT_SMTP_HOST||'').trim());
+function smtpAddress(value){
+  const text=String(value||'').trim();
+  const angled=text.match(/<([^>]+)>/);
+  return (angled?angled[1]:text).trim();
 }
-
+function loadSmtpConfig(dataDir){
+  const envHost=String(process.env.YASNAFIT_SMTP_HOST||'').trim();
+  if(envHost){
+    return {
+      host:envHost,
+      port:Number(process.env.YASNAFIT_SMTP_PORT||465),
+      secure:String(process.env.YASNAFIT_SMTP_SECURE||'true').toLowerCase()!=='false',
+      user:String(process.env.YASNAFIT_SMTP_USER||'').trim(),
+      pass:String(process.env.YASNAFIT_SMTP_PASS||''),
+      from:String(process.env.YASNAFIT_SMTP_FROM||process.env.YASNAFIT_SMTP_USER||'').trim()
+    };
+  }
+  if(!dataDir) return null;
+  const file=path.join(dataDir,'smtp.json');
+  if(!fs.existsSync(file)) return null;
+  try{
+    const parsed=JSON.parse(fs.readFileSync(file,'utf8'));
+    if(!parsed || !parsed.host || !parsed.pass) return null;
+    return {
+      host:String(parsed.host||'').trim(),
+      port:Number(parsed.port||465),
+      secure:parsed.secure!==false,
+      user:String(parsed.user||'').trim(),
+      pass:String(parsed.pass||''),
+      from:String(parsed.from||parsed.user||'').trim()
+    };
+  }catch(error){
+    return null;
+  }
+}
+function smtpConfigured(dataDir){
+  const config=loadSmtpConfig(dataDir);
+  return Boolean(config && config.host && config.pass);
+}
+function mailStatus(dataDir){
+  const config=loadSmtpConfig(dataDir);
+  return {
+    mail_configured:Boolean(config && config.host && config.pass),
+    mail_email:SETUP_EMAIL,
+    mail_host:config?.host||'smtp.gmail.com'
+  };
+}
+function writeSmtpConfig(dataDir,config){
+  if(!dataDir) throw Object.assign(new Error('پوشه داده پیدا نشد'),{statusCode:400,code:'INVALID_SMTP'});
+  fs.mkdirSync(dataDir,{recursive:true});
+  fs.writeFileSync(path.join(dataDir,'smtp.json'),JSON.stringify({
+    host:config.host,
+    port:Number(config.port),
+    secure:Boolean(config.secure),
+    user:config.user,
+    pass:config.pass,
+    from:config.from||config.user
+  },null,2),{mode:0o600});
+}
+function smtpError(raw){
+  const text=String(raw||'');
+  if(/535|534|530|Username and Password not accepted|Application-specific password/i.test(text)){
+    return Object.assign(new Error('رمز برنامه جیمیل نادرست است. از App Password استفاده کنید، نه رمز خودِ جیمیل.'),{code:'MAIL_FAILED'});
+  }
+  if(/timeout|ECONNREFUSED|ENOTFOUND|EAI_AGAIN/i.test(text)){
+    return Object.assign(new Error('اتصال به سرور جیمیل برقرار نشد. اینترنت را بررسی کنید.'),{code:'MAIL_FAILED'});
+  }
+  return Object.assign(new Error('ارسال ایمیل به جیمیل انجام نشد.'),{code:'MAIL_FAILED'});
+}
 function readSmtpResponse(socket){
   return new Promise((resolve,reject)=>{
     let buffer='';
@@ -123,35 +188,52 @@ function smtpCommand(socket,command){
     socket.write(command+'\r\n','utf8',error=>error?reject(error):resolve());
   }).then(()=>readSmtpResponse(socket));
 }
-async function sendSmtpEmail({to,subject,text}){
-  const host=String(process.env.YASNAFIT_SMTP_HOST||'').trim();
-  if(!host) throw new Error('SMTP is not configured');
-  const port=Number(process.env.YASNAFIT_SMTP_PORT||465);
-  const user=String(process.env.YASNAFIT_SMTP_USER||'').trim();
-  const pass=String(process.env.YASNAFIT_SMTP_PASS||'');
-  const from=String(process.env.YASNAFIT_SMTP_FROM||user||'yasnafit@localhost').trim();
-  const secure=String(process.env.YASNAFIT_SMTP_SECURE||'true').toLowerCase()!=='false';
-  const socket=secure
-    ? tls.connect({host,port,servername:host,timeout:15000})
-    : net.connect({host,port,timeout:15000});
-  socket.setTimeout(15000);
-  await new Promise((resolve,reject)=>{
-    socket.once(secure?'secureConnect':'connect',resolve);
+function smtpCode(response){
+  return Number(String(response||'').match(/^(\d{3})/m)?.[1]||0);
+}
+async function smtpExpect(socket,command,ok){
+  const response=command==null?await readSmtpResponse(socket):await smtpCommand(socket,command);
+  const code=smtpCode(response);
+  if(!(ok||[220,221,235,250,334,354]).includes(code)) throw new Error(String(response).split(/\r?\n/)[0]||'SMTP error');
+  return response;
+}
+function connectSocket({host,port,secure,existing}){
+  return new Promise((resolve,reject)=>{
+    const socket=existing
+      ? tls.connect({socket:existing,servername:host,timeout:20000})
+      : secure
+        ? tls.connect({host,port,servername:host,timeout:20000})
+        : net.connect({host,port,timeout:20000});
+    socket.setTimeout(20000);
+    socket.once(secure||existing?'secureConnect':'connect',()=>resolve(socket));
     socket.once('error',reject);
+    socket.once('timeout',()=>reject(new Error('SMTP timeout')));
   });
+}
+async function smtpSession(config,{to,subject,text}){
+  const host=config.host;
+  const port=Number(config.port||465);
+  const useTls=config.secure!==false && port!==587;
+  let socket=await connectSocket({host,port,secure:useTls});
   try{
-    await readSmtpResponse(socket);
-    await smtpCommand(socket,'EHLO yasnafit.local');
-    if(user){
-      await smtpCommand(socket,'AUTH LOGIN');
-      await smtpCommand(socket,Buffer.from(user).toString('base64'));
-      await smtpCommand(socket,Buffer.from(pass).toString('base64'));
+    await smtpExpect(socket,null,[220]);
+    let ehlo=await smtpExpect(socket,'EHLO yasnafit.local',[250]);
+    if(!useTls && /STARTTLS/i.test(ehlo)){
+      await smtpExpect(socket,'STARTTLS',[220]);
+      socket=await connectSocket({host,port,secure:true,existing:socket});
+      ehlo=await smtpExpect(socket,'EHLO yasnafit.local',[250]);
     }
-    await smtpCommand(socket,`MAIL FROM:<${from}>`);
-    await smtpCommand(socket,`RCPT TO:<${to}>`);
-    await smtpCommand(socket,'DATA');
+    if(config.user){
+      await smtpExpect(socket,'AUTH LOGIN',[334]);
+      await smtpExpect(socket,Buffer.from(config.user).toString('base64'),[334]);
+      await smtpExpect(socket,Buffer.from(config.pass).toString('base64'),[235]);
+    }
+    const fromAddr=smtpAddress(config.from||config.user);
+    await smtpExpect(socket,`MAIL FROM:<${fromAddr}>`,[250]);
+    await smtpExpect(socket,`RCPT TO:<${to}>`,[250]);
+    await smtpExpect(socket,'DATA',[354]);
     const payload=[
-      `From: Yasnafit <${from}>`,
+      `From: Yasnafit <${fromAddr}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
       'MIME-Version: 1.0',
@@ -161,11 +243,49 @@ async function sendSmtpEmail({to,subject,text}){
       text,
       '.'
     ].join('\r\n');
-    await smtpCommand(socket,payload);
-    await smtpCommand(socket,'QUIT').catch(()=>{});
+    await smtpExpect(socket,payload,[250]);
+    await smtpExpect(socket,'QUIT',[221]).catch(()=>{});
   }finally{
     try{socket.end();}catch(error){}
   }
+}
+async function sendSmtpEmail(config,mail){
+  try{
+    await smtpSession(config,mail);
+    return config;
+  }catch(error){
+    if(Number(config.port)===465){
+      try{
+        const fallback={...config,port:587,secure:false};
+        await smtpSession(fallback,mail);
+        return fallback;
+      }catch(second){
+        throw smtpError(second.message||error.message);
+      }
+    }
+    throw smtpError(error.message);
+  }
+}
+async function configureGmail(dataDir,appPassword){
+  const pass=String(appPassword||'').replace(/\s+/g,'');
+  if(pass.length<8 || pass.length>128){
+    throw Object.assign(new Error('رمز برنامه جیمیل را وارد کنید'),{statusCode:400,code:'INVALID_SMTP'});
+  }
+  let config={
+    host:'smtp.gmail.com',
+    port:465,
+    secure:true,
+    user:SETUP_EMAIL,
+    pass,
+    from:SETUP_EMAIL
+  };
+  config=await sendSmtpEmail(config,{
+    to:SETUP_EMAIL,
+    subject:'آزمایش ارسال ایمیل مربی Yasnafit',
+    text:'اگر این پیام را می‌بینید، ارسال کد ورود به جیمیل درست تنظیم شده است.'
+  });
+  writeSmtpConfig(dataDir,config);
+  return {ok:true,email:SETUP_EMAIL,host:config.host};
 }
 
 function writeDevFile(dataDir,filename,contents){
@@ -179,8 +299,9 @@ async function deliverEmail({to,subject,text,code,token,dataDir,fallbackFile}){
     await mailer({to,subject,text,code,token});
     return 'custom';
   }
-  if(smtpConfigured()){
-    await sendSmtpEmail({to,subject,text});
+  const config=loadSmtpConfig(dataDir);
+  if(config){
+    await sendSmtpEmail(config,{to,subject,text});
     return 'smtp';
   }
   if(fallbackFile && (code||token)){
@@ -217,11 +338,12 @@ function setupRequired(db){
   return ready.email_normalized===PLACEHOLDER_EMAIL;
 }
 
-function authStatus(db){
+function authStatus(db,dataDir){
   const required=setupRequired(db);
   return {
     setup_required:required,
-    setup_email:required?SETUP_EMAIL:null
+    setup_email:required?SETUP_EMAIL:null,
+    ...mailStatus(dataDir)
   };
 }
 
@@ -354,8 +476,9 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     INSERT INTO coach_otp_challenges(stable_id,coach_id,code_hash,expires_at,failed_attempts)
     VALUES(?,?,?,?,0)
   `).run(challengeId,coach.id,hashToken(code),expiresAt);
+  let delivery;
   try{
-    await deliverEmail({
+    delivery=await deliverEmail({
       to:coach.email_normalized,
       subject:'کد ورود دو مرحله‌ای مربی Yasnafit',
       text:`کد ورود شما: ${code}\nاین کد تا ۵ دقیقه معتبر است و فقط یک‌بار قابل استفاده است.\nاگر این درخواست را شما نداده‌اید، آن را نادیده بگیرید.`,
@@ -364,10 +487,10 @@ async function startLogin(db,{email,password,dataDir,req=null}){
       fallbackFile:'coach-otp-dev.txt'
     });
   }catch(error){
-    writeDevFile(dataDir,'coach-otp-dev.txt',code);
-    console.error('[Coach 2FA] email delivery failed; code written to data/coach-otp-dev.txt', error.message);
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'mail_failed'});
+    return {error:error.code||'MAIL_FAILED',message:error.message};
   }
-  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized};
+  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized,delivery};
 }
 
 function verifyOtp(db,{challengeId,code,req=null}){
@@ -512,8 +635,9 @@ async function requestPasswordReset(db,{email,req=null,dataDir}){
     VALUES(?,?,?,?)
   `).run(genUUID(),coach.id,hashToken(rawToken),expiresAt);
   const link=`${publicOrigin(req)}/coach/reset?token=${encodeURIComponent(rawToken)}`;
+  let delivery;
   try{
-    await deliverEmail({
+    delivery=await deliverEmail({
       to:coach.email_normalized,
       subject:'بازیابی رمز عبور مربی Yasnafit',
       text:`برای تعیین رمز جدید این لینک را تا ۱۵ دقیقه آینده باز کنید:\n${link}\nاگر این درخواست را شما نداده‌اید، پیام را نادیده بگیرید.`,
@@ -522,11 +646,11 @@ async function requestPasswordReset(db,{email,req=null,dataDir}){
       fallbackFile:'coach-reset-dev.txt'
     });
   }catch(error){
-    writeDevFile(dataDir,'coach-reset-dev.txt',rawToken);
-    console.error('[Coach Auth] reset email failed; token written to data/coach-reset-dev.txt', error.message);
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'password_reset_failed',req,detail:'mail_failed'});
+    return {error:error.code||'MAIL_FAILED',message:error.message};
   }
   logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'password_reset_requested',req});
-  return {ok:true};
+  return {ok:true,delivery};
 }
 
 function completePasswordReset(db,{token,password,req=null}){
@@ -561,5 +685,6 @@ module.exports={
   TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,
   setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,setupRequired,authStatus,setupCoach,
   createCoach,startLogin,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
-  requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,safeCoach,logAuthEvent
+  requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,safeCoach,logAuthEvent,
+  smtpConfigured,mailStatus,loadSmtpConfig,writeSmtpConfig,configureGmail
 };

@@ -37,6 +37,9 @@ const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log(`[Coach Auth] One-time setup required at /coach/setup (${coachBootstrap.setup_email})`);
 }
+if(!coachAuthService.smtpConfigured(path.dirname(dbPath))){
+  console.log('[Coach Auth] Gmail delivery is not configured. Open /coach/mail so codes reach crypto.javan17@gmail.com');
+}
 
 // --- MIME Types ---
 const types = {
@@ -155,7 +158,9 @@ function coachAuthError(res,code,fallbackMessage){
     INVALID_RESET:[400,'لینک بازیابی نامعتبر است.'],
     RESET_EXPIRED:[400,'لینک بازیابی منقضی شده است. دوباره درخواست کنید.'],
     INVALID_CURRENT_PASSWORD:[401,'رمز فعلی نادرست است.'],
-    COACH_SESSION_REQUIRED:[401,'نشست مربی معتبر نیست.']
+    COACH_SESSION_REQUIRED:[401,'نشست مربی معتبر نیست.'],
+    MAIL_FAILED:[503,fallbackMessage||'ارسال ایمیل به جیمیل انجام نشد.'],
+    INVALID_SMTP:[400,fallbackMessage||'رمز برنامه جیمیل را وارد کنید.']
   };
   const [status,message]=errors[code]||[400,fallbackMessage||'درخواست ورود مربی نامعتبر است.'];
   return send(res,status,{error:message,code:code||'COACH_AUTH_ERROR'});
@@ -164,7 +169,19 @@ function coachAuthError(res,code,fallbackMessage){
 async function handleCoachAuth(req,res,url){
   const p=url.pathname;
   if(p==='/api/coach/auth/status' && req.method==='GET'){
-    return send(res,200,coachAuthService.authStatus(db));
+    return send(res,200,coachAuthService.authStatus(db,path.dirname(dbPath)));
+  }
+  if(p==='/api/coach/auth/mail' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-mail-setup',8,15*60*1000)) return true;
+    const body=await readBody(req);
+    try{
+      const result=await coachAuthService.configureGmail(path.dirname(dbPath),body.app_password);
+      log('ارسال ایمیل مربی به جیمیل تنظیم شد', result.email||'');
+      return send(res,200,{success:true,mail_configured:true,email:result.email});
+    }catch(error){
+      return coachAuthError(res,error.code,error.message);
+    }
   }
   if(p==='/api/coach/auth/setup' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
@@ -183,8 +200,8 @@ async function handleCoachAuth(req,res,url){
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
     const body=await readBody(req);
     const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req});
-    if(result.error) return coachAuthError(res,result.error);
-    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email});
+    if(result.error) return coachAuthError(res,result.error,result.message);
+    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email,delivery:result.delivery});
   }
   if(p==='/api/coach/auth/verify' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
@@ -199,8 +216,9 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-forgot',10,15*60*1000)) return true;
     const body=await readBody(req);
-    await coachAuthService.requestPasswordReset(db,{email:body.email,req,dataDir:path.dirname(dbPath)});
-    return send(res,200,{success:true,message:'اگر این ایمیل ثبت شده باشد، لینک بازیابی ارسال می‌شود.'});
+    const forgot=await coachAuthService.requestPasswordReset(db,{email:body.email,req,dataDir:path.dirname(dbPath)});
+    if(forgot.error) return coachAuthError(res,forgot.error,forgot.message);
+    return send(res,200,{success:true,delivery:forgot.delivery||null,message:forgot.delivery==='file'?'ارسال جیمیل هنوز تنظیم نشده است. اول رمز برنامه جیمیل را ذخیره کنید.':'اگر این ایمیل ثبت شده باشد، لینک بازیابی به جیمیل ارسال می‌شود.'});
   }
   if(p==='/api/coach/auth/reset' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
@@ -2456,7 +2474,8 @@ const server=http.createServer(async(req,res)=>{
       '/coach/login':'coach-login.html',
       '/coach/setup':'coach-setup.html',
       '/coach/forgot':'coach-forgot.html',
-      '/coach/reset':'coach-reset.html'
+      '/coach/reset':'coach-reset.html',
+      '/coach/mail':'coach-mail.html'
     };
     if(coachAuthPages[url.pathname] && req.method==='GET'){
       res.writeHead(200,{

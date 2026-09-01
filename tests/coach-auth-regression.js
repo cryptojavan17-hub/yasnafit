@@ -2,6 +2,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const net=require('node:net');
 const os=require('node:os');
 const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
@@ -84,11 +85,60 @@ try{
   assert.equal(auth.resolveSession(db,req),null);
 
   auth.setMailer(null);
+  assert.equal(auth.authStatus(db,dataDir).mail_configured,false);
+  await assert.rejects(()=>auth.configureGmail(dataDir,'short'),/رمز برنامه/);
   const fileLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  assert.equal(fileLogin.delivery,'file');
   const otpFile=fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim();
   assert.match(otpFile,/^\d{6}$/);
   const fileVerified=auth.verifyOtp(db,{challengeId:fileLogin.challenge_id,code:otpFile});
   assert.ok(fileVerified.raw_session);
+
+  const fakeSmtp=await new Promise(resolve=>{
+    const received={data:''};
+    let mode='cmd';
+    let authStep=0;
+    const server=net.createServer(socket=>{
+      let buffer='';
+      socket.write('220 test ESMTP\r\n');
+      socket.on('data',chunk=>{
+        buffer+=chunk.toString('utf8');
+        if(mode==='data'){
+          if(buffer.includes('\r\n.\r\n')){
+            received.data+=buffer;
+            buffer='';
+            mode='cmd';
+            socket.write('250 OK\r\n');
+          }
+          return;
+        }
+        while(buffer.includes('\r\n')){
+          const index=buffer.indexOf('\r\n');
+          const line=buffer.slice(0,index);
+          buffer=buffer.slice(index+2);
+          const upper=line.toUpperCase();
+          if(upper.startsWith('EHLO')||upper.startsWith('HELO')) socket.write('250-test\r\n250 AUTH LOGIN\r\n');
+          else if(upper==='AUTH LOGIN'){authStep=1;socket.write('334 VXNlcm5hbWU6\r\n');}
+          else if(authStep===1){authStep=2;socket.write('334 UGFzc3dvcmQ6\r\n');}
+          else if(authStep===2){authStep=0;socket.write('235 OK\r\n');}
+          else if(upper.startsWith('MAIL FROM:')) socket.write('250 OK\r\n');
+          else if(upper.startsWith('RCPT TO:')) socket.write('250 OK\r\n');
+          else if(upper==='DATA'){mode='data';socket.write('354 go\r\n');}
+          else if(upper==='QUIT'){socket.write('221 bye\r\n');socket.end();}
+          else socket.write('250 OK\r\n');
+        }
+      });
+    });
+    server.listen(0,'127.0.0.1',()=>resolve({server,port:server.address().port,received}));
+  });
+  auth.writeSmtpConfig(dataDir,{host:'127.0.0.1',port:fakeSmtp.port,secure:false,user:'crypto.javan17@gmail.com',pass:'abcdefghijklmnop',from:'crypto.javan17@gmail.com'});
+  assert.equal(auth.authStatus(db,dataDir).mail_configured,true);
+  const smtpLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  assert.equal(smtpLogin.delivery,'smtp');
+  assert.match(fakeSmtp.received.data,/کد ورود شما: \d{6}/);
+  fakeSmtp.server.close();
+  fs.unlinkSync(path.join(dataDir,'smtp.json'));
+  assert.equal(auth.authStatus(db,dataDir).mail_configured,false);
 
   const otpLockLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
   assert.equal(auth.verifyOtp(db,{challengeId:otpLockLogin.challenge_id,code:'111111'}).error,'INVALID_CODE');
@@ -150,7 +200,8 @@ try{
   assert.ok(afterReset.challenge_id);
 
   auth.setMailer(null);
-  await auth.requestPasswordReset(db,{email:'crypto.javan17@gmail.com',dataDir,req:{headers:{host:'localhost:3020'},socket:{}}});
+  const fileForgot=await auth.requestPasswordReset(db,{email:'crypto.javan17@gmail.com',dataDir,req:{headers:{host:'localhost:3020'},socket:{}}});
+  assert.equal(fileForgot.delivery,'file');
   const resetFile=fs.readFileSync(path.join(dataDir,'coach-reset-dev.txt'),'utf8').trim();
   assert.match(resetFile,/^[A-Za-z0-9_-]{43}$/);
 

@@ -86,6 +86,16 @@
   font-size:12px;
   line-height:1.6;
 }
+.coach-login-steps{
+  margin:0 0 18px;
+  padding:0 18px 0 0;
+  color:var(--text-secondary);
+  font-size:13px;
+  line-height:1.8;
+}
+.coach-login-steps a{
+  color:var(--accent-hover);
+}
 .coach-login-submit,
 .coach-login-secondary{
   width:100%;
