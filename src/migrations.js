@@ -1287,6 +1287,41 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_coach_otp_coach ON coach_otp_challenges(coach_id, consumed_at, expires_at);
       `);
     }
+  },
+  {
+    id: '029_coach_setup_recovery_and_auth_events',
+    description: 'One-time coach setup, 12h sessions, password resets and failed-login audit',
+    up(db) {
+      const columns = new Set(db.prepare("PRAGMA table_info('coaches')").all().map(c => c.name));
+      if (!columns.has('role')) db.exec("ALTER TABLE coaches ADD COLUMN role TEXT NOT NULL DEFAULT 'coach'");
+      db.exec(`
+        UPDATE coaches SET role='coach' WHERE role IS NULL OR role='';
+        CREATE TABLE IF NOT EXISTS coach_password_resets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TEXT NOT NULL,
+          consumed_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_coach_password_resets_coach ON coach_password_resets(coach_id, consumed_at, expires_at);
+        CREATE TABLE IF NOT EXISTS coach_auth_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER,
+          email TEXT,
+          event_type TEXT NOT NULL,
+          ip TEXT,
+          user_agent TEXT,
+          detail TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_coach_auth_events_created ON coach_auth_events(created_at, event_type);
+      `);
+    }
   }
 ];
 

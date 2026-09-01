@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>بازیابی رمز مربی | Yasnafit</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/coach-login.css" />
+</head>
+<body class="coach-login-body">
+  <main class="coach-login-shell">
+    <section class="coach-login-card" aria-labelledby="coachForgotTitle">
+      <div class="coach-login-brand">
+        <span class="coach-login-mark" aria-hidden="true">Y</span>
+        <div>
+          <strong>Yasnafit</strong>
+          <span>پنل مربی</span>
+        </div>
+      </div>
+      <h1 id="coachForgotTitle">فراموشی رمز عبور</h1>
+      <p class="coach-login-lead">ایمیل مربی را وارد کنید. اگر حساب وجود داشته باشد، لینک بازیابی ۱۵ دقیقه‌ای ارسال می‌شود.</p>
+      <form id="coachForgotForm" autocomplete="on">
+        <label class="coach-login-field">
+          <span>ایمیل</span>
+          <input id="coachForgotEmail" name="email" type="email" inputmode="email" autocomplete="username" required maxlength="254" placeholder="crypto.javan17@gmail.com" />
+        </label>
+        <button class="coach-login-submit" type="submit" id="coachForgotSubmit">ارسال لینک بازیابی</button>
+      </form>
+      <nav class="coach-login-links">
+        <a href="/coach/login">بازگشت به ورود</a>
+      </nav>
+      <p class="coach-login-error" id="coachLoginError" role="alert" hidden></p>
+    </section>
+  </main>
+  <script src="/coach-login.js"></script>
+</body>
+</html>

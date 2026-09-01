@@ -7,13 +7,15 @@ const tls=require('tls');
 const {hashPassword,verifyPassword}=require('./student-auth-service');
 
 const SESSION_COOKIE='yasnafit_coach_session';
-const SESSION_TTL_MS=24*60*60*1000;
-const OTP_TTL_MS=10*60*1000;
-const MAX_FAILURES=5;
+const SESSION_TTL_MS=12*60*60*1000;
+const OTP_TTL_MS=5*60*1000;
+const RESET_TTL_MS=15*60*1000;
+const MAX_PASSWORD_FAILURES=5;
+const MAX_OTP_FAILURES=3;
 const LOCK_MS=15*60*1000;
 const TOKEN_PATTERN=/^[A-Za-z0-9_-]{43}$/;
-const DEFAULT_EMAIL='coach@yasnafit.local';
-const DEFAULT_PASSWORD='YasnafitCoach1';
+const SETUP_EMAIL='crypto.javan17@gmail.com';
+const PLACEHOLDER_EMAIL='coach@yasnafit.local';
 const DUMMY_HASH=hashPassword('yasnafit-coach-dummy-password');
 
 let mailer=null;
@@ -37,8 +39,19 @@ function parseCookies(req){
   }
   return result;
 }
+function requestIp(req){
+  return String(req?.headers?.['x-forwarded-for']||req?.socket?.remoteAddress||'').split(',')[0].trim().slice(0,128);
+}
+function requestAgent(req){
+  return String(req?.headers?.['user-agent']||'').slice(0,300);
+}
+function publicOrigin(req){
+  const host=String(req?.headers?.['x-forwarded-host']||req?.headers?.host||'localhost:3020').split(',')[0].trim();
+  const proto=secureRequest(req)?'https':'http';
+  return `${proto}://${host}`;
+}
 function secureRequest(req){
-  return Boolean(req.socket?.encrypted) || String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https';
+  return Boolean(req?.socket?.encrypted) || String(req?.headers?.['x-forwarded-proto']||'').split(',')[0].trim()==='https';
 }
 function sessionCookie(req,rawSession,maxAgeSeconds=Math.floor(SESSION_TTL_MS/1000)){
   return `${SESSION_COOKIE}=${encodeURIComponent(rawSession)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req)?'; Secure':''}`;
@@ -155,25 +168,25 @@ async function sendSmtpEmail({to,subject,text}){
   }
 }
 
-function writeDevOtp(dataDir,code){
+function writeDevFile(dataDir,filename,contents){
   if(!dataDir) return;
   fs.mkdirSync(dataDir,{recursive:true});
-  fs.writeFileSync(path.join(dataDir,'coach-otp-dev.txt'),String(code)+'\n',{mode:0o600});
+  fs.writeFileSync(path.join(dataDir,filename),String(contents)+'\n',{mode:0o600});
 }
 
-async function deliverOtp({email,code,dataDir}){
-  const subject='کد ورود دو مرحله‌ای مربی Yasnafit';
-  const text=`کد ورود شما: ${code}\nاین کد تا ۱۰ دقیقه معتبر است.\nاگر این درخواست را شما نداده‌اید، آن را نادیده بگیرید.`;
+async function deliverEmail({to,subject,text,code,token,dataDir,fallbackFile}){
   if(mailer){
-    await mailer({to:email,subject,text,code});
+    await mailer({to,subject,text,code,token});
     return 'custom';
   }
   if(smtpConfigured()){
-    await sendSmtpEmail({to:email,subject,text});
+    await sendSmtpEmail({to,subject,text});
     return 'smtp';
   }
-  writeDevOtp(dataDir,code);
-  console.log('[Coach 2FA] SMTP is not configured; one-time code written to data/coach-otp-dev.txt');
+  if(fallbackFile && (code||token)){
+    writeDevFile(dataDir,fallbackFile,code||token);
+    console.log(`[Coach Auth] SMTP is not configured; value written to data/${fallbackFile}`);
+  }
   return 'file';
 }
 
@@ -183,7 +196,32 @@ function safeCoach(row){
     id:row.id,
     display_name:row.display_name||'مربی',
     email:row.email||row.email_normalized||'',
+    role:row.role||'coach',
     status:row.status||'ACTIVE'
+  };
+}
+
+function primaryCoach(db){
+  return db.prepare('SELECT * FROM coaches WHERE id=1').get()
+    || db.prepare("SELECT * FROM coaches WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1").get()
+    || null;
+}
+
+function setupRequired(db){
+  const ready=db.prepare(`
+    SELECT email_normalized,password_hash FROM coaches
+    WHERE deleted_at IS NULL AND password_hash IS NOT NULL AND password_hash<>''
+    ORDER BY id ASC LIMIT 1
+  `).get();
+  if(!ready) return true;
+  return ready.email_normalized===PLACEHOLDER_EMAIL;
+}
+
+function authStatus(db){
+  const required=setupRequired(db);
+  return {
+    setup_required:required,
+    setup_email:required?SETUP_EMAIL:null
   };
 }
 
@@ -191,44 +229,80 @@ function isLocked(coach){
   return Boolean(coach?.auth_locked_until && new Date(coach.auth_locked_until)>new Date());
 }
 
-function recordFailure(db,coachId,failures){
+function lockCoach(db,coachId){
+  db.prepare('UPDATE coaches SET auth_failed_attempts=0,auth_locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+    .run(new Date(Date.now()+LOCK_MS).toISOString(),coachId);
+}
+
+function recordPasswordFailure(db,coachId,failures){
   const next=Number(failures||0)+1;
-  const lockUntil=next>=MAX_FAILURES?new Date(Date.now()+LOCK_MS).toISOString():null;
-  db.prepare('UPDATE coaches SET auth_failed_attempts=?,auth_locked_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
-    .run(lockUntil?0:next,lockUntil,coachId);
-  return lockUntil?'AUTH_LOCKED':'INVALID_CREDENTIALS';
+  if(next>=MAX_PASSWORD_FAILURES){
+    lockCoach(db,coachId);
+    return 'AUTH_LOCKED';
+  }
+  db.prepare('UPDATE coaches SET auth_failed_attempts=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(next,coachId);
+  return 'INVALID_CREDENTIALS';
 }
 
 function clearFailures(db,coachId){
   db.prepare('UPDATE coaches SET auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(coachId);
 }
 
-function ensureLocalCoach(db,dataDir){
+function logAuthEvent(db,{coachId=null,email='',eventType,req=null,detail=''}={}){
+  try{
+    db.prepare(`
+      INSERT INTO coach_auth_events(stable_id,coach_id,email,event_type,ip,user_agent,detail)
+      VALUES(?,?,?,?,?,?,?)
+    `).run(genUUID(),coachId,String(email||'').slice(0,254),eventType,requestIp(req),requestAgent(req),String(detail||'').slice(0,300));
+  }catch(error){
+    console.error('[Coach Auth] failed to record auth event', error.message);
+  }
+}
+
+function revokeAllSessions(db,coachId){
+  return db.prepare('UPDATE coach_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE coach_id=? AND revoked_at IS NULL').run(coachId).changes;
+}
+
+function ensureLocalCoach(db){
   const existing=db.prepare('SELECT * FROM coaches WHERE id=1').get();
   if(!existing){
-    db.prepare("INSERT INTO coaches(id,stable_id,display_name,status) VALUES(1,'local-coach','مربی محلی','ACTIVE')").run();
+    db.prepare("INSERT INTO coaches(id,stable_id,display_name,status,role) VALUES(1,'local-coach','مربی','ACTIVE','coach')").run();
+  }else{
+    if(!existing.role){
+      try{db.prepare("UPDATE coaches SET role='coach' WHERE id=1 AND (role IS NULL OR role='')").run();}catch(error){}
+    }
+    if(existing.email_normalized===PLACEHOLDER_EMAIL){
+      db.prepare(`
+        UPDATE coaches
+        SET email=NULL,email_normalized=NULL,password_hash=NULL,
+            auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP
+        WHERE id=1
+      `).run();
+      revokeAllSessions(db,1);
+    }
   }
-  const coach=db.prepare('SELECT * FROM coaches WHERE id=1').get();
-  if(coach.password_hash && coach.email_normalized){
-    return {email:coach.email_normalized,bootstrapped:false};
+  return authStatus(db);
+}
+
+function setupCoach(db,{email,password,displayName='مربی',req=null}){
+  if(!setupRequired(db)){
+    throw Object.assign(new Error('اکانت مربی قبلاً ساخته شده است'),{statusCode:409,code:'SETUP_CLOSED'});
   }
-  const email=normalizeEmail(process.env.YASNAFIT_COACH_EMAIL||coach.email||DEFAULT_EMAIL);
-  const rawPassword=process.env.YASNAFIT_COACH_PASSWORD||DEFAULT_PASSWORD;
-  const password=validateCoachPassword(rawPassword);
+  const normalized=normalizeEmail(email);
+  if(normalized!==SETUP_EMAIL){
+    throw Object.assign(new Error('ایمیل مربی باید crypto.javan17@gmail.com باشد'),{statusCode:400,code:'INVALID_SETUP_EMAIL'});
+  }
+  const validated=validateCoachPassword(password);
+  ensureLocalCoach(db);
   db.prepare(`
     UPDATE coaches
-    SET email=?,email_normalized=?,password_hash=?,auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP
+    SET email=?,email_normalized=?,password_hash=?,display_name=?,role='coach',status='ACTIVE',
+        auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP
     WHERE id=1
-  `).run(email,email,hashPassword(password));
-  if(dataDir){
-    fs.mkdirSync(dataDir,{recursive:true});
-    fs.writeFileSync(
-      path.join(dataDir,'coach-credentials.txt'),
-      `email=${email}\npassword=${password}\n`,
-      {mode:0o600}
-    );
-  }
-  return {email,bootstrapped:true};
+  `).run(normalized,normalized,hashPassword(validated),String(displayName||'مربی').trim()||'مربی');
+  revokeAllSessions(db,1);
+  logAuthEvent(db,{coachId:1,email:normalized,eventType:'setup_completed',req});
+  return safeCoach(db.prepare('SELECT * FROM coaches WHERE id=1').get());
 }
 
 function createCoach(db,{email,password,displayName='مربی'}){
@@ -237,13 +311,17 @@ function createCoach(db,{email,password,displayName='مربی'}){
   const duplicate=db.prepare('SELECT id FROM coaches WHERE email_normalized=? AND deleted_at IS NULL').get(normalized);
   if(duplicate) throw Object.assign(new Error('این ایمیل قبلاً ثبت شده است'),{statusCode:409,code:'EMAIL_EXISTS'});
   const result=db.prepare(`
-    INSERT INTO coaches(stable_id,display_name,status,email,email_normalized,password_hash,auth_failed_attempts)
-    VALUES(?,?,?,?,?,?,0)
-  `).run(genUUID(),displayName,'ACTIVE',normalized,normalized,hashPassword(validated));
+    INSERT INTO coaches(stable_id,display_name,status,role,email,email_normalized,password_hash,auth_failed_attempts)
+    VALUES(?,?,?,?,?,?,?,0)
+  `).run(genUUID(),displayName,'ACTIVE','coach',normalized,normalized,hashPassword(validated));
   return db.prepare('SELECT * FROM coaches WHERE id=?').get(Number(result.lastInsertRowid));
 }
 
-async function startLogin(db,{email,password,dataDir}){
+async function startLogin(db,{email,password,dataDir,req=null}){
+  if(setupRequired(db)){
+    logAuthEvent(db,{email:String(email||''),eventType:'login_failed',req,detail:'setup_required'});
+    return {error:'SETUP_REQUIRED'};
+  }
   let normalized=null;
   try{normalized=normalizeEmail(email);}catch(error){normalized=null;}
   const candidate=normalizePassword(password);
@@ -252,12 +330,21 @@ async function startLogin(db,{email,password,dataDir}){
     : null;
   if(!coach || !coach.password_hash){
     verifyPassword(candidate,DUMMY_HASH);
+    logAuthEvent(db,{email:normalized||String(email||''),eventType:'login_failed',req,detail:'unknown_account'});
     return {error:'INVALID_CREDENTIALS'};
   }
-  if(coach.status!=='ACTIVE') return {error:'INVALID_CREDENTIALS'};
-  if(isLocked(coach)) return {error:'AUTH_LOCKED'};
+  if(coach.status!=='ACTIVE'){
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'inactive'});
+    return {error:'INVALID_CREDENTIALS'};
+  }
+  if(isLocked(coach)){
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'locked',req,detail:'already_locked'});
+    return {error:'AUTH_LOCKED'};
+  }
   if(!verifyPassword(candidate,coach.password_hash)){
-    return {error:recordFailure(db,coach.id,coach.auth_failed_attempts)};
+    const failure=recordPasswordFailure(db,coach.id,coach.auth_failed_attempts);
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:failure==='AUTH_LOCKED'?'locked':'login_failed',req,detail:'bad_password'});
+    return {error:failure};
   }
   const code=generateOtp();
   const challengeId=crypto.randomBytes(32).toString('base64url');
@@ -268,42 +355,65 @@ async function startLogin(db,{email,password,dataDir}){
     VALUES(?,?,?,?,0)
   `).run(challengeId,coach.id,hashToken(code),expiresAt);
   try{
-    await deliverOtp({email:coach.email_normalized,code,dataDir});
+    await deliverEmail({
+      to:coach.email_normalized,
+      subject:'کد ورود دو مرحله‌ای مربی Yasnafit',
+      text:`کد ورود شما: ${code}\nاین کد تا ۵ دقیقه معتبر است و فقط یک‌بار قابل استفاده است.\nاگر این درخواست را شما نداده‌اید، آن را نادیده بگیرید.`,
+      code,
+      dataDir,
+      fallbackFile:'coach-otp-dev.txt'
+    });
   }catch(error){
-    writeDevOtp(dataDir,code);
+    writeDevFile(dataDir,'coach-otp-dev.txt',code);
     console.error('[Coach 2FA] email delivery failed; code written to data/coach-otp-dev.txt', error.message);
   }
   return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized};
 }
 
-function verifyOtp(db,{challengeId,code}){
+function verifyOtp(db,{challengeId,code,req=null}){
   const rawId=String(challengeId||'').trim();
   const otp=normalizeOtp(code);
   if(!TOKEN_PATTERN.test(rawId) || !/^\d{6}$/.test(otp)){
     hashToken(otp||'000000');
+    logAuthEvent(db,{eventType:'otp_failed',req,detail:'malformed'});
     return {error:'INVALID_CODE'};
   }
   const challenge=db.prepare(`
-    SELECT c.*, co.email_normalized, co.display_name, co.status, co.auth_failed_attempts, co.auth_locked_until, co.deleted_at
+    SELECT c.*, co.email_normalized, co.display_name, co.status, co.role, co.auth_failed_attempts, co.auth_locked_until, co.deleted_at
     FROM coach_otp_challenges c
     JOIN coaches co ON co.id=c.coach_id
     WHERE c.stable_id=?
   `).get(rawId);
   if(!challenge || challenge.deleted_at || challenge.status!=='ACTIVE'){
     hashToken(otp);
+    logAuthEvent(db,{eventType:'otp_failed',req,detail:'unknown_challenge'});
     return {error:'INVALID_CODE'};
   }
-  if(isLocked(challenge)) return {error:'AUTH_LOCKED'};
-  if(challenge.consumed_at) return {error:'INVALID_CODE'};
+  if(isLocked(challenge)){
+    logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'locked',req,detail:'otp_while_locked'});
+    return {error:'AUTH_LOCKED'};
+  }
+  if(challenge.consumed_at){
+    logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'otp_failed',req,detail:'consumed'});
+    return {error:'INVALID_CODE'};
+  }
   const expires=new Date(challenge.expires_at);
   if(Number.isNaN(expires.getTime()) || expires<=new Date()){
     db.prepare('UPDATE coach_otp_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE id=? AND consumed_at IS NULL').run(challenge.id);
+    logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'otp_failed',req,detail:'expired'});
     return {error:'CODE_EXPIRED'};
   }
   if(hashToken(otp)!==challenge.code_hash){
-    db.prepare('UPDATE coach_otp_challenges SET failed_attempts=failed_attempts+1 WHERE id=?').run(challenge.id);
-    const failure=recordFailure(db,challenge.coach_id,challenge.auth_failed_attempts);
-    return {error:failure==='AUTH_LOCKED'?'AUTH_LOCKED':'INVALID_CODE'};
+    const next=Number(challenge.failed_attempts||0)+1;
+    db.prepare('UPDATE coach_otp_challenges SET failed_attempts=? WHERE id=?').run(next,challenge.id);
+    if(next>=MAX_OTP_FAILURES){
+      db.prepare('UPDATE coach_otp_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE id=? AND consumed_at IS NULL').run(challenge.id);
+      lockCoach(db,challenge.coach_id);
+      logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'locked',req,detail:'otp_lock'});
+      return {error:'AUTH_LOCKED'};
+    }
+    logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'otp_failed',req,detail:`attempt_${next}`});
+    return {error:'INVALID_CODE'};
   }
   db.prepare('UPDATE coach_otp_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE id=?').run(challenge.id);
   clearFailures(db,challenge.coach_id);
@@ -314,6 +424,7 @@ function verifyOtp(db,{challengeId,code}){
     VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
   `).run(genUUID(),challenge.coach_id,hashToken(rawSession),expiresAt);
   db.prepare('UPDATE coaches SET last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(challenge.coach_id);
+  logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'login_success',req});
   return {
     raw_session:rawSession,
     expires_at:expiresAt,
@@ -321,6 +432,7 @@ function verifyOtp(db,{challengeId,code}){
       id:challenge.coach_id,
       display_name:challenge.display_name,
       email:challenge.email_normalized,
+      role:challenge.role,
       status:challenge.status
     })
   };
@@ -356,8 +468,98 @@ function revokeCurrentSession(db,req){
   return db.prepare('UPDATE coach_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE session_hash=? AND revoked_at IS NULL').run(hashToken(raw)).changes>0;
 }
 
+function logoutAll(db,req){
+  const context=resolveSession(db,req);
+  if(!context) return {error:'COACH_SESSION_REQUIRED'};
+  const revoked=revokeAllSessions(db,context.coach_id);
+  logAuthEvent(db,{coachId:context.coach_id,email:context.coach.email,eventType:'logout_all',req});
+  return {revoked};
+}
+
+function setCoachPassword(db,coachId,password,{revokeAll=true}={}){
+  const validated=validateCoachPassword(password);
+  db.prepare('UPDATE coaches SET password_hash=?,auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+    .run(hashPassword(validated),coachId);
+  if(revokeAll) revokeAllSessions(db,coachId);
+}
+
+function changePassword(db,req,{currentPassword,newPassword}){
+  const context=resolveSession(db,req);
+  if(!context) return {error:'COACH_SESSION_REQUIRED'};
+  const coach=db.prepare('SELECT * FROM coaches WHERE id=?').get(context.coach_id);
+  if(!verifyPassword(normalizePassword(currentPassword),coach.password_hash)){
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'bad_current_password'});
+    return {error:'INVALID_CURRENT_PASSWORD'};
+  }
+  setCoachPassword(db,coach.id,newPassword,{revokeAll:true});
+  logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'password_changed',req});
+  return {ok:true};
+}
+
+async function requestPasswordReset(db,{email,req=null,dataDir}){
+  let normalized=null;
+  try{normalized=normalizeEmail(email);}catch(error){return {ok:true};}
+  const coach=db.prepare('SELECT * FROM coaches WHERE email_normalized=? AND deleted_at IS NULL AND password_hash IS NOT NULL').get(normalized);
+  if(!coach){
+    logAuthEvent(db,{email:normalized,eventType:'password_reset_requested',req,detail:'unknown_email'});
+    return {ok:true};
+  }
+  const rawToken=crypto.randomBytes(32).toString('base64url');
+  const expiresAt=new Date(Date.now()+RESET_TTL_MS).toISOString();
+  db.prepare('UPDATE coach_password_resets SET consumed_at=CURRENT_TIMESTAMP WHERE coach_id=? AND consumed_at IS NULL').run(coach.id);
+  db.prepare(`
+    INSERT INTO coach_password_resets(stable_id,coach_id,token_hash,expires_at)
+    VALUES(?,?,?,?)
+  `).run(genUUID(),coach.id,hashToken(rawToken),expiresAt);
+  const link=`${publicOrigin(req)}/coach/reset?token=${encodeURIComponent(rawToken)}`;
+  try{
+    await deliverEmail({
+      to:coach.email_normalized,
+      subject:'بازیابی رمز عبور مربی Yasnafit',
+      text:`برای تعیین رمز جدید این لینک را تا ۱۵ دقیقه آینده باز کنید:\n${link}\nاگر این درخواست را شما نداده‌اید، پیام را نادیده بگیرید.`,
+      token:rawToken,
+      dataDir,
+      fallbackFile:'coach-reset-dev.txt'
+    });
+  }catch(error){
+    writeDevFile(dataDir,'coach-reset-dev.txt',rawToken);
+    console.error('[Coach Auth] reset email failed; token written to data/coach-reset-dev.txt', error.message);
+  }
+  logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'password_reset_requested',req});
+  return {ok:true};
+}
+
+function completePasswordReset(db,{token,password,req=null}){
+  const raw=String(token||'').trim();
+  if(!TOKEN_PATTERN.test(raw)) return {error:'INVALID_RESET'};
+  const row=db.prepare(`
+    SELECT r.*, c.email_normalized, c.status, c.deleted_at
+    FROM coach_password_resets r
+    JOIN coaches c ON c.id=r.coach_id
+    WHERE r.token_hash=?
+  `).get(hashToken(raw));
+  if(!row || row.deleted_at || row.status!=='ACTIVE' || row.consumed_at){
+    logAuthEvent(db,{eventType:'password_reset_failed',req,detail:'invalid'});
+    return {error:'INVALID_RESET'};
+  }
+  const expires=new Date(row.expires_at);
+  if(Number.isNaN(expires.getTime()) || expires<=new Date()){
+    db.prepare('UPDATE coach_password_resets SET consumed_at=CURRENT_TIMESTAMP WHERE id=? AND consumed_at IS NULL').run(row.id);
+    logAuthEvent(db,{coachId:row.coach_id,email:row.email_normalized,eventType:'password_reset_failed',req,detail:'expired'});
+    return {error:'RESET_EXPIRED'};
+  }
+  let validated;
+  try{validated=validateCoachPassword(password);}catch(error){return {error:'WEAK_PASSWORD',message:error.message};}
+  db.prepare('UPDATE coach_password_resets SET consumed_at=CURRENT_TIMESTAMP WHERE id=?').run(row.id);
+  setCoachPassword(db,row.coach_id,validated,{revokeAll:true});
+  logAuthEvent(db,{coachId:row.coach_id,email:row.email_normalized,eventType:'password_reset_completed',req});
+  return {ok:true,email:row.email_normalized};
+}
+
 module.exports={
-  SESSION_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,MAX_FAILURES,LOCK_MS,TOKEN_PATTERN,DEFAULT_EMAIL,DEFAULT_PASSWORD,
-  setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,createCoach,startLogin,verifyOtp,
-  resolveSession,revokeCurrentSession,sessionCookie,clearSessionCookie,safeCoach
+  SESSION_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,RESET_TTL_MS,MAX_PASSWORD_FAILURES,MAX_OTP_FAILURES,LOCK_MS,
+  TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,
+  setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,setupRequired,authStatus,setupCoach,
+  createCoach,startLogin,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
+  requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,safeCoach,logAuthEvent
 };

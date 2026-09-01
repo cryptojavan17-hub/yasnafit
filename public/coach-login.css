@@ -111,6 +111,17 @@
   opacity:.6;
   cursor:wait;
 }
+.coach-login-links{
+  margin-top:16px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  font-size:13px;
+}
+.coach-login-links a{
+  color:var(--accent-hover);
+  text-decoration:none;
+}
 .coach-login-error{
   margin:14px 0 0;
   padding:10px 12px;
@@ -119,6 +130,11 @@
   border:1px solid var(--danger-border);
   color:var(--danger);
   font-size:13px;
+}
+.coach-login-error.is-success{
+  background:var(--accent-surface);
+  border-color:var(--accent-border);
+  color:var(--accent-hover);
 }
 #coachOtp{
   letter-spacing:.4em;

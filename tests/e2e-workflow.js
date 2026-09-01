@@ -54,15 +54,15 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.equal(home.headers.get('location'),'/coach/login');
-  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
-  const credFile=path.join(__dirname,'..','data','coach-credentials.txt');
-  let coachEmail='coach@yasnafit.local',coachPassword='YasnafitCoach1';
-  if(fs.existsSync(credFile)){
-    const credText=fs.readFileSync(credFile,'utf8');
-    const emailMatch=credText.match(/^email=(.+)$/m),passwordMatch=credText.match(/^password=(.+)$/m);
-    if(emailMatch)coachEmail=emailMatch[1].trim();
-    if(passwordMatch)coachPassword=passwordMatch[1].trim();
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.match(home.headers.get('location')||'',/^\/coach\/(login|setup)$/);
+  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/coach/setup')).status,200);assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
+  const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
+  const coachStatus=await request('/api/coach/auth/status');
+  assert.equal(coachStatus.response.status,200,JSON.stringify(coachStatus.data));
+  if(coachStatus.data.setup_required){
+    const setup=await request('/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:coachPassword,display_name:'مربی'}});
+    assert.ok([201,409].includes(setup.response.status),JSON.stringify(setup.data));
   }
   const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
@@ -180,7 +180,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'028_coach_email_password_auth');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'029_coach_setup_recovery_and_auth_events');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

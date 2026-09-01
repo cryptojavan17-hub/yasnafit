@@ -33,9 +33,9 @@ const auditService = require('./src/audit-service');
 const studentAuthService = require('./src/student-auth-service');
 const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
-const coachBootstrap = coachAuthService.ensureLocalCoach(db, path.dirname(dbPath));
-if(coachBootstrap.bootstrapped){
-  console.log(`[Coach Auth] Initial credentials written to data/coach-credentials.txt (${coachBootstrap.email})`);
+const coachBootstrap = coachAuthService.ensureLocalCoach(db);
+if(coachBootstrap.setup_required){
+  console.log(`[Coach Auth] One-time setup required at /coach/setup (${coachBootstrap.setup_email})`);
 }
 
 // --- MIME Types ---
@@ -135,31 +135,54 @@ function requireCoach(req, res){
 
 function redirectCoachLogin(res){
   res.writeHead(303,{
-    Location:'/coach/login',
+    Location:coachAuthService.setupRequired(db)?'/coach/setup':'/coach/login',
     'Cache-Control':'no-store',
     'Referrer-Policy':'no-referrer'
   });
   return res.end();
 }
 
-function coachAuthError(res,code){
+function coachAuthError(res,code,fallbackMessage){
   const errors={
     INVALID_CREDENTIALS:[401,'ایمیل یا رمز عبور نادرست است.'],
     AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],
     INVALID_CODE:[401,'کد تأیید نادرست است.'],
-    CODE_EXPIRED:[401,'کد تأیید منقضی شده است. دوباره وارد شوید.']
+    CODE_EXPIRED:[401,'کد تأیید منقضی شده است. دوباره وارد شوید.'],
+    SETUP_REQUIRED:[409,'ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید.'],
+    SETUP_CLOSED:[409,'اکانت مربی قبلاً ساخته شده است.'],
+    INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید crypto.javan17@gmail.com باشد.'],
+    WEAK_PASSWORD:[400,'رمز عبور باید حداقل ۸ کاراکتر و ترکیبی از حرف و عدد باشد.'],
+    INVALID_RESET:[400,'لینک بازیابی نامعتبر است.'],
+    RESET_EXPIRED:[400,'لینک بازیابی منقضی شده است. دوباره درخواست کنید.'],
+    INVALID_CURRENT_PASSWORD:[401,'رمز فعلی نادرست است.'],
+    COACH_SESSION_REQUIRED:[401,'نشست مربی معتبر نیست.']
   };
-  const [status,message]=errors[code]||errors.INVALID_CREDENTIALS;
-  return send(res,status,{error:message,code});
+  const [status,message]=errors[code]||[400,fallbackMessage||'درخواست ورود مربی نامعتبر است.'];
+  return send(res,status,{error:message,code:code||'COACH_AUTH_ERROR'});
 }
 
 async function handleCoachAuth(req,res,url){
   const p=url.pathname;
+  if(p==='/api/coach/auth/status' && req.method==='GET'){
+    return send(res,200,coachAuthService.authStatus(db));
+  }
+  if(p==='/api/coach/auth/setup' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-setup',10,15*60*1000)) return true;
+    const body=await readBody(req);
+    try{
+      const coach=coachAuthService.setupCoach(db,{email:body.email,password:body.password,displayName:body.display_name,req});
+      log('اکانت مربی ساخته شد', coach.email||'');
+      return send(res,201,{success:true,coach});
+    }catch(error){
+      return coachAuthError(res,error.code,error.message);
+    }
+  }
   if(p==='/api/coach/auth/login' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath)});
+    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req});
     if(result.error) return coachAuthError(res,result.error);
     return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email});
   }
@@ -167,10 +190,37 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-otp-verify',30,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=coachAuthService.verifyOtp(db,{challengeId:body.challenge_id,code:body.code});
+    const result=coachAuthService.verifyOtp(db,{challengeId:body.challenge_id,code:body.code,req});
     if(result.error) return coachAuthError(res,result.error);
     log('ورود مربی', result.coach?.email||'');
     return send(res,200,{success:true,coach:result.coach,expires_at:result.expires_at},{'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)});
+  }
+  if(p==='/api/coach/auth/forgot' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-forgot',10,15*60*1000)) return true;
+    const body=await readBody(req);
+    await coachAuthService.requestPasswordReset(db,{email:body.email,req,dataDir:path.dirname(dbPath)});
+    return send(res,200,{success:true,message:'اگر این ایمیل ثبت شده باشد، لینک بازیابی ارسال می‌شود.'});
+  }
+  if(p==='/api/coach/auth/reset' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-reset',20,15*60*1000)) return true;
+    const body=await readBody(req);
+    const result=coachAuthService.completePasswordReset(db,{token:body.token,password:body.password,req});
+    if(result.error) return coachAuthError(res,result.error,result.message);
+    return send(res,200,{success:true});
+  }
+  if(p==='/api/coach/auth/change-password' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const body=await readBody(req);
+    const result=coachAuthService.changePassword(db,req,{currentPassword:body.current_password,newPassword:body.new_password});
+    if(result.error) return coachAuthError(res,result.error);
+    return send(res,200,{success:true},{'Set-Cookie':coachAuthService.clearSessionCookie(req)});
+  }
+  if(p==='/api/coach/auth/logout-all' && req.method==='POST'){
+    const result=coachAuthService.logoutAll(db,req);
+    if(result.error) return coachAuthError(res,result.error);
+    return send(res,200,{success:true,revoked:result.revoked},{'Set-Cookie':coachAuthService.clearSessionCookie(req)});
   }
   if(p==='/api/coach/auth/logout' && req.method==='POST'){
     coachAuthService.revokeCurrentSession(db,req);
@@ -2402,13 +2452,19 @@ const server=http.createServer(async(req,res)=>{
 
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
-    if(url.pathname==='/coach/login' && req.method==='GET'){
+    const coachAuthPages={
+      '/coach/login':'coach-login.html',
+      '/coach/setup':'coach-setup.html',
+      '/coach/forgot':'coach-forgot.html',
+      '/coach/reset':'coach-reset.html'
+    };
+    if(coachAuthPages[url.pathname] && req.method==='GET'){
       res.writeHead(200,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
       });
-      return fs.createReadStream(path.join(publicDir,'coach-login.html')).pipe(res);
+      return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
@@ -2427,7 +2483,7 @@ const server=http.createServer(async(req,res)=>{
     // private. Student routes use a separate HTML shell and student session.
     const requestExt=path.extname(url.pathname).toLowerCase();
     const isCoachSpaRoute=!url.pathname.startsWith('/join/') &&
-      url.pathname!=='/coach/login' &&
+      !coachAuthPages[url.pathname] &&
       (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
     if(isCoachSpaRoute && !isCoachAuthorized(req)) return redirectCoachLogin(res);
 

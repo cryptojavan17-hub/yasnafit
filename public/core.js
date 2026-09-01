@@ -189,13 +189,23 @@ async function render(label,route){
       return;
     }
     if(route==='/coach/settings'||route==='/coach/profile'){
-      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section>`;
+      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section><section class="panel settings-card"><h2>تغییر رمز مربی</h2><p>پس از تغییر رمز، همه نشست‌های قبلی باطل می‌شوند و باید دوباره وارد شوید.</p><form id="coachPasswordChangeForm" class="form-grid"><label>رمز فعلی<input name="current_password" type="password" required minlength="8" maxlength="128"></label><label>رمز جدید<input name="new_password" type="password" required minlength="8" maxlength="128"></label><button class="primary" type="submit">ذخیره رمز جدید</button></form><p id="coachPasswordChangeResult"></p></section>`;
       const back=async()=>{
         const r=await api('/api/backup',{method:'POST'});
         document.querySelector('#backupResult').textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
       };
       document.querySelector('#addBtn').onclick=back;
       document.querySelector('#backupBtn').onclick=back;
+      document.querySelector('#coachPasswordChangeForm').onsubmit=async event=>{
+        event.preventDefault();
+        const form=Object.fromEntries(new FormData(event.currentTarget));
+        try{
+          await api('/api/coach/auth/change-password',{method:'POST',body:JSON.stringify(form)});
+          location.replace('/coach/login');
+        }catch(error){
+          document.querySelector('#coachPasswordChangeResult').textContent=error.message;
+        }
+      };
       return;
     }
     history.replaceState({},'','/coach/dashboard');
