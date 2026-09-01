@@ -8,6 +8,7 @@ const {hashPassword,verifyPassword}=require('./student-auth-service');
 const totp=require('./totp');
 
 const SESSION_COOKIE='yasnafit_coach_session';
+const CHALLENGE_COOKIE='yasnafit_coach_challenge';
 const SESSION_TTL_MS=12*60*60*1000;
 const OTP_TTL_MS=5*60*1000;
 const RESET_TTL_MS=15*60*1000;
@@ -58,6 +59,13 @@ function sessionCookie(req,rawSession,maxAgeSeconds=Math.floor(SESSION_TTL_MS/10
   return `${SESSION_COOKIE}=${encodeURIComponent(rawSession)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req)?'; Secure':''}`;
 }
 function clearSessionCookie(req){return sessionCookie(req,'',0);}
+function challengeCookie(req,rawChallenge,maxAgeSeconds=Math.floor(OTP_TTL_MS/1000)){
+  return `${CHALLENGE_COOKIE}=${encodeURIComponent(rawChallenge)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req)?'; Secure':''}`;
+}
+function clearChallengeCookie(req){return challengeCookie(req,'',0);}
+function authCookies(values){
+  return [].concat(values||[]).filter(Boolean);
+}
 
 function normalizeEmail(value){
   const email=String(value??'').trim().toLowerCase();
@@ -83,6 +91,9 @@ function validateCoachPassword(password){
 }
 function totpConfirmed(coach){
   return Boolean(coach?.totp_secret && coach?.totp_confirmed_at);
+}
+function totpReady(coach){
+  return totpConfirmed(coach);
 }
 function normalizeOtp(value){
   return String(value??'')
@@ -474,7 +485,7 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:failure==='AUTH_LOCKED'?'locked':'login_failed',req,detail:'bad_password'});
     return {error:failure};
   }
-  if(!totpConfirmed(coach)){
+  if(!totpReady(coach)){
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'totp_setup_required'});
     return {error:'TOTP_SETUP_REQUIRED'};
   }
@@ -490,11 +501,11 @@ async function startLogin(db,{email,password,dataDir,req=null}){
 
 function beginTotpSetup(db,{req=null}={}){
   if(setupRequired(db)){
-    throw Object.assign(new Error('ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+    throw Object.assign(new Error('ابتدا اکانت مربی را بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
   }
   const coach=primaryCoach(db);
   if(!coach || !coach.password_hash){
-    throw Object.assign(new Error('ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+    throw Object.assign(new Error('ابتدا اکانت مربی را بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
   }
   if(totpConfirmed(coach)){
     throw Object.assign(new Error('تأیید دو مرحله‌ای قبلاً فعال شده است'),{statusCode:409,code:'TOTP_ALREADY_SET'});
@@ -510,6 +521,32 @@ function beginTotpSetup(db,{req=null}={}){
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'totp_setup_started',req});
   }
   return totp.enrollment({secret,email:coach.email_normalized||SETUP_EMAIL});
+}
+
+function provisionCoachTotp(db,{rotate=false,req=null}={}){
+  if(setupRequired(db)){
+    throw Object.assign(new Error('ابتدا اکانت مربی را بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+  }
+  const coach=primaryCoach(db);
+  if(!coach || !coach.password_hash){
+    throw Object.assign(new Error('ابتدا اکانت مربی را بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+  }
+  if(totpConfirmed(coach) && !rotate){
+    throw Object.assign(new Error('تأیید دو مرحله‌ای قبلاً فعال شده است'),{statusCode:409,code:'TOTP_ALREADY_SET'});
+  }
+  const secret=totp.generateSecret();
+  db.prepare(`
+    UPDATE coaches
+    SET totp_secret=?,totp_confirmed_at=CURRENT_TIMESTAMP,totp_last_counter=NULL,updated_at=CURRENT_TIMESTAMP
+    WHERE id=?
+  `).run(secret,coach.id);
+  revokeAllSessions(db,coach.id);
+  logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'totp_provisioned',req});
+  return {
+    email:coach.email_normalized||SETUP_EMAIL,
+    secret,
+    otpauth_url:totp.otpauthUrl({secret,email:coach.email_normalized||SETUP_EMAIL})
+  };
 }
 
 function confirmTotp(db,{code,req=null}={}){
@@ -531,8 +568,18 @@ function confirmTotp(db,{code,req=null}={}){
   return {ok:true,email:coach.email_normalized};
 }
 
-function verifyOtp(db,{challengeId,code,req=null}){
-  const rawId=String(challengeId||'').trim();
+function pendingChallenge(db,req){
+  const raw=String(parseCookies(req)[CHALLENGE_COOKIE]||'').trim();
+  if(!TOKEN_PATTERN.test(raw)) return {pending:false};
+  const row=db.prepare('SELECT expires_at,consumed_at FROM coach_otp_challenges WHERE stable_id=?').get(raw);
+  if(!row || row.consumed_at) return {pending:false};
+  const expires=new Date(row.expires_at);
+  if(Number.isNaN(expires.getTime()) || expires<=new Date()) return {pending:false};
+  return {pending:true};
+}
+
+function verifyOtp(db,{challengeId,code,req=null}={}){
+  const rawId=String(challengeId||parseCookies(req||{headers:{}})[CHALLENGE_COOKIE]||'').trim();
   const otp=normalizeOtp(code);
   if(!TOKEN_PATTERN.test(rawId) || !/^\d{6}$/.test(otp)){
     hashToken(otp||'000000');
@@ -726,10 +773,10 @@ function completePasswordReset(db,{token,password,req=null}){
 }
 
 module.exports={
-  SESSION_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,RESET_TTL_MS,MAX_PASSWORD_FAILURES,MAX_OTP_FAILURES,LOCK_MS,
+  SESSION_COOKIE,CHALLENGE_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,RESET_TTL_MS,MAX_PASSWORD_FAILURES,MAX_OTP_FAILURES,LOCK_MS,
   TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,
   setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,setupRequired,authStatus,setupCoach,
-  createCoach,startLogin,beginTotpSetup,confirmTotp,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
-  requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,safeCoach,logAuthEvent,
+  createCoach,startLogin,beginTotpSetup,provisionCoachTotp,confirmTotp,pendingChallenge,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
+  requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,challengeCookie,clearChallengeCookie,authCookies,safeCoach,logAuthEvent,
   smtpConfigured,mailStatus,loadSmtpConfig,writeSmtpConfig,configureGmail
 };

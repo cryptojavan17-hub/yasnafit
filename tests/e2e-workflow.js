@@ -5,9 +5,19 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const totp=require('../src/totp');
+const auth=require('../src/coach-auth-service');
 const BASE=process.env.YASNAFIT_BASE_URL||'http://127.0.0.1:3020';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 let coachCookie='';
+function cookieLines(response){
+  if(typeof response.headers.getSetCookie==='function') return response.headers.getSetCookie().filter(Boolean);
+  const raw=response.headers.get('set-cookie')||'';
+  return raw?[raw]:[];
+}
+function namedCookie(response,name){
+  const line=cookieLines(response).find(item=>item.split(';')[0].startsWith(name+'='));
+  return line?line.split(';')[0]:'';
+}
 async function request(url,{method='GET',body,coach=false,cookie='',headers={}}={}){
   const h={...headers};if(coach&&coachCookie)h.Cookie=coachCookie;if(cookie)h.Cookie=cookie;
   let payload=body;if(body!==undefined&&!(body instanceof FormData)){h['Content-Type']='application/json';payload=JSON.stringify(body);}
@@ -55,49 +65,79 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.match(home.headers.get('location')||'',/^\/coach\/(login|setup)$/);
-  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/coach/setup')).status,200);assert.equal((await fetch(BASE+'/coach/2fa')).status,200);assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.equal(home.headers.get('location'),'/coach/login');
+  const loginPage=await fetch(BASE+'/coach/login');assert.equal(loginPage.status,200);
+  const loginHtml=await loginPage.text();
+  assert.match(loginHtml,/ادامه/);assert.match(loginHtml,/ایمیل مربی/);
+  assert.doesNotMatch(loginHtml,/coachOtpForm|فعال‌سازی|otpauth|qr_svg|secret_display/);
+  assert.equal((await fetch(BASE+'/coach/setup')).status,404);
+  const twoFaPage=await fetch(BASE+'/coach/2fa');assert.equal(twoFaPage.status,200);
+  const twoFaHtml=await twoFaPage.text();
+  assert.match(twoFaHtml,/تأیید هویت/);assert.match(twoFaHtml,/ورود به پنل/);
+  assert.doesNotMatch(twoFaHtml,/فعال‌سازی|otpauth|qr_svg|secret_display|coachTotpQr/);
+  assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  await expectStatus(404,'/api/coach/auth/totp');
+  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'}});
+  await expectStatus(404,'/api/coach/auth/totp/confirm',{method:'POST',body:{code:'000000'}});
   const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
   const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
+  const liveDbPath=path.join(__dirname,'..','data','yasnafit.db');
   const coachStatus=await request('/api/coach/auth/status');
   assert.equal(coachStatus.response.status,200,JSON.stringify(coachStatus.data));
   if(coachStatus.data.setup_required){
-    const setup=await request('/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:coachPassword,display_name:'مربی'}});
-    assert.ok([201,409].includes(setup.response.status),JSON.stringify(setup.data));
+    const liveDb=new DatabaseSync(liveDbPath);
+    auth.setupCoach(liveDb,{email:coachEmail,password:coachPassword,displayName:'مربی'});
+    liveDb.close();
   }
   const statusAfterSetup=await request('/api/coach/auth/status');
   assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
   let totpSecret=null;
   if(statusAfterSetup.data.totp_required){
-    const enroll=await ok('/api/coach/auth/totp');
-    assert.match(String(enroll.secret||''),/^[A-Z2-7]{32}$/);
-    assert.match(String(enroll.qr_svg||''),/<svg /);
-    assert.equal('code' in enroll,false);
-    const confirmed=await request('/api/coach/auth/totp/confirm',{method:'POST',body:{code:totp.generate(enroll.secret)}});
-    assert.equal(confirmed.response.status,200,JSON.stringify(confirmed.data));
-    totpSecret=enroll.secret;
+    const liveDb=new DatabaseSync(liveDbPath);
+    totpSecret=auth.provisionCoachTotp(liveDb).secret;
+    liveDb.close();
   }else{
-    const liveDb=new DatabaseSync(path.join(__dirname,'..','data','yasnafit.db'),{readOnly:true});
+    const liveDb=new DatabaseSync(liveDbPath,{readOnly:true});
     totpSecret=liveDb.prepare('SELECT totp_secret FROM coaches WHERE id=1').get()?.totp_secret||null;
     liveDb.close();
   }
   assert.ok(totpSecret,'coach TOTP secret is missing');
+  await expectStatus(401,'/api/coach/auth/login',{method:'POST',body:{email:'nobody@example.com',password:coachPassword}});
+  await expectStatus(401,'/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:'WrongPass1'}});
   const leftoverOtp=path.join(__dirname,'..','data','coach-otp-dev.txt');
   if(fs.existsSync(leftoverOtp)) fs.unlinkSync(leftoverOtp);
   const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
-  assert.ok(coachLogin.data.challenge_id);
+  assert.equal(coachLogin.data.next,'/coach/2fa');
+  assert.equal(coachLogin.data.challenge_id,undefined);
   assert.equal(coachLogin.data.code,undefined);
-  assert.equal(coachLogin.data.delivery,undefined);
+  assert.equal(coachLogin.data.secret,undefined);
+  assert.equal(coachLogin.data.qr_svg,undefined);
   assert.equal(fs.existsSync(leftoverOtp),false);
-  let coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:totp.generate(totpSecret)}});
+  const challengeSet=cookieLines(coachLogin.response).find(item=>item.includes('yasnafit_coach_challenge='))||'';
+  assert.match(challengeSet,/HttpOnly/);assert.match(challengeSet,/SameSite=Strict/);assert.match(challengeSet,/Max-Age=300/);
+  const challengeCookie=namedCookie(coachLogin.response,'yasnafit_coach_challenge');
+  assert.match(challengeCookie,/yasnafit_coach_challenge=/);
+  assert.equal((await request('/api/coach/auth/challenge')).data.pending,false);
+  const pending=await request('/api/coach/auth/challenge',{cookie:challengeCookie});
+  assert.equal(pending.data.pending,true);
+  assert.equal(pending.data.secret,undefined);
+  assert.equal(pending.data.challenge_id,undefined);
+  const refresh2fa=await request('/coach/2fa',{cookie:challengeCookie});
+  assert.equal(refresh2fa.response.status,200);
+  assert.match(refresh2fa.data.toString('utf8'),/تأیید هویت/);
+  const wrongTotp=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:'000000'}});
+  assert.equal(wrongTotp.response.status,401,JSON.stringify(wrongTotp.data));
+  let coachVerify=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:totp.generate(totpSecret)}});
   if(coachVerify.response.status!==200){
-    coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:totp.generate(totpSecret,{now:Date.now()+30000})}});
+    coachVerify=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:totp.generate(totpSecret,{now:Date.now()+30000})}});
   }
   assert.equal(coachVerify.response.status,200,JSON.stringify(coachVerify.data));
-  const coachSetCookie=coachVerify.response.headers.get('set-cookie')||'';
-  assert.match(coachSetCookie,/yasnafit_coach_session=/);assert.match(coachSetCookie,/HttpOnly/);assert.match(coachSetCookie,/SameSite=Strict/);
-  coachCookie=coachSetCookie.split(';')[0];
+  const sessionSet=cookieLines(coachVerify.response).find(item=>item.includes('yasnafit_coach_session='))||'';
+  assert.match(sessionSet,/HttpOnly/);assert.match(sessionSet,/SameSite=Strict/);
+  coachCookie=namedCookie(coachVerify.response,'yasnafit_coach_session');
+  assert.match(coachCookie,/yasnafit_coach_session=/);
+
   await expectStatus(401,'/api/student/me',{coach:true});
   const bankCategories=await ok('/api/categories/grouped?location=gym',{coach:true});assert.ok(bankCategories.length>=1);assert.ok(bankCategories.every(category=>category.count>0));const homeCategories=await ok('/api/categories/grouped?location=home',{coach:true});assert.ok(homeCategories.length>=1);assert.ok(homeCategories.every(category=>category.count>0));const bankExercises=await ok(`/api/exercises?categoryId=${encodeURIComponent(bankCategories[0].id)}&location=gym&status=active&page=0&pageSize=5`,{coach:true});assert.ok(bankExercises.items.length>=1);assert.ok(bankExercises.items[0].id);assert.ok(bankExercises.items[0].name_fa);assert.ok(bankExercises.items.every(item=>['gym','both'].includes(item.location)));
 
@@ -209,5 +249,10 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }
   const studentHtml=fs.readFileSync(path.join(__dirname,'..','public','student.html'),'utf8');assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/);assert.match(studentHtml,/dir="rtl"/);
+  const coachLogout=await request('/api/coach/auth/logout',{method:'POST',coach:true});
+  assert.equal(coachLogout.response.status,200);
+  await expectStatus(401,'/api/dashboard',{coach:true});
+  const homeAfterLogout=await fetch(BASE+'/',{redirect:'manual',headers:{Cookie:coachCookie}});
+  assert.equal(homeAfterLogout.status,303);assert.equal(homeAfterLogout.headers.get('location'),'/coach/login');
   console.log(JSON.stringify({ok:true,students:2,student_sessions:true,month_two:true,isolation:true,logout:true,application_version:versionInfo.version,releases:releases.length},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -86,7 +86,13 @@ try{
   assert.equal(auth.authStatus(db).totp_required,false);
   assert.equal(auth.authStatus(db).totp_confirmed,true);
   assert.throws(()=>auth.beginTotpSetup(db),/قبلاً فعال/);
-  const secret=totpSetup.secret;
+  const provisioned=auth.provisionCoachTotp(db,{rotate:true});
+  assert.match(provisioned.secret,/^[A-Z2-7]{32}$/);
+  assert.notEqual(provisioned.secret,totpSetup.secret);
+  assert.equal('qr_svg' in provisioned,false);
+  assert.match(provisioned.otpauth_url,/^otpauth:\/\/totp\/Yasnafit/);
+  assert.throws(()=>auth.provisionCoachTotp(db),/قبلاً فعال/);
+  const secret=provisioned.secret;
 
   const delivered=[];
   auth.setMailer(async payload=>delivered.push(payload));
@@ -99,6 +105,8 @@ try{
   assert.equal(started.email,'crypto.javan17@gmail.com');
   assert.equal(started.code,undefined);
   assert.equal(started.delivery,undefined);
+  assert.equal(started.secret,undefined);
+  assert.equal(started.qr_svg,undefined);
   assert.equal(delivered.length,0);
   assert.equal(fs.existsSync(path.join(dataDir,'coach-otp-dev.txt')),false);
   const otpTtl=new Date(started.expires_at).getTime()-Date.now();
@@ -106,9 +114,13 @@ try{
   const challengeRow=db.prepare('SELECT code_hash,consumed_at FROM coach_otp_challenges WHERE stable_id=?').get(started.challenge_id);
   assert.equal(challengeRow.code_hash.includes(secret),false);
   assert.equal(challengeRow.consumed_at,null);
+  const challengeReq={headers:{cookie:`yasnafit_coach_challenge=${started.challenge_id}`},socket:{}};
+  assert.equal(auth.pendingChallenge(db,challengeReq).pending,true);
+  assert.equal(auth.pendingChallenge(db,{headers:{},socket:{}}).pending,false);
+  assert.equal('challenge_id' in auth.pendingChallenge(db,challengeReq),false);
 
   assert.equal(auth.verifyOtp(db,{challengeId:started.challenge_id,code:'000000'}).error,'INVALID_CODE');
-  const verified=auth.verifyOtp(db,{challengeId:started.challenge_id,code:loginCode(db,secret)});
+  const verified=auth.verifyOtp(db,{code:loginCode(db,secret),req:challengeReq});
   assert.ok(verified.raw_session);
   assert.match(verified.raw_session,/^[A-Za-z0-9_-]{43}$/);
   assert.equal('password_hash' in verified.coach,false);
@@ -211,6 +223,12 @@ try{
   assert.doesNotMatch(cookie,/; Secure/);
   const secureCookie=auth.sessionCookie({headers:{'x-forwarded-proto':'https'},socket:{}},'A'.repeat(43));
   assert.match(secureCookie,/; Secure/);
+  const challengeCookie=auth.challengeCookie({headers:{},socket:{}},'B'.repeat(43));
+  assert.match(challengeCookie,/yasnafit_coach_challenge=/);
+  assert.match(challengeCookie,/HttpOnly/);
+  assert.match(challengeCookie,/SameSite=Strict/);
+  assert.match(challengeCookie,/Max-Age=300/);
+  assert.doesNotMatch(challengeCookie,/; Secure/);
 
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);

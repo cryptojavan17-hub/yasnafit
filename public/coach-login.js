@@ -17,6 +17,7 @@
   async function api(url, body, method = 'POST') {
     const response = await fetch(url, {
       method,
+      credentials: 'same-origin',
       headers: method === 'GET' ? {} : { 'Content-Type': 'application/json' },
       body: method === 'GET' ? undefined : JSON.stringify(body || {})
     });
@@ -25,116 +26,23 @@
     return data;
   }
 
-  async function loadStatus() {
-    try {
-      return await api('/api/coach/auth/status', null, 'GET');
-    } catch (error) {
-      return { setup_required: false };
-    }
-  }
-
   if (path === '/coach/login') {
-    const passwordForm = document.getElementById('coachPasswordForm');
-    const otpForm = document.getElementById('coachOtpForm');
-    const lead = document.getElementById('coachLoginLead');
-    const otpHint = document.getElementById('coachOtpHint');
-    const passwordSubmit = document.getElementById('coachPasswordSubmit');
-    const otpSubmit = document.getElementById('coachOtpSubmit');
-    let challengeId = '';
-
-    loadStatus().then(status => {
-      if (status.setup_required) location.replace('/coach/setup');
-      else if (status.totp_required) location.replace('/coach/2fa');
-    });
-
-    passwordForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      showError('');
-      setBusy(passwordSubmit, true, 'در حال بررسی…');
-      try {
-        const result = await api('/api/coach/auth/login', {
-          email: document.getElementById('coachEmail').value,
-          password: document.getElementById('coachPassword').value
-        });
-        challengeId = result.challenge_id;
-        passwordForm.hidden = true;
-        otpForm.hidden = false;
-        lead.textContent = 'کد ۶ رقمی Google Authenticator را وارد کنید.';
-        otpHint.textContent = 'کد برنامه Authenticator هر ۳۰ ثانیه عوض می‌شود. برای وارد کردن آن ۵ دقیقه فرصت دارید.';
-        document.getElementById('coachOtp').focus();
-      } catch (error) {
-        if (error.code === 'SETUP_REQUIRED') {
-          location.replace('/coach/setup');
-          return;
-        }
-        if (error.code === 'TOTP_SETUP_REQUIRED') {
-          location.replace('/coach/2fa');
-          return;
-        }
-        showError(error.message);
-      } finally {
-        setBusy(passwordSubmit, false, 'ادامه');
-      }
-    });
-
-    otpForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      showError('');
-      setBusy(otpSubmit, true, 'در حال ورود…');
-      try {
-        await api('/api/coach/auth/verify', {
-          challenge_id: challengeId,
-          code: document.getElementById('coachOtp').value
-        });
-        location.replace('/coach/dashboard');
-      } catch (error) {
-        showError(error.message);
-      } finally {
-        setBusy(otpSubmit, false, 'ورود به پنل');
-      }
-    });
-
-    document.getElementById('coachOtpBack').addEventListener('click', () => {
-      challengeId = '';
-      otpForm.hidden = true;
-      passwordForm.hidden = false;
-      document.getElementById('coachOtp').value = '';
-      lead.textContent = 'ایمیل و رمز عبور خود را وارد کنید.';
-      showError('');
-    });
-    return;
-  }
-
-  if (path === '/coach/setup') {
-    const form = document.getElementById('coachSetupForm');
-    const submit = document.getElementById('coachSetupSubmit');
-    loadStatus().then(status => {
-      if (!status.setup_required) location.replace('/coach/login');
-    });
+    const form = document.getElementById('coachPasswordForm');
+    const submit = document.getElementById('coachPasswordSubmit');
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
-      const password = document.getElementById('coachSetupPassword').value;
-      const confirm = document.getElementById('coachSetupPasswordConfirm').value;
-      if (password !== confirm) {
-        showError('تکرار رمز عبور مطابقت ندارد.');
-        return;
-      }
-      setBusy(submit, true, 'در حال ساخت…');
+      setBusy(submit, true, 'در حال بررسی…');
       try {
-        await api('/api/coach/auth/setup', {
-          email: document.getElementById('coachSetupEmail').value,
-          password
+        await api('/api/coach/auth/login', {
+          email: document.getElementById('coachEmail').value,
+          password: document.getElementById('coachPassword').value
         });
         location.replace('/coach/2fa');
       } catch (error) {
-        if (error.code === 'SETUP_CLOSED') {
-          location.replace('/coach/login');
-          return;
-        }
         showError(error.message);
       } finally {
-        setBusy(submit, false, 'ساخت اکانت');
+        setBusy(submit, false, 'ادامه');
       }
     });
     return;
@@ -143,43 +51,26 @@
   if (path === '/coach/2fa') {
     const form = document.getElementById('coachTotpForm');
     const submit = document.getElementById('coachTotpSubmit');
-    const qrBox = document.getElementById('coachTotpQr');
-    const secretBox = document.getElementById('coachTotpSecret');
-    loadStatus().then(async status => {
-      if (status.setup_required) {
-        location.replace('/coach/setup');
-        return;
-      }
-      if (!status.totp_required) {
-        location.replace('/coach/login');
-        return;
-      }
-      try {
-        const setup = await api('/api/coach/auth/totp', null, 'GET');
-        if (qrBox) qrBox.innerHTML = setup.qr_svg || '';
-        if (secretBox) secretBox.textContent = setup.secret_display || setup.secret || '';
-      } catch (error) {
-        if (error.code === 'TOTP_ALREADY_SET') location.replace('/coach/login');
-        else showError(error.message);
-      }
-    });
+    api('/api/coach/auth/challenge', null, 'GET').then(status => {
+      if (!status.pending) location.replace('/coach/login');
+    }).catch(() => location.replace('/coach/login'));
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
-      setBusy(submit, true, 'در حال تأیید…');
+      setBusy(submit, true, 'در حال ورود…');
       try {
-        await api('/api/coach/auth/totp/confirm', {
+        await api('/api/coach/auth/verify', {
           code: document.getElementById('coachTotpCode').value
         });
-        location.replace('/coach/login');
+        location.replace('/coach/dashboard');
       } catch (error) {
-        if (error.code === 'TOTP_ALREADY_SET') {
+        if (error.code === 'CODE_EXPIRED' || error.code === 'CHALLENGE_REQUIRED') {
           location.replace('/coach/login');
           return;
         }
         showError(error.message);
       } finally {
-        setBusy(submit, false, 'فعال‌سازی');
+        setBusy(submit, false, 'ورود به پنل');
       }
     });
     return;
@@ -209,11 +100,6 @@
   if (path === '/coach/mail') {
     const form = document.getElementById('coachMailForm');
     const submit = document.getElementById('coachMailSubmit');
-    loadStatus().then(status => {
-      if (status.mail_configured) {
-        showError('ارسال جیمیل قبلاً تنظیم شده است. اگر کد نمی‌رسد، رمز برنامه را دوباره ذخیره کنید.', true);
-      }
-    });
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
