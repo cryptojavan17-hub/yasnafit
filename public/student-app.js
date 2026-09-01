@@ -126,9 +126,19 @@
         <div id="authLoginPanel" class="hero-login-frame" style="${activeTab==='login'?'':'display:none;'}">
           <img src="/login-hero.png" alt="" class="hero-login-art" draggable="false">
           <form class="hero-login-hotspots" id="studentLoginForm" autocomplete="on" novalidate>
-            <input id="loginMobile" class="hotspot hotspot-phone" name="mobile" type="tel" inputmode="numeric" maxlength="11" autocomplete="username" dir="ltr" aria-label="شماره همراه">
-            <input id="loginPassword" class="hotspot hotspot-pass" name="password" type="password" maxlength="128" autocomplete="current-password" dir="ltr" aria-label="رمز عبور">
-            <button type="button" class="hotspot hotspot-eye toggle-pass" data-toggle-for="loginPassword" aria-label="نمایش رمز عبور"></button>
+            <div class="hotspot field-box field-phone">
+              <input id="loginMobile" name="mobile" type="tel" inputmode="numeric" maxlength="11" autocomplete="username" dir="ltr" aria-label="شماره همراه">
+              <span class="field-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>
+              </span>
+            </div>
+            <div class="hotspot field-box field-pass">
+              <button type="button" class="field-eye toggle-pass" data-toggle-for="loginPassword" aria-label="نمایش رمز عبور"></button>
+              <input id="loginPassword" name="password" type="password" maxlength="128" autocomplete="current-password" dir="ltr" aria-label="رمز عبور">
+              <span class="field-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              </span>
+            </div>
             <button type="button" class="hotspot hotspot-forgot" id="btnForgotPassword" aria-label="رمز عبور را فراموش کرده‌اید؟"></button>
             <button type="submit" class="hotspot hotspot-submit" id="btnLoginSubmit" aria-label="ورود"></button>
             <button type="button" class="hotspot hotspot-register" id="btnGoToRegister" aria-label="حساب کاربری ندارید؟ ثبت‌نام کنید"></button>

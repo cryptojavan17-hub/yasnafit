@@ -36,57 +36,82 @@
   box-sizing:border-box;
   z-index:2;
 }
-.hotspot-phone,
-.hotspot-pass{
-  background:#1c2730;
-  color:#f3f6fa;
+.field-box{
+  display:flex;
+  align-items:center;
+  direction:ltr;
+  background:#17232a;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  overflow:hidden;
+}
+.field-phone{
+  top:33.43%;
+  left:55.46%;
+  width:33.84%;
+  height:5.34%;
+}
+.field-pass{
+  top:43.83%;
+  left:55.46%;
+  width:33.84%;
+  height:5.34%;
+}
+.field-box input{
+  flex:1;
+  min-width:0;
+  height:100%;
+  background:transparent;
   border:0;
-  border-radius:8px;
   outline:none;
+  color:#f3f6fa;
   caret-color:#2ee6c8;
-  font-size:clamp(13px, 1.18vw, 17px);
+  font-size:clamp(13px, 1.15vw, 16px);
+  font-family:inherit;
   direction:ltr;
   text-align:left;
-  padding:0 10px;
+  padding:0 8px;
   -webkit-appearance:none;
   appearance:none;
 }
-.hotspot-phone:focus,
-.hotspot-pass:focus{
-  box-shadow:inset 0 0 0 1px rgba(46,230,200,0.45);
-}
-.hotspot-phone::placeholder,
-.hotspot-pass::placeholder{
+.field-box input::placeholder{
   color:transparent;
 }
-/* Sit only inside the painted input boxes so image labels stay above */
-.hotspot-phone{
-  top:33.65%;
-  left:57.4%;
-  width:27.8%;
-  height:4.95%;
+.field-box:focus-within{
+  border-color:rgba(46,230,200,0.4);
 }
-.hotspot-pass{
-  top:44.05%;
-  left:59.3%;
-  width:26.2%;
-  height:5.05%;
+.field-ico{
+  width:clamp(28px, 3.2vw, 42px);
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:rgba(255,255,255,0.38);
+  flex-shrink:0;
+  pointer-events:none;
 }
-.hotspot-eye{
-  top:43.90%;
-  left:55.45%;
-  width:3.9%;
-  height:5.35%;
+.field-ico svg{
+  width:55%;
+  height:55%;
+}
+.field-eye{
+  width:clamp(28px, 3.2vw, 42px);
+  height:100%;
   background:transparent;
   border:0;
-  cursor:pointer;
   padding:0;
+  cursor:pointer;
+  flex-shrink:0;
+  color:rgba(255,255,255,0.38);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa6b2' stroke-width='1.7'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:55% 55%;
 }
 .hotspot-forgot{
-  top:50.20%;
-  left:55.45%;
-  width:23.5%;
-  height:3.35%;
+  top:50.05%;
+  left:55.46%;
+  width:24%;
+  height:3.6%;
   background:transparent;
   border:0;
   cursor:pointer;
@@ -94,10 +119,10 @@
   color:transparent;
 }
 .hotspot-submit{
-  top:55.45%;
-  left:55.45%;
-  width:34.1%;
-  height:6.05%;
+  top:55.71%;
+  left:55.46%;
+  width:33.84%;
+  height:5.40%;
   background:transparent;
   border:0;
   border-radius:999px;
@@ -109,10 +134,10 @@
   cursor:wait;
 }
 .hotspot-register{
-  top:67.75%;
-  left:55.45%;
-  width:34.1%;
-  height:5.55%;
+  top:67.77%;
+  left:55.46%;
+  width:33.84%;
+  height:5.53%;
   background:transparent;
   border:0;
   border-radius:999px;
