@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yasnafit | پنل مربی</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/dark-theme.css" />
+  <link rel="stylesheet" href="/exercises.css" />
+  <link rel="stylesheet" href="/program-builder.css" />
+  <link rel="stylesheet" href="/student-portal.css" />
+  <link rel="stylesheet" href="/releases.css" />
+  <link rel="stylesheet" href="/students.css" />
+  <link rel="stylesheet" href="/unified-components.css" />
+  <link rel="stylesheet" href="/jalali-picker.css" />
+  <link rel="stylesheet" href="/program-pdf.css" />
+  <link rel="stylesheet" href="/ai-settings.css" />
+  <link rel="stylesheet" href="/ai-copilot.css" />
+  <link rel="stylesheet" href="/diet-programs.css" />
+  <link rel="stylesheet" href="/supplement-programs.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-mark">Y</div><div><strong>Yasnafit</strong><span>پنل مدیریت مربی</span></div></div>
+      <div class="sidebar-title">دسترسی‌های اصلی</div>
+      <nav id="menu" aria-label="منوی اصلی"></nav>
+      <div class="sidebar-footer"><span class="online-dot"></span> سامانه محلی آماده است</div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuToggle" aria-label="باز کردن منو">☰</button>
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="مخفی کردن سایدبار" aria-pressed="false" title="نمایش یا مخفی کردن سایدبار"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM9 5v14M14 9l3 3-3 3"/></svg></button>
+        <div class="breadcrumb"><span>Yasnafit</span><b>/</b><strong id="breadcrumb">داشبورد</strong></div>
+        <div class="top-actions"><div class="coach-notification-center" id="coachNotificationCenter"><button class="coach-review-bell" id="coachReviewBell" type="button" title="اعلان‌ها" aria-label="نمایش اعلان‌ها" aria-expanded="false"><span class="bell-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><b class="bell-count" id="coachReviewBellCount" hidden>۰</b></button><section class="coach-notification-panel" id="coachNotificationPanel" hidden><header><div><b>اعلان‌ها</b><small id="coachNotificationSummary">اعلان جدیدی ندارید</small></div><div class="notification-header-actions"><button type="button" class="clear-notifications" id="clearNotifications">پاک کردن همه</button><button type="button" id="closeNotifications" aria-label="بستن اعلان‌ها">×</button></div></header><div class="coach-notification-list" id="coachNotificationList"><p>در حال دریافت اعلان‌ها…</p></div><a class="coach-notification-footer" href="/students/submissions">ارزیابی‌های در انتظار بررسی</a></section></div><button class="avatar" title="حساب مربی">م</button></div>
+      </header>
+      <section class="content" id="content"></section>
+    </main>
+  </div>
+  <script src="/localization.js"></script>
+  <script src="/jalali.js"></script>
+  <script src="/jalali-picker.js"></script>
+  <script src="/app.js"></script>
+  <script src="/core.js"></script>
+  <script src="/exercises.js"></script>
+  <script src="/program-builder.js"></script>
+  <script src="/program-pdf.js"></script>
+  <script src="/coach-submissions.js"></script>
+  <script src="/students.js"></script>
+  <script src="/releases.js"></script>
+  <script src="/ai-settings.js"></script>
+  <script src="/ai-copilot.js"></script>
+  <script src="/diet-programs.js"></script>
+  <script src="/supplement-programs.js"></script>
+  <script>
+    // Feature modules load after the shell. Re-dispatch the real deep link only
+    // after student portal, submissions, and Program Builder renderers exist.
+    if (window.onpopstate) {
+      window.onpopstate();
+    }
+  </script>
+</body>
+</html>
