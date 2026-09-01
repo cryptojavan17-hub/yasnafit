@@ -146,31 +146,43 @@
   border-color:var(--accent-border);
   color:var(--accent-hover);
 }
-.coach-otp-reveal{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
+.coach-totp-qr{
+  display:grid;
+  place-items:center;
   margin:0 0 16px;
-  padding:14px 16px;
+  padding:16px;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid var(--border);
+}
+.coach-totp-qr svg{
+  width:min(220px,70vw);
+  height:auto;
+}
+.coach-totp-secret-box{
+  margin:0 0 18px;
+  padding:12px 14px;
   border-radius:12px;
-  background:var(--accent-surface);
-  border:1px solid var(--accent-border);
-  color:var(--text);
+  background:var(--glass);
+  border:1px solid var(--border);
+  text-align:center;
 }
-.coach-otp-reveal[hidden]{
-  display:none;
+.coach-totp-secret-box span{
+  display:block;
+  margin-bottom:6px;
+  color:var(--text-muted);
+  font-size:12px;
 }
-.coach-otp-reveal span{
-  font-size:13px;
-  color:var(--text-secondary);
+.coach-totp-secret-box strong{
+  display:block;
+  direction:ltr;
+  font-family:ui-monospace,Consolas,monospace;
+  letter-spacing:.16em;
+  font-size:15px;
+  word-break:break-all;
 }
-.coach-otp-reveal strong{
-  font-size:22px;
-  letter-spacing:.28em;
-  font-weight:800;
-}
-#coachOtp{
+#coachOtp,
+#coachTotpCode{
   letter-spacing:.4em;
   text-align:center;
   font-weight:800;

@@ -34,15 +34,11 @@
       </form>
 
       <form id="coachOtpForm" hidden>
-        <div class="coach-otp-reveal" id="coachOtpReveal">
-          <span>کد تأیید شما:</span>
-          <strong id="coachOtpValue"></strong>
-        </div>
         <label class="coach-login-field">
-          <span>کد ۶ رقمی تأیید</span>
+          <span>کد Google Authenticator</span>
           <input id="coachOtp" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required maxlength="6" pattern="[0-9۰-۹٠-٩]{6}" placeholder="••••••" />
         </label>
-        <p class="coach-login-hint" id="coachOtpHint">این کد تا ۵ دقیقه معتبر است.</p>
+        <p class="coach-login-hint" id="coachOtpHint">کد برنامه Authenticator هر ۳۰ ثانیه عوض می‌شود. برای وارد کردن آن ۵ دقیقه فرصت دارید.</p>
         <button class="coach-login-submit" type="submit" id="coachOtpSubmit">ورود به پنل</button>
         <button class="coach-login-secondary" type="button" id="coachOtpBack">بازگشت</button>
       </form>

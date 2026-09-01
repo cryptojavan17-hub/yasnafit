@@ -1322,6 +1322,16 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_coach_auth_events_created ON coach_auth_events(created_at, event_type);
       `);
     }
+  },
+  {
+    id: '030_coach_totp_authenticator',
+    description: 'Google Authenticator TOTP secret and confirmation on the coach account',
+    up(db) {
+      const columns = new Set(db.prepare("PRAGMA table_info('coaches')").all().map(c => c.name));
+      if (!columns.has('totp_secret')) db.exec('ALTER TABLE coaches ADD COLUMN totp_secret TEXT');
+      if (!columns.has('totp_confirmed_at')) db.exec('ALTER TABLE coaches ADD COLUMN totp_confirmed_at TEXT');
+      if (!columns.has('totp_last_counter')) db.exec('ALTER TABLE coaches ADD COLUMN totp_last_counter INTEGER');
+    }
   }
 ];
 

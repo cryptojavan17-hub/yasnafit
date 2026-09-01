@@ -14,7 +14,7 @@ const port = Number(process.env.PORT || 3020);
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-// Coach access is email + password + emailed 2FA. No shared bearer token.
+// Coach access is email + password + Google Authenticator TOTP. No shared bearer token.
 // --- Database & Services ---
 const { db, dbPath, backup, log } = require('./src/database');
 const { runMigrations } = require('./src/migrations');
@@ -147,8 +147,10 @@ function coachAuthError(res,code,fallbackMessage){
   const errors={
     INVALID_CREDENTIALS:[401,'ایمیل یا رمز عبور نادرست است.'],
     AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],
-    INVALID_CODE:[401,'کد تأیید نادرست است.'],
-    CODE_EXPIRED:[401,'کد تأیید منقضی شده است. دوباره وارد شوید.'],
+    INVALID_CODE:[401,'کد Google Authenticator نادرست است.'],
+    CODE_EXPIRED:[401,'مهلت ورود تمام شده است. دوباره وارد شوید.'],
+    TOTP_SETUP_REQUIRED:[409,'ابتدا Google Authenticator را از صفحه تنظیم فعال کنید.'],
+    TOTP_ALREADY_SET:[409,'تأیید دو مرحله‌ای قبلاً فعال شده است.'],
     SETUP_REQUIRED:[409,'ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید.'],
     SETUP_CLOSED:[409,'اکانت مربی قبلاً ساخته شده است.'],
     INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید crypto.javan17@gmail.com باشد.'],
@@ -199,7 +201,24 @@ async function handleCoachAuth(req,res,url){
     const body=await readBody(req);
     const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req});
     if(result.error) return coachAuthError(res,result.error,result.message);
-    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email,delivery:result.delivery,code:result.code});
+    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email});
+  }
+  if(p==='/api/coach/auth/totp' && req.method==='GET'){
+    if(!rateLimit(req,res,'coach-totp-setup',20,15*60*1000)) return true;
+    try{
+      return send(res,200,coachAuthService.beginTotpSetup(db,{req}));
+    }catch(error){
+      return coachAuthError(res,error.code,error.message);
+    }
+  }
+  if(p==='/api/coach/auth/totp/confirm' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-totp-confirm',20,15*60*1000)) return true;
+    const body=await readBody(req);
+    const result=coachAuthService.confirmTotp(db,{code:body.code,req});
+    if(result.error) return coachAuthError(res,result.error,result.message);
+    log('Google Authenticator مربی فعال شد', result.email||'');
+    return send(res,200,{success:true});
   }
   if(p==='/api/coach/auth/verify' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
@@ -2471,6 +2490,7 @@ const server=http.createServer(async(req,res)=>{
     const coachAuthPages={
       '/coach/login':'coach-login.html',
       '/coach/setup':'coach-setup.html',
+      '/coach/2fa':'coach-2fa.html',
       '/coach/forgot':'coach-forgot.html',
       '/coach/reset':'coach-reset.html',
       '/coach/mail':'coach-mail.html'

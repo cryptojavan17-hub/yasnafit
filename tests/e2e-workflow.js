@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
+const totp=require('../src/totp');
 const BASE=process.env.YASNAFIT_BASE_URL||'http://127.0.0.1:3020';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 let coachCookie='';
@@ -55,7 +56,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
   const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.match(home.headers.get('location')||'',/^\/coach\/(login|setup)$/);
-  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/coach/setup')).status,200);assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/coach/setup')).status,200);assert.equal((await fetch(BASE+'/coach/2fa')).status,200);assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
   const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
   const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
   const coachStatus=await request('/api/coach/auth/status');
@@ -64,15 +65,35 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
     const setup=await request('/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:coachPassword,display_name:'مربی'}});
     assert.ok([201,409].includes(setup.response.status),JSON.stringify(setup.data));
   }
-  assert.equal(typeof coachStatus.data.mail_configured,'boolean');
+  const statusAfterSetup=await request('/api/coach/auth/status');
+  assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
+  let totpSecret=null;
+  if(statusAfterSetup.data.totp_required){
+    const enroll=await ok('/api/coach/auth/totp');
+    assert.match(String(enroll.secret||''),/^[A-Z2-7]{32}$/);
+    assert.match(String(enroll.qr_svg||''),/<svg /);
+    assert.equal('code' in enroll,false);
+    const confirmed=await request('/api/coach/auth/totp/confirm',{method:'POST',body:{code:totp.generate(enroll.secret)}});
+    assert.equal(confirmed.response.status,200,JSON.stringify(confirmed.data));
+    totpSecret=enroll.secret;
+  }else{
+    const liveDb=new DatabaseSync(path.join(__dirname,'..','data','yasnafit.db'),{readOnly:true});
+    totpSecret=liveDb.prepare('SELECT totp_secret FROM coaches WHERE id=1').get()?.totp_secret||null;
+    liveDb.close();
+  }
+  assert.ok(totpSecret,'coach TOTP secret is missing');
+  const leftoverOtp=path.join(__dirname,'..','data','coach-otp-dev.txt');
+  if(fs.existsSync(leftoverOtp)) fs.unlinkSync(leftoverOtp);
   const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
   assert.ok(coachLogin.data.challenge_id);
-  assert.equal(coachLogin.data.delivery,'screen');
-  assert.match(String(coachLogin.data.code||''),/^\d{6}$/);
-  const otpCode=fs.readFileSync(path.join(__dirname,'..','data','coach-otp-dev.txt'),'utf8').trim();
-  assert.match(otpCode,/^\d{6}$/);
-  const coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:otpCode}});
+  assert.equal(coachLogin.data.code,undefined);
+  assert.equal(coachLogin.data.delivery,undefined);
+  assert.equal(fs.existsSync(leftoverOtp),false);
+  let coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:totp.generate(totpSecret)}});
+  if(coachVerify.response.status!==200){
+    coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:totp.generate(totpSecret,{now:Date.now()+30000})}});
+  }
   assert.equal(coachVerify.response.status,200,JSON.stringify(coachVerify.data));
   const coachSetCookie=coachVerify.response.headers.get('set-cookie')||'';
   assert.match(coachSetCookie,/yasnafit_coach_session=/);assert.match(coachSetCookie,/HttpOnly/);assert.match(coachSetCookie,/SameSite=Strict/);
@@ -183,7 +204,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'029_coach_setup_recovery_and_auth_events');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'030_coach_totp_authenticator');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }

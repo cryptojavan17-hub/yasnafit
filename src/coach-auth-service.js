@@ -5,6 +5,7 @@ const net=require('net');
 const path=require('path');
 const tls=require('tls');
 const {hashPassword,verifyPassword}=require('./student-auth-service');
+const totp=require('./totp');
 
 const SESSION_COOKIE='yasnafit_coach_session';
 const SESSION_TTL_MS=12*60*60*1000;
@@ -80,8 +81,8 @@ function validateCoachPassword(password){
   }
   return value;
 }
-function generateOtp(){
-  return String(crypto.randomInt(0,1000000)).padStart(6,'0');
+function totpConfirmed(coach){
+  return Boolean(coach?.totp_secret && coach?.totp_confirmed_at);
 }
 function normalizeOtp(value){
   return String(value??'')
@@ -282,7 +283,7 @@ async function configureGmail(dataDir,appPassword){
   config=await sendSmtpEmail(config,{
     to:SETUP_EMAIL,
     subject:'آزمایش ارسال ایمیل مربی Yasnafit',
-    text:'اگر این پیام را می‌بینید، ارسال کد ورود به جیمیل درست تنظیم شده است.'
+    text:'اگر این پیام را می‌بینید، ارسال ایمیل بازیابی رمز مربی درست تنظیم شده است.'
   });
   writeSmtpConfig(dataDir,config);
   return {ok:true,email:SETUP_EMAIL,host:config.host};
@@ -340,9 +341,12 @@ function setupRequired(db){
 
 function authStatus(db,dataDir){
   const required=setupRequired(db);
+  const coach=required?null:primaryCoach(db);
   return {
     setup_required:required,
     setup_email:required?SETUP_EMAIL:null,
+    totp_required:!required && !totpConfirmed(coach),
+    totp_confirmed:!required && totpConfirmed(coach),
     ...mailStatus(dataDir)
   };
 }
@@ -397,6 +401,7 @@ function ensureLocalCoach(db){
       db.prepare(`
         UPDATE coaches
         SET email=NULL,email_normalized=NULL,password_hash=NULL,
+            totp_secret=NULL,totp_confirmed_at=NULL,totp_last_counter=NULL,
             auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP
         WHERE id=1
       `).run();
@@ -419,6 +424,7 @@ function setupCoach(db,{email,password,displayName='مربی',req=null}){
   db.prepare(`
     UPDATE coaches
     SET email=?,email_normalized=?,password_hash=?,display_name=?,role='coach',status='ACTIVE',
+        totp_secret=NULL,totp_confirmed_at=NULL,totp_last_counter=NULL,
         auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP
     WHERE id=1
   `).run(normalized,normalized,hashPassword(validated),String(displayName||'مربی').trim()||'مربی');
@@ -468,16 +474,61 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:failure==='AUTH_LOCKED'?'locked':'login_failed',req,detail:'bad_password'});
     return {error:failure};
   }
-  const code=generateOtp();
+  if(!totpConfirmed(coach)){
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'totp_setup_required'});
+    return {error:'TOTP_SETUP_REQUIRED'};
+  }
   const challengeId=crypto.randomBytes(32).toString('base64url');
   const expiresAt=new Date(Date.now()+OTP_TTL_MS).toISOString();
   db.prepare('UPDATE coach_otp_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE coach_id=? AND consumed_at IS NULL').run(coach.id);
   db.prepare(`
     INSERT INTO coach_otp_challenges(stable_id,coach_id,code_hash,expires_at,failed_attempts)
     VALUES(?,?,?,?,0)
-  `).run(challengeId,coach.id,hashToken(code),expiresAt);
-  writeDevFile(dataDir,'coach-otp-dev.txt',code);
-  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized,delivery:'screen',code};
+  `).run(challengeId,coach.id,hashToken('totp'),expiresAt);
+  return {challenge_id:challengeId,expires_at:expiresAt,email:coach.email_normalized};
+}
+
+function beginTotpSetup(db,{req=null}={}){
+  if(setupRequired(db)){
+    throw Object.assign(new Error('ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+  }
+  const coach=primaryCoach(db);
+  if(!coach || !coach.password_hash){
+    throw Object.assign(new Error('ابتدا اکانت مربی را از صفحه راه‌اندازی بسازید'),{statusCode:409,code:'SETUP_REQUIRED'});
+  }
+  if(totpConfirmed(coach)){
+    throw Object.assign(new Error('تأیید دو مرحله‌ای قبلاً فعال شده است'),{statusCode:409,code:'TOTP_ALREADY_SET'});
+  }
+  let secret=coach.totp_secret;
+  if(!secret){
+    secret=totp.generateSecret();
+    db.prepare(`
+      UPDATE coaches
+      SET totp_secret=?,totp_confirmed_at=NULL,totp_last_counter=NULL,updated_at=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).run(secret,coach.id);
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'totp_setup_started',req});
+  }
+  return totp.enrollment({secret,email:coach.email_normalized||SETUP_EMAIL});
+}
+
+function confirmTotp(db,{code,req=null}={}){
+  if(setupRequired(db)) return {error:'SETUP_REQUIRED'};
+  const coach=primaryCoach(db);
+  if(!coach?.totp_secret) return {error:'TOTP_SETUP_REQUIRED'};
+  if(totpConfirmed(coach)) return {error:'TOTP_ALREADY_SET'};
+  const checked=totp.verify(coach.totp_secret,code);
+  if(!checked.ok){
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'otp_failed',req,detail:'totp_confirm'});
+    return {error:'INVALID_CODE'};
+  }
+  db.prepare(`
+    UPDATE coaches
+    SET totp_confirmed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+    WHERE id=?
+  `).run(coach.id);
+  logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'totp_confirmed',req});
+  return {ok:true,email:coach.email_normalized};
 }
 
 function verifyOtp(db,{challengeId,code,req=null}){
@@ -489,7 +540,8 @@ function verifyOtp(db,{challengeId,code,req=null}){
     return {error:'INVALID_CODE'};
   }
   const challenge=db.prepare(`
-    SELECT c.*, co.email_normalized, co.display_name, co.status, co.role, co.auth_failed_attempts, co.auth_locked_until, co.deleted_at
+    SELECT c.*, co.email_normalized, co.display_name, co.status, co.role, co.auth_failed_attempts, co.auth_locked_until, co.deleted_at,
+           co.totp_secret, co.totp_confirmed_at, co.totp_last_counter
     FROM coach_otp_challenges c
     JOIN coaches co ON co.id=c.coach_id
     WHERE c.stable_id=?
@@ -513,7 +565,12 @@ function verifyOtp(db,{challengeId,code,req=null}){
     logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'otp_failed',req,detail:'expired'});
     return {error:'CODE_EXPIRED'};
   }
-  if(hashToken(otp)!==challenge.code_hash){
+  if(!totpConfirmed(challenge)){
+    logAuthEvent(db,{coachId:challenge.coach_id,email:challenge.email_normalized,eventType:'otp_failed',req,detail:'totp_missing'});
+    return {error:'TOTP_SETUP_REQUIRED'};
+  }
+  const checked=totp.verify(challenge.totp_secret,otp,{lastCounter:challenge.totp_last_counter});
+  if(!checked.ok){
     const next=Number(challenge.failed_attempts||0)+1;
     db.prepare('UPDATE coach_otp_challenges SET failed_attempts=? WHERE id=?').run(next,challenge.id);
     if(next>=MAX_OTP_FAILURES){
@@ -526,6 +583,7 @@ function verifyOtp(db,{challengeId,code,req=null}){
     return {error:'INVALID_CODE'};
   }
   db.prepare('UPDATE coach_otp_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE id=?').run(challenge.id);
+  db.prepare('UPDATE coaches SET totp_last_counter=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(checked.counter,challenge.coach_id);
   clearFailures(db,challenge.coach_id);
   const rawSession=crypto.randomBytes(32).toString('base64url');
   const expiresAt=new Date(Date.now()+SESSION_TTL_MS).toISOString();
@@ -671,7 +729,7 @@ module.exports={
   SESSION_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,RESET_TTL_MS,MAX_PASSWORD_FAILURES,MAX_OTP_FAILURES,LOCK_MS,
   TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,
   setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,setupRequired,authStatus,setupCoach,
-  createCoach,startLogin,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
+  createCoach,startLogin,beginTotpSetup,confirmTotp,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
   requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,safeCoach,logAuthEvent,
   smtpConfigured,mailStatus,loadSmtpConfig,writeSmtpConfig,configureGmail
 };

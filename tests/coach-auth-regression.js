@@ -7,16 +7,37 @@ const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const {runMigrations}=require('../src/migrations');
 const auth=require('../src/coach-auth-service');
+const totp=require('../src/totp');
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-coach-auth-'));
 const dataDir=path.join(dir,'data');
 fs.mkdirSync(dataDir,{recursive:true});
+
+function loginCode(db,secret,coachId=1){
+  db.prepare('UPDATE coaches SET totp_last_counter=NULL WHERE id=?').run(coachId);
+  return totp.generate(secret);
+}
+
 (async()=>{
 try{
+  const rfcSecret=totp.base32Encode(Buffer.from('12345678901234567890'));
+  assert.equal(totp.hotp(Buffer.from('12345678901234567890'),1,8),'94287082');
+  assert.equal(totp.generate(rfcSecret,{now:59*1000,digits:8}),'94287082');
+  assert.equal(totp.verify(rfcSecret,'94287082',{now:59*1000,digits:8,window:0}).ok,true);
+  const liveSecret=totp.generateSecret();
+  const liveCode=totp.generate(liveSecret);
+  assert.match(liveCode,/^\d{6}$/);
+  assert.equal(totp.verify(liveSecret,liveCode).ok,true);
+  assert.equal(totp.verify(liveSecret,'000000').ok,false);
+  const qr=totp.qrSvg(totp.otpauthUrl({secret:liveSecret,email:'crypto.javan17@gmail.com'}));
+  assert.match(qr,/^<svg /);
+  assert.match(qr,/<\/svg>$/);
+  assert.ok((qr.match(/<rect /g)||[]).length>200);
+
   const db=new DatabaseSync(path.join(dir,'coach-auth.db'));
   db.exec('PRAGMA foreign_keys=ON');
   runMigrations(db);
-  for(const column of ['email','email_normalized','password_hash','auth_failed_attempts','auth_locked_until','last_login_at','role']){
+  for(const column of ['email','email_normalized','password_hash','auth_failed_attempts','auth_locked_until','last_login_at','role','totp_secret','totp_confirmed_at','totp_last_counter']){
     assert.ok(db.prepare("SELECT 1 FROM pragma_table_info('coaches') WHERE name=?").get(column),`missing coaches column ${column}`);
   }
   for(const table of ['coach_sessions','coach_otp_challenges','coach_password_resets','coach_auth_events']){
@@ -27,6 +48,7 @@ try{
   const first=auth.ensureLocalCoach(db);
   assert.equal(first.setup_required,true);
   assert.equal(first.setup_email,'crypto.javan17@gmail.com');
+  assert.equal(first.totp_required,false);
   assert.equal(db.prepare('SELECT email_normalized,password_hash FROM coaches WHERE id=1').get().password_hash,null);
   assert.equal(fs.existsSync(path.join(dataDir,'coach-credentials.txt')),false);
   const blocked=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
@@ -40,6 +62,7 @@ try{
   assert.equal(created.role,'coach');
   assert.equal('password_hash' in created,false);
   assert.equal(auth.authStatus(db).setup_required,false);
+  assert.equal(auth.authStatus(db).totp_required,true);
   assert.throws(()=>auth.setupCoach(db,{email:'crypto.javan17@gmail.com',password:'AnotherPass9'}),/قبلاً ساخته شده/);
   const hash=db.prepare('SELECT password_hash FROM coaches WHERE id=1').get().password_hash;
   assert.ok(hash.startsWith('scrypt$'));
@@ -47,6 +70,23 @@ try{
 
   assert.throws(()=>auth.normalizeEmail('not-an-email'),/ایمیل معتبر نیست/);
   assert.equal(auth.normalizeEmail('Crypto.Javan17@Gmail.com'),'crypto.javan17@gmail.com');
+
+  const beforeTotp=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  assert.equal(beforeTotp.error,'TOTP_SETUP_REQUIRED');
+  const totpSetup=auth.beginTotpSetup(db);
+  assert.match(totpSetup.secret,/^[A-Z2-7]{32}$/);
+  assert.match(totpSetup.otpauth_url,/^otpauth:\/\/totp\/Yasnafit/);
+  assert.match(totpSetup.qr_svg,/<svg /);
+  assert.equal(totpSetup.secret.includes(' '),false);
+  const again=auth.beginTotpSetup(db);
+  assert.equal(again.secret,totpSetup.secret);
+  assert.equal(auth.confirmTotp(db,{code:'000000'}).error,'INVALID_CODE');
+  const confirmed=auth.confirmTotp(db,{code:totp.generate(totpSetup.secret)});
+  assert.equal(confirmed.ok,true);
+  assert.equal(auth.authStatus(db).totp_required,false);
+  assert.equal(auth.authStatus(db).totp_confirmed,true);
+  assert.throws(()=>auth.beginTotpSetup(db),/قبلاً فعال/);
+  const secret=totpSetup.secret;
 
   const delivered=[];
   auth.setMailer(async payload=>delivered.push(payload));
@@ -57,17 +97,18 @@ try{
   const started=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
   assert.ok(started.challenge_id);
   assert.equal(started.email,'crypto.javan17@gmail.com');
-  assert.equal(started.delivery,'screen');
-  assert.match(started.code,/^\d{6}$/);
+  assert.equal(started.code,undefined);
+  assert.equal(started.delivery,undefined);
   assert.equal(delivered.length,0);
+  assert.equal(fs.existsSync(path.join(dataDir,'coach-otp-dev.txt')),false);
   const otpTtl=new Date(started.expires_at).getTime()-Date.now();
   assert.ok(otpTtl>4*60*1000 && otpTtl<=5*60*1000,`otp ttl ${otpTtl}`);
   const challengeRow=db.prepare('SELECT code_hash,consumed_at FROM coach_otp_challenges WHERE stable_id=?').get(started.challenge_id);
-  assert.equal(challengeRow.code_hash.includes(started.code),false);
+  assert.equal(challengeRow.code_hash.includes(secret),false);
   assert.equal(challengeRow.consumed_at,null);
 
   assert.equal(auth.verifyOtp(db,{challengeId:started.challenge_id,code:'000000'}).error,'INVALID_CODE');
-  const verified=auth.verifyOtp(db,{challengeId:started.challenge_id,code:started.code});
+  const verified=auth.verifyOtp(db,{challengeId:started.challenge_id,code:loginCode(db,secret)});
   assert.ok(verified.raw_session);
   assert.match(verified.raw_session,/^[A-Za-z0-9_-]{43}$/);
   assert.equal('password_hash' in verified.coach,false);
@@ -75,7 +116,7 @@ try{
   assert.ok(sessionTtl>11*60*60*1000 && sessionTtl<=12*60*60*1000,`session ttl ${sessionTtl}`);
   const sessionRow=db.prepare('SELECT session_hash FROM coach_sessions WHERE coach_id=1 ORDER BY id DESC LIMIT 1').get();
   assert.notEqual(sessionRow.session_hash,verified.raw_session);
-  const replay=auth.verifyOtp(db,{challengeId:started.challenge_id,code:started.code});
+  const replay=auth.verifyOtp(db,{challengeId:started.challenge_id,code:totp.generate(secret)});
   assert.equal(replay.error,'INVALID_CODE');
 
   const req={headers:{cookie:`yasnafit_coach_session=${verified.raw_session}`},socket:{}};
@@ -88,11 +129,9 @@ try{
   assert.equal(auth.authStatus(db,dataDir).mail_configured,false);
   await assert.rejects(()=>auth.configureGmail(dataDir,'short'),/رمز برنامه/);
   const fileLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
-  assert.equal(fileLogin.delivery,'screen');
-  assert.match(fileLogin.code,/^\d{6}$/);
-  const otpFile=fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim();
-  assert.equal(otpFile,fileLogin.code);
-  const fileVerified=auth.verifyOtp(db,{challengeId:fileLogin.challenge_id,code:fileLogin.code});
+  assert.equal(fileLogin.code,undefined);
+  assert.equal(fs.existsSync(path.join(dataDir,'coach-otp-dev.txt')),false);
+  const fileVerified=auth.verifyOtp(db,{challengeId:fileLogin.challenge_id,code:loginCode(db,secret)});
   assert.ok(fileVerified.raw_session);
 
   const otpLockLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
@@ -114,13 +153,14 @@ try{
   assert.equal(stillLocked.error,'AUTH_LOCKED');
   db.prepare('UPDATE coaches SET auth_locked_until=NULL,auth_failed_attempts=0 WHERE id=?').run(extra.id);
   const recovered=await auth.startLogin(db,{email:'second@yasnafit.local',password:'SecondCoach9',dataDir});
-  assert.ok(recovered.challenge_id);
-  db.prepare("UPDATE coach_otp_challenges SET expires_at=? WHERE stable_id=?").run(new Date(Date.now()-1000).toISOString(),recovered.challenge_id);
-  const expiredCode=fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim();
-  assert.equal(auth.verifyOtp(db,{challengeId:recovered.challenge_id,code:expiredCode}).error,'CODE_EXPIRED');
+  assert.equal(recovered.error,'TOTP_SETUP_REQUIRED');
 
-  const sessionA=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim()});
-  const sessionB=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim()});
+  const expireLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  db.prepare('UPDATE coach_otp_challenges SET expires_at=? WHERE stable_id=?').run(new Date(Date.now()-1000).toISOString(),expireLogin.challenge_id);
+  assert.equal(auth.verifyOtp(db,{challengeId:expireLogin.challenge_id,code:loginCode(db,secret)}).error,'CODE_EXPIRED');
+
+  const sessionA=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:loginCode(db,secret)});
+  const sessionB=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:loginCode(db,secret)});
   const reqA={headers:{cookie:`yasnafit_coach_session=${sessionA.raw_session}`},socket:{}};
   const reqB={headers:{cookie:`yasnafit_coach_session=${sessionB.raw_session}`},socket:{}};
   assert.ok(auth.resolveSession(db,reqA));
@@ -131,7 +171,7 @@ try{
   assert.equal(auth.resolveSession(db,reqB),null);
 
   const liveLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
-  const liveSession=auth.verifyOtp(db,{challengeId:liveLogin.challenge_id,code:fs.readFileSync(path.join(dataDir,'coach-otp-dev.txt'),'utf8').trim()});
+  const liveSession=auth.verifyOtp(db,{challengeId:liveLogin.challenge_id,code:loginCode(db,secret)});
   const liveReq={headers:{cookie:`yasnafit_coach_session=${liveSession.raw_session}`},socket:{}};
   const changed=auth.changePassword(db,liveReq,{currentPassword:'YasnafitCoach1',newPassword:'YasnafitCoach2'});
   assert.equal(changed.ok,true);
@@ -153,6 +193,7 @@ try{
   assert.equal(replayReset.error,'INVALID_RESET');
   const afterReset=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach3',dataDir});
   assert.ok(afterReset.challenge_id);
+  assert.equal(afterReset.code,undefined);
 
   auth.setMailer(null);
   const fileForgot=await auth.requestPasswordReset(db,{email:'crypto.javan17@gmail.com',dataDir,req:{headers:{host:'localhost:3020'},socket:{}}});
@@ -174,7 +215,7 @@ try{
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
   db.close();
-  console.log(JSON.stringify({ok:true,setup:true,hashed_password:true,email_2fa:true,otp_five_minutes:true,session_twelve_hours:true,logout_all:true,password_reset:true,lockout:true,otp_lock:true,auth_events:true,no_plaintext:true}));
+  console.log(JSON.stringify({ok:true,setup:true,hashed_password:true,authenticator_totp:true,otp_five_minutes:true,session_twelve_hours:true,logout_all:true,password_reset:true,lockout:true,otp_lock:true,auth_events:true,no_plaintext:true,no_screen_code:true}));
 }finally{
   auth.setMailer(null);
   fs.rmSync(dir,{recursive:true,force:true});

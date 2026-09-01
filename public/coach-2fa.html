@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Authenticator | Yasnafit</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/coach-login.css" />
+</head>
+<body class="coach-login-body">
+  <main class="coach-login-shell">
+    <section class="coach-login-card" aria-labelledby="coachTotpTitle">
+      <div class="coach-login-brand">
+        <span class="coach-login-mark" aria-hidden="true">Y</span>
+        <div>
+          <strong>Yasnafit</strong>
+          <span>پنل مربی</span>
+        </div>
+      </div>
+      <h1 id="coachTotpTitle">فعال‌سازی Google Authenticator</h1>
+      <p class="coach-login-lead">این صفحه فقط یک‌بار برای اتصال برنامه Authenticator است. کد ورود دیگر ایمیل نمی‌شود.</p>
+      <ol class="coach-login-steps">
+        <li>برنامه Google Authenticator را باز کنید.</li>
+        <li>حساب جدید بسازید و این QR را اسکن کنید.</li>
+        <li>اگر اسکن ممکن نبود، کلید را دستی وارد کنید.</li>
+        <li>کد ۶ رقمی فعلی را برای تأیید بنویسید.</li>
+      </ol>
+      <div class="coach-totp-qr" id="coachTotpQr" aria-label="QR کد Google Authenticator"></div>
+      <div class="coach-totp-secret-box">
+        <span>کلید دستی</span>
+        <strong id="coachTotpSecret"></strong>
+      </div>
+      <form id="coachTotpForm" autocomplete="off">
+        <label class="coach-login-field">
+          <span>کد Google Authenticator</span>
+          <input id="coachTotpCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required maxlength="6" pattern="[0-9۰-۹٠-٩]{6}" placeholder="••••••" />
+        </label>
+        <p class="coach-login-hint">کد هر ۳۰ ثانیه عوض می‌شود. پس از تأیید، ورود با ایمیل، رمز و همین برنامه انجام می‌شود.</p>
+        <button class="coach-login-submit" type="submit" id="coachTotpSubmit">فعال‌سازی</button>
+      </form>
+      <nav class="coach-login-links">
+        <a href="/coach/login">ورود مربی</a>
+      </nav>
+      <p class="coach-login-error" id="coachLoginError" role="alert" hidden></p>
+    </section>
+  </main>
+  <script src="/coach-login.js"></script>
+</body>
+</html>

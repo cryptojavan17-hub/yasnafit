@@ -44,6 +44,7 @@
 
     loadStatus().then(status => {
       if (status.setup_required) location.replace('/coach/setup');
+      else if (status.totp_required) location.replace('/coach/2fa');
     });
 
     passwordForm.addEventListener('submit', async event => {
@@ -58,18 +59,16 @@
         challengeId = result.challenge_id;
         passwordForm.hidden = true;
         otpForm.hidden = false;
-        lead.textContent = 'کد ۶ رقمی تأیید را وارد کنید.';
-        otpHint.textContent = 'این کد تا ۵ دقیقه معتبر است.';
-        const reveal = document.getElementById('coachOtpReveal');
-        const value = document.getElementById('coachOtpValue');
-        if (reveal && value) {
-          value.textContent = result.code || '';
-          reveal.hidden = !result.code;
-        }
+        lead.textContent = 'کد ۶ رقمی Google Authenticator را وارد کنید.';
+        otpHint.textContent = 'کد برنامه Authenticator هر ۳۰ ثانیه عوض می‌شود. برای وارد کردن آن ۵ دقیقه فرصت دارید.';
         document.getElementById('coachOtp').focus();
       } catch (error) {
         if (error.code === 'SETUP_REQUIRED') {
           location.replace('/coach/setup');
+          return;
+        }
+        if (error.code === 'TOTP_SETUP_REQUIRED') {
+          location.replace('/coach/2fa');
           return;
         }
         showError(error.message);
@@ -100,10 +99,6 @@
       otpForm.hidden = true;
       passwordForm.hidden = false;
       document.getElementById('coachOtp').value = '';
-      const reveal = document.getElementById('coachOtpReveal');
-      const value = document.getElementById('coachOtpValue');
-      if (value) value.textContent = '';
-      if (reveal) reveal.hidden = true;
       lead.textContent = 'ایمیل و رمز عبور خود را وارد کنید.';
       showError('');
     });
@@ -131,7 +126,7 @@
           email: document.getElementById('coachSetupEmail').value,
           password
         });
-        location.replace('/coach/login');
+        location.replace('/coach/2fa');
       } catch (error) {
         if (error.code === 'SETUP_CLOSED') {
           location.replace('/coach/login');
@@ -140,6 +135,51 @@
         showError(error.message);
       } finally {
         setBusy(submit, false, 'ساخت اکانت');
+      }
+    });
+    return;
+  }
+
+  if (path === '/coach/2fa') {
+    const form = document.getElementById('coachTotpForm');
+    const submit = document.getElementById('coachTotpSubmit');
+    const qrBox = document.getElementById('coachTotpQr');
+    const secretBox = document.getElementById('coachTotpSecret');
+    loadStatus().then(async status => {
+      if (status.setup_required) {
+        location.replace('/coach/setup');
+        return;
+      }
+      if (!status.totp_required) {
+        location.replace('/coach/login');
+        return;
+      }
+      try {
+        const setup = await api('/api/coach/auth/totp', null, 'GET');
+        if (qrBox) qrBox.innerHTML = setup.qr_svg || '';
+        if (secretBox) secretBox.textContent = setup.secret_display || setup.secret || '';
+      } catch (error) {
+        if (error.code === 'TOTP_ALREADY_SET') location.replace('/coach/login');
+        else showError(error.message);
+      }
+    });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      showError('');
+      setBusy(submit, true, 'در حال تأیید…');
+      try {
+        await api('/api/coach/auth/totp/confirm', {
+          code: document.getElementById('coachTotpCode').value
+        });
+        location.replace('/coach/login');
+      } catch (error) {
+        if (error.code === 'TOTP_ALREADY_SET') {
+          location.replace('/coach/login');
+          return;
+        }
+        showError(error.message);
+      } finally {
+        setBusy(submit, false, 'فعال‌سازی');
       }
     });
     return;
