@@ -316,13 +316,16 @@ function authenticatorEnrollment(coach,secret){
 function writeAuthenticatorKey(dataDir,enrollment){
   if(!dataDir || !enrollment?.secret) return false;
   writeDevFile(dataDir,AUTHENTICATOR_FILE,[
-    'Google Authenticator — manual entry',
-    `Email: ${enrollment.email}`,
-    `Secret: ${enrollment.secret}`,
-    `URL: ${enrollment.otpauth_url}`,
+    'Google Authenticator — ورود دستی',
+    `ایمیل: ${enrollment.email}`,
+    `کلید Secret: ${enrollment.secret}`,
+    `لینک: ${enrollment.otpauth_url}`,
     '',
-    'Add this key in Google Authenticator, then enter the 6-digit code on /coach/2fa.',
-    'This file stays on the server. Do not put it in the browser or share it.'
+    'در Google Authenticator: افزودن → ورود یک کلید تنظیم',
+    'حساب: Yasnafit',
+    'کلید را بدون فاصله وارد کنید. نوع: مبتنی بر زمان.',
+    'بعد کد ۶ رقمی را در صفحه تأیید هویت وارد کنید.',
+    'این فایل فقط روی همین کامپیوتر است؛ در مرورگر نشان داده نمی‌شود.'
   ].join('\n'));
   return true;
 }
@@ -340,6 +343,9 @@ function ensureCoachAuthenticator(db,dataDir){
   const coach=primaryCoach(db);
   if(!coach?.password_hash) return {setup_required:true,wrote_file:false};
   if(totpConfirmed(coach)){
+    if(!coach.totp_last_counter){
+      return {totp_confirmed:true,wrote_file:writeAuthenticatorKey(dataDir,authenticatorEnrollment(coach))};
+    }
     clearAuthenticatorKey(dataDir);
     return {totp_confirmed:true,wrote_file:false};
   }
@@ -534,6 +540,8 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     writeAuthenticatorKey(dataDir,provisioned);
     coach.totp_secret=provisioned.secret;
     coach.totp_confirmed_at=new Date().toISOString();
+  }else if(!coach.totp_last_counter){
+    writeAuthenticatorKey(dataDir,authenticatorEnrollment(coach));
   }
   if(!totpReady(coach)){
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_failed',req,detail:'totp_setup_required'});

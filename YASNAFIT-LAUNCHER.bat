@@ -47,11 +47,13 @@ exit /b
 if exist data\coach-authenticator.txt (
   echo.
   echo ----------------------------------------------------
-  echo Google Authenticator key is in data\coach-authenticator.txt
+  echo لینک و کلید Google Authenticator:
   type data\coach-authenticator.txt
   echo ----------------------------------------------------
-  echo Add this key in Authenticator, then enter the 6-digit code.
+  echo Notepad this file if you have not added Authenticator yet.
+  start "" notepad "data\coach-authenticator.txt"
   echo.
+  pause
 )
 exit /b
 
