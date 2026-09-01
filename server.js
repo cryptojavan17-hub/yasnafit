@@ -35,9 +35,12 @@ const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
-  console.log('[Coach Auth] Coach account is not provisioned. Run: node scripts/provision-coach-totp.js');
-}else if(coachBootstrap.totp_required){
-  console.log('[Coach Auth] Authenticator is not provisioned. Run: node scripts/provision-coach-totp.js');
+  console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
+}else{
+  const authenticator=coachAuthService.ensureCoachAuthenticator(db,path.dirname(dbPath));
+  if(authenticator.wrote_file){
+    console.log('[Coach Auth] Authenticator key written to data/coach-authenticator.txt');
+  }
 }
 
 
@@ -194,6 +197,20 @@ async function handleCoachAuth(req,res,url){
       return coachAuthError(res,error.code,error.message);
     }
   }
+  if(p==='/api/coach/auth/setup' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-setup',8,15*60*1000)) return true;
+    if(!coachAuthService.setupRequired(db)){
+      return sendError(res,404,'مسیر پیدا نشد');
+    }
+    const body=await readBody(req);
+    try{
+      const coach=coachAuthService.setupCoach(db,{email:body.email,password:body.password,displayName:body.display_name,req});
+      return send(res,201,{ok:true,coach,next:'/coach/login'});
+    }catch(error){
+      return coachAuthError(res,error.code,error.message);
+    }
+  }
   if(p==='/api/coach/auth/login' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
@@ -212,7 +229,7 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-otp-verify',30,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=coachAuthService.verifyOtp(db,{code:body.code,req});
+    const result=coachAuthService.verifyOtp(db,{code:body.code,req,dataDir:path.dirname(dbPath)});
     if(result.error) return coachAuthError(res,result.error);
     log('ورود مربی', result.coach?.email||'');
     return send(res,200,{success:true,coach:result.coach,expires_at:result.expires_at},{
@@ -2497,8 +2514,16 @@ const server=http.createServer(async(req,res)=>{
       '/coach/mail':'coach-mail.html'
     };
     if(url.pathname==='/coach/setup'){
-      res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
-      return res.end(JSON.stringify({error:'مسیر پیدا نشد',code:'NOT_FOUND'}));
+      if(req.method!=='GET' || !coachAuthService.setupRequired(db)){
+        res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+        return res.end(JSON.stringify({error:'مسیر پیدا نشد',code:'NOT_FOUND'}));
+      }
+      res.writeHead(200,{
+        'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
+        'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
+        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
+      });
+      return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
     if(coachAuthPages[url.pathname] && req.method==='GET'){
       res.writeHead(200,{

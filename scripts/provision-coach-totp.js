@@ -20,10 +20,13 @@ try{
     console.log('Coach account created for', auth.SETUP_EMAIL);
   }
   const result=auth.provisionCoachTotp(db,{rotate});
+  const dataDir=path.dirname(dbPath);
+  auth.writeAuthenticatorKey(dataDir,result);
   console.log('Add this key in Google Authenticator (manual entry).');
   console.log('Email:', result.email);
   console.log('Secret:', result.secret);
   console.log('URL:', result.otpauth_url);
+  console.log('Also written to data/coach-authenticator.txt');
 }finally{
   db.close();
 }

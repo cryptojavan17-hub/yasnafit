@@ -71,8 +71,6 @@ try{
   assert.throws(()=>auth.normalizeEmail('not-an-email'),/ایمیل معتبر نیست/);
   assert.equal(auth.normalizeEmail('Crypto.Javan17@Gmail.com'),'crypto.javan17@gmail.com');
 
-  const beforeTotp=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
-  assert.equal(beforeTotp.error,'TOTP_SETUP_REQUIRED');
   const totpSetup=auth.beginTotpSetup(db);
   assert.match(totpSetup.secret,/^[A-Z2-7]{32}$/);
   assert.match(totpSetup.otpauth_url,/^otpauth:\/\/totp\/Yasnafit/);
@@ -80,6 +78,11 @@ try{
   assert.equal(totpSetup.secret.includes(' '),false);
   const again=auth.beginTotpSetup(db);
   assert.equal(again.secret,totpSetup.secret);
+  const unconfirmedLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  assert.ok(unconfirmedLogin.challenge_id);
+  assert.equal(unconfirmedLogin.secret,undefined);
+  assert.equal(unconfirmedLogin.qr_svg,undefined);
+  assert.equal(auth.authStatus(db).totp_confirmed,false);
   assert.equal(auth.confirmTotp(db,{code:'000000'}).error,'INVALID_CODE');
   const confirmed=auth.confirmTotp(db,{code:totp.generate(totpSetup.secret)});
   assert.equal(confirmed.ok,true);
@@ -165,7 +168,12 @@ try{
   assert.equal(stillLocked.error,'AUTH_LOCKED');
   db.prepare('UPDATE coaches SET auth_locked_until=NULL,auth_failed_attempts=0 WHERE id=?').run(extra.id);
   const recovered=await auth.startLogin(db,{email:'second@yasnafit.local',password:'SecondCoach9',dataDir});
-  assert.equal(recovered.error,'TOTP_SETUP_REQUIRED');
+  assert.ok(recovered.challenge_id);
+  assert.equal(recovered.secret,undefined);
+  assert.equal(recovered.qr_svg,undefined);
+  const extraSecret=db.prepare('SELECT totp_secret FROM coaches WHERE id=?').get(extra.id).totp_secret;
+  assert.match(extraSecret,/^[A-Z2-7]{32}$/);
+  assert.ok(fs.readFileSync(path.join(dataDir,'coach-authenticator.txt'),'utf8').includes(extraSecret));
 
   const expireLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
   db.prepare('UPDATE coach_otp_challenges SET expires_at=? WHERE stable_id=?').run(new Date(Date.now()-1000).toISOString(),expireLogin.challenge_id);

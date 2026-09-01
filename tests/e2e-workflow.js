@@ -70,7 +70,8 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const loginHtml=await loginPage.text();
   assert.match(loginHtml,/ادامه/);assert.match(loginHtml,/ایمیل مربی/);
   assert.doesNotMatch(loginHtml,/coachOtpForm|فعال‌سازی|otpauth|qr_svg|secret_display/);
-  assert.equal((await fetch(BASE+'/coach/setup')).status,404);
+  const setupPage=await fetch(BASE+'/coach/setup');
+  assert.ok(setupPage.status===200 || setupPage.status===404, `setup page ${setupPage.status}`);
   const twoFaPage=await fetch(BASE+'/coach/2fa');assert.equal(twoFaPage.status,200);
   const twoFaHtml=await twoFaPage.text();
   assert.match(twoFaHtml,/تأیید هویت/);assert.match(twoFaHtml,/ورود به پنل/);
@@ -91,6 +92,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   }
   const statusAfterSetup=await request('/api/coach/auth/status');
   assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
+  assert.equal(statusAfterSetup.data.setup_required,false);
+  assert.equal((await fetch(BASE+'/coach/setup')).status,404);
+  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   let totpSecret=null;
   if(statusAfterSetup.data.totp_required){
     const liveDb=new DatabaseSync(liveDbPath);

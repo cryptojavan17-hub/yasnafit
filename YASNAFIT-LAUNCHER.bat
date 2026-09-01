@@ -32,14 +32,27 @@ exit /b
 where node >nul 2>&1
 if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then reopen this launcher.& exit /b 1)
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
-if not errorlevel 1 (echo Server is already running on port %PORT%.& call :OPEN_DASHBOARD& exit /b)
+if not errorlevel 1 (echo Server is already running on port %PORT%.& call :SHOW_AUTHENTICATOR& call :OPEN_DASHBOARD& exit /b)
 if not exist logs mkdir logs
 echo Starting Yasnafit server in background (no extra window)...
 REM Run node in background without new window (/B) - keeps launcher visible
 start "" /B node server.js > logs\server.log 2>&1
 timeout /t 2 /nobreak >nul
+call :SHOW_AUTHENTICATOR
 call :OPEN_DASHBOARD
 echo Yasnafit started at http://localhost:%PORT% - launcher stays open
+exit /b
+
+:SHOW_AUTHENTICATOR
+if exist data\coach-authenticator.txt (
+  echo.
+  echo ----------------------------------------------------
+  echo Google Authenticator key is in data\coach-authenticator.txt
+  type data\coach-authenticator.txt
+  echo ----------------------------------------------------
+  echo Add this key in Authenticator, then enter the 6-digit code.
+  echo.
+)
 exit /b
 
 :OPEN_DASHBOARD

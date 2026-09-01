@@ -26,9 +26,47 @@
     return data;
   }
 
+  if (path === '/coach/setup') {
+    const form = document.getElementById('coachSetupForm');
+    const submit = document.getElementById('coachSetupSubmit');
+    api('/api/coach/auth/status', null, 'GET').then(status => {
+      if (!status.setup_required) location.replace('/coach/login');
+    }).catch(() => {});
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      showError('');
+      const password = document.getElementById('coachSetupPassword').value;
+      const confirm = document.getElementById('coachSetupPasswordConfirm').value;
+      if (password !== confirm) {
+        showError('تکرار رمز عبور مطابقت ندارد.');
+        return;
+      }
+      setBusy(submit, true, 'در حال ساخت…');
+      try {
+        await api('/api/coach/auth/setup', {
+          email: document.getElementById('coachSetupEmail').value,
+          password
+        });
+        location.replace('/coach/login');
+      } catch (error) {
+        if (error.code === 'SETUP_CLOSED') {
+          location.replace('/coach/login');
+          return;
+        }
+        showError(error.message);
+      } finally {
+        setBusy(submit, false, 'ساخت اکانت');
+      }
+    });
+    return;
+  }
+
   if (path === '/coach/login') {
     const form = document.getElementById('coachPasswordForm');
     const submit = document.getElementById('coachPasswordSubmit');
+    api('/api/coach/auth/status', null, 'GET').then(status => {
+      if (status.setup_required) location.replace('/coach/setup');
+    }).catch(() => {});
     form.addEventListener('submit', async event => {
       event.preventDefault();
       showError('');
@@ -40,6 +78,10 @@
         });
         location.replace('/coach/2fa');
       } catch (error) {
+        if (error.code === 'SETUP_REQUIRED') {
+          location.replace('/coach/setup');
+          return;
+        }
         showError(error.message);
       } finally {
         setBusy(submit, false, 'ادامه');
