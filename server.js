@@ -456,12 +456,16 @@ async function handleStudentsDelete(req,res,url){
   if(!student)return sendError(res,404,'شاگرد پیدا نشد');
   const id=student.id;
   if(req.method==='DELETE'){
-    // Soft delete
-    const r=db.prepare('UPDATE students SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run(id);
-    if(!r.changes) return sendError(res,404,'شاگرد پیدا نشد');
-    log('شاگرد حذف شد (soft)', `id ${id}`);
-    auditService.record(db,{actorType:'coach',action:'student.deleted',entityType:'student',entityId:id,metadata:{case_number:student.case_number}});
-    return send(res,200,{id, soft_deleted:true});
+    try{
+      const result=studentService.purgeStudent(db,id);
+      if(!result) return sendError(res,404,'شاگرد پیدا نشد');
+      log('شاگرد و تمام اطلاعات حذف شد', `${student.case_number} - id ${id}`);
+      auditService.record(db,{actorType:'coach',action:'student.purged',entityType:'student',entityId:id,metadata:{case_number:student.case_number}});
+      return send(res,200,{id, purged:true, case_number:student.case_number});
+    }catch(error){
+      console.error('Purge student error:', error);
+      return sendError(res,500,'خطا در حذف کامل شاگرد');
+    }
   }
   if(req.method==='PUT'){
     try{
@@ -1932,6 +1936,18 @@ async function handleBodyAssessments(req,res,url){
   if(assessMatch){
     const id=Number(assessMatch[1]);
     const isPhotos = !!assessMatch[2];
+    if(req.method==='DELETE' && !isPhotos){
+      try{
+        const result=studentService.purgeAssessment(db,id);
+        if(!result) return sendError(res,404,'ارزیابی پیدا نشد');
+        log('ارزیابی بدنی حذف شد', `id ${id} student ${result.student_id}`);
+        auditService.record(db,{actorType:'coach',action:'assessment.deleted',entityType:'assessment',entityId:id,metadata:{student_id:result.student_id}});
+        return send(res,200,{id, purged:true, student_id:result.student_id});
+      }catch(error){
+        console.error('Purge assessment error:', error);
+        return sendError(res,500,'خطا در حذف ارزیابی');
+      }
+    }
     if(req.method==='GET'){
       if(isPhotos){
         const photos = rows(`SELECT ${PHOTO_METADATA_COLUMNS} FROM assessment_photos WHERE assessment_id=? AND deleted_at IS NULL ORDER BY photo_type`, id);

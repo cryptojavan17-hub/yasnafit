@@ -95,11 +95,13 @@ assert.doesNotMatch(dashboardBlock,/student-submissions|latestRelease|release-da
 assert.match(reviewSource,/href="\/assessments\/\$\{item\.id\}"[^>]*>مشاهده ارزیابی/,'submission button is not a reliable assessment link');
 assert.match(reviewSource,/window\.renderAssessmentReview/,'assessment review component is missing');
 assert.ok(reviewSource.includes('const match=route.match(')&&reviewSource.includes('assessments')&&reviewSource.includes('id=match?Number(match[1]):null'),'assessment review route is not wired');
-for(const action of ['btnApprove','btnReject','btnRequestChanges'])assert.match(reviewSource,new RegExp(`id="${action}"`),`review action is missing: ${action}`);
+for(const action of ['btnApprove','btnReject','btnRequestChanges','btnDeleteAssessment'])assert.match(reviewSource,new RegExp(`id="${action}"`),`review action is missing: ${action}`);
 assert.match(reviewSource,/پیام به شاگرد/,'student message action is missing');
+assert.match(reviewSource,/method:'DELETE'/,'assessment review delete is not wired');
 assert.match(reviewSource,/case_number/,'case number is missing from coach review');
 assert.match(reviewSource,/item\.case_number/,'case number is missing from pending submissions');
 const studentsSource=fs.readFileSync(path.join(publicDir,'students.js'),'utf8');
+assert.match(studentsSource,/برای همیشه حذف شود/,'student list delete is not a permanent purge warning');
 const addStudentStart=studentsSource.indexOf('addStudentForm'),addStudentBlock=studentsSource.slice(addStudentStart,studentsSource.indexOf("modal.querySelectorAll('[data-close-modal]')",addStudentStart));
 assert.match(addStudentBlock,/name=\\?"full_name\\?"/,'student creation name field is missing');
 assert.match(addStudentBlock,/name=\\?"mobile\\?"/,'student creation mobile field is missing');

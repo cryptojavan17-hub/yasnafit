@@ -40,7 +40,41 @@ try{
   const detail=studentService.getManagedStudentDetail(db,third);
   assert.equal(detail.assessments.length,1);assert.equal(detail.programs.length,1);assert.equal(detail.timeline.length,2);
   assert.equal(studentService.getStudentPrograms(db,deleted),null);assert.equal(studentService.getStudentInvites(db,deleted),null);
+
+  const photosRoot=path.resolve(__dirname,'..','data','assessments');
+  const docsRoot=path.resolve(__dirname,'..','data','assessment-documents');
+  const purgeId=Number(add.run('student-purge','حذف کامل','09124444444','—','فعال').lastInsertRowid);
+  const assessmentId=Number(db.prepare("INSERT INTO body_assessments(stable_id,student_id,assessment_number,status,weight,submitted_at) VALUES('assessment-purge',?,1,'SUBMITTED',68,CURRENT_TIMESTAMP)").run(purgeId).lastInsertRowid);
+  const photoDir=path.join(photosRoot,String(purgeId),String(assessmentId));
+  fs.mkdirSync(photoDir,{recursive:true});
+  const photoFile=path.join(photoDir,'front.jpg');
+  fs.writeFileSync(photoFile,'photo');
+  db.prepare("INSERT INTO assessment_photos(stable_id,assessment_id,student_id,photo_type,storage_path,original_filename,mime_type,size_bytes) VALUES('photo-purge',?,?,'front',?,'front.jpg','image/jpeg',5)").run(assessmentId,purgeId,photoFile);
+  try{
+    const remainingAssessment=Number(db.prepare("INSERT INTO body_assessments(stable_id,student_id,assessment_number,status,weight,submitted_at) VALUES('assessment-keep',?,2,'SUBMITTED',69,CURRENT_TIMESTAMP)").run(purgeId).lastInsertRowid);
+    const remainingDir=path.join(photosRoot,String(purgeId),String(remainingAssessment));
+    fs.mkdirSync(remainingDir,{recursive:true});
+    const remainingFile=path.join(remainingDir,'side.jpg');
+    fs.writeFileSync(remainingFile,'keep');
+    db.prepare("INSERT INTO assessment_photos(stable_id,assessment_id,student_id,photo_type,storage_path,original_filename,mime_type,size_bytes) VALUES('photo-keep',?,?,'side',?,'side.jpg','image/jpeg',4)").run(remainingAssessment,purgeId,remainingFile);
+    const assessmentPurged=studentService.purgeAssessment(db,assessmentId);
+    assert.equal(assessmentPurged.purged,true);
+    assert.equal(db.prepare('SELECT id FROM body_assessments WHERE id=?').get(assessmentId),undefined);
+    assert.equal(db.prepare('SELECT id FROM body_assessments WHERE id=?').get(remainingAssessment).id,remainingAssessment);
+    assert.equal(fs.existsSync(photoFile),false);
+    assert.equal(fs.existsSync(remainingFile),true);
+    const purged=studentService.purgeStudent(db,purgeId);
+    assert.equal(purged.purged,true);
+    assert.equal(db.prepare('SELECT id FROM students WHERE id=?').get(purgeId),undefined);
+    assert.equal(db.prepare('SELECT id FROM body_assessments WHERE student_id=?').get(purgeId),undefined);
+    assert.equal(db.prepare('SELECT id FROM assessment_photos WHERE student_id=?').get(purgeId),undefined);
+    assert.equal(fs.existsSync(remainingFile),false);
+  }finally{
+    fs.rmSync(path.join(photosRoot,String(purgeId)),{recursive:true,force:true});
+    fs.rmSync(path.join(docsRoot,String(purgeId)),{recursive:true,force:true});
+  }
+
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   db.close();
-  console.log(JSON.stringify({ok:true,empty_state:true,search:true,filters:true,soft_delete:true,detail:true,timeline:true}));
+  console.log(JSON.stringify({ok:true,empty_state:true,search:true,filters:true,soft_delete:true,hard_purge:true,detail:true,timeline:true}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

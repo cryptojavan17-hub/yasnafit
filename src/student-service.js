@@ -511,6 +511,98 @@ function getStudentInvites(db,studentId){
   `).all(studentId);
 }
 
+function storageRoot(kind){
+  return path.resolve(__dirname,'..','data',kind);
+}
+function isInside(root, target){
+  const base=path.resolve(root), resolved=path.resolve(target);
+  return resolved===base || resolved.startsWith(base+path.sep);
+}
+function unlinkInside(filePath, root){
+  try{
+    if(!filePath) return;
+    const resolved=path.resolve(filePath);
+    if(!isInside(root, resolved)) return;
+    if(fs.existsSync(resolved) && fs.statSync(resolved).isFile()) fs.unlinkSync(resolved);
+  }catch(error){}
+}
+function rmDirInside(dirPath, root){
+  try{
+    const resolved=path.resolve(dirPath);
+    if(!isInside(root, resolved)) return;
+    if(fs.existsSync(resolved)) fs.rmSync(resolved,{recursive:true,force:true});
+  }catch(error){}
+}
+
+function purgeAssessment(db, assessmentId){
+  const assessment=db.prepare('SELECT * FROM body_assessments WHERE id=?').get(assessmentId);
+  if(!assessment) return null;
+  const photos=db.prepare('SELECT storage_path FROM assessment_photos WHERE assessment_id=?').all(assessmentId);
+  const documents=db.prepare('SELECT storage_path FROM assessment_documents WHERE assessment_id=?').all(assessmentId);
+  const photosRoot=storageRoot('assessments');
+  const documentsRoot=storageRoot('assessment-documents');
+  db.exec('BEGIN');
+  try{
+    db.prepare('UPDATE training_programs SET assessment_id=NULL WHERE assessment_id=?').run(assessmentId);
+    db.prepare('UPDATE students SET last_assessment_id=NULL WHERE last_assessment_id=?').run(assessmentId);
+    db.prepare('DELETE FROM assessment_photos WHERE assessment_id=?').run(assessmentId);
+    db.prepare('DELETE FROM assessment_documents WHERE assessment_id=?').run(assessmentId);
+    db.prepare('DELETE FROM body_assessments WHERE id=?').run(assessmentId);
+    const latest=db.prepare('SELECT id FROM body_assessments WHERE student_id=? ORDER BY assessment_number DESC, id DESC LIMIT 1').get(assessment.student_id);
+    if(latest) db.prepare('UPDATE students SET last_assessment_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?').run(latest.id, assessment.student_id);
+    else db.prepare("UPDATE students SET last_assessment_id=NULL, profile_status=CASE WHEN profile_status IN ('SUBMITTED','PENDING_REVIEW','UNDER_REVIEW','APPROVED','REJECTED','CHANGES_REQUESTED') THEN 'PROFILE_INCOMPLETE' ELSE profile_status END, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=?").run(assessment.student_id);
+    db.exec('COMMIT');
+  }catch(error){
+    try{db.exec('ROLLBACK');}catch(rollbackError){}
+    throw error;
+  }
+  for(const photo of photos) unlinkInside(photo.storage_path, photosRoot);
+  for(const document of documents) unlinkInside(document.storage_path, documentsRoot);
+  rmDirInside(path.join(photosRoot, String(assessment.student_id), String(assessmentId)), photosRoot);
+  rmDirInside(path.join(documentsRoot, String(assessment.student_id), String(assessmentId)), documentsRoot);
+  return {id:assessmentId, student_id:assessment.student_id, purged:true};
+}
+
+function purgeStudent(db, studentId){
+  const student=db.prepare('SELECT * FROM students WHERE id=?').get(studentId);
+  if(!student) return null;
+  const photos=db.prepare('SELECT storage_path FROM assessment_photos WHERE student_id=?').all(studentId);
+  const documents=db.prepare('SELECT storage_path FROM assessment_documents WHERE student_id=?').all(studentId);
+  const photosRoot=storageRoot('assessments');
+  const documentsRoot=storageRoot('assessment-documents');
+  const sessions=db.prepare('SELECT id FROM workout_sessions WHERE student_id=?').all(studentId);
+  const programs=db.prepare('SELECT id FROM training_programs WHERE student_id=?').all(studentId);
+  db.exec('BEGIN');
+  try{
+    for(const session of sessions) db.prepare('DELETE FROM workout_results WHERE workout_session_id=?').run(session.id);
+    db.prepare('DELETE FROM workout_sessions WHERE student_id=?').run(studentId);
+    for(const program of programs) db.prepare('DELETE FROM training_programs WHERE id=?').run(program.id);
+    db.prepare('DELETE FROM diet_programs WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM supplement_programs WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM assessment_photos WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM assessment_documents WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM body_assessments WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM student_invites WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM student_sessions WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM notifications WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM conversations WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM measurements WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM coach_students WHERE student_id=?').run(studentId);
+    db.prepare('UPDATE programs SET student_id=NULL WHERE student_id=?').run(studentId);
+    db.prepare('UPDATE orders SET student_id=NULL WHERE student_id=?').run(studentId);
+    db.prepare('DELETE FROM students WHERE id=?').run(studentId);
+    db.exec('COMMIT');
+  }catch(error){
+    try{db.exec('ROLLBACK');}catch(rollbackError){}
+    throw error;
+  }
+  for(const photo of photos) unlinkInside(photo.storage_path, photosRoot);
+  for(const document of documents) unlinkInside(document.storage_path, documentsRoot);
+  rmDirInside(path.join(photosRoot, String(studentId)), photosRoot);
+  rmDirInside(path.join(documentsRoot, String(studentId)), documentsRoot);
+  return {id:studentId, case_number:student.case_number, purged:true};
+}
+
 module.exports = {
   genSecureToken,
   hashToken,
@@ -524,6 +616,8 @@ module.exports = {
   updateAssessment,
   submitAssessment,
   reviewAssessment,
+  purgeAssessment,
+  purgeStudent,
   MANAGEMENT_STATUS_VALUES,
   getManagedStudents,
   getManagedStudentDetail,

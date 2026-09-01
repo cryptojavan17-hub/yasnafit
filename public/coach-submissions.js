@@ -497,6 +497,7 @@
                   <button class="review-action approve" id="btnApprove" ${reviewable ? '' : 'disabled'}>✓ <span>تأیید ارزیابی</span></button>
                   <button class="review-action revise" id="btnRequestChanges" ${reviewable ? '' : 'disabled'}>↻ <span>درخواست اصلاح</span></button>
                   <button class="review-action reject" id="btnReject" ${reviewable ? '' : 'disabled'}>× <span>رد ارزیابی</span></button>
+                  <button class="review-action reject" id="btnDeleteAssessment" type="button">🗑 <span>حذف ارزیابی</span></button>
                   <a class="review-action message" href="/users-list/${student.case_number || student.id}">✉ <span>پیام به شاگرد</span></a>
                 </div>
 
@@ -542,6 +543,20 @@
       document.querySelector('#btnApprove')?.addEventListener('click', () => decide('approve', false));
       document.querySelector('#btnRequestChanges')?.addEventListener('click', () => decide('request-changes', true));
       document.querySelector('#btnReject')?.addEventListener('click', () => decide('reject', true));
+      document.querySelector('#btnDeleteAssessment')?.addEventListener('click', async () => {
+        if(!confirm(`ارزیابی #${ass.assessment_number} شاگرد «${student.full_name}» با عکس‌ها و مدارک آن برای همیشه حذف شود؟`)) return;
+        const feedback = document.querySelector('#reviewActionFeedback');
+        const button = document.querySelector('#btnDeleteAssessment');
+        if(button) button.disabled = true;
+        if(feedback) feedback.textContent = 'در حال حذف ارزیابی…';
+        try{
+          await api(`/api/assessments/${id}`, {method:'DELETE'});
+          location.href = '/students/submissions';
+        }catch(error){
+          if(feedback) feedback.textContent = error.message;
+          if(button) button.disabled = false;
+        }
+      });
 
       document.querySelector('#btnAiBuildProgram')?.addEventListener('click', () => {
         if (window.openAICopilot) {

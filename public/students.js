@@ -251,7 +251,7 @@
         const studentId=btn.dataset.deleteStudent;
         const studentName=btn.dataset.studentName;
         const caseNumber=btn.dataset.caseNumber;
-        if(confirm(`آیا از حذف شاگرد «${studentName}» (شماره پرونده ${caseNumber}) اطمینان دارید؟`)){
+        if(confirm(`شاگرد «${studentName}» (پرونده ${caseNumber}) با تمام اطلاعات، عکس‌ها، مدارک، ارزیابی‌ها و برنامه‌ها برای همیشه حذف شود؟`)){
           try{
             await api(`/api/students/${studentId}`,{method:'DELETE'});
             loadStudentList();
