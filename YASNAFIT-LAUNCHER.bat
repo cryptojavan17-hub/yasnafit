@@ -43,9 +43,7 @@ echo Yasnafit started at http://localhost:%PORT% - launcher stays open
 exit /b
 
 :OPEN_DASHBOARD
-set "COACH_TOKEN="
-if exist data\coach-access-token set /p COACH_TOKEN=<data\coach-access-token
-if defined COACH_TOKEN (start "" "http://localhost:%PORT%/coach-access/%COACH_TOKEN%") else (echo Coach access token was not created. Check logs\server.log.)
+start "" "http://localhost:%PORT%/coach/login"
 exit /b
 
 :STOP

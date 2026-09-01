@@ -14,26 +14,9 @@ const port = Number(process.env.PORT || 3020);
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-// Optional deployment boundary. The Windows local app remains zero-config; hosted
-// deployments should set YASNAFIT_COACH_TOKEN and send it as a Bearer token.
-const COACH_ACCESS_TOKEN = process.env.YASNAFIT_COACH_TOKEN || '';
-const LOCAL_COACH_SESSION = crypto.randomBytes(32).toString('base64url');
-
+// Coach access is email + password + emailed 2FA. No shared bearer token.
 // --- Database & Services ---
 const { db, dbPath, backup, log } = require('./src/database');
-const coachAccessFile = path.join(path.dirname(dbPath), 'coach-access-token');
-function loadLocalCoachAccessToken(){
-  if(COACH_ACCESS_TOKEN) return COACH_ACCESS_TOKEN;
-  try {
-    const existing=fs.readFileSync(coachAccessFile,'utf8').trim();
-    if(/^[A-Za-z0-9_-]{43}$/.test(existing)) return existing;
-  } catch(e){}
-  const generated=crypto.randomBytes(32).toString('base64url');
-  fs.writeFileSync(coachAccessFile, generated+'\n', {mode:0o600, flag:'w'});
-  try { fs.chmodSync(coachAccessFile,0o600); } catch(e){}
-  return generated;
-}
-const LOCAL_COACH_ACCESS_TOKEN = loadLocalCoachAccessToken();
 const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
@@ -48,7 +31,12 @@ const assessmentDocumentService = require('./src/assessment-document-service');
 const engagementService = require('./src/engagement-service');
 const auditService = require('./src/audit-service');
 const studentAuthService = require('./src/student-auth-service');
+const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
+const coachBootstrap = coachAuthService.ensureLocalCoach(db, path.dirname(dbPath));
+if(coachBootstrap.bootstrapped){
+  console.log(`[Coach Auth] Initial credentials written to data/coach-credentials.txt (${coachBootstrap.email})`);
+}
 
 // --- MIME Types ---
 const types = {
@@ -135,26 +123,60 @@ function isSafePath(base, target){
   return normalizedTarget === normalizedBase || normalizedTarget.startsWith(normalizedBase + path.sep);
 }
 
-function constantTimeEqual(expectedValue, suppliedValue){
-  const expected=Buffer.from(String(expectedValue));
-  const actual=Buffer.from(String(suppliedValue||''));
-  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
-}
-
 function isCoachAuthorized(req){
-  const auth = String(req.headers.authorization || '');
-  const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : String(req.headers['x-coach-token'] || '');
-  if(COACH_ACCESS_TOKEN && constantTimeEqual(COACH_ACCESS_TOKEN, bearer)) return true;
-  const cookies=Object.fromEntries(String(req.headers.cookie||'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{
-    const i=v.indexOf('='); return i<0?[v,'']:[v.slice(0,i),v.slice(i+1)];
-  }));
-  return constantTimeEqual(LOCAL_COACH_SESSION, cookies.yasnafit_coach_session);
+  return Boolean(coachAuthService.resolveSession(db,req));
 }
 
 function requireCoach(req, res){
   if(isCoachAuthorized(req)) return false;
-  sendError(res, 401, 'دسترسی مربی احراز نشد');
+  send(res, 401, {error:'نشست مربی معتبر نیست.',code:'COACH_SESSION_REQUIRED'});
   return true;
+}
+
+function redirectCoachLogin(res){
+  res.writeHead(303,{
+    Location:'/coach/login',
+    'Cache-Control':'no-store',
+    'Referrer-Policy':'no-referrer'
+  });
+  return res.end();
+}
+
+function coachAuthError(res,code){
+  const errors={
+    INVALID_CREDENTIALS:[401,'ایمیل یا رمز عبور نادرست است.'],
+    AUTH_LOCKED:[429,'ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.'],
+    INVALID_CODE:[401,'کد تأیید نادرست است.'],
+    CODE_EXPIRED:[401,'کد تأیید منقضی شده است. دوباره وارد شوید.']
+  };
+  const [status,message]=errors[code]||errors.INVALID_CREDENTIALS;
+  return send(res,status,{error:message,code});
+}
+
+async function handleCoachAuth(req,res,url){
+  const p=url.pathname;
+  if(p==='/api/coach/auth/login' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
+    const body=await readBody(req);
+    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath)});
+    if(result.error) return coachAuthError(res,result.error);
+    return send(res,200,{challenge_id:result.challenge_id,expires_at:result.expires_at,email:result.email});
+  }
+  if(p==='/api/coach/auth/verify' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    if(!rateLimit(req,res,'coach-otp-verify',30,15*60*1000)) return true;
+    const body=await readBody(req);
+    const result=coachAuthService.verifyOtp(db,{challengeId:body.challenge_id,code:body.code});
+    if(result.error) return coachAuthError(res,result.error);
+    log('ورود مربی', result.coach?.email||'');
+    return send(res,200,{success:true,coach:result.coach,expires_at:result.expires_at},{'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)});
+  }
+  if(p==='/api/coach/auth/logout' && req.method==='POST'){
+    coachAuthService.revokeCurrentSession(db,req);
+    return send(res,200,{success:true},{'Set-Cookie':coachAuthService.clearSessionCookie(req)});
+  }
+  return sendError(res,404,'مسیر ورود مربی پیدا نشد');
 }
 
 const rateBuckets=new Map();
@@ -2224,6 +2246,7 @@ async function api(req,res,url){
       const releaseResponse=await handleReleaseInfo(req,res,url);
       if(releaseResponse) return releaseResponse;
     }
+    if(p.startsWith('/api/coach/auth/')) return await handleCoachAuth(req,res,url);
     if(p==='/api/student/auth/login')return await handleStudentAuth(req,res,url);
     if(p==='/api/student/auth/register' || p==='/api/student/register')return await handleStudentRegister(req,res,url);
     if(p.startsWith('/api/student/join/')){
@@ -2375,25 +2398,18 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(414); return res.end('URI Too Long');
     }
 
-    // Local launcher/bootstrap: possession of the filesystem-protected coach token
-    // establishes an HttpOnly process session, then immediately removes it from the URL.
-    const coachAccessMatch=url.pathname.match(/^\/coach-access\/([A-Za-z0-9_-]{43})$/);
-    if(coachAccessMatch){
-      if(req.method!=='GET' || !constantTimeEqual(LOCAL_COACH_ACCESS_TOKEN,coachAccessMatch[1])){
-        return sendError(res,401,'دسترسی مربی احراز نشد');
-      }
-      const secureCookie=req.socket.encrypted || String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https' ? '; Secure' : '';
-      res.writeHead(303,{
-        'Location':'/',
-        'Set-Cookie':`yasnafit_coach_session=${LOCAL_COACH_SESSION}; HttpOnly; SameSite=Strict; Path=/${secureCookie}`,
-        'Cache-Control':'no-store',
-        'Referrer-Policy':'no-referrer'
-      });
-      return res.end();
-    }
-    if(url.pathname.startsWith('/coach-access/')) return sendError(res,401,'دسترسی مربی احراز نشد');
+    if(url.pathname.startsWith('/coach-access/')) return sendError(res,404,'مسیر پیدا نشد');
 
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
+
+    if(url.pathname==='/coach/login' && req.method==='GET'){
+      res.writeHead(200,{
+        'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
+        'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
+        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
+      });
+      return fs.createReadStream(path.join(publicDir,'coach-login.html')).pipe(res);
+    }
 
     const isJoinPage=/^\/join\/[^/]+$/.test(url.pathname);
     const isStudentPage=['/student/login','/student/register','/student/diet','/student/supplement','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
@@ -2411,8 +2427,9 @@ const server=http.createServer(async(req,res)=>{
     // private. Student routes use a separate HTML shell and student session.
     const requestExt=path.extname(url.pathname).toLowerCase();
     const isCoachSpaRoute=!url.pathname.startsWith('/join/') &&
+      url.pathname!=='/coach/login' &&
       (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
-    if(isCoachSpaRoute && !isCoachAuthorized(req)) return sendError(res,401,'دسترسی مربی احراز نشد');
+    if(isCoachSpaRoute && !isCoachAuthorized(req)) return redirectCoachLogin(res);
 
     // Blank white placeholder image serving
     if(url.pathname==='/blank-white.svg' || url.pathname==='/assets/images/blank-white.svg'){

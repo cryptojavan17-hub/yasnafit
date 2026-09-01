@@ -1,0 +1,127 @@
+.coach-login-body{
+  margin:0;
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(1200px 480px at 80% -10%, var(--accent-surface), transparent 58%),
+    var(--bg);
+  color:var(--text);
+  font-family:Tahoma,system-ui,sans-serif;
+}
+.coach-login-shell{
+  width:min(440px,calc(100% - 32px));
+  padding:24px 0;
+}
+.coach-login-card{
+  background:var(--component-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);
+  padding:28px 24px 24px;
+  backdrop-filter:blur(var(--component-blur));
+}
+.coach-login-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:22px;
+}
+.coach-login-mark{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--accent-surface);
+  border:1px solid var(--accent-border);
+  color:var(--accent-hover);
+  font-weight:800;
+}
+.coach-login-brand strong{
+  display:block;
+  font-size:15px;
+}
+.coach-login-brand span{
+  color:var(--text-muted);
+  font-size:12px;
+}
+.coach-login-card h1{
+  margin:0 0 8px;
+  font-size:22px;
+  font-weight:800;
+}
+.coach-login-lead{
+  margin:0 0 22px;
+  color:var(--text-secondary);
+  font-size:14px;
+  line-height:1.7;
+}
+.coach-login-field{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-bottom:14px;
+  font-size:13px;
+  color:var(--text-secondary);
+}
+.coach-login-field input{
+  height:var(--component-control-height);
+  border-radius:var(--component-control-radius);
+  border:1px solid var(--component-border);
+  background:var(--component-control);
+  color:var(--text);
+  padding:0 14px;
+  font-size:15px;
+  outline:none;
+  transition:border-color var(--transition), box-shadow var(--transition);
+}
+.coach-login-field input:focus{
+  border-color:var(--border-focus);
+  box-shadow:0 0 0 3px var(--accent-surface);
+}
+.coach-login-hint{
+  margin:-4px 0 16px;
+  color:var(--text-muted);
+  font-size:12px;
+  line-height:1.6;
+}
+.coach-login-submit,
+.coach-login-secondary{
+  width:100%;
+  height:var(--component-control-height);
+  border:0;
+  border-radius:var(--component-control-radius);
+  font-weight:800;
+  cursor:pointer;
+  transition:transform var(--transition), opacity var(--transition);
+}
+.coach-login-submit{
+  background:var(--accent);
+  color:var(--on-accent);
+}
+.coach-login-secondary{
+  margin-top:10px;
+  background:var(--glass);
+  color:var(--text-secondary);
+  border:1px solid var(--border);
+}
+.coach-login-submit:disabled,
+.coach-login-secondary:disabled{
+  opacity:.6;
+  cursor:wait;
+}
+.coach-login-error{
+  margin:14px 0 0;
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--danger-surface);
+  border:1px solid var(--danger-border);
+  color:var(--danger);
+  font-size:13px;
+}
+#coachOtp{
+  letter-spacing:.4em;
+  text-align:center;
+  font-weight:800;
+}

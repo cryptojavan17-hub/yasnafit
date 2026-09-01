@@ -1244,6 +1244,49 @@ const migrations = [
       if (!columns.has('city')) db.exec('ALTER TABLE students ADD COLUMN city TEXT');
       if (!columns.has('address')) db.exec('ALTER TABLE students ADD COLUMN address TEXT');
     }
+  },
+  {
+    id: '028_coach_email_password_auth',
+    description: 'Coach email/password login, hashed credentials, 2FA challenges and expiring sessions',
+    up(db) {
+      const columns = new Set(db.prepare("PRAGMA table_info('coaches')").all().map(c => c.name));
+      if (!columns.has('email')) db.exec('ALTER TABLE coaches ADD COLUMN email TEXT');
+      if (!columns.has('email_normalized')) db.exec('ALTER TABLE coaches ADD COLUMN email_normalized TEXT');
+      if (!columns.has('password_hash')) db.exec('ALTER TABLE coaches ADD COLUMN password_hash TEXT');
+      if (!columns.has('auth_failed_attempts')) db.exec('ALTER TABLE coaches ADD COLUMN auth_failed_attempts INTEGER NOT NULL DEFAULT 0');
+      if (!columns.has('auth_locked_until')) db.exec('ALTER TABLE coaches ADD COLUMN auth_locked_until TEXT');
+      if (!columns.has('last_login_at')) db.exec('ALTER TABLE coaches ADD COLUMN last_login_at TEXT');
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_coaches_email_normalized
+          ON coaches(email_normalized) WHERE email_normalized IS NOT NULL AND email_normalized<>'';
+        CREATE TABLE IF NOT EXISTS coach_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL,
+          session_hash TEXT NOT NULL UNIQUE,
+          expires_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_coach_sessions_coach ON coach_sessions(coach_id, revoked_at, expires_at);
+        CREATE INDEX IF NOT EXISTS idx_coach_sessions_hash ON coach_sessions(session_hash);
+        CREATE TABLE IF NOT EXISTS coach_otp_challenges (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL,
+          code_hash TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          consumed_at TEXT,
+          failed_attempts INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_coach_otp_coach ON coach_otp_challenges(coach_id, consumed_at, expires_at);
+      `);
+    }
   }
 ];
 

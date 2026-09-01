@@ -1,6 +1,10 @@
 async function api(url, options={}) {
   const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});
-  const d=await r.json();
+  const d=await r.json().catch(()=>({}));
+  if(r.status===401){
+    location.replace('/coach/login');
+    throw new Error(d.error||'نشست مربی معتبر نیست.');
+  }
   if(!r.ok) throw new Error(d.error||'خطا در ارتباط با سرور');
   return d;
 }
@@ -229,5 +233,9 @@ function setupCoachNotifications(){
   updateCoachNotifications();setInterval(updateCoachNotifications,30000);window.addEventListener('focus',updateCoachNotifications);
 }
 setupCoachNotifications();
+document.querySelector('#coachLogout')?.addEventListener('click',async()=>{
+  try{await fetch('/api/coach/auth/logout',{method:'POST'});}catch(error){}
+  location.replace('/coach/login');
+});
 const initialCoachPath=location.pathname;
 if(initialCoachPath==='/'||initialCoachPath==='/index.html'||initialCoachPath==='/coach/dashboard')render('داشبورد','/coach/dashboard');

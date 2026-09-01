@@ -54,9 +54,26 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  assert.equal((await fetch(BASE+'/')).status,401);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
-  const accessToken=process.env.YASNAFIT_COACH_TOKEN||fs.readFileSync(path.join(__dirname,'..','data','coach-access-token'),'utf8').trim();
-  const access=await fetch(`${BASE}/coach-access/${accessToken}`,{redirect:'manual'});assert.equal(access.status,303);coachCookie=(access.headers.get('set-cookie')||'').split(';')[0];
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.equal(home.headers.get('location'),'/coach/login');
+  assert.equal((await fetch(BASE+'/coach/login')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
+  const credFile=path.join(__dirname,'..','data','coach-credentials.txt');
+  let coachEmail='coach@yasnafit.local',coachPassword='YasnafitCoach1';
+  if(fs.existsSync(credFile)){
+    const credText=fs.readFileSync(credFile,'utf8');
+    const emailMatch=credText.match(/^email=(.+)$/m),passwordMatch=credText.match(/^password=(.+)$/m);
+    if(emailMatch)coachEmail=emailMatch[1].trim();
+    if(passwordMatch)coachPassword=passwordMatch[1].trim();
+  }
+  const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
+  assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
+  assert.ok(coachLogin.data.challenge_id);
+  const otpCode=fs.readFileSync(path.join(__dirname,'..','data','coach-otp-dev.txt'),'utf8').trim();
+  assert.match(otpCode,/^\d{6}$/);
+  const coachVerify=await request('/api/coach/auth/verify',{method:'POST',body:{challenge_id:coachLogin.data.challenge_id,code:otpCode}});
+  assert.equal(coachVerify.response.status,200,JSON.stringify(coachVerify.data));
+  const coachSetCookie=coachVerify.response.headers.get('set-cookie')||'';
+  assert.match(coachSetCookie,/yasnafit_coach_session=/);assert.match(coachSetCookie,/HttpOnly/);assert.match(coachSetCookie,/SameSite=Strict/);
+  coachCookie=coachSetCookie.split(';')[0];
   await expectStatus(401,'/api/student/me',{coach:true});
   const bankCategories=await ok('/api/categories/grouped?location=gym',{coach:true});assert.ok(bankCategories.length>=1);assert.ok(bankCategories.every(category=>category.count>0));const homeCategories=await ok('/api/categories/grouped?location=home',{coach:true});assert.ok(homeCategories.length>=1);assert.ok(homeCategories.every(category=>category.count>0));const bankExercises=await ok(`/api/exercises?categoryId=${encodeURIComponent(bankCategories[0].id)}&location=gym&status=active&page=0&pageSize=5`,{coach:true});assert.ok(bankExercises.items.length>=1);assert.ok(bankExercises.items[0].id);assert.ok(bankExercises.items[0].name_fa);assert.ok(bankExercises.items.every(item=>['gym','both'].includes(item.location)));
 
@@ -163,7 +180,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'027_student_location_and_registration_fields');
+  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'028_coach_email_password_auth');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
   }
