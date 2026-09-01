@@ -1,3 +1,133 @@
+/* Login page = exact login-hero.png mockup with hotspot controls only */
+.hero-login-stage{
+  min-height:100vh;
+  width:100%;
+  margin:0;
+  padding:12px;
+  display:grid;
+  place-items:center;
+  background:#05070a;
+  box-sizing:border-box;
+}
+.hero-login-frame{
+  position:relative;
+  width:min(1448px, calc(100vw - 24px), calc((100vh - 24px) * 1448 / 1086));
+  aspect-ratio:1448 / 1086;
+  max-height:calc(100vh - 24px);
+}
+.hero-login-art{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:fill;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.hero-login-hotspots{
+  position:absolute;
+  inset:0;
+  margin:0;
+}
+.hero-login-hotspots .hotspot{
+  position:absolute;
+  margin:0;
+  font-family:inherit;
+  box-sizing:border-box;
+  z-index:2;
+}
+.hotspot-phone,
+.hotspot-pass{
+  background:#101820;
+  color:#f3f6fa;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  outline:none;
+  caret-color:#2ee6c8;
+  font-size:clamp(12px, 1.12vw, 16px);
+  direction:ltr;
+  text-align:left;
+  padding:0 12px;
+}
+.hotspot-phone:focus,
+.hotspot-pass:focus{
+  border-color:rgba(46,230,200,0.55);
+  box-shadow:0 0 0 2px rgba(46,230,200,0.12);
+}
+.hotspot-phone::placeholder,
+.hotspot-pass::placeholder{
+  color:transparent;
+}
+.hotspot-phone{
+  top:32.35%;
+  left:54.15%;
+  width:37.6%;
+  height:5.15%;
+}
+.hotspot-pass{
+  top:42.55%;
+  left:57.2%;
+  width:31.4%;
+  height:5.15%;
+}
+.hotspot-eye{
+  top:42.55%;
+  left:53.05%;
+  width:4.3%;
+  height:5.15%;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+  padding:0;
+}
+.hotspot-forgot{
+  top:48.55%;
+  left:53.1%;
+  width:24.5%;
+  height:3.15%;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+  padding:0;
+  color:transparent;
+}
+.hotspot-submit{
+  top:53.15%;
+  left:53.15%;
+  width:40.55%;
+  height:5.7%;
+  background:transparent;
+  border:0;
+  border-radius:999px;
+  cursor:pointer;
+  padding:0;
+  color:transparent;
+}
+.hotspot-submit:disabled{
+  cursor:wait;
+}
+.hotspot-register{
+  top:65.35%;
+  left:53.15%;
+  width:40.55%;
+  height:5.45%;
+  background:transparent;
+  border:0;
+  border-radius:999px;
+  cursor:pointer;
+  padding:0;
+  color:transparent;
+}
+.hero-register-stage{
+  width:min(560px, 100%);
+}
+.hero-register-card{
+  max-height:92vh;
+  overflow:auto;
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,0.08);
+}
+
 /* Yasnafit Luxury Dark Fitness Login - Matching reference design */
 .yasna-luxury-auth {
   min-height: 100vh;

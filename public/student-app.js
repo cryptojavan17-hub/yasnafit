@@ -122,128 +122,21 @@
     const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
 
     root.innerHTML = `
-      <section class="yasna-luxury-auth" dir="rtl">
-        <div class="luxury-container">
-          <!-- LEFT: Exact hero photo - DO NOT MODIFY -->
-          <div class="luxury-hero">
-            <img src="/login-hero.png" alt="Yasnafit" class="luxury-hero-img">
-            <div class="luxury-hero-overlay"></div>
-            <div class="luxury-quote-box">
-              <div class="q-mark">"</div>
-              <h3>قدرت واقعی در درون توست</h3>
-              <p>هر روز یک قدم به بهترین نسخه خودت نزدیک‌تر شو.</p>
-              <div class="q-mark end">"</div>
-            </div>
-          </div>
+      <section class="hero-login-stage" dir="rtl">
+        <div id="authLoginPanel" class="hero-login-frame" style="${activeTab==='login'?'':'display:none;'}">
+          <img src="/login-hero.png" alt="" class="hero-login-art" draggable="false">
+          <form class="hero-login-hotspots" id="studentLoginForm" autocomplete="on" novalidate>
+            <input id="loginMobile" class="hotspot hotspot-phone" name="mobile" type="tel" inputmode="numeric" maxlength="11" autocomplete="username" dir="ltr" aria-label="شماره همراه">
+            <input id="loginPassword" class="hotspot hotspot-pass" name="password" type="password" maxlength="128" autocomplete="current-password" dir="ltr" aria-label="رمز عبور">
+            <button type="button" class="hotspot hotspot-eye toggle-pass" data-toggle-for="loginPassword" aria-label="نمایش رمز عبور"></button>
+            <button type="button" class="hotspot hotspot-forgot" id="btnForgotPassword" aria-label="رمز عبور را فراموش کرده‌اید؟"></button>
+            <button type="submit" class="hotspot hotspot-submit" id="btnLoginSubmit" aria-label="ورود"></button>
+            <button type="button" class="hotspot hotspot-register" id="btnGoToRegister" aria-label="حساب کاربری ندارید؟ ثبت‌نام کنید"></button>
+          </form>
+        </div>
 
-          <!-- RIGHT: Dark glass panel with form -->
-          <div class="luxury-form-panel">
-            <!-- 1. Logo + teal Y badge (top right) -->
-            <div class="luxury-brand">
-              <div class="brand-text"><span>YASNA</span><span class="fit">FIT</span></div>
-              <div class="brand-y">Y</div>
-            </div>
-
-            <!-- 2. Title -->
-            <!-- 3. Subtitle -->
-            <div class="luxury-titles">
-              <h1 id="authFormTitle">${activeTab === 'login' ? 'خوش آمدید!' : 'ثبت‌نام در یسنافیت'}</h1>
-              <p>${activeTab === 'login' ? 'به پورتال شاگردان Yasnafit خوش آمدید.' : 'حساب کاربری جدید بسازید و سفر فیتنس خود را شروع کنید.'}</p>
-              ${studentName ? `<p style="margin-top:8px; font-size:13px; color:#fff;">سلام <strong style="color:#2dd4bf;">${esc(studentName)}</strong> 👋</p>` : ''}
-              ${caseNumber ? `<div style="margin-top:6px;"><span style="font-size:11px;color:rgba(255,255,255,0.4);">شماره پرونده: </span><b style="color:#2dd4bf; font-size:13px; letter-spacing:0.05em;" dir="ltr">${esc(caseNumber)}</b></div>` : ''}
-            </div>
-
-            <!-- LOGIN PANEL -->
-            <div id="authLoginPanel" style="${activeTab==='login'?'display:block;':'display:none;'}">
-              <form class="luxury-form" id="studentLoginForm">
-                <div id="loginSuccessBanner" class="luxury-banner success" style="display:none;"></div>
-                <div id="loginErrorBanner" class="luxury-banner error" style="display:none;"></div>
-
-                <!-- 4. Phone field -->
-                <div class="luxury-field">
-                  <label for="loginMobile">شماره همراه</label>
-                  <div class="luxury-input-wrap">
-                    <span class="input-icon">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>
-                    </span>
-                    <input id="loginMobile" name="mobile" inputmode="tel" autocomplete="username" required maxlength="11" placeholder="09123456789" dir="ltr">
-                  </div>
-                </div>
-
-                <!-- 5. Password field -->
-                <div class="luxury-field">
-                  <label for="loginPassword">رمز عبور</label>
-                  <div class="luxury-input-wrap">
-                    <span class="input-icon">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    </span>
-                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="••••••••••••">
-                    <button type="button" class="toggle-pass" data-toggle-for="loginPassword" aria-label="نمایش رمز">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 6. Forgot link -->
-                <div class="luxury-forgot">
-                  <button type="button" id="btnForgotPassword">رمز عبور را فراموش کرده‌اید؟</button>
-                </div>
-
-                <!-- 7. Large teal ورود button -->
-                <button type="submit" class="luxury-submit" id="btnLoginSubmit">
-                  <span>ورود</span>
-                </button>
-
-                <!-- 8. Divider یا -->
-                <div class="luxury-divider">یا</div>
-
-                <!-- 9. Outline ثبت‌نام button -->
-                <button type="button" class="luxury-secondary" id="btnGoToRegister">
-                  <span>حساب کاربری ندارید؟</span> <b>ثبت‌نام کنید</b> <span style="font-size:16px;">👤</span>
-                </button>
-
-                ${token ? '<small style="display:block; margin-top:12px; text-align:center; color:rgba(255,255,255,0.3); font-size:10px;">این لینک حداکثر سه ورود موفق را می‌پذیرد.</small>' : ''}
-
-                <!-- 10. Three feature icons -->
-                <div class="luxury-features">
-                  <div class="luxury-feature">
-                    <div class="f-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-                    </div>
-                    <div>
-                      <b>امن و مطمئن</b>
-                      <small>اطلاعات شما محفوظ است</small>
-                    </div>
-                  </div>
-                  <div class="luxury-feature">
-                    <div class="f-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                    </div>
-                    <div>
-                      <b>پیشرفت خود را ببینید</b>
-                      <small>گزارش و آنالیز حرفه‌ای</small>
-                    </div>
-                  </div>
-                  <div class="luxury-feature">
-                    <div class="f-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5"><path d="M6.5 6.5h11l-1 6.5h-9z"/><path d="M4 10h2"/><path d="M18 10h2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M6 21v-3"/><path d="M18 21v-3"/></svg>
-                    </div>
-                    <div>
-                      <b>برنامه تمرینی شخصی</b>
-                      <small>متناسب با هدف شما</small>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 11. Footer -->
-                <div class="luxury-footer">
-                  <div class="luxury-footer-badge">🛡️ YASNAFIT © 2025</div>
-                </div>
-              </form>
-            </div>
-
-            <!-- REGISTER PANEL - same luxury style -->
-            <div id="authRegisterPanel" style="${activeTab==='register'?'display:block;':'display:none;'}">
+        <div id="authRegisterPanel" class="hero-register-stage" style="${activeTab==='register'?'display:block;':'display:none;'}">
+            <div class="luxury-form-panel hero-register-card">
               <form class="luxury-form" id="studentRegisterForm">
                 <div id="registerSuccessBanner" class="luxury-banner success" style="display:none;"></div>
                 <div id="registerErrorBanner" class="luxury-banner error" style="display:none;"></div>
@@ -347,7 +240,6 @@
                 <button type="button" class="luxury-secondary" id="btnGoToLogin"><span>قبلاً ثبت‌نام کرده‌اید؟</span> <b>وارد شوید</b></button>
               </form>
             </div>
-          </div>
         </div>
       </section>
     `;
@@ -411,7 +303,9 @@
         if(input){
           const isPass = input.type === 'password';
           input.type = isPass ? 'text' : 'password';
-          btn.innerHTML = isPass ? '🙈' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+          if(!btn.classList.contains('hotspot-eye')){
+            btn.innerHTML = isPass ? '🙈' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+          }
         }
       };
     });
@@ -484,12 +378,11 @@
         if(loginSuccBanner) loginSuccBanner.style.display = 'none';
         const submitBtn = event.currentTarget.querySelector('#btnLoginSubmit');
         const form = new FormData(event.currentTarget);
-        const originalText = submitBtn ? submitBtn.innerHTML : '<span>ورود</span>';
         const rawMobile = String(form.get('mobile')||'').trim();
         const password = String(form.get('password')||'');
         if(!rawMobile){ showLoginErr('لطفاً شماره همراه خود را وارد فرمایید.'); return; }
         if(!password){ showLoginErr('لطفاً رمز عبور خود را وارد فرمایید.'); return; }
-        if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = '<span>⏳</span> <span>در حال بررسی...</span>'; }
+        if(submitBtn) submitBtn.disabled = true;
         try{
           const result = await api('/api/student/auth/login', {
             method: 'POST',
@@ -499,7 +392,7 @@
           setTimeout(() => { location.replace(result.next_route || '/student/dashboard'); }, 800);
         }catch(error){
           showLoginErr(error.message || 'شماره همراه یا رمز عبور نادرست است.');
-          if(submitBtn){ submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+          if(submitBtn) submitBtn.disabled = false;
         }
       };
     }
@@ -692,6 +585,9 @@
             <div class="student-actions"><a class="secondary" href="/student/assessment">مشاهده ارزیابی</a></div>
           `:'<div class="student-empty"><span>◫</span><p>هنوز ارزیابی ثبت نشده است.</p></div>'}
         </article>
+
+        <article class="student-card">
+          <h2>عملکرد تمر
 
         <article class="student-card">
           <h2>عملکرد تمرین</h2>
