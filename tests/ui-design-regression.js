@@ -177,7 +177,7 @@ assert.match(studentAppSource,/data-start-day/,'active program cannot start a re
 assert.match(wizardSource,/مرحله \$\{state\.step\+1\} از \$\{steps\.length\}/,'eight-step progress indicator is missing');
 assert.equal((wizardSource.match(/data-step=\"\d\"/g)||[]).length,8,'assessment wizard must have exactly eight main steps');
 assert.match(wizardSource,/segmented-control/,'fast segmented controls are missing');
-assert.match(css['student-app.css'],/\.segmented-control input:checked\+span\{[^}]*background:var\(--accent\)/,'selected binary choice is not filled with the primary accent');
+assert.match(css['student-app.css'],/\.segmented-control input:checked\+span\{[^}]*var\(--accent-surface\)/,'selected binary choice glass style is missing');
 assert.doesNotMatch(css['student-app.css'],/\.segmented-control label:first-child input:checked/,'muted selected first-choice override remains');
 assert.match(css['unified-components.css'],/\.segmented-control input:checked \+ span/,'shared binary-choice selected style is missing');
 assert.match(wizardSource,/saveCurrent\(true\)/,'step-change autosave is missing');
