@@ -71,7 +71,7 @@
 
 ## 6. Railway Deployment
 
-**حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال واقعی هنوز انجام نشده** — Agent به داشبورد Railway دسترسی ندارد (لاگین/کلیک با مالک است)؛ سمت مخزن کامل آماده است.
+**حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال انجام شده:** سرویس `yasnafit-production.up.railway.app` بالا است (تأیید از `GET /api/health` → `0.9.1` و `GET /api/coach/auth/status`). Agent به داشبورد Railway دسترسی ندارد؛ volume/region/commitِ دیپلوی‌شده از بیرون قابل تشخیص نیست ⇒ `UNKNOWN — needs verification`.
 * **اولین attempt واقعی (لاگ مهدی، ۲۰۲۶-۰۹-۰۲ ۲۱:۵۵):** سرویس **`main`** را build کرد و با **Railpack** شکست خورد: `⚠ Script start.sh not found` + `✖ Railpack could not determine how to build the app`؛ درخت تحلیل‌شده فقط `README.md` و `login-hero.png`. علت: `main` در این مخزن شاخهٔ فقط-دارایی است (با `git ls-tree` تأیید شد) و `server.js`/`package.json`/`railway.json` ندارد ⇒ **نه کد، نه config**. راه‌حل: Source → Branch = `arena/01a0618b-yasnafit` یا merge کردن PR #2 (که الان `CLEAN/MERGEABLE` است). رفع جانبی: `package-lock.json` commit شد تا Railpack هم پروژه را تشخیص دهد؛ جدول عیب‌یابی در `DEPLOYMENT.md` §۹.۷.
 
 * **سمت مخزن (انجام‌شده، commit همین جلسه):** `railway.json` در ریشه — `builder: NIXPACKS`، `buildCommand: npm install --no-audit --no-fund && node --check server.js` (build خراب را زود می‌شکند)، `startCommand: node server.js`، `healthcheckPath: /api/health` (عمومی و سبک — دقیقاً همین را Railway پروب می‌کند)، `restartPolicyType: ON_FAILURE` + `maxRetries: 5`، `numReplicas: 1`، `sleepApplication: false`، `watchPatterns` فقط `server.js|src/**|public/**|data-source/**|package.json|railway.json`.
