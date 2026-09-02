@@ -46,6 +46,17 @@ if(coachBootstrap.setup_required){
   if(authenticator.wrote_file){
     console.log('[Coach Auth] Authenticator key written to data/coach-authenticator.txt');
   }
+  if(requestSecurity.REVEAL_AUTHENTICATOR_KEY){
+    const enrollment=coachAuthService.currentAuthenticatorEnrollment(db);
+    if(enrollment?.secret){
+      console.log('[Coach Auth] ⚠ YASNAFIT_REVEAL_AUTHENTICATOR_KEY فعال است — کلید Google Authenticator این سرور:');
+      console.log(`[Coach Auth] Email: ${enrollment.email}`);
+      console.log(`[Coach Auth] Secret: ${enrollment.secret}`);
+      console.log('[Coach Auth] ⚠ همین الان متغیر را پاک کنید تا کلید دوباره در لاگ نماند.');
+    }else{
+      console.log('[Coach Auth] YASNAFIT_REVEAL_AUTHENTICATOR_KEY ست است ولی کلیدی ساخته نشده (ابتدا حساب مربی را بسازید).');
+    }
+  }
 }
 
 

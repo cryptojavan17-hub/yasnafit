@@ -14,6 +14,10 @@ const PRODUCTION=String(process.env.NODE_ENV||'').trim().toLowerCase()==='produc
 // Claiming the coach account is a once-in-a-lifetime action; doing it from the machine
 // itself (or through an SSH tunnel) removes the race with whoever else scans the host.
 const ALLOW_REMOTE_SETUP=truthy(process.env.YASNAFIT_ALLOW_REMOTE_SETUP);
+// Emergency access to the coach 2FA key for hosts where the operator cannot read the
+// volume (e.g. Railway without the CLI). Printing the key into the service log is a
+// deliberate, temporary trade-off: the variable must be deleted right after use.
+const REVEAL_AUTHENTICATOR_KEY=truthy(process.env.YASNAFIT_REVEAL_AUTHENTICATOR_KEY);
 const LOOPBACK=/^(?:::1|::ffff:127\.|127\.|localhost$)/i;
 function isLoopbackSocket(req){
   const peer=String(req?.socket?.remoteAddress||'');
@@ -89,7 +93,7 @@ function clientErrorMessage(error,fallback='خطای داخلی سرور. در �
 }
 
 module.exports={
-  TRUST_PROXY,FORCE_SECURE_COOKIES,PRODUCTION,ALLOW_REMOTE_SETUP,isLoopbackSocket,
+  TRUST_PROXY,FORCE_SECURE_COOKIES,PRODUCTION,ALLOW_REMOTE_SETUP,REVEAL_AUTHENTICATOR_KEY,isLoopbackSocket,
   clientIp,isHttps,requestHost,sameOrigin,
   securityHeaders,applySecurityHeaders,clientErrorMessage,
   CONTENT_SECURITY_POLICY

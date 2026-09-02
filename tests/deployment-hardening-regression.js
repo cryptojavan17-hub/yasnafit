@@ -147,7 +147,7 @@ assert.match(serverSource,/if\(ext === '\.html' && !isCoachAuthorized\(req\)\)\{
   'a missing .html URL still hands the coach shell to anonymous callers');
 
 // --- 7. the deployment runbook covers the sharp edges ------------------------------
-for(const token of ['YASNAFIT_TRUST_PROXY','YASNAFIT_HOST','YASNAFIT_COOKIE_SECURE','proxy_set_header X-Forwarded-For','systemd','22.5','chmod 700','/api/backup','provision-coach-totp']){
+for(const token of ['YASNAFIT_TRUST_PROXY','YASNAFIT_HOST','YASNAFIT_COOKIE_SECURE','proxy_set_header X-Forwarded-For','systemd','22.5','chmod 700','/api/backup','provision-coach-totp','coach-authenticator.txt','YASNAFIT_REVEAL_AUTHENTICATOR_KEY']){
   assert.ok(deploymentDoc.includes(token),`DEPLOYMENT.md does not mention ${token}`);
 }
 assert.doesNotMatch(deploymentDoc,/YASNAFIT_COACH_TOKEN/,'the removed shared bearer token must not be documented');
@@ -173,6 +173,21 @@ assert.match(storagePaths,/YASNAFIT_BACKUP_DIR/,'backups would stay outside the 
 assert.match(databaseSource,/require\('\.\/storage-paths'\)/,'the database module ignores the shared storage root');
 assert.match(databaseSource,/module\.exports = \{ db, dbPath, dataDir, backupDir,/,'the resolved backup dir is not exported for rotation');
 assert.ok(!/path\.join\(__dirname, 'backups'\)/.test(serverSource),'backup rotation still points at the repo folder');
+// the coach 2FA key is a secret: it may only reach stdout behind an explicit, temporary variable
+assert.equal(requestSecurity.REVEAL_AUTHENTICATOR_KEY,false,'the authenticator reveal flag must be off unless asked for');
+assert.match(read('src/request-security.js'),/REVEAL_AUTHENTICATOR_KEY=truthy\(process\.env\.YASNAFIT_REVEAL_AUTHENTICATOR_KEY\)/,
+  'the reveal flag is not read from the environment, so it cannot be turned off remotely');
+assert.match(serverSource,/if\(requestSecurity\.REVEAL_AUTHENTICATOR_KEY\)/,
+  'the 2FA key must only be logged behind the temporary variable (DEPLOYMENT.md §۹.۸)');
+assert.match(serverSource,/پاک کنید/,
+  'the reveal path must tell the operator to delete the variable afterwards');
+// the recovery script must target the persistent database, never a fresh one
+const provisionScript=read('scripts/provision-coach-totp.js')||'';
+assert.match(provisionScript,/require\('\.\.\/src\/storage-paths'\)/,'the TOTP script would provision a key outside the volume');
+assert.ok(!/path\.join\(__dirname, '\.\.', 'data'/.test(provisionScript),'the TOTP script still hardcodes <repo>/data');
+assert.match(provisionScript,/existsSync\(dbPath\)/,'the TOTP script must refuse to create an empty database and hand out a useless key');
+assert.ok(!/console\.log\('Secret:'/.test(provisionScript) || /RAILWAY_VOLUME_MOUNT_PATH/.test(provisionScript),
+  'the TOTP script must not print the key into a container log');
 assert.match(serverSource,/const \{ db, dbPath, backup, backupDir, log \} = require\('\.\/src\/database'\);/,'rotation does not use the shared backupDir');
 for(const token of ['/app/data','YASNAFIT_BACKUP_DIR','Attach Volume','YASNAFIT_ALLOW_REMOTE_SETUP','Generate Domain','numReplicas']){
   assert.ok(deploymentDoc.includes(token),'DEPLOYMENT.md does not cover the Railway step '+token);

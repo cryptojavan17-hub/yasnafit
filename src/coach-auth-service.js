@@ -343,6 +343,13 @@ function clearAuthenticatorKey(dataDir){
   const file=path.join(dataDir,AUTHENTICATOR_FILE);
   try{if(fs.existsSync(file)) fs.unlinkSync(file);}catch(error){}
 }
+// Read-only view of the enrolled key. Never writes anything: the key file is
+// deliberately removed once the coach confirms 2FA, and it must stay removed.
+function currentAuthenticatorEnrollment(db){
+  const coach=primaryCoach(db);
+  if(!coach?.totp_secret) return null;
+  return authenticatorEnrollment(coach);
+}
 function loadCoach(db,coachId){
   if(coachId) return db.prepare('SELECT * FROM coaches WHERE id=? AND deleted_at IS NULL').get(coachId)||null;
   return primaryCoach(db);
@@ -842,9 +849,9 @@ function completePasswordReset(db,{token,password,req=null}){
 
 module.exports={
   SESSION_COOKIE,CHALLENGE_COOKIE,SESSION_TTL_MS,OTP_TTL_MS,RESET_TTL_MS,MAX_PASSWORD_FAILURES,MAX_OTP_FAILURES,LOCK_MS,
-  TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,
+  TOKEN_PATTERN,SETUP_EMAIL,PLACEHOLDER_EMAIL,AUTHENTICATOR_FILE,
   setMailer,normalizeEmail,validateCoachPassword,ensureLocalCoach,setupRequired,authStatus,setupCoach,
-  createCoach,startLogin,beginTotpSetup,provisionCoachTotp,confirmTotp,ensureCoachAuthenticator,writeAuthenticatorKey,clearAuthenticatorKey,pendingChallenge,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
+  createCoach,startLogin,beginTotpSetup,provisionCoachTotp,confirmTotp,ensureCoachAuthenticator,writeAuthenticatorKey,clearAuthenticatorKey,currentAuthenticatorEnrollment,pendingChallenge,verifyOtp,resolveSession,revokeCurrentSession,logoutAll,changePassword,
   requestPasswordReset,completePasswordReset,sessionCookie,clearSessionCookie,challengeCookie,clearChallengeCookie,authCookies,safeCoach,logAuthEvent,
   smtpConfigured,mailStatus,loadSmtpConfig,writeSmtpConfig,configureGmail
 };
