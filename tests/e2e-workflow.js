@@ -78,7 +78,6 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.doesNotMatch(twoFaHtml,/فعال‌سازی|otpauth|qr_svg|secret_display|coachTotpQr/);
   assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
   await expectStatus(404,'/api/coach/auth/totp');
-  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'}});
   await expectStatus(404,'/api/coach/auth/totp/confirm',{method:'POST',body:{code:'000000'}});
   const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
   const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
@@ -93,6 +92,8 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const statusAfterSetup=await request('/api/coach/auth/status');
   assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
   assert.equal(statusAfterSetup.data.setup_required,false);
+  // Once an account exists the one-time setup route must be unreachable.
+  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'}});
   assert.equal((await fetch(BASE+'/coach/setup')).status,404);
   await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   let totpSecret=null;
@@ -248,9 +249,26 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   let rateLimited=false;for(let index=0;index<35;index++){const attempt=await request(`/api/student/join/${'A'.repeat(43)}`);if(attempt.response.status===429){rateLimited=true;break;}}assert.equal(rateLimited,true,'sensitive join endpoint was not rate limited');
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
-  const health=await ok('/api/health');assert.equal(health.exercises,2707);assert.equal(health.schema_version,'030_coach_totp_authenticator');
+  {
+    const shell=await fetch(BASE+'/');
+    const csp=shell.headers.get('content-security-policy')||'';
+    assert.match(csp,/default-src 'self'/,'the coach shell is served without a CSP');
+    assert.match(csp,/script-src 'self'/,'CSP must not allow inline scripts');
+    assert.match(csp,/frame-ancestors 'none'/,'CSP must refuse framing');
+    assert.equal(shell.headers.get('x-content-type-options'),'nosniff');
+    assert.equal(shell.headers.get('x-frame-options'),'DENY');
+    assert.equal(shell.headers.get('referrer-policy'),'no-referrer');
+    const script=await fetch(BASE+'/boot.js');
+    assert.match(script.headers.get('content-security-policy')||'',/frame-ancestors/,'static assets bypass the hardening headers');
+  }
+  const publicHealth=await ok('/api/health');assert.deepEqual(Object.keys(publicHealth).sort(),['ok','status','uptime','version'],'public health payload exposes more than liveness');
+  const health=await ok('/api/health?detailed=1',{coach:true});assert.equal(health.exercises,2707);assert.equal(health.schema_version,'030_coach_totp_authenticator');
+  await expectStatus(401,'/api/health?detailed=1');await expectStatus(401,'/api/build');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
-    assert.equal(/\bv?\d+\.\d+\.\d+\b/.test(fs.readFileSync(path.join(__dirname,'..','public',file),'utf8')),false,`frontend hardcodes an application version in ${file}`);
+    // Only quoted version literals count: inline SVG path data ("c.12 1.05.4 2.07.82")
+    // otherwise reads as a semantic version.
+    const source=fs.readFileSync(path.join(__dirname,'..','public',file),'utf8');
+    assert.equal(/['"]\s*v?\d+\.\d+\.\d+\s*['"]/.test(source),false,`frontend hardcodes an application version in ${file}`);
   }
   const studentHtml=fs.readFileSync(path.join(__dirname,'..','public','student.html'),'utf8');assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/);assert.match(studentHtml,/dir="rtl"/);
   const coachLogout=await request('/api/coach/auth/logout',{method:'POST',coach:true});

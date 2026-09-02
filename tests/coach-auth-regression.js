@@ -7,6 +7,7 @@ const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const {runMigrations}=require('../src/migrations');
 const auth=require('../src/coach-auth-service');
+const requestSecurity=require('../src/request-security');
 const totp=require('../src/totp');
 
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-coach-auth-'));
@@ -229,14 +230,83 @@ try{
   assert.match(cookie,/SameSite=Strict/);
   assert.match(cookie,/Max-Age=43200/);
   assert.doesNotMatch(cookie,/; Secure/);
-  const secureCookie=auth.sessionCookie({headers:{'x-forwarded-proto':'https'},socket:{}},'A'.repeat(43));
+  const secureCookie=auth.sessionCookie({headers:{},socket:{encrypted:true}},'A'.repeat(43));
   assert.match(secureCookie,/; Secure/);
+  // A bare X-Forwarded-Proto header only marks cookies Secure once a proxy is declared,
+  // otherwise any client could flip the flag (or spoof the host) on a directly exposed port.
+  const spoofed=auth.sessionCookie({headers:{'x-forwarded-proto':'https','x-forwarded-host':'evil.example'},socket:{}},'A'.repeat(43));
+  assert.doesNotMatch(spoofed,/; Secure/);
+  assert.equal(requestSecurity.sameOrigin({headers:{host:'yasnafit.app',origin:'https://evil.example'},socket:{}}),false);
   const challengeCookie=auth.challengeCookie({headers:{},socket:{}},'B'.repeat(43));
   assert.match(challengeCookie,/yasnafit_coach_challenge=/);
   assert.match(challengeCookie,/HttpOnly/);
   assert.match(challengeCookie,/SameSite=Strict/);
   assert.match(challengeCookie,/Max-Age=300/);
   assert.doesNotMatch(challengeCookie,/; Secure/);
+
+  // --- the login screen's «ادامه» button must actually sign the coach in -------------
+  // Historically the first page shipped a disabled, unwired continue button, so the whole
+  // auth flow is checked against a stub DOM: markup -> listener -> fetch -> navigation.
+  {
+    const vm=require('node:vm');
+    const publicDir=path.join(__dirname,'..','public');
+    const scriptSource=fs.readFileSync(path.join(publicDir,'coach-login.js'),'utf8');
+    const pages={
+      '/coach/login':['coach-login.html','coachPasswordForm','coachPasswordSubmit','/api/coach/auth/login','/coach/2fa'],
+      '/coach/2fa':['coach-2fa.html','coachTotpForm','coachTotpSubmit','/api/coach/auth/verify','/coach/dashboard'],
+      '/coach/forgot':['coach-forgot.html','coachForgotForm','coachForgotSubmit','/api/coach/auth/forgot',null],
+      '/coach/reset':['coach-reset.html','coachResetForm','coachResetSubmit','/api/coach/auth/reset','/coach/login'],
+      '/coach/setup':['coach-setup.html','coachSetupForm','coachSetupSubmit','/api/coach/auth/setup','/coach/login'],
+      '/coach/mail':['coach-mail.html','coachMailForm','coachMailSubmit','/api/coach/auth/mail',null]
+    };
+    for(const [route,[file,formId,buttonId,endpoint,successTarget]] of Object.entries(pages)){
+      const html=fs.readFileSync(path.join(publicDir,file),'utf8');
+      const button=html.match(new RegExp(`<button[^>]*id="${buttonId}"[^>]*>`));
+      assert.ok(button,`${file} lost its ${buttonId} button`);
+      assert.match(button[0],/type="submit"/,`${file}: ${buttonId} is not a submit button`);
+      assert.doesNotMatch(button[0],/disabled/,`${file}: ${buttonId} ships disabled`);
+      const formOpen=html.match(new RegExp(`<form[^>]*id="${formId}"[^>]*>`));
+      assert.ok(formOpen,`${file} has no <form id="${formId}">`);
+      assert.doesNotMatch(html,new RegExp(`<button[^>]*type="button"[^>]*>\\s*(ادامه|ورود)`),`${file}: an inert text button uses an auth label`);
+      // the script must bind the form and call the endpoint
+      const marker=`path === '${route}'`;
+      const start=scriptSource.indexOf(marker);
+      assert.ok(start>=0,`${route}: coach-login.js never handles this page`);
+      const next=scriptSource.indexOf(`path === '`,start+marker.length);
+      const scoped=scriptSource.slice(start,next<0?scriptSource.length:next);
+      assert.match(scoped,new RegExp(`getElementById\\('${formId}'\\)`),`${route}: the form is never wired up`);
+      assert.match(scoped,new RegExp(`addEventListener\\('submit'`),`${route}: no submit handler on the form`);
+      assert.ok(scoped.includes(endpoint),`${route}: ${endpoint} is never called`);
+    }
+    // functional pass for the first page: values -> POST -> redirect
+    const loginHtml=fs.readFileSync(path.join(publicDir,'coach-login.html'),'utf8');
+    const ids=[...loginHtml.matchAll(/id="([^"]+)"/g)].map(match=>match[1]);
+    const elements=new Map(ids.map(id=>[id,{id,value:'',textContent:'',disabled:false,hidden:false,classList:{toggle(){},add(){},remove(){}},listeners:{},addEventListener(type,handler){(this.listeners[type]=this.listeners[type]||[]).push(handler);}}]));
+    elements.get('coachEmail').value='crypto.javan17@gmail.com';
+    elements.get('coachPassword').value='YasnafitCoach1';
+    const calls=[];
+    const sandbox={
+      document:{getElementById:id=>elements.get(id)||null},
+      location:{pathname:'/coach/login',search:'',replace(target){calls.push(['navigate',target]);}},
+      fetch:async(url,init)=>{
+        calls.push(['fetch',url,init&&init.method,init&&init.body]);
+        if(url==='/api/coach/auth/status')return{ok:true,json:async()=>({setup_required:false})};
+        return {ok:true,json:async()=>({ok:true,next:'/coach/2fa'})};
+      }
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(scriptSource,sandbox);
+    const form=elements.get('coachPasswordForm');
+    assert.ok(form.listeners.submit&&form.listeners.submit.length,'the login form has no submit listener');
+    form.listeners.submit[0]({preventDefault(){}});
+    await new Promise(resolve=>setImmediate(resolve));
+    await new Promise(resolve=>setImmediate(resolve));
+    const post=calls.find(call=>call[0]==='fetch'&&call[1]==='/api/coach/auth/login');
+    assert.ok(post,'clicking «ادامه» never posts the credentials');
+    assert.equal(post[2],'POST');
+    assert.deepEqual(JSON.parse(post[3]),{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'});
+    assert.deepEqual(calls.find(call=>call[0]==='navigate'),['navigate','/coach/2fa'],'a successful login does not continue to the second step');
+  }
 
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);

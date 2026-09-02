@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('crypto');
 const {hashToken,genUUID}=require('./student-service');
+const requestSecurity=require('./request-security');
 
 const SESSION_COOKIE='yasnafit_student_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
@@ -19,7 +20,7 @@ function parseCookies(req){
   return result;
 }
 function secureRequest(req){
-  return Boolean(req.socket?.encrypted) || String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https';
+  return requestSecurity.isHttps(req);
 }
 function sessionCookie(req,rawSession,maxAgeSeconds=Math.floor(SESSION_TTL_MS/1000)){
   return `${SESSION_COOKIE}=${encodeURIComponent(rawSession)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req)?'; Secure':''}`;

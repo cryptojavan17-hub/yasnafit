@@ -5,6 +5,7 @@ const net=require('net');
 const path=require('path');
 const tls=require('tls');
 const {hashPassword,verifyPassword}=require('./student-auth-service');
+const requestSecurity=require('./request-security');
 const totp=require('./totp');
 
 const SESSION_COOKIE='yasnafit_coach_session';
@@ -42,18 +43,18 @@ function parseCookies(req){
   return result;
 }
 function requestIp(req){
-  return String(req?.headers?.['x-forwarded-for']||req?.socket?.remoteAddress||'').split(',')[0].trim().slice(0,128);
+  return requestSecurity.clientIp(req).slice(0,128);
 }
 function requestAgent(req){
   return String(req?.headers?.['user-agent']||'').slice(0,300);
 }
 function publicOrigin(req){
-  const host=String(req?.headers?.['x-forwarded-host']||req?.headers?.host||'localhost:3020').split(',')[0].trim();
+  const host=requestSecurity.requestHost(req)||'localhost:3020';
   const proto=secureRequest(req)?'https':'http';
   return `${proto}://${host}`;
 }
 function secureRequest(req){
-  return Boolean(req?.socket?.encrypted) || String(req?.headers?.['x-forwarded-proto']||'').split(',')[0].trim()==='https';
+  return requestSecurity.isHttps(req);
 }
 function sessionCookie(req,rawSession,maxAgeSeconds=Math.floor(SESSION_TTL_MS/1000)){
   return `${SESSION_COOKIE}=${encodeURIComponent(rawSession)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secureRequest(req)?'; Secure':''}`;
@@ -149,10 +150,16 @@ function mailStatus(dataDir){
     mail_host:config?.host||'smtp.gmail.com'
   };
 }
+// chmod is best effort: Windows has no POSIX bits and must not break the write.
+function restrictPermissions(target,mode){
+  try{fs.chmodSync(target,mode);}catch(error){}
+}
 function writeSmtpConfig(dataDir,config){
   if(!dataDir) throw Object.assign(new Error('پوشه داده پیدا نشد'),{statusCode:400,code:'INVALID_SMTP'});
-  fs.mkdirSync(dataDir,{recursive:true});
-  fs.writeFileSync(path.join(dataDir,'smtp.json'),JSON.stringify({
+  fs.mkdirSync(dataDir,{recursive:true,mode:0o700});
+  restrictPermissions(dataDir,'700');
+  const smtpFile=path.join(dataDir,'smtp.json');
+  fs.writeFileSync(smtpFile,JSON.stringify({
     host:config.host,
     port:Number(config.port),
     secure:Boolean(config.secure),
@@ -160,6 +167,8 @@ function writeSmtpConfig(dataDir,config){
     pass:config.pass,
     from:config.from||config.user
   },null,2),{mode:0o600});
+  // writeFileSync honours the mode only when the file is new
+  restrictPermissions(smtpFile,'600');
 }
 function smtpError(raw){
   const text=String(raw||'');

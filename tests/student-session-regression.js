@@ -22,7 +22,8 @@ try{
   assert.equal(db.prepare('SELECT session_hash FROM student_sessions WHERE student_id=?').get(a).session_hash,students.hashToken(acceptedA.raw_session));
   assert.equal(db.prepare("SELECT COUNT(*) c FROM student_sessions WHERE session_hash=?").get(acceptedA.raw_session).c,0,'raw session stored in SQLite');
   const reqA={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedA.raw_session}`},socket:{encrypted:false}};
-  assert.match(sessions.sessionCookie({headers:{'x-forwarded-proto':'https'},socket:{encrypted:false}},acceptedA.raw_session),/HttpOnly; SameSite=Strict; Path=\/; Max-Age=\d+; Secure/);
+  assert.match(sessions.sessionCookie({headers:{},socket:{encrypted:true}},acceptedA.raw_session),/HttpOnly; SameSite=Strict; Path=\/; Max-Age=\d+; Secure/);
+  assert.doesNotMatch(sessions.sessionCookie({headers:{'x-forwarded-proto':'https'},socket:{encrypted:false}},acceptedA.raw_session),/Secure/,'student cookie honoured an unverified forwarded protocol');
   assert.equal(sessions.resolveStudentSession(db,reqA).student_id,a);
   assert.equal(sessions.resolveStudentSession(db,{headers:{cookie:`${sessions.SESSION_COOKIE}=%E0%A4%A`},socket:{encrypted:false}}),null);
   const acceptedB=consumeAndCreate(inviteB.token);const reqB={headers:{cookie:`${sessions.SESSION_COOKIE}=${acceptedB.raw_session}`},socket:{encrypted:false}};

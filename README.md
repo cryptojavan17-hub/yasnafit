@@ -7,6 +7,7 @@ Yasnafit is a local-first Node.js + SQLite coaching platform with permanent stud
 - Port: `3020`
 - Application version: `package.json`
 - Database schema: `settings.schema_version` / `schema_migrations`
+- Deployment: `DEPLOYMENT.md` (nginx + TLS + systemd)
 - Architecture: `ARCHITECTURE.md`
 - Database: `DATABASE_SCHEMA.md`
 - Releases: `CHANGELOG.md` and `/coach/releases`
@@ -37,7 +38,7 @@ git pull --ff-only origin arena/01a05c59-yasnafit
 - `✓ کد روز — <کامیت> • <تاریخ فایل>` → کد تازه روی همین پوشه اجرا می‌شود.
 - `⚠️ کد قدیمی است — git pull اعمال نشده` → فایل‌های این پوشه هنوز قدیمی‌اند (pull نشده یا پوشهٔ دیگری را اجرا می‌کنید). با ماوس روی چیپ بگذارید تا شاخه/کامیت/زمان فایل را ببینید.
 
-همین را می‌توانید در خط فرمان هم ببینید: `curl http://localhost:3020/api/build` (فیلد `markers`) و لانچر هم در منو `UI check: NEW CODE / OLD CODE` چاپ می‌کند.
+همین اطلاعات را می‌توانید از API هم بگیرید: `GET /api/build` (فیلدهای `commit` و `markers`) — این مسیر از version 0.9.1 **فقط با نشست لاگین‌شدهٔ مربی** جواب می‌دهد (بدون کوکی ۴۰۱ می‌گیرد)، پس از curl مستقیم با `curl -b "$(cat cookie.txt)" http://localhost:3020/api/build` یا از همان مرورگرِ لاگین‌شده استفاده کنید. لانچر هم در منو `UI check: NEW CODE / OLD CODE` چاپ می‌کند.
 
 ۲) اگر چیپ «کد روز» را نشان می‌دهد ولی صفحه همچنان قدیمی است → در مرورگر `Ctrl+Shift+R` بزنید (یا تب را ببندید و دوباره باز کنید).
 
@@ -68,6 +69,29 @@ cd C:\Users\MAHDI\Desktop\yasnafit-git
 
 - عکس عمودی/پرتره با پس‌زمینه تاریک بهترین نتیجه را می‌دهد (برش خودکار با `object-fit: cover`).
 - بعد از قرار دادن فایل، فقط برنامه را ری‌استارت کنید (و در مرورگر `Ctrl+Shift+R` بزنید).
+
+---
+
+## 🔒 اجرای روی سرور — Server deployment
+
+راهنمای کامل (nginx + TLS + systemd + بکاپ + چک‌لیست) در **`DEPLOYMENT.md`** است. خلاصهٔ چهار نکته‌ای که باید بدانید:
+
+```bash
+PORT=3020 YASNAFIT_HOST=127.0.0.1 YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1 NODE_ENV=production node server.js
+```
+
+- `YASNAFIT_HOST=127.0.0.1` یعنی فقط nginx به برنامه دسترسی دارد؛ پورت ۳۰۲۰ را در فایروال باز نکنید.
+- `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی که ترافیک حتماً از پروکسی می‌آید. تا این پرچم خاموش باشد، هدرهای `X-Forwarded-For/Host/Proto` نادیده گرفته می‌شوند تا کسی با جعل هدر، IP محدودیتِ ورود یا `Secure` بودنِ کوکی را بازی نزند.
+- `NODE_ENV=production` مسیر تستی `POST /api/test/reset-rate-limit` (پاک‌کردن شمارندهٔ تلاش ناموفق) را حذف می‌کند.
+- `data/` و `backups/` با مجوز `700` و `data/smtp.json` (App Password جیمیل) با `600` ساخته می‌شوند.
+
+نکته‌های کاربردی که قبلاً در `راهنمای_اجرا.md` بود و حالا همین‌جا جمع شده است:
+
+- مسیرهای ورودی: `/coach` (پنل مربی، لاگین با ایمیل + رمز + Google Authenticator)، `/student/login`، `/student/register`، `/student/onboarding`، `/join/:token` (لینک دعوت یک‌بارمصرف که خودِ برنامه می‌سازد).
+- دیتابیس فقط `data/yasnafit.db` است؛ مایگریشن‌ها هنگام بالا آمدن سرور خودکار اجرا می‌شوند. ریست کامل = بستن سرور و حذف `data/yasnafit.db*`.
+- فرانت‌اند بدون بیلد است: تغییر `public/*` با رفرش مرورگر دیده می‌شود، ولی تغییر `server.js` یا `src/*` به ری‌استارت نیاز دارد.
+- پورت ۳۰۲۰ اشغال بود: لینوکس/مک `lsof -ti:3020 | xargs kill -9` — ویندوز `netstat -ano | findstr :3020` سپس `taskkill /PID <PID> /F`.
+- اگر شمارهٔ موبایل را `9123456789` وارد کنید همان ذخیره می‌شود (دیگر `09` خودکار اضافه نمی‌شود) و قد/وزن با رقم فارسی (`۷۰`) هم قبول است.
 
 ---
 

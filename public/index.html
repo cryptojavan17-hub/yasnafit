@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="/dark-theme.css" />
   <link rel="stylesheet" href="/exercises.css" />
   <link rel="stylesheet" href="/program-builder.css" />
-  <link rel="stylesheet" href="/student-portal.css" />
   <link rel="stylesheet" href="/releases.css" />
   <link rel="stylesheet" href="/students.css" />
   <link rel="stylesheet" href="/unified-components.css" />
@@ -53,12 +52,6 @@
   <script src="/ai-copilot.js"></script>
   <script src="/diet-programs.js"></script>
   <script src="/supplement-programs.js"></script>
-  <script>
-    // Feature modules load after the shell. Re-dispatch the real deep link only
-    // after student portal, submissions, and Program Builder renderers exist.
-    if (window.onpopstate) {
-      window.onpopstate();
-    }
-  </script>
+  <script src="/boot.js"></script>
 </body>
 </html>

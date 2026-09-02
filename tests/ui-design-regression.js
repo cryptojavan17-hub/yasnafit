@@ -9,7 +9,7 @@ const launcher=fs.readFileSync(path.join(root,'YASNAFIT-LAUNCHER.bat'),'utf8');
 assert.doesNotMatch(launcher,/Update Yasnafit from GitHub|Import Exercise Images|:UPDATE|:IMPORT_IMAGES/,'removed launcher maintenance actions returned');
 assert.match(launcher,/echo 5\. Exit/,'launcher exit option is not compactly renumbered');
 assert.match(launcher,/Select an option \(1-5\)/,'launcher prompt still advertises removed options');
-const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','student-portal.css','releases.css','students.css','student-app.css','unified-components.css'];
+const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','releases.css','students.css','student-app.css','unified-components.css'];
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
 
@@ -29,7 +29,6 @@ const requiredSelectors={
   'styles.css':['.sidebar {','.topbar {','.stat-grid {','.table-wrap {','.modal {','input:focus'],
   'exercises.css':['.exercise-card {','.exercise-card.selected-card','.image-wrap {'],
   'program-builder.css':['.day-card {','.system-card {','.movement-card {','.set-row {','.drawer-panel {'],
-  'student-portal.css':['.student-portal {','.sp-card {','.photo-upload-box {'],
   'students.css':['.students-panel, .detail-section {','.students-table-wrap {','.student-modal {'],
   'releases.css':['.release-card {','.current-version-box {'],
   'student-app.css':['.student-auth-page{','.onboarding-card{','.student-bottom-nav{','.upload-card{'],
@@ -46,7 +45,7 @@ for(const removed of ['/coach/manage-landing','/products/my','/coach/assists','/
 assert.doesNotMatch(appSource,/آماده طراحی|پیاده‌سازی امکانات|محتوای عملیاتی آن در مرحله بعد/,'dead placeholder page remains in the coach router');
 assert.match(appSource,/window\.renderCoreRoute/,'operational core routes are not delegated from the sidebar router');
 assert.match(appSource,/if\(initialPath==='\/'\|\|initialPath==='\/index\.html'\|\|initialPath==='\/coach\/dashboard'\)/,'app shell does not guard dashboard rendering on deep routes');
-const inlineSources=['core.js','coach-submissions.js','program-builder.js','student-portal.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
+const inlineSources=['core.js','coach-submissions.js','program-builder.js','students.js','exercises.js','student-app.js','assessment-wizard.js'].map(file=>fs.readFileSync(path.join(publicDir,file),'utf8')).join('\n');
 assert.doesNotMatch(inlineSources,/background\s*:\s*#(?:fff(?:fff)?|f[0-9a-f]{5}|e[0-9a-f]{5})/i,'light inline background can override dark theme');
 assert.doesNotMatch(inlineSources,/var\(--[^)]+\)[0-9a-f]+/i,'malformed CSS variable found in inline styles');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/unified-components\.css/,'Program Builder preview does not use the global component layer');

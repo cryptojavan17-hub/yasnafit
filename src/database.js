@@ -7,9 +7,16 @@ const root = path.resolve(__dirname, '..');
 const dataDir = path.join(root, 'data');
 const backupDir = path.join(root, 'backups');
 const dataSourcePath = path.join(root, 'data-source', 'exercises_data.json');
-fs.mkdirSync(dataDir, { recursive: true });
-fs.mkdirSync(backupDir, { recursive: true });
+// data/ holds the SQLite file plus smtp.json and the coach session store; backups/
+// holds full database copies. Neither may be world-readable on a shared server.
+fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+for(const dir of [dataDir,backupDir]){try{fs.chmodSync(dir,0o700);}catch(e){/* Windows has no POSIX bits */}}
 const dbPath = path.join(dataDir, 'yasnafit.db');
+// The database holds every student record, so keep the file itself owner-only too.
+for(const suffix of ['', '-wal', '-shm']){
+  try{fs.chmodSync(dbPath + suffix, 0o600);}catch(e){/* file may not exist yet, Windows has no bits */}
+}
 const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 

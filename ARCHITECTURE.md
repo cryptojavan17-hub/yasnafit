@@ -339,6 +339,26 @@ Audited:
 - **Body size:** MAX_BODY_SIZE 1MB, destroy if exceeded
 - **Unsafe filenames:** sanitizeFileName basename + replace [^a-zA-Z0-9._-] with _
 - **Image paths:** findByOriginalId and findRecursiveSafe use isSafePath
+- **Response headers:** `src/request-security.js` builds one header set (CSP with
+  `default-src 'self'`, `script-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`,
+  `base-uri 'none'`, `form-action 'self'`, plus `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`/`Cross-Origin-Resource-Policy`) and `server.js` applies it to
+  every response, including static files, HTML shells and rejected requests. The coach shell
+  therefore contains no inline `<script>` at all: the one inline block moved to `public/boot.js`.
+- **Proxy trust:** `X-Forwarded-For` (rate-limit key), `X-Forwarded-Host` (CSRF same-origin
+  check) and `X-Forwarded-Proto` (`Secure` cookie flag) are read nowhere except
+  `src/request-security.js`, and only when `YASNAFIT_TRUST_PROXY=1` declares a reverse proxy.
+  `YASNAFIT_COOKIE_SECURE=1` forces the `Secure` flag; `YASNAFIT_HOST` chooses the bind address.
+- **Information disclosure:** `GET /api/health` answers liveness only (`ok`, `status`,
+  `version`, `uptime`); row counts, port and schema version need `?detailed=1` plus a coach
+  session. `GET /api/build` (git stamp, file mtimes, feature markers) requires a coach session.
+  `POST /api/test/reset-rate-limit` disappears when `NODE_ENV=production`.
+- **Error text:** `sendCaughtError()` keeps the Persian validation messages a service raises
+  on purpose, but logs and replaces anything that looks like a SQLite/library complaint, so
+  internal messages never reach the browser.
+- **Secret files:** `data/` and `backups/` are created `0700`; `data/smtp.json` and
+  `data/coach-authenticator.txt` are rewritten with `0600` (best effort on Windows).
 
 ## 20. Frontend Safety
 
@@ -914,7 +934,7 @@ business services. Its order is: design tokens, reset, typography, application l
 navigation, shared components, then responsive rules. `dark-theme.css` remains only as a
 compatibility entry and intentionally contains no overrides or `!important` rules.
 
-Page-specific files (`exercises.css`, `program-builder.css`, `student-portal.css`,
+Page-specific files (`exercises.css`, `program-builder.css`,
 `students.css`, and `releases.css`) consume the shared tokens instead of defining their
 own palettes. The hierarchy is monochrome and grayscale-first; semantic red is restricted
 to destructive/error states. Inputs, tables, modals, drawers, loading/error/empty states,

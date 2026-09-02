@@ -11,6 +11,9 @@ const crypto = require('crypto');
 
 // --- Configuration ---
 const port = Number(process.env.PORT || 3020);
+// Bind 0.0.0.0 only when the machine must expose it directly; behind nginx/caddy set
+// YASNAFIT_HOST=127.0.0.1 so the app port is never reachable from the internet.
+const listenHost = String(process.env.YASNAFIT_HOST || process.env.HOST || '0.0.0.0').trim() || '0.0.0.0';
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
@@ -33,6 +36,7 @@ const auditService = require('./src/audit-service');
 const studentAuthService = require('./src/student-auth-service');
 const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
+const requestSecurity = require('./src/request-security');
 const buildInfo = require('./src/build-info');
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
@@ -62,7 +66,7 @@ const types = {
 
 // --- Utilities ---
 function send(res, code, data, extraHeaders={}) {
-  const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'};
+  const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...requestSecurity.securityHeaders()};
   const cookies=[].concat(extraHeaders['Set-Cookie']||[]).filter(Boolean);
   for(const [key,value] of Object.entries(extraHeaders)){
     if(key==='Set-Cookie') continue;
@@ -204,6 +208,9 @@ async function handleCoachAuth(req,res,url){
     if(!coachAuthService.setupRequired(db)){
       return sendError(res,404,'مسیر پیدا نشد');
     }
+    if(!requestSecurity.isLoopbackSocket(req) && !requestSecurity.ALLOW_REMOTE_SETUP){
+      return sendError(res,403,'ساخت حساب مربی فقط از روی خودِ سرور مجاز است. برای اجرای از راه دور YASNAFIT_ALLOW_REMOTE_SETUP=1 بگذارید یا از تونل SSH استفاده کنید.');
+    }
     const body=await readBody(req);
     try{
       const coach=coachAuthService.setupCoach(db,{email:body.email,password:body.password,displayName:body.display_name,req});
@@ -285,8 +292,8 @@ async function handleCoachAuth(req,res,url){
 }
 
 const rateBuckets=new Map();
-function rateLimit(req,res,scope,limit,windowMs){const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim(),key=`${scope}:${ip}`,now=Date.now();let bucket=rateBuckets.get(key);if(!bucket||bucket.resetAt<=now)bucket={count:0,resetAt:now+windowMs};bucket.count++;rateBuckets.set(key,bucket);if(bucket.count>limit){send(res,429,{error:'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.',code:'RATE_LIMITED'},{'Retry-After':String(Math.ceil((bucket.resetAt-now)/1000))});return false;}if(rateBuckets.size>5000)for(const [entry,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(entry);return true;}
-function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;try{const expected=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();return new URL(origin).host===expected;}catch(error){return false;}}
+function rateLimit(req,res,scope,limit,windowMs){const ip=requestSecurity.clientIp(req),key=`${scope}:${ip}`,now=Date.now();let bucket=rateBuckets.get(key);if(!bucket||bucket.resetAt<=now)bucket={count:0,resetAt:now+windowMs};bucket.count++;rateBuckets.set(key,bucket);if(bucket.count>limit){send(res,429,{error:'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد تلاش کنید.',code:'RATE_LIMITED'},{'Retry-After':String(Math.ceil((bucket.resetAt-now)/1000))});return false;}if(rateBuckets.size>5000)for(const [entry,value] of rateBuckets)if(value.resetAt<=now)rateBuckets.delete(entry);return true;}
+function sameOrigin(req){return requestSecurity.sameOrigin(req);}
 
 function requireStudent(req,res){
   const context=studentSessionService.resolveStudentSession(db,req);
@@ -400,13 +407,36 @@ function validateProgramPayload(data){
   return [...errs, ...bodyErrs];
 }
 
+// Services raise user-facing errors (Persian message, sometimes a statusCode). Anything
+// that looks like a SQLite/library complaint is logged for the operator and replaced by
+// a generic reply, so internal schema details never reach the browser.
+const TECHNICAL_ERROR=/SQLITE|SQL logic|no such (?:table|column)|constraint failed|UNIQUE|FOREIGN KEY|errno|ENOENT|EACCES|EPERM|EISDIR|ENOTDIR|Cannot read propert|is not a function|is not defined|Unexpected (?:token|input|end)|prepared statement|database is locked|malformed|journal_mode/i;
+function sanitizeCaughtError(error,fallbackStatus=400,fallbackMessage='خطای سرور. جزئیات در لاگ ثبت شد.'){
+  const raw=String(error?.message||'');
+  const status=Number(error?.statusCode||fallbackStatus||400);
+  if(status>=500||TECHNICAL_ERROR.test(raw)){
+    console.error('[Request Error]',error);
+    return {status:500,message:raw?fallbackMessage:'خطای داخلی سرور'};
+  }
+  return {status:status<400?400:status,message:raw||fallbackMessage};
+}
+function sendCaughtError(res,error,fallbackStatus=400,details=null,fallbackMessage=null){
+  const clean=sanitizeCaughtError(error,fallbackStatus,fallbackMessage||'خطای سرور. جزئیات در لاگ ثبت شد.');
+  return sendError(res,clean.status,clean.message,details);
+}
+
 // --- API Handlers ---
 
-async function handleHealth(req,res){
+
+async function handleHealth(req,res,{detailed=false}={}){
   const totalExercises = one('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL')?.total || 0;
   const totalStudents = one('SELECT COUNT(*) as total FROM students WHERE deleted_at IS NULL')?.total || 0;
   const totalPrograms = one('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL')?.total || 0;
   const schemaVersion = one('SELECT value FROM settings WHERE key=?','schema_version')?.value || 'unknown';
+  if(!detailed){
+    // Enough for uptime monitoring, without publishing how many students exist.
+    return send(res,200,{ok:true,status:'ok',version:releaseService.getApplicationInfo().version,uptime:Math.round(process.uptime())});
+  }
   return send(res,200,{
     ok:true,
     database: fs.existsSync(dbPath),
@@ -415,14 +445,18 @@ async function handleHealth(req,res){
     students: totalStudents,
     programs: totalPrograms,
     schema_version: schemaVersion,
-    uptime: process.uptime()
+    uptime: Math.round(process.uptime())
   });
 }
 
 async function handleReleaseInfo(req,res,url){
   if(req.method!=='GET') return sendError(res,405,'متد مجاز نیست');
   if(url.pathname==='/api/version') return send(res,200,releaseService.getApplicationInfo());
-  if(url.pathname==='/api/build') return send(res,200,buildInfo.getBuildInfo());
+  if(url.pathname==='/api/build'){
+    // The build stamp names branches and local file mtimes, so it is coach-only.
+    if(requireCoach(req,res)) return true;
+    return send(res,200,buildInfo.getBuildInfo());
+  }
   if(url.pathname==='/api/releases') return send(res,200,releaseService.listReleases(db));
   const match=url.pathname.match(/^\/api\/releases\/([^/]+)$/);
   if(match){
@@ -557,7 +591,7 @@ async function handleStudents(req,res,url){
     if(errors.length) return sendError(res,400, errors[0], errors);
     if(!String(b.mobile||'').trim())return sendError(res,400,'شماره همراه الزامی است');
     let auth;
-    try{auth=studentAuthService.authColumnsForMobile(b.mobile);}catch(error){return sendError(res,error.statusCode||400,error.message);}
+    try{auth=studentAuthService.authColumnsForMobile(b.mobile);}catch(error){return sendCaughtError(res,error);}
     if(one('SELECT id FROM students WHERE mobile_normalized=? AND deleted_at IS NULL',auth.mobile_normalized))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');
     const stableId = crypto.randomUUID ? crypto.randomUUID() : programService.genUUID();
     db.exec('BEGIN');
@@ -572,7 +606,7 @@ async function handleStudents(req,res,url){
       log('شاگرد جدید ثبت شد',`${created.case_number} - ${b.full_name}`);
       auditService.record(db,{actorType:'coach',action:'student.created',entityType:'student',entityId:studentId,entityStableId:stableId,metadata:{case_number:created.case_number}});
       return send(res,201,{...created,invitation_id:invite.id,join_url:`/join/${invite.token}`,token:invite.token,token_preview:invite.token_preview,expires_at:invite.expires_at,temporary_password:temporaryPassword,password_change_recommended:true});
-    }catch(error){try{db.exec('ROLLBACK');}catch(rollbackError){}if(String(error.message).includes('UNIQUE constraint failed'))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');return sendError(res,400,error.message);}
+    }catch(error){try{db.exec('ROLLBACK');}catch(rollbackError){}if(String(error.message).includes('UNIQUE constraint failed'))return sendError(res,409,'این شماره همراه قبلاً ثبت شده است');return sendError(res,error.statusCode||500,requestSecurity.clientErrorMessage(error));}
   }
   return sendError(res,405,'متد مجاز نیست');
 }
@@ -606,7 +640,7 @@ async function handleStudentsDelete(req,res,url){
         });
         return send(res,200,result);
       }catch(error){
-        return sendError(res,error.statusCode||400,error.message);
+        return sendError(res,error.statusCode||500,requestSecurity.clientErrorMessage(error));
       }
     }
     return sendError(res,405,'متد مجاز نیست');
@@ -687,7 +721,7 @@ async function handleStudentsDelete(req,res,url){
       }
       return send(res, 200, updated);
     }catch(e){
-      return sendError(res, 400, e.message);
+      return sendError(res, e.statusCode||500, requestSecurity.clientErrorMessage(e));
     }
   }
   if(req.method==='GET'){
@@ -1108,7 +1142,7 @@ async function handleTrainingPrograms(req,res,url){
         return sendError(res, e.statusCode||400, e.message, e.validationErrors);
       }
       console.error('Create program error:', e);
-      return sendError(res,e.statusCode||500,e.statusCode?e.message:'خطا در ساخت برنامه');
+      return sendCaughtError(res,e,400,null,'خطا در ساخت برنامه');
     }
   }
 
@@ -1124,7 +1158,7 @@ async function handleTrainingPrograms(req,res,url){
       if(updated.student_id)engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:`program_${action}`,title:action==='activate'?'برنامه جدید شما فعال شد':`وضعیت برنامه: ${updated.status}`,body:updated.title||'',entityType:'training_program',entityId:id});
       auditService.record(db,{actorType:'coach',action:`program.${action}`,entityType:'training_program',entityId:id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id,status:updated.status}});if(previousActive)auditService.record(db,{actorType:'system',action:'program.completed',entityType:'training_program',entityId:previousActive.id,entityStableId:previousActive.stable_id,metadata:{student_id:previousActive.student_id,replaced_by:id}});
       return send(res,200,updated);
-    } catch(e){ return sendError(res,e.statusCode||400,e.message); }
+    } catch(e){ return sendCaughtError(res,e); }
   }
 
   const tpMatch = p.match(/^\/api\/training-programs\/(\d+)(\/full)?$/);
@@ -1182,7 +1216,7 @@ async function handleTrainingPrograms(req,res,url){
           return sendError(res, e.statusCode||400, e.message, e.validationErrors);
         }
         console.error('Update program error:', e);
-        return sendError(res, e.statusCode||500, e.message||'خطا در ویرایش');
+        return sendCaughtError(res,e,400,null,'خطا در ویرایش');
       }
     }
 
@@ -1197,7 +1231,7 @@ async function handleTrainingPrograms(req,res,url){
         return send(res,200,{id, soft_deleted:true, message: 'برنامه تمرینی با موفقیت حذف شد'});
       } catch(e){
         console.error('Delete program error:', e);
-        return sendError(res,500,'خطا در حذف برنامه: ' + e.message);
+        return sendCaughtError(res,e,500,null,'خطا در حذف برنامه');
       }
     }
   }
@@ -1237,7 +1271,7 @@ async function handleDietPrograms(req, res, url) {
       }
       return send(res, 201, result);
     } catch (e) {
-      return sendError(res, 400, e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -1247,7 +1281,7 @@ async function handleDietPrograms(req, res, url) {
       const analysis = await dietProgramService.analyzeDietWithAI(db, b);
       return send(res, 200, analysis);
     } catch (e) {
-      return sendError(res, 400, e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -1279,7 +1313,7 @@ async function handleDietPrograms(req, res, url) {
         }
         return send(res, 200, result);
       } catch (e) {
-        return sendError(res, 400, e.message);
+        return sendCaughtError(res,e);
       }
     }
 
@@ -1289,7 +1323,7 @@ async function handleDietPrograms(req, res, url) {
         log('برنامه غذایی حذف شد', `id ${id}`);
         return send(res, 200, result);
       } catch (e) {
-        return sendError(res, 400, e.message);
+        return sendCaughtError(res,e);
       }
     }
   }
@@ -1341,7 +1375,7 @@ async function handleSupplementPrograms(req, res, url) {
       }
       return send(res, 201, result);
     } catch (e) {
-      return sendError(res, 400, e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -1351,7 +1385,7 @@ async function handleSupplementPrograms(req, res, url) {
       const analysis = await supplementProgramService.analyzeSupplementsWithAI(db, b);
       return send(res, 200, analysis);
     } catch (e) {
-      return sendError(res, 400, e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -1390,7 +1424,7 @@ async function handleSupplementPrograms(req, res, url) {
         }
         return send(res, 200, result);
       } catch (e) {
-        return sendError(res, 400, e.message);
+        return sendCaughtError(res,e);
       }
     }
 
@@ -1407,7 +1441,7 @@ async function handleSupplementPrograms(req, res, url) {
         });
         return send(res, 200, result);
       } catch (e) {
-        return sendError(res, 400, e.message);
+        return sendCaughtError(res,e);
       }
     }
   }
@@ -1439,7 +1473,7 @@ async function handleStudentInvites(req,res,url){
     if(!Number.isInteger(expiresDays) || expiresDays < 0 || expiresDays > 3650) return sendError(res,400,'اعتبار دعوت باید بین صفر تا ۳۶۵۰ روز باشد');
     let result;
     try { result = studentService.createInvite(db, studentId, expiresDays); }
-    catch(e){ return sendError(res,400,e.message); }
+    catch(e){ return sendCaughtError(res,e); }
     log('لینک دعوت شاگرد ساخته شد', `${result.token_preview} برای ${studentId}`);
     auditService.record(db,{actorType:'coach',action:'invitation.created',entityType:'student_invitation',entityId:Number(result.id),entityStableId:result.stable_id,metadata:{student_id:studentId,expires_at:result.expires_at}});
     // Return token only once, plus join URL
@@ -1563,7 +1597,7 @@ async function handleStudentRegister(req,res,url){
       expires_at:session.expires_at
     },{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
   }catch(error){
-    return sendError(res,error.statusCode||400,error.message);
+    return sendCaughtError(res,error);
   }
 }
 
@@ -1646,7 +1680,7 @@ async function handleSessionPhotoUpload(req,res,studentId){
       const fields=Object.fromEntries(parts.filter(part=>part.type==='field').map(part=>[part.name,part.value]));
       if(files.length!==1)return sendError(res,400,'در هر درخواست دقیقاً یک عکس ارسال کنید');
       file=files[0];photoType=fields.photo_type;
-    }catch(error){return sendError(res,error.statusCode||400,error.message||'خطا در آپلود');}
+    }catch(error){return sendCaughtError(res,error,400,null,'خطا در آپلود');}
   }else{
     const body=await readBody(req);photoType=body.photo_type;
     const raw=String(body.data||body.base64||'');
@@ -1657,7 +1691,7 @@ async function handleSessionPhotoUpload(req,res,studentId){
   }
   if(!uploadService.PHOTO_TYPES.includes(photoType))return sendError(res,400,'نوع عکس نامعتبر است');
   try{const photo=uploadService.saveAssessmentPhoto(db,studentId,assessment.id,file,photoType);auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.photo_uploaded',entityType:'assessment',entityId:assessment.id,metadata:{photo_id:Number(photo.id),photo_type:photoType,size_bytes:photo.size_bytes}});return send(res,201,{photo});}
-  catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
+  catch(error){return sendCaughtError(res,error,400,error.validationErrors||null);}
 }
 
 async function handleSessionDocumentUpload(req,res,studentId){
@@ -1669,7 +1703,7 @@ async function handleSessionDocumentUpload(req,res,studentId){
     const parts=await uploadService.parseMultipart(req,boundary),files=parts.filter(part=>part.type==='file'),fields=Object.fromEntries(parts.filter(part=>part.type==='field').map(part=>[part.name,part.value]));
     if(files.length!==1)return sendError(res,400,'در هر درخواست دقیقاً یک فایل ارسال کنید');
     const document=assessmentDocumentService.save(db,studentId,assessment.id,files[0],fields.document_type);auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.document_uploaded',entityType:'assessment',entityId:assessment.id,metadata:{document_id:Number(document.id),document_type:document.document_type,size_bytes:document.size_bytes}});return send(res,201,{document});
-  }catch(error){return sendError(res,error.statusCode||400,error.message,error.validationErrors||null);}
+  }catch(error){return sendCaughtError(res,error,400,error.validationErrors||null);}
 }
 
 async function handleStudentSessionApi(req,res,url){
@@ -1694,21 +1728,21 @@ async function handleStudentSessionApi(req,res,url){
       db.prepare('UPDATE student_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE student_id=? AND id<>? AND revoked_at IS NULL').run(studentId,context.session_id);
       auditService.record(db,{actorType:'student',actorId:studentId,action:'student.password_changed',entityType:'student',entityId:studentId,metadata:{from_temporary_password:context.student.password_state!=='PERSONAL'}});
       return send(res,200,{success:true,...changed,next_route:studentNextRoute(studentId)});
-    }catch(error){return sendError(res,error.statusCode||400,error.message);}
+    }catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
   const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
-  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید شاگرد',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}
+  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید شاگرد',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}
   if(p==='/api/student/workouts'&&req.method==='GET')return send(res,200,{workouts:engagementService.listWorkouts(db,studentId),performance:engagementService.performance(db,studentId)});
-  if(p==='/api/student/workouts'&&req.method==='POST'){try{const workout=engagementService.startWorkout(db,studentId,(await readBody(req)).day_ref);auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.started',entityType:'workout_session',entityStableId:workout.stable_id});return send(res,201,{workout});}catch(error){return sendError(res,400,error.message);}}
-  const workoutResults=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/results$/);if(workoutResults&&req.method==='PUT'){try{return send(res,200,{workout:engagementService.saveWorkoutResults(db,studentId,workoutResults[1],(await readBody(req)).results)});}catch(error){return sendError(res,400,error.message);}}
-  const workoutComplete=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/complete$/);if(workoutComplete&&req.method==='POST'){try{const workout=engagementService.completeWorkout(db,studentId,workoutComplete[1],await readBody(req));auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.completed',entityType:'workout_session',entityStableId:workout.stable_id,metadata:{status:workout.status}});return send(res,200,{workout});}catch(error){return sendError(res,400,error.message);}}
+  if(p==='/api/student/workouts'&&req.method==='POST'){try{const workout=engagementService.startWorkout(db,studentId,(await readBody(req)).day_ref);auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.started',entityType:'workout_session',entityStableId:workout.stable_id});return send(res,201,{workout});}catch(error){return sendCaughtError(res,error);}}
+  const workoutResults=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/results$/);if(workoutResults&&req.method==='PUT'){try{return send(res,200,{workout:engagementService.saveWorkoutResults(db,studentId,workoutResults[1],(await readBody(req)).results)});}catch(error){return sendCaughtError(res,error);}}
+  const workoutComplete=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/complete$/);if(workoutComplete&&req.method==='POST'){try{const workout=engagementService.completeWorkout(db,studentId,workoutComplete[1],await readBody(req));auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.completed',entityType:'workout_session',entityStableId:workout.stable_id,metadata:{status:workout.status}});return send(res,200,{workout});}catch(error){return sendCaughtError(res,error);}}
   const workoutGet=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)$/);if(workoutGet&&req.method==='GET'){const workout=engagementService.workoutSession(db,studentId,workoutGet[1]);if(!workout)return sendError(res,404,'جلسه پیدا نشد');return send(res,200,{workout});}
   if((p==='/api/student/profile') && req.method==='GET')return send(res,200,{student:studentSessionService.safeStudent(context.student)});
   if((p==='/api/student/profile') && req.method==='PUT'){
     try{return send(res,200,{student:studentSessionService.safeStudent(updateStudentProfileFromSession(studentId,await readBody(req)))});}
-    catch(error){return sendError(res,error.statusCode||400,error.message);}
+    catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/dashboard' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId);
@@ -1740,13 +1774,13 @@ async function handleStudentSessionApi(req,res,url){
       const details=assessmentService.saveSection(db,assessment.id,studentId,sectionMatch[1],await readBody(req));
       const refreshed=one('SELECT * FROM body_assessments WHERE id=?',assessment.id);
       return send(res,200,{assessment:studentAssessmentView(refreshed,assessmentPhotos(refreshed.id)),details,last_saved_at:refreshed.draft_saved_at||refreshed.updated_at});
-    }catch(error){return sendError(res,error.statusCode||400,error.message);}
+    }catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/assessment' && req.method==='POST'){
     try{
       const assessment=await saveSessionAssessment(studentId,await readBody(req));
       return send(res,assessment.version===1?201:200,{assessment:studentAssessmentView(assessment,assessmentPhotos(assessment.id))});
-    }catch(error){return sendError(res,error.statusCode||400,error.message);}
+    }catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/assessment/photos' && req.method==='POST')return handleSessionPhotoUpload(req,res,studentId);
   if(p==='/api/student/assessment/documents' && req.method==='POST')return handleSessionDocumentUpload(req,res,studentId);
@@ -1771,7 +1805,7 @@ async function handleStudentSessionApi(req,res,url){
       engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
       auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
       return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});
-    }catch(error){return sendError(res,400,error.message);}
+    }catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/assessment' && req.method==='GET'){
     const assessment=latestStudentAssessment(studentId,true);
@@ -1913,7 +1947,7 @@ async function handleStudentPortal(req,res,url){
         const updated = studentService.updateAssessment(db, assessment.id, b);
         return send(res,200,updated);
       } catch(e){
-        return sendError(res,400,e.message);
+        return sendCaughtError(res,e);
       }
     } else {
       // Create new
@@ -1925,7 +1959,7 @@ async function handleStudentPortal(req,res,url){
         const full = one('SELECT * FROM body_assessments WHERE id=?', created.id);
         return send(res,201,full);
       } catch(e){
-        return sendError(res,400,e.message);
+        return sendCaughtError(res,e);
       }
     }
   }
@@ -1940,7 +1974,7 @@ async function handleStudentPortal(req,res,url){
       log('ارزیابی شاگرد ارسال شد', `${student.full_name} - ارزیابی #${submitted.assessment_number}`);
       return send(res,200,submitted);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -1988,13 +2022,13 @@ async function handleStudentPortal(req,res,url){
             const saved = uploadService.saveAssessmentPhoto(db, studentId, targetAssessmentId, file, photoType);
             results.push(saved);
           } catch(e){
-            return sendError(res, e.statusCode||400, e.message, e.validationErrors||null);
+            return sendCaughtError(res,e,400,e.validationErrors||null);
           }
         }
         return send(res,201,{photos: results});
       } catch(e){
         console.error('Multipart error', e);
-        return sendError(res, e.statusCode||400, e.message||'خطا در آپلود');
+        return sendCaughtError(res,e,400,null,'خطا در آپلود');
       }
     } else {
       // JSON base64 upload
@@ -2034,7 +2068,7 @@ async function handleStudentPortal(req,res,url){
         const saved = uploadService.saveAssessmentPhoto(db, studentId, targetAssessmentId, file, photoType);
         return send(res,201,{photo: saved});
       } catch(e){
-        return sendError(res, e.statusCode||400, e.message, e.validationErrors||null);
+        return sendCaughtError(res,e,400,e.validationErrors||null);
       }
     }
   }
@@ -2174,7 +2208,7 @@ async function handleBodyAssessments(req,res,url){
       auditService.record(db,{actorType:'coach',action:'assessment.changes_requested',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2189,7 +2223,7 @@ async function handleBodyAssessments(req,res,url){
       auditService.record(db,{actorType:'coach',action:'assessment.approved',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2197,7 +2231,7 @@ async function handleBodyAssessments(req,res,url){
   if(rejectMatch&&req.method==='POST'){
     const id=Number(rejectMatch[1]),body=await readBody(req);
     try{const updated=studentService.reviewAssessment(db,id,'reject',body.coach_note||'');engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:'assessment_rejected',title:'پرونده رد شد',body:updated.coach_note,entityType:'assessment',entityId:updated.id});auditService.record(db,{actorType:'coach',action:'assessment.rejected',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});return send(res,200,updated);}
-    catch(error){return sendError(res,400,error.message);}
+    catch(error){return sendCaughtError(res,error);}
   }
 
   const underReviewMatch = p.match(/^\/api\/assessments\/(\d+)\/under-review$/);
@@ -2208,7 +2242,7 @@ async function handleBodyAssessments(req,res,url){
       auditService.record(db,{actorType:'coach',action:'assessment.review_started',entityType:'assessment',entityId:updated.id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id}});
       return send(res,200,updated);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2320,7 +2354,7 @@ async function handleBackup(req,res,url){
       return send(res,201,{file});
     } catch(e){
       console.error('Backup error', e);
-      return sendError(res,500,'خطا در پشتیبان‌گیری', e.message);
+      return sendError(res,500,'خطا در پشتیبان‌گیری. جزئیات در لاگ سرور است.');
     }
   }
   return null;
@@ -2341,7 +2375,7 @@ async function handleAi(req,res,url){
       log('تنظیمات هوش مصنوعی به‌روزرسانی شد', `Combo: ${updated.default_combo||'تعیین‌نشده'}`);
       return send(res,200,updated);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2355,7 +2389,7 @@ async function handleAi(req,res,url){
       const result = await aiService.fetchAvailableModels(db, { base_url: baseUrl });
       return send(res, 200, result);
     } catch(e){
-      return sendError(res, 400, e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2365,7 +2399,7 @@ async function handleAi(req,res,url){
       const result=await aiService.chatCompletion(db,b);
       return send(res,200,result);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2376,7 +2410,7 @@ async function handleAi(req,res,url){
       log('برنامه تمرینی با هوش مصنوعی ساخته شد', `Program ID: ${result.programId}`);
       return send(res,201,result);
     } catch(e){
-      return sendError(res,400,e.message);
+      return sendCaughtError(res,e);
     }
   }
 
@@ -2388,7 +2422,7 @@ async function handleCoachEngagement(req,res,url){
   if(p==='/api/coach/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'coach',null,100)});
   if(p==='/api/coach/notifications'&&req.method==='DELETE'){if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');const cleared=engagementService.clearNotifications(db,'coach');auditService.record(db,{actorType:'coach',action:'notifications.cleared',entityType:'notification',metadata:{cleared_count:cleared}});return send(res,200,{success:true,cleared});}
   const notificationRead=p.match(/^\/api\/coach\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(notificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,notificationRead[1],'coach'))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
-  const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendError(res,400,error.message);}}}
+  const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}}
   const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
   const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=studentIdByReference(auditMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
   return null;
@@ -2400,10 +2434,15 @@ async function api(req,res,url){
     const p=url.pathname;
 
     if(p==='/api/test/reset-rate-limit' && req.method==='POST'){
+      if(requestSecurity.PRODUCTION) return sendError(res,404,'مسیر پیدا نشد');
       rateBuckets.clear();
       return send(res, 200, { ok: true });
     }
-    if(p==='/api/health') return await handleHealth(req,res);
+    if(p==='/api/health'){
+      const detailed=url.searchParams.get('detailed')==='1';
+      if(detailed&&!isCoachAuthorized(req)) return sendError(res,401,'برای نمایش آمار سامانه وارد شوید');
+      return await handleHealth(req,res,{detailed});
+    }
     if(p==='/api/location/provinces' && req.method==='GET'){
       return send(res, 200, studentAuthService.IRAN_PROVINCES_AND_CITIES);
     }
@@ -2549,6 +2588,8 @@ function findRecursiveSafe(baseDir, fileName){
 }
 
 const server=http.createServer(async(req,res)=>{
+  // Hardening headers apply to every response, including static files and rejections.
+  requestSecurity.applySecurityHeaders(res);
   // Security: check raw URL for traversal before normalization
   const rawUrl = req.url || '';
   if(rawUrl.includes('..') || rawUrl.includes('\0') || rawUrl.includes('%00')){
@@ -2582,7 +2623,7 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(200,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
+        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
       return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
@@ -2590,7 +2631,7 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(200,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"
+        'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
       return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
@@ -2602,7 +2643,7 @@ const server=http.createServer(async(req,res)=>{
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-        'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
+        'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
@@ -2700,6 +2741,12 @@ const server=http.createServer(async(req,res)=>{
 
     // SPA fallback only for non-file routes (no extension or known SPA routes)
     const ext = path.extname(wanted).toLowerCase();
+    if(ext === '.html' && !isCoachAuthorized(req)){
+      // A missing .html URL used to fall through to the coach shell, which handed the
+      // admin markup to anonymous scanners. Extensionless routes keep that behaviour.
+      res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+      return res.end(JSON.stringify({error:'مسیر پیدا نشد',code:'NOT_FOUND'}));
+    }
     if(ext && ext !== '.html'){
       // If it has extension but file doesn't exist, 404
       res.writeHead(404,{'Content-Type':'application/json'});
@@ -2716,10 +2763,12 @@ const server=http.createServer(async(req,res)=>{
   }
 });
 
-server.listen(port,'0.0.0.0',()=>{
+server.listen(port,listenHost,()=>{
   const totalEx = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM exercises WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
   const totalProg = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
-  console.log(`Yasnafit is running at http://localhost:${port} with ${totalEx} exercises and ${totalProg} training programs`);
+  console.log(`Yasnafit is running at http://localhost:${port} (bound to ${listenHost}) with ${totalEx} exercises and ${totalProg} training programs`);
+  if(!requestSecurity.TRUST_PROXY) console.log('[Security] X-Forwarded-* headers are ignored (set YASNAFIT_TRUST_PROXY=1 behind a reverse proxy).');
+  if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
   const build=buildInfo.getBuildInfo();
   console.log(`Build stamp: ${build.branch||'unknown branch'} @ ${build.commit||'no git'}${build.uncommitted?' (with local edits)':''} | students.js ${build.students_ui?build.students_ui.mtime:'missing'} | features ${Object.entries(build.markers).map(([name,ok])=>`${name}=${ok?'✓':'✗'}`).join(' ')}`);

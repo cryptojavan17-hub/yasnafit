@@ -81,7 +81,7 @@
       const [info,releases,health]=await Promise.all([
         getJson('/api/version'),
         getJson('/api/releases'),
-        getJson('/api/health')
+        getJson('/api/health?detailed=1')
       ]);
       content.innerHTML=`<div class="release-page">
         <div class="page-head release-page-head">
