@@ -58,10 +58,10 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0618b-yasnafit` |
-| آخرین کامیت (ریموت) | `4e89d10` — “docs(memory): add the session-memory rule to section 9” • قبلش `f90fbca` (ساخت `mahdi hellp.md`) و `9be37bb` (ممیزی امنیتی Task 16/17) |
+| آخرین کامیت (ریموت و محلی، **برابر**) | `8331634` — “feat(deploy): make the app Railway-ready …” (Task 18) • قبلش `4e89d10`/`f90fbca` (`mahdi hellp.md`) و `9be37bb` (ممیزی امنیتی Task 16/17) |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
-| local vs origin | **برابر** (هر دو `4e89d10` در ابتدای جلسهٔ Railway؛ کارهای جدید این جلسه هنوز commit نشده‌اند) |
+| local vs origin | **برابر** (`8331634`) — `git status` تمیز |
 | PR | **#2 OPEN** (head: همین شاخه، title: “student password management inside the edit dialog (+ build stamp)”, `mergeable: UNKNOWN`) • PR **#1 CLOSED** |
 | وضعیت merge | تاکنون هیچ merge ای توسط Agent انجام نشده؛ تصمیم merge با مالک است |
 | اقدامات باز | (۱) مهدی باید در ویندوز `git pull --ff-only` بزند (۲) در صورت تأیید مالک: merge PR #2 به `main` تا Railway روی `main` deploy شود |
@@ -207,7 +207,7 @@
 
 ### What was done
 1. ساخت فایل حافظهٔ `mahdi hellp.md` (این فایل) با ۱۷ بخش، فقط بر پایهٔ داده‌های تأییدشده؛ هر چیز نامعلوم با `UNKNOWN — needs verification`.
-2. **Task 18 — آماده‌سازی Railway:** `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، `watchPatterns`)؛ `YASNAFIT_BACKUP_DIR` در `src/database.js` + export `dataDir/backupDir` و استفاده از `backupDir` مشترک در چرخش بکاپ `server.js`؛ بخش §۹ کامل در `DEPLOYMENT.md` (مراحل داشبورد، Volume `/app/data`، جدول متغیرها، ساخت حساب مربی با `YASNAFIT_ALLOW_REMOTE_SETUP`، ریسک‌ها، curlهای راستی‌آزمایی)؛ گاردهای جدید در سوئیت `test:deployment`.
+2. **Task 18 — آماده‌سازی Railway** (کامیت `8331634`، push شده): `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، `watchPatterns`)؛ `YASNAFIT_BACKUP_DIR` در `src/database.js` + export `dataDir/backupDir` و استفاده از `backupDir` مشترک در چرخش بکاپ `server.js`؛ بخش §۹ کامل در `DEPLOYMENT.md` (مراحل داشبورد، Volume `/app/data`، جدول متغیرها، ساخت حساب مربی با `YASNAFIT_ALLOW_REMOTE_SETUP`، ریسک‌ها، curlهای راستی‌آزمایی)؛ گاردهای جدید در سوئیت `test:deployment`.
 3. **بازیابی سندباکس:** در میانهٔ جلسه `.git` سندباکس دوباره به `main` (`086f3e0`) برگشت و همه‌چیز untracked دیده می‌شد؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` (بدون force-push) به `4e89d10` برگردانده شد و بعد از آن `git status` تمیز بود. **روی ماشین مهدی هرگز این کار تکرار نشود** — آنجا `git pull --ff-only`.
 
 ### What changed
@@ -267,8 +267,8 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | هنوز `9be37bb` را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
-| Local (سندباکس Agent) | **CURRENT** | `9be37bb`، working tree تمیز؛ سرور روی 3020 زنده و تست‌ها سبز |
+| Local (لوکال مهدی) | **BEHIND** | هنوز `8331634` را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
+| Local (سندباکس Agent) | **CURRENT** | `8331634`، working tree تمیز؛ سرور روی 3020 زنده و ۱۸/۱۸ تست سبز |
 | Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit = 9be37bb`؛ PR #2 باز |
 | `main` | `086f3e0` — **پشت سر** شاخهٔ جلسه (تصمیم merge با مالک) |
 | Railway | **NOT CONNECTED YET** — کانفیگ مخزن (`railway.json`) آماده و تست‌شده است، اما سرویس/Volume/Domain هنوز در داشبورد ساخته نشده‌اند: `UNKNOWN — needs verification` |
