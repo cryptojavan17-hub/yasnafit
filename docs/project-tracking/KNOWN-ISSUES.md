@@ -85,6 +85,13 @@
 - **LESSON:** رندر یک دکمه بدون بایندینگ = قابلیت خاموش. هر نقطه‌ورود UI باید یا تست تعاملی داشته باشد یا گارد استاتیک «دکمه ↔ handler».
 
 
+
+## KI-014 | سرویس Railway روی `main` بود ⇒ build با «Railpack could not determine how to build the app» شکست
+- **SEVERITY:** High برای deploy • **STATUS:** **MITIGATED** (2026-09-02) — رفع نهایی با تصمیم مالک
+- **DESCRIPTION:** لاگ build (۲۰۲۶-۰۹-۰۲ ۲۱:۵۵) درختی را نشان داد که فقط `README.md` و `login-hero.png` داشت. `main` در این مخزن شاخهٔ فقط-دارایی است؛ `package.json`، `server.js` و `railway.json` روی آن نیست، پس builder (Railpack) چیزی برای ساختن پیدا نکرد و `start.sh` را هم نساخت. هیچ کدی از برنامه اجرا نشده بود، بنابراین این خطا نشانهٔ باگ برنامه نیست.
+- **MITIGATION:** commit شدن `package-lock.json` (پروژه صفر وابستگی است ⇒ تشخیص Node برای Nixpacks و Railpack قطعی می‌شود)، گارد «قفل باید در git باشد» در `test:deployment`، و `DEPLOYMENT.md` §۹.۷ (جدول «متن لاگ ← علت ← کار»).
+- **NEXT ACTION:** مالک یا Service → Settings → Source → Branch را روی `arena/01a0618b-yasnafit` می‌گذارد، یا `PR #2` را merge می‌کند (الان `MERGEABLE`/`CLEAN`) و از `main` deploy می‌کند. بعد از اولین build موفق: Volume (§۹.۱ بند ۲) و چک‌های §۹.۵.
+
 ---
 
 ## تاریخچه FIXED (نگه‌داشته‌شده)

@@ -164,7 +164,7 @@
 | KI-001 | `tests/e2e-workflow.js` بدون سرورِ در حال اجرا fail می‌شود | Low | OPEN | `tests/e2e-workflow.js` | spawn خودکار سرور تست (T-11) |
 | KI-002 | شکاف ۵↔۱۲ سیستم تمرینی | High | **FIXED** (BR-14) | — | کاتالوگ DB در T-14 |
 | KI-003 | پخش ویدیو در UI پیاده نشده | Medium | OPEN | `public/program-builder.js` | T-02 |
-| KI-004 | `main` در GitHub فقط `README.md` + `login-hero.png` دارد ⇒ هر deploy روی `main` قبل از merge PR #2 می‌شکند («Railpack could not determine how to build the app») | High (deploy) | **MITIGATED** (`package-lock.json` + DEPLOYMENT §۹.۷)؛ رفع نهایی = merge با تأیید مالک | `main`, PR #2 | مهدی: branch سرویس را عوض کند یا PR را merge کند |
+| KI-014 | `main` در GitHub فقط `README.md` + `login-hero.png` دارد ⇒ هر deploy روی `main` قبل از merge PR #2 می‌شکند («Railpack could not determine how to build the app») | High (deploy) | **MITIGATED** (`package-lock.json` + DEPLOYMENT §۹.۷)؛ رفع نهایی = merge با تأیید مالک | `main`, PR #2 | مهدی: branch سرویس را عوض کند یا PR را merge کند |
 | KI-004 | `node:sqlite` experimental | Low | OPEN (پایش) | `src/database.js` | پایش Node LTS |
 | KI-005 | کلون تازه ۱۸۸۸ عکس حرکت را ندارد (by design) | Medium | OPEN | `public/assets/images/exercises/imported/` | ایمپورت لوکال |
 | KI-006 | rate limiter در حافظه (با ری‌استارت ریست) | Low | OPEN/WONTFIX | `server.js` | T-13 |
