@@ -58,7 +58,7 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0618b-yasnafit` |
-| آخرین کامیت (ریموت و محلی، **برابر**) | ترتیب کامیت‌های جلسهٔ Railway: `8331634` (Task 18) → `64c1dc1` (docs) → `6c99194` (Task 18b storage-paths) → `0896bba` (docs) → **Task 19** (لاگ اول build + `package-lock.json` + §۹.۷). بعد از push، `git ls-remote origin refs/heads/arena/01a0618b-yasnafit` باید با `git rev-parse HEAD` برابر باشد |
+| آخرین کامیت (ریموت و محلی، **برابر**) | `b98c929` (Task 19) ← `0896bba` ← `6c99194` (Task 18b) ← `64c1dc1` ← `8331634` (Task 18)؛ همه push‌شده روی همین شاخه |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
 | local vs origin | **برابر** (`8331634`) — `git status` تمیز |
@@ -164,6 +164,7 @@
 | KI-001 | `tests/e2e-workflow.js` بدون سرورِ در حال اجرا fail می‌شود | Low | OPEN | `tests/e2e-workflow.js` | spawn خودکار سرور تست (T-11) |
 | KI-002 | شکاف ۵↔۱۲ سیستم تمرینی | High | **FIXED** (BR-14) | — | کاتالوگ DB در T-14 |
 | KI-003 | پخش ویدیو در UI پیاده نشده | Medium | OPEN | `public/program-builder.js` | T-02 |
+| KI-004 | `main` در GitHub فقط `README.md` + `login-hero.png` دارد ⇒ هر deploy روی `main` قبل از merge PR #2 می‌شکند («Railpack could not determine how to build the app») | High (deploy) | **MITIGATED** (`package-lock.json` + DEPLOYMENT §۹.۷)؛ رفع نهایی = merge با تأیید مالک | `main`, PR #2 | مهدی: branch سرویس را عوض کند یا PR را merge کند |
 | KI-004 | `node:sqlite` experimental | Low | OPEN (پایش) | `src/database.js` | پایش Node LTS |
 | KI-005 | کلون تازه ۱۸۸۸ عکس حرکت را ندارد (by design) | Medium | OPEN | `public/assets/images/exercises/imported/` | ایمپورت لوکال |
 | KI-006 | rate limiter در حافظه (با ری‌استارت ریست) | Low | OPEN/WONTFIX | `server.js` | T-13 |
@@ -276,7 +277,7 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 | Local (سندباکس Agent) | **CURRENT** | Task 18 = `8331634` و Task 18b = کامیت همین جلسه (storage-paths)؛ تست‌ها محلی سبز |
 | Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز و **CLEAN/MERGEABLE** (086f3e0 ancestor شاخهٔ ماست ⇒ merge بدون تناقض) |
 | `main` | `086f3e0` — **فقط `README.md` + `login-hero.png`** (`git ls-tree -r --name-only origin/main`)؛ هیچ deploy ای نباید روی `main` تا merge بعدی انجام شود |
-| Railway | **REPO-SIDE READY / DASHBOARD PENDING** | سمت مخزن کامل است (`railway.json` + `src/storage-paths.js` + DEPLOYMENT §۹)؛ هنوز پروژه/سرویس در داشبورد ساخته و Volume وصل نشده ⇒ `UNKNOWN — needs verification` |
+| Railway | **PROJECT CREATED / WRONG BRANCH** | پروژه و سرویس در داشبورد ساخته شده (لاگ build ۲۰۲۶-۰۹-۰۲ ۲۱:۵۵) ولی سرویس `main` را deploy می‌کند که خالی است ⇒ Railpack شکست خورد. بعد از تغییر branch یا merge PR #2: Volume + Variables + Generate Domain + تست §۹.۵؛ region/URL/Volume همچنان `UNKNOWN — needs verification` |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
