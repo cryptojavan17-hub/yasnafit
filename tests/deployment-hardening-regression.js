@@ -151,6 +151,30 @@ for(const token of ['YASNAFIT_TRUST_PROXY','YASNAFIT_HOST','YASNAFIT_COOKIE_SECU
 }
 assert.doesNotMatch(deploymentDoc,/YASNAFIT_COACH_TOKEN/,'the removed shared bearer token must not be documented');
 
+// --- 8. Railway deployment config ---------------------------------------------------
+const railwayConfig=JSON.parse(read('railway.json')||'{}');
+assert.equal(railwayConfig.build&&railwayConfig.build.builder,'NIXPACKS','Railway must build with Nixpacks (no Dockerfile in this repo)');
+assert.match(railwayConfig.build.buildCommand,/node --check server\.js/,'the build does not fail fast on a broken server.js');
+assert.equal(railwayConfig.deploy.startCommand,'node server.js','Railway must run the plain node server (there is nothing to install)');
+assert.equal(railwayConfig.deploy.healthcheckPath,'/api/health','Railway needs an unauthenticated liveness path');
+assert.equal(railwayConfig.deploy.numReplicas,1,'a Railway volume is per-service, so replicas would fork the database');
+assert.equal(railwayConfig.deploy.restartPolicyType,'ON_FAILURE');
+assert.ok(railwayConfig.deploy.restartPolicyMaxRetries<=10,'unbounded restarts hide a crash loop');
+assert.ok(Array.isArray(railwayConfig.deploy.watchPatterns)&&railwayConfig.deploy.watchPatterns.includes('server.js'),'every unrelated push must not thrash the build');
+// the health endpoint must answer before the coach gate, otherwise every deploy is marked unhealthy
+assert.match(serverSource,/if\(p==='\/api\/health'\)\{[\s\S]{0,240}detailed/,
+  'GET /api/health must stay routable without a session');
+// a container only contains what git contains: the movement seed must be tracked
+assert.ok(exists('data-source/exercises_data.json'),'a fresh deploy could not seed the 2707 movements');
+// backups must be relocatable into the single mounted volume
+assert.match(databaseSource,/process\.env\.YASNAFIT_BACKUP_DIR/,'backups would stay outside the Railway volume');
+assert.match(databaseSource,/module\.exports = \{ db, dbPath, dataDir, backupDir,/,'the resolved backup dir is not exported for rotation');
+assert.ok(!/path\.join\(__dirname, 'backups'\)/.test(serverSource),'backup rotation still points at the repo folder');
+assert.match(serverSource,/const \{ db, dbPath, backup, backupDir, log \} = require\('\.\/src\/database'\);/,'rotation does not use the shared backupDir');
+for(const token of ['/app/data','YASNAFIT_BACKUP_DIR','Attach Volume','YASNAFIT_ALLOW_REMOTE_SETUP','Generate Domain','numReplicas']){
+  assert.ok(deploymentDoc.includes(token),'DEPLOYMENT.md does not cover the Railway step '+token);
+}
+
 console.log(JSON.stringify({
   ok:true,
   dead_files_removed:deleted.length,
@@ -158,5 +182,6 @@ console.log(JSON.stringify({
   proxy_trust_gated:true,
   admin_endpoints_gated:true,
   secret_file_modes:true,
-  runbook:true
+  runbook:true,
+  railway_config:true
 }));

@@ -36,7 +36,7 @@
   * **شاگرد:** شمارهٔ همراه + رمز scrypt؛ نشست تصادفی ۳۲ بایتی که فقط هشش در DB ذخیره می‌شود؛ کوکی `yasnafit_student_session`؛ ورود از لینک دعوت `/join/:token` (یک‌بارمصرف).
 * **File storage:** آپلود عکس بدن/مدارک خصوصی با `src/upload-service.js` (سقف ۵MB هر فایل، ۱۰ فایل هر ارزیابی، ۲۰MB multipart، allowlist MIME+پسوندم + بررسی امضای بایت + `sanitizeFileName`)؛ فایل‌های خصوصی **هرگز از `public/` سرو نمی‌شوند** و فقط با نشست متناظر خوانده می‌شوند. عکس/ویدیوی حرکات: `public/assets/images/exercises/imported/` (gitignored، ~۱۸۸۸ فایل فقط لوکال) و `/files/exercise/*`.
 * **Security layer (جدید، §Task 16):** `src/request-security.js` — CSP یکنواخت + `X-Content-Type-Options: nosniff` + `X-Frame-Options: DENY` + `Referrer-Policy: no-referrer` + `Permissions-Policy` + `Cross-Origin-Opener/Resource-Policy` که روی **همهٔ پاسخ‌ها** اعمال می‌شود؛ تنها جای خواندن `X-Forwarded-*` در کل مخزن همین فایل است و فقط با `YASNAFIT_TRUST_PROXY=1`.
-* **Railway deployment:** **در این مخزن هیچ پیکربندی Railway وجود ندارد** — نه `railway.json/JSONC`، نه `Dockerfile`، نه `Procfile`، نه `.github/workflows`. مسیر رسمی استقرارِ مستندشده **VPS + nginx + systemd** است (`DEPLOYMENT.md`). وضعیت Railway واقعی: `UNKNOWN — needs verification`.
+* **Railway deployment:** از 2026-09-02 **`railway.json` در ریشه وجود دارد** (Nixpacks + `node server.js` + `healthcheckPath: /api/health` + `numReplicas: 1`) و `src/database.js` با `YASNAFIT_BACKUP_DIR` مسیر بکاپ را به داخل Volume منتقل می‌کند. همچنان **Dockerfile/Procfile/CI وجود ندارد** و مسیر جایگزینِ مستندشده VPS + nginx + systemd است (`DEPLOYMENT.md` §۱–۸؛ §۹ مخصوص Railway). وضعیت اکانت Railway: `UNKNOWN — needs verification` (§۶).
 * **Android/mobile:** هیچ کد موبایل در مخزن نیست (فقط فلوی موبایل-پسند UI شاگرد). TODO: T-08.
 * **Synchronization:** لایهٔ سینک **وجود ندارد**؛ زیرساخت آماده است (`stable_id`, `version`, soft-delete). TODO: T-07.
 
@@ -58,24 +58,30 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0618b-yasnafit` |
-| آخرین کامیت | `9be37bb` — “security(server): complete hardening pass and dead-file cleanup for deployment” |
+| آخرین کامیت (ریموت) | `4e89d10` — “docs(memory): add the session-memory rule to section 9” • قبلش `f90fbca` (ساخت `mahdi hellp.md`) و `9be37bb` (ممیزی امنیتی Task 16/17) |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
-| local vs origin | **برابر** — `git ls-remote` و `git rev-parse HEAD` هر دو `9be37bb` |
+| local vs origin | **برابر** (هر دو `4e89d10` در ابتدای جلسهٔ Railway؛ کارهای جدید این جلسه هنوز commit نشده‌اند) |
 | PR | **#2 OPEN** (head: همین شاخه، title: “student password management inside the edit dialog (+ build stamp)”, `mergeable: UNKNOWN`) • PR **#1 CLOSED** |
 | وضعیت merge | تاکنون هیچ merge ای توسط Agent انجام نشده؛ تصمیم merge با مالک است |
-| اقدامات باز | (۱) مهدی باید در ویندوز `git pull --ff-only` بزند (کپی لوکال **پشت سر** `9be37bb` است) (۲) در صورت تأیید مالک: merge PR #2 به `main` |
+| اقدامات باز | (۱) مهدی باید در ویندوز `git pull --ff-only` بزند (۲) در صورت تأیید مالک: merge PR #2 به `main` تا Railway روی `main` deploy شود |
 | هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و `main` را checkout کرده باشد. اگر `git log -1` شد `086f3e0`: `git fetch -q origin arena/01a0618b-yasnafit` + `git update-ref refs/heads/arena/01a0618b-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
 
 ---
 
 ## 6. Railway Deployment
 
-* **Railway project/service:** `UNKNOWN — needs verification` (هیچ اثری از آن در مخزن نیست)
-* **مخزن متصل / شاخهٔ دیپلوی / URL عمومی / build & start command / تنظیم PORT / وضعیت volume / وضعیت persist SQLite / آخرین دیپلوی:** همه `UNKNOWN — needs verification`
-* **متغیرهای محیطی (فقط نام — مقدار هرگز اینجا نمی‌آید):** `PORT`, `NODE_ENV`, `HOST`, `YASNAFIT_HOST`, `YASNAFIT_TRUST_PROXY`, `YASNAFIT_COOKIE_SECURE`, `YASNAFIT_ALLOW_REMOTE_SETUP`, `YASNAFIT_COACH_PASSWORD`, `YASNAFIT_SMTP_HOST`, `YASNAFIT_SMTP_PORT`, `YASNAFIT_SMTP_USER`, `YASNAFIT_SMTP_PASS`, `YASNAFIT_SMTP_FROM`, `YASNAFIT_BASE_URL` (فقط در `tests/e2e-workflow.js` برای آدرس سرور تست)
-* **نکتهٔ حیاتی اگر روزی روی Railway برود:** برنامه **stateful** است (فایل SQLite + آپلودها + بکاپ روی دیسک). بدون **persistent volume** روی مسیر `data/` و `backups/`، داده با هر deploy/فشارخاکستر از بین می‌رود. ریسک دوم: `node:sqlite` به Node ≥ 22.5 نیاز دارد (image پیش‌فرض Railway باید ارتقا یابد). سوم: `node_modules` لازم نیست (صفر وابستگی) — build command می‌تواند خالی/`echo` باشد و start `node server.js`.
-* **قاعده:** تا وقتی کامیت دیپلوی‌شده روی Railway با `git rev-parse` مقایسه و از لاگ سرویس راستی‌آزمایی نشده، **هیچ‌وقت اعلام نکنید Local و Railway هم‌زمان‌اند.**
+**حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال واقعی به هنوز انجام نشده** — Agent به داشبورد Railway دسترسی ندارد (لاگین/کلیک با مالک است)؛ سمت مخزن کامل آماده است.
+
+* **سمت مخزن (انجام‌شده، commit همین جلسه):** `railway.json` در ریشه — `builder: NIXPACKS`، `buildCommand: npm install --no-audit --no-fund && node --check server.js` (build خراب را زود می‌شکند)، `startCommand: node server.js`، `healthcheckPath: /api/health` (عمومی و سبک — دقیقاً همین را Railway پروب می‌کند)، `restartPolicyType: ON_FAILURE` + `maxRetries: 5`، `numReplicas: 1`، `sleepApplication: false`، `watchPatterns` فقط `server.js|src/**|public/**|data-source/**|package.json|railway.json`.
+* **پشتیبانی state:** `src/database.js` حالا `YASNAFIT_BACKUP_DIR` را می‌پذیرد (پیش‌فرض: `backups/` کنار برنامه، بدون تغییر رفتار لوکال) و `backupDir` را export می‌کند؛ `server.js` چرخش ۱۰ نسخه را روی همان مسیر انجام می‌دهد ⇒ روی Railway `/app/data/backups` تا داخل Volume بیفتد.
+* **Volume (قدم دستی مالک):** Right-click سرویس → **Attach Volume** → Mount Path **دقیقاً `/app/data`** (چون Nixpacks برنامه را در `/app` می‌سازد و همه‌چیز زیر `data/` است: DB، `assessments/`، `assessment-documents/`، `smtp.json`، `coach-authenticator.txt`). هر سرویس فقط **یک** Volume دارد و با replica کار نمی‌کند؛ پلن رایگان/trial ~۰٫۵GB.
+* **Variables (فقط نام — مقدار در داشبورد):** `NODE_ENV=production`، `YASNAFIT_TRUST_PROXY=1`، `YASNAFIT_COOKIE_SECURE=1`، `YASNAFIT_BACKUP_DIR=/app/data/backups`، و **موقتاً** `YASNAFIT_ALLOW_REMOTE_SETUP=1` برای اولین ساخت حساب مربی (بعد از ساخت باید پاک شود). اختیاری/در صورت خطا: `NIXPACKS_NODE_VERSION=22`، `RAILWAY_RUN_UID=0`. `PORT` را ست نکنید (Railway می‌دهد) و `YASNAFIT_HOST` هم **نگذارید** `127.0.0.1` شود.
+* **Domain:** Settings → Networking → **Generate Domain** ⇒ `https://<name>.up.railway.app`.
+* **راستی‌آزمایی‌های انجام‌شده (شبیه‌سازی محیط Railway در سندباکس، 2026-09-02):** با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1 YASNAFIT_BACKUP_DIR=$PWD/data/backups` → `GET /api/health` = 200 با بدنهٔ حداقلی ✓، `POST /api/coach/auth/login` → 200 و `Set-Cookie …; Secure` ✓، `POST /api/test/reset-rate-limit` → 404 ✓، `GET /api/build` → 401 ✓، بکاپ داخل `data/backups` نوشته شد ✓، دیتابیس تازه با ۳۰ مایگریشن + seed ۲۷۰۷ حرکت از `data-source/exercises_data.json` (موجود در git) بالا آمد ✓.
+* **هنوز تأییدنشده:** `Railway project/service ID`، `region`، `public URL`، `وضعیت build اولین deploy`، `آیا Volume وصل شده` ⇒ `UNKNOWN — needs verification`.
+* **ریسک‌های اعلام‌شده در `DEPLOYMENT.md` §۹:** عکس/ویدیوی ۱۸۸۸ حرکت عمداً در git نیست ⇒ روی Railway placeholder می‌بینیم؛ پایان ماه رایگان ممکن است Volume را پاک کند ⇒ بکاپ منظم؛ هیچ UI برای آپلود فایل روی Volume نیست، پس انتقال `data/yasnafit.db` لوکال یا «از صفر شروع» است یا یک API جدید restore (منتظر تأیید مالک).
+* **قاعده:** تا وقتی کامیت دیپلوی‌شده با `git rev-parse` و لاگ سرویس مقایسه نشده، هرگز اعلام نکنید Local و Railway هم‌زمان‌اند.
 
 ---
 
@@ -86,6 +92,7 @@
 * **URL/پورت:** `http://localhost:3020` (پورت با `PORT` عوض می‌شود)
 * **دیتابیس لوکال:** `data\yasnafit.db` (+ `-wal`/`-shm`) — gitignored
 * **تصویر هیروی صفحهٔ ورود:** `public\login-hero.png` (نسخهٔ **مورد استفاده**، ارجاع در `public/student-app.js` و `public/luxury-login.css`)؛ جایگزین شخصی: `public\image\logo.png` (gitignore). چهرهٔ تصویر هیرو را عوض نکنید (تأکید مالک در کامیت `086f3e0`).
+* **مسیر بکاپ:** پیش‌فرض `backups/` کنار برنامه؛ با `YASNAFIT_BACKUP_DIR` قابل جابه‌جایی است (روی Railway: `/app/data/backups`).
 * **قاعدهٔ ری‌استارت:** تغییر `public/*` ← فقط رفرش مرورگر (`Ctrl+Shift+R`)؛ تغییر `server.js` یا `src/*` ← ری‌استارت سرور (لانچر گزینهٔ ۲).
 * **LAN برای شاگرد:** لانچر **هیچ IP شبکه‌ای چاپ نمی‌کند** و فقط `http://localhost:3020/coach/login` را باز می‌کند. برای دسترسی شاگرد در شبکهٔ محلی: سرور با پیش‌فرض `YASNAFIT_HOST=0.0.0.0` بالا بیاید (همین حالت فعلی) و IP ویندوز + باز بودن پورت ۳۰۲۰ در فایروال (پروفایل Private) دستی بررسی شود. (در صورت نیاز می‌توان چاپ IP را به لانچر افزود — تا امروز درخواست/کد آن وجود ندارد.)
 * **بقیهٔ رفتار لانچر (تأییدشده):** `:STATUS` با `Get-NetTCPConnection` وضعیت پورت و وجود `data\yasnafit.db` را نشان می‌دهد؛ `:CHECKCODE` با `findstr credentialEditorMarkup public\students.js` «NEW CODE / OLD CODE» چاپ می‌کند؛ `:START` سرور را در پس‌زمینه با لاگ در `logs\server.log` بالا می‌آورد؛ `:SHOW_AUTHENTICATOR` محتوای `data\coach-authenticator.txt` را نمایش/نوتپد می‌کند؛ `:STOP` با `netstat` پروسهٔ پورت را می‌کشد؛ `:LOGS` دم ۶۰ خط لاگ را نشان می‌دهد.
@@ -127,11 +134,13 @@
 15. روی سرور: `YASNAFIT_HOST=127.0.0.1` + پروکسی nginx با TLS؛ `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی ترافیک حتماً از پروکسی است؛ `NODE_ENV=production`؛ `YASNAFIT_COOKIE_SECURE=1` در HTTPS. جزئیات: `DEPLOYMENT.md`.
 
 **حافظهٔ جلسه (این فایل)**
-16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 18**.
+16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 19** (Task 18 = آماده‌سازی Railway).
 
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
+
+* **2026-09-02** — **Task 18 (آماده‌سازی Railway):** افزودن `railway.json`، `YASNAFIT_BACKUP_DIR` (بکاپ داخل Volume) + export `dataDir/backupDir`، بخش کامل «§۹ استقرار روی Railway» به `DEPLOYMENT.md`، و گاردهای جدید در `tests/deployment-hardening-regression.js` (اعتبار `railway.json`، routable بودن `/api/health` قبل از گیت مربی، tracked بودن `data-source/exercises_data.json`، نبود `path.join(__dirname,'backups')` در server.js). شبیه‌سازی زنده با متغیرهای Railway موفق بود (§۶). اتصال واقعی به داشبورد Railway **انجام نشده** (کار مالک).
 
 * **2026-08-24** — Task 1…5: ابزار program-helper، ساخت سیستم مستندات، ممیزی نهایی، بانک حرکات/ویدیو، BR-14 (کاتالوگ ۱۲ سیستم)، بازطراحی Program Builder.
 * **2026-08-24** — Task 6…11: انتخابگر تاریخ شمسی گرافیکی (`jalali-picker.js`)، بازگشت «حذف روز» به منوی روز، بازطراحی داشبورد مربی.
@@ -171,7 +180,8 @@
 
 ### High Priority
 * **P0:** در حال حاضر هیچ مورد P0 بازی وجود ندارد (تأییدشده در TODO).
-* (جدید) **بررسی/پیکربندی دیپلوی واقعی:** وضعیت Railway در این مخزن بی‌نتیجه است؛ اگر مهدی Railway می‌خواهد: مشخص کردن project/service + persistent volume برای `data/` + Node ≥22.5 image، سپس تست لاگ. (هرگز بدون اجازه DB را ریست نکنید.)
+* **وصل کردن سرویس در داشبورد Railway (مالک):** New Project → Deploy from GitHub (شاخهٔ مربوطه) → **Attach Volume با mount path `/app/data`** → Variables طبق §۶ → Generate Domain → بعد از ساخت حساب مربی، `YASNAFIT_ALLOW_REMOTE_SETUP` را پاک کنید. (هرگز DB را برای «حل مشکل deploy» ریست نکنید.)
+* **تصمیم انتقال دادهٔ لوکال → Railway:** (الف) از صفر شروع کردن (پیشنهاد فعلی) یا (ب) افزودن endpoint ادمین «restore from upload» — گزینهٔ (ب) API جدید است و فقط با تأیید صریح مالک نوشته می‌شود.
 * (جدید) **اعمال کد روی لوکال مهدی:** `9be37bb` push شده اما کپی ویندوزی هنوز قدیمی است → `git pull --ff-only` + ری‌استارت لانچر + `Ctrl+Shift+R`.
 
 ### Medium Priority
@@ -184,50 +194,44 @@
 
 ## 13. Current Task
 
-* **عنوان:** ممیزی نهایی امنیتی + پاک‌سازی فایل‌های مرده برای بردن برنامه روی سرور، و پاسخ به گزارش «دکمهٔ ادامه صفحهٔ اول».
+* **عنوان (جلسهٔ جاری):** آماده‌سازی پروژه برای deploy روی Railway (کانفیگ + Volume + بکاپ) و نوشتن `mahdi hellp.md`.
+* **عنوان تسک قبلی:** ممیزی نهایی امنیتی + پاک‌سازی فایل‌های مرده + پاسخ به گزارش «دکمهٔ ادامه صفحهٔ اول» (انجام‌شده: Task 16/17).
 * **هدف:** آماده‌سازی واقعی (قابل تست) برای هاست اینترنتی؛ حذف کد/فایل بلااستفاده؛ اطمینان از سالم بودن flow ورود مربی.
 * **فایل‌های مرتبط:** `src/request-security.js`, `public/boot.js`, `server.js`, `src/database.js`, `src/coach-auth-service.js`, `src/student-session-service.js`, `public/index.html`, `public/coach-login.html`/`.js`, `DEPLOYMENT.md`, `tests/deployment-hardening-regression.js`, `tests/coach-auth-regression.js`.
 * **نتیجهٔ مورد انتظار:** `npm test` سبز + هدرها/گیت‌ها زنده + مستند استقرار.
-* **وضعیت نهایی:** **انجام شد و push شد** (`9be37bb`) — نتیجه در §14.
+* **وضعیت نهایی:** سمت مخزن **انجام شد** (Task 18، در حال commit)؛ سمت داشبورد Railway در انتظار اقدام مالک. نتیجه در §14.
 
 ---
 
 ## 14. Last Session Handoff
 
 ### What was done
-* لایهٔ امنیتی متمرکز `src/request-security.js` (CSP + ۶ هدر دیگر روی همهٔ پاسخ‌ها؛ گیت `X-Forwarded-*` پشت `YASNAFIT_TRUST_PROXY`؛ `YASNAFIT_COOKIE_SECURE`؛ `YASNAFIT_HOST`).
-* حذف تنها `<script>` درون‌خطی `public/index.html` → `public/boot.js` (تا CSP بدون `unsafe-inline` ممکن بماند)؛ افزودن `frame-ancestors`/`base-uri`/`form-action` به صفحه‌های احراز هویت.
-* کم کردن افشا: `/api/health` عمومی فقط `{ok,status,version,uptime}`؛ آمار پشت `?detailed=1`+سشن مربی (`public/releases.js` به همان کلید شد)؛ `/api/build` نیازمند سشن مربی؛ `POST /api/test/reset-rate-limit` در `NODE_ENV=production` → ۴۰۴؛ `*.html` ناموجود → ۴۰۴ (دیگر شل پنل به ناشناس داده نمی‌شود).
-* `sendCaughtError()` جای ~۴۰ تا `sendError(res,400,error.message)`؛ مسیر backup هم پیام خام برنمی‌گرداند.
-* مجوزها: `data/` و `backups/` → `0700`، فایل‌های `yasnafit.db*` → `0600`، `data/smtp.json` → `0600` + `chmod` روی فایل موجود؛ محدودسازی first-run `coach setup` به لوپ‌بک.
-* حذف ۷ فایل تأییدشدهٔ مرده (۲٫۸۸MB) + به‌روزرسانی `index.html`، `tests/ui-design-regression.js`، `ARCHITECTURE.md`، `README.md` (فایل‌های زندهٔ `public/login-hero.png`، `scripts/provision-coach-totp.js`، `data-source/exercises_data.json`، `/api/programs` عمداً حفظ شدند).
-* `DEPLOYMENT.md` نوشته شد (nginx+TLS، systemd، متغیرها، مجوزها، پروویژن TOTP، بکاپ، به‌روزرسانی، چک‌لیست ۱۰ بندی) و محتوای درستِ `راهنمای_اجرا.md` (منسوخ‌شده) به `README.md` منتقل شد.
-* سوئیت جدید `tests/deployment-hardening-regression.js` + `test:deployment` (زنجیرهٔ `npm test` = ۱۸ سوئیت).
-* تسک ۱۷: اثبات اینکه «ادامه» صفحهٔ اول (`#coachPasswordSubmit`) در این ریپو پیاده‌سازی‌شده است؛ `btnContinueAuth` در **هیچ کامیتی** این مخزن وجود نداشته (`git log --all -S` خالی).
+1. ساخت فایل حافظهٔ `mahdi hellp.md` (این فایل) با ۱۷ بخش، فقط بر پایهٔ داده‌های تأییدشده؛ هر چیز نامعلوم با `UNKNOWN — needs verification`.
+2. **Task 18 — آماده‌سازی Railway:** `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، `watchPatterns`)؛ `YASNAFIT_BACKUP_DIR` در `src/database.js` + export `dataDir/backupDir` و استفاده از `backupDir` مشترک در چرخش بکاپ `server.js`؛ بخش §۹ کامل در `DEPLOYMENT.md` (مراحل داشبورد، Volume `/app/data`، جدول متغیرها، ساخت حساب مربی با `YASNAFIT_ALLOW_REMOTE_SETUP`، ریسک‌ها، curlهای راستی‌آزمایی)؛ گاردهای جدید در سوئیت `test:deployment`.
+3. **بازیابی سندباکس:** در میانهٔ جلسه `.git` سندباکس دوباره به `main` (`086f3e0`) برگشت و همه‌چیز untracked دیده می‌شد؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` (بدون force-push) به `4e89d10` برگردانده شد و بعد از آن `git status` تمیز بود. **روی ماشین مهدی هرگز این کار تکرار نشود** — آنجا `git pull --ff-only`.
 
 ### What changed
-25 فایل (`git show --stat 9be37bb`): +`DEPLOYMENT.md`, +`public/boot.js`, +`src/request-security.js`, +`tests/deployment-hardening-regression.js`؛ تغییر `server.js`, `package.json`, `README.md`, `ARCHITECTURE.md`, `docs/project-tracking/CHANGELOG.md`, `public/index.html`, `public/releases.js`, `src/{database,coach-auth-service,student-session-service}.js`, ۵ فایل تست؛ **حذف** `login-hero.png`, `public/assets/hero-login.jpg`, `public/yasnafit-students-dashboard-mockup.png`, `public/student-portal.js`, `public/student-portal.css`, `tool/test-movement-modal-interactive.js`, `راهنمای_اجرا.md`. **`YASNAFIT-LAUNCHER.bat` دست‌نخورده.**
+`railway.json` (جدید)، `src/database.js`، `server.js`، `DEPLOYMENT.md`، `tests/deployment-hardening-regression.js`، `mahdi hellp.md`.
 
 ### What was tested
-`npm test` (۱۸/۱۸) ✅ • `npm run test:e2e` ✅ • چک زنده با سرور روی 3020: هدرها روی `/`، `/coach/login`، `/boot.js`، `/api/health`، `/login-hero.png` ✓؛ `/api/build` ناشناس ۴۰۱ ✓؛ `/api/health?detailed=1` ناشناس ۴۰۱ ✓؛ `POST /api/test/reset-rate-limit` با `NODE_ENV=production` ۴۰۴ ✓؛ `/student-portal.css` و `/trading-sessions.html` ۴۰۴ ✓؛ `POST /api/coach/auth/login` رمز درست → ۲۰۰ + کوکی چلنج + `next:/coach/2fa`، رمز غلط → `INVALID_CREDENTIALS` ✓؛ `ls -ld data backups` → `drwx------` ✓.
+`npm test` = **۱۸/۱۸** ✅ • `npm run test:e2e` ✅ (سرور تازه، DB با ۳۰ مایگریشن) • شبیه‌سازی محیط Railway: استارت با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1 YASNAFIT_BACKUP_DIR=$PWD/data/backups` → healthcheck 200 با بدنهٔ حداقلی، `Set-Cookie … ; Secure` روی چلنج لاگین، `/api/test/reset-rate-limit` → 404، `/api/build` → 401، نوشتن بکاپ در مسیر جدید (`backup() → data/backups/yasnafit-*.db`) • `data/` و `data/backups` با `drwx------` ✅.
 
 ### What passed
-همهٔ موارد بالا — بدون شکست.
+همهٔ موارد بالا.
 
 ### What failed
-* در حین کار، دو تست **عمداً به‌روزرسانی** شدند چون رفتار امنیتی جدید را مثل باگ می‌دیدند: `tests/coach-auth-regression.js` و `tests/student-session-regression.js` (تشخیص HTTPS از `x-forwarded-proto` جعلی → حالا `socket.encrypted`؛ به‌علاوه assert جدید «هدر جعلی نباید Secure بچسباند»).
-* یک **false-positive از پیش موجود** در `tests/e2e-workflow.js` (تشخیص «ورژن هاردکد‌شده» که دادهٔ مسیر SVG داخل `public/student-app.js` را نسخه می‌خواند) رفع شد: الگو حالا فقط شمارهٔ نسخهٔ داخل نقل‌قول را می‌گیرد.
-* در اجرای اول e2e روی سندباکسِ DB‌تازه، assert قدیمی `POST /api/coach/auth/setup → 404` شکست (چون DB تازه بود و setup واقعاً مجاز); تست جابه‌جا شد تا بعد از provisioning بررسی شود. **روی DB لوکال مهدی (که coach از قبل ساخته شده) این موضوعی نیست.**
+* **تقریباً فاجعه:** هنگام افزودن بلوک تست، به‌دلیل anchor اشتباه، محتوای `tests/deployment-hardening-regression.js` با یک blob موقت بازنویسی شد. چون فایل در commit قبلی (`4e89d10`) بود، با `git checkout -- tests/deployment-hardening-regression.js` کامل بازیابی و سپس درست اصلاح شد (نتیجه: تست سبز). **درس:** برای درج بلوک در تست‌ها از anchor انتهای فایل (`rindex`) استفاده کن و بعد از هر بازنویسی `node --check` بگیر.
+* دو ادعا در متن پیش‌نویس DEPLOYMENT غلط بود و اصلاح شد: (۱) «لانچر IP شبکه را چاپ می‌کند» — چاپ نمی‌کند؛ (۲) «`data-source/exercises_data.json` بیرون از git است» — در git **هست** (خطای خواندن ناشی از همان rewind سندباکس).
 
 ### What remains
-1. **Pull روی ویندوز مهدی** (§12 High) و ری‌استارت سرور + `Ctrl+Shift+R`.
-2. تصمیم مالک دربارهٔ merge PR #2 به `main`.
-3. اصلاح `docs/project-tracking/PROJECT-CONTEXT.md` (بخش‌های احراز هویت و متغیرهای محیطی هنوز `data/coach-access-token` و `YASNAFIT_COACH_TOKEN` را «فعلی» می‌دانند؛ این‌ها حذف شده‌اند).
-4. اگر هدف واقعی Railway است: §6 این فایل (همه `UNKNOWN`) باید با اطلاعات پروژهٔ Railway پر شود + volume پایدار تأیید شود.
-5. در صورت خواست، `npm run test:e2e` را جداگانه هم اجرا کنید (جزو `npm test` نیست).
+1. **اقدام مالک در داشبورد Railway** (اتصال repo + Attach Volume `/app/data` + Variables + Generate Domain) — §۶ و `DEPLOYMENT.md` §۹.
+2. بعد از اولین deploy: لاگ build/رانتایم را ببینید؛ اگر Node قدیمی انتخاب شد `NIXPACKS_NODE_VERSION=22`؛ اگر `EACCES` روی Volume دیدید `RAILWAY_RUN_UID=0`.
+3. پاک کردن `YASNAFIT_ALLOW_REMOTE_SETUP` بعد از ساخت حساب مربی.
+4. تصمیم انتقال داده (از صفر vs endpoint restore)؛ اگر endpoint ساخته شد = API جدید + مایگریشن‌نظارت در CHANGELOG.
+5. `pull` روی ویندوز؛ merge PR #2 با تأیید مالک؛ §۱۱ PROJECT-CONTEXT هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات).
 
 ### Exact next step for the next Agent
-1. همین فایل را بخوان. 2. `git -C /home/user/yasnafit status --short; git log --oneline -1` (باید `9be37bb` و تمیز باشد؛ اگر نشد §5 «هشدار Arena» را اجرا کن). 3. از مهدی بپرس کدام شاخهٔ بعدی/تسک — **بدون تکرار پرسیدن چیزهایی که این‌جا نوشته شده.** 4. اگر تسک امنیتی/دیپلوی بود: `DEPLOYMENT.md` + `tests/deployment-hardening-regression.js` نقطهٔ شروع‌اند؛ `npm run test:deployment` را اول اجرا کن. 5. پایان تسک: به‌روزرسانی §5/§10/§13/§14/§16 همین فایل + `docs/project-tracking/CHANGELOG.md` (تسک بعدی: **Task 18**) و سپس گزارش فارسی با بلوک `bat`.
+1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + commit جدیدِ Task 18؛ اگر `086f3e0` دیدید، فقط در سندباکس طبق §۵ recovery کنید). 2. از مالک بخواهید خروجی داشبورد Railway (URL عمومی + لاگ build) را بدهد تا §۶ از `UNKNOWN` خارج شود و **تأیید کنید که داده بعد از یک redeploy باقی می‌ماند** (Volume). 3. اگر خواست انتقال داده: طراحی `POST /api/admin/restore` (auth مربی + `YASNAFIT_ALLOW_REMOTE_SETUP`-مانند یک گیت جدا، حجم محدود، audit) **قبل از کدنویسی تأیید بگیرید**. 4. پایان تسک: به‌روزرسانی §۵/§۶/§۱۰/§۱۲/§۱۳/§۱۴/§۱۵/§۱۶ + مدخل **Task 19** در `docs/project-tracking/CHANGELOG.md` + گزارش فارسی با بلوک `bat`.
 
 ---
 
@@ -246,6 +250,11 @@
 | `public/students.js`, `public/students.css` | دیالوگ «ویرایش و رمز» + رمز تصادفی (Task 13/15 — از قبل) | committed `f66070f` |
 | `YASNAFIT-LAUNCHER.bat` | **بدون تغییر** (فقط `:CHECKCODE` از قبل) | committed `ac94262` |
 | `mahdi hellp.md` | حافظهٔ دائمی/دست‌به‌دست Agent (ایجاد در 2026-09-02) | committed (فایل جدید، ریشهٔ مخزن) |
+| `railway.json` | کانفیگ build/deploy ریل‌وی (Task 18) | committed این جلسه |
+| `src/database.js` | `YASNAFIT_BACKUP_DIR` + export `dataDir/backupDir` (بکاپ داخل Volume) | committed این جلسه |
+| `server.js` | چرخش بکاپ روی `backupDir` مشترک (حذف مسیر hardcode `backups/`) | committed این جلسه |
+| `DEPLOYMENT.md` | افزودن §۹ «استقرار روی Railway» + اصلاح بند لانچر/Node | committed این جلسه |
+| `tests/deployment-hardening-regression.js` | گاردهای `railway.json`/seed/backup-dir (بخش ۸) | committed این جلسه |
 | `public/trading-sessions.html` | ویجت لغوشده — **دیگر وجود ندارد** | reverted `695f4b1` |
 
 ---
@@ -262,9 +271,9 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 | Local (سندباکس Agent) | **CURRENT** | `9be37bb`، working tree تمیز؛ سرور روی 3020 زنده و تست‌ها سبز |
 | Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit = 9be37bb`؛ PR #2 باز |
 | `main` | `086f3e0` — **پشت سر** شاخهٔ جلسه (تصمیم merge با مالک) |
-| Railway | `UNKNOWN — needs verification` (هیچ کانفیگی در مخزن نیست؛ مستندات فعلی `DEPLOYMENT.md` برای VPS+nginx+systemd است) |
+| Railway | **NOT CONNECTED YET** — کانفیگ مخزن (`railway.json`) آماده و تست‌شده است، اما سرویس/Volume/Domain هنوز در داشبورد ساخته نشده‌اند: `UNKNOWN — needs verification` |
 
-**تا این لحظه هیچ دیپلوی خودکار (CI/CD) در مخزن تعریف نشده است.**
+**تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
 ---
 

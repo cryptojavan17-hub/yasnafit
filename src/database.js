@@ -5,7 +5,11 @@ const { runMigrations } = require('./migrations');
 
 const root = path.resolve(__dirname, '..');
 const dataDir = path.join(root, 'data');
-const backupDir = path.join(root, 'backups');
+// On a container platform (Railway/Fly) only one directory is usually a persistent
+// volume, so backups can be pointed inside it; the default keeps the repo layout.
+const backupDir = process.env.YASNAFIT_BACKUP_DIR
+  ? path.resolve(process.env.YASNAFIT_BACKUP_DIR)
+  : path.join(root, 'backups');
 const dataSourcePath = path.join(root, 'data-source', 'exercises_data.json');
 // data/ holds the SQLite file plus smtp.json and the coach session store; backups/
 // holds full database copies. Neither may be world-readable on a shared server.
@@ -292,4 +296,4 @@ function seed() {
 seed();
 
 function backup() { const file = path.join(backupDir, `yasnafit-${new Date().toISOString().replace(/[:.]/g,'-')}.db`); db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); fs.copyFileSync(dbPath, file); return path.basename(file); }
-module.exports = { db, dbPath, backup, log, importExercisesFromJson, seedCategories };
+module.exports = { db, dbPath, dataDir, backupDir, backup, log, importExercisesFromJson, seedCategories };

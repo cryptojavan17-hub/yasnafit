@@ -19,7 +19,7 @@ const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 // Coach access is email + password + Google Authenticator TOTP. No shared bearer token.
 // --- Database & Services ---
-const { db, dbPath, backup, log } = require('./src/database');
+const { db, dbPath, backup, backupDir, log } = require('./src/database');
 const { runMigrations } = require('./src/migrations');
 const validation = require('./src/validation');
 const programService = require('./src/program-service');
@@ -2337,7 +2337,6 @@ async function handleBackup(req,res,url){
       const file=backup();
       // Rotation: keep only last 10 backups
       try {
-        const backupDir = path.join(__dirname, 'backups');
         const files = fs.readdirSync(backupDir).filter(f=>f.startsWith('yasnafit-') && f.endsWith('.db')).map(f=>{
           const full = path.join(backupDir,f);
           return {name:f, full, mtime: fs.statSync(full).mtime.getTime()};

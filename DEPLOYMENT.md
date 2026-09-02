@@ -190,3 +190,57 @@ npm test && sudo systemctl restart yasnafit
 - [ ] `curl https://domain/api/build` → ۴۰۱ برای کاربر ناشناس
 - [ ] `data/` و `backups/` با مجوز ۷۰۰، `smtp.json` با ۶۰۰
 - [ ] کلید TOTP مربی در گوشی ذخیره و یک بکاپ تست‌شده در جای دیگر گرفته شده
+
+---
+
+## ۹. استقرار روی Railway (سرور ابری + Volume)
+
+این برنامه روی Railway هم بالا می‌آید، ولی چون stateful است (SQLite + آپلودها) **باید Volume بگیرد**، وگرنه هر deploy همه‌چیز را پاک می‌کند. پیکربندی build/deploy داخل خود مخزن است: `railway.json` (builder: Nixpacks، `buildCommand` با `node --check server.js` تا کد خراب همان‌جا رد شود، `startCommand: node server.js`، `healthcheckPath: /api/health`، `restartPolicyType: ON_FAILURE`، `numReplicas: 1` و `watchPatterns` تا فقط تغییر واقعی باعث build شود).
+
+### ۹.۱ مراحل (حدود ۵ دقیقه)
+
+1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و شاخه‌ای که می‌خواهید (تا PR #2 merge نشده، همان شاخهٔ `arena/…` را انتخاب کنید).
+2. روی سرویس: **Right click → Attach Volume** و **Mount Path را دقیقاً `/app/data`** بگذارید. (پوشهٔ `data/` برنامه در Nixpacks همان `/app/data` است؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد، `smtp.json` و `coach-authenticator.txt` روی دیسک دائمی می‌نشینند.)
+3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
+
+| متغیر | مقدار | چرا |
+|---|---|---|
+| `PORT` | لازم نیست | Railway خودش می‌دهد؛ `listenHost` هم پیش‌فرض `0.0.0.0` است و **ست نکنید** |
+| `NODE_ENV` | `production` | حذف `POST /api/test/reset-rate-limit` و رفتار پروداکشن |
+| `YASNAFIT_TRUST_PROXY` | `1` | ترافیک فقط از پروکسی Railway می‌آید ⇒ IP واقعی برای rate-limit و تشخیص HTTPS |
+| `YASNAFIT_COOKIE_SECURE` | `1` | کوکی نشست‌ها حتماً `Secure` بخورد |
+| `YASNAFIT_BACKUP_DIR` | `/app/data/backups` | بکاپ‌ها هم داخل Volume بیفتند (پیش‌فرض `backups/` کنار برنامه است که روی Railway ناپایدار است) |
+| `YASNAFIT_ALLOW_REMOTE_SETUP` | `1` **فقط موقتاً** | برای اولین ورود — بند ۹.۳ را ببینید |
+
+   اگر build نسخهٔ Node قدیمی گرفت: `NIXPACKS_NODE_VERSION=22`؛ اگر روی Volume خطای `EACCES` دیدید: `RAILWAY_RUN_UID=0`.
+4. **Settings → Networking → Generate Domain** ⇒ `https://<name>.up.railway.app`.
+5. Deploy را ببینید؛ در لاگ باید این خطوط باشد: `Imported 2707 exercises from JSON`، `Application version: …`، `Build stamp: …` و `[Security] …` (اگر پرچمی خاموش باشد هشدار می‌دهد).
+
+### ۹.۲ اولین بالا آمدن چه کار می‌کند
+۳۰ مایگریشن خودکار اجرا می‌شود و بانک حرکات از `data-source/exercises_data.json` (که در git هست) seed می‌شود ⇒ سرور تازه با ۲۷۰۷ حرکت بالا می‌آید و دیتابیس کاربری خالی است.
+
+### ۹.۳ ساخت حساب مربی (نکتهٔ امنیتی مهم)
+`POST /api/coach/auth/setup` عمداً **فقط از لوپ‌بک** کار می‌کند، پس از آدرس عمومی Railway همان اول نمی‌توانید حساب بسازید. راه مجاز:
+
+1. موقتاً `YASNAFIT_ALLOW_REMOTE_SETUP=1` بگذارید و redeploy کنید،
+2. به `https://<domain>/coach/setup` بروید و اکانت را بسازید (ایمیل مربی در کد قفل است)،
+3. `data/coach-authenticator.txt` روی Volume نوشته می‌شود ⇒ کلید TOTP را در Google Authenticator وارد کنید (محتوای فایل از لاگ سرویس هم خوانده می‌شود)،
+4. **متغیر را پاک کنید** و دوباره redeploy کنید.
+
+برای ایمیل بازیابی هم بعد از ورود به `/coach/mail` بروید و App Password جیمیل را وارد کنید (در `data/smtp.json` روی Volume ذخیره می‌شود؛ نیاز به متغیر محیطی ندارد).
+
+### ۹.۴ محدودیت‌ها و ریسک‌های واقعی Railway
+* **عکس/ویدیوی حرکات روی سرور نیست:** `public/assets/images/exercises/imported/` (۱۸۸۸ فایل ~۶۰MB) عمداً در `.gitignore` است، پس Railway آن‌ها را دریافت نمی‌کند؛ UI با placeholder (`/blank-white.svg`) کار می‌کند. برای آوردنشان باید یک‌بار داخل Volume کپی شوند (سرویس موقت با همان Volume + rsync) — فعلاً انجام نشده.
+* **هر سرویس فقط یک Volume** دارد و با replica کار نمی‌کند؛ `numReplicas: 1` در `railway.json` هم به همین دلیل قفل شده است.
+* **حجم Volume روی پلن رایگان/trial کوچک است** (در حد ۰٫۵GB). چرخش ۱۰ نسخهٔ بکاپ از همان فضا کم می‌کند؛ اگر جا کم آوردید `YASNAFIT_BACKUP_DIR` را به بیرون Volume منتقل کنید (آگاه باشید که آن‌وقت بکاپ‌ها با redeploy می‌پرند).
+* **پایان ماه رایگان:** اگر سرویس/Volume پاک شود، داده از دست می‌رود. **قبل از آن**: از پنل «پشتیبان‌گیری» (یا `POST /api/backup` با نشست مربی) بکاپ بگیرید و فایل `yasnafit-*.db` را از Volume بیرون بکشید و در دیسک شخصی/فضای ابری دیگر نگه دارید. بازگردانی = گذاشتن فایل به‌جای `data/yasnafit.db` و restart.
+* **انتقال دادهٔ لوکال به Railway:** هیچ UI برای آپلود فایل روی Volume وجود ندارد. دو راه عملی: (الف) روی Railway از صفر شروع کنید و لوکال را مدتی موازی نگه دارید — ساده‌ترین و بی‌ریسک‌ترین؛ (ب) یک endpoint ادمینی «restore from upload» اضافه شود — این **API جدید** است و فقط با تأیید صریح مالک نوشته می‌شود.
+
+### ۹.۵ راستی‌آزمایی پس از deploy
+```bash
+curl -s  https://<domain>/api/health                        # {"ok":true,"status":"ok","version":"…","uptime":…}
+curl -i  https://<domain>/                                  # 303 به /coach/login + CSP و X-Frame-Options
+curl -i  https://<domain>/api/build                         # 401 بدون کوکی مربی
+curl -i -X POST https://<domain>/api/test/reset-rate-limit   # 404 چون NODE_ENV=production
+```
+سپس در مرورگر: `/coach/login` ← «ادامه» ← `/coach/2fa` ← ورود. یک شاگرد بسازید و **یک redeploy بزنید**: اگر همان شاگرد سر جایش ماند، Volume درست وصل است.
