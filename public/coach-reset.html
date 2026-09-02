@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>رمز جدید مربی | Yasnafit</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/coach-login.css" />
+</head>
+<body class="coach-login-body">
+  <main class="coach-login-shell">
+    <section class="coach-login-card" aria-labelledby="coachResetTitle">
+      <div class="coach-login-brand">
+        <span class="coach-login-mark" aria-hidden="true">Y</span>
+        <div>
+          <strong>Yasnafit</strong>
+          <span>پنل مربی</span>
+        </div>
+      </div>
+      <h1 id="coachResetTitle">تعیین رمز جدید</h1>
+      <p class="coach-login-lead">رمز جدید را وارد کنید. این لینک فقط یک‌بار و تا ۱۵ دقیقه معتبر است.</p>
+      <form id="coachResetForm" autocomplete="on">
+        <label class="coach-login-field">
+          <span>رمز عبور جدید</span>
+          <input id="coachResetPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <label class="coach-login-field">
+          <span>تکرار رمز عبور</span>
+          <input id="coachResetPasswordConfirm" name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <p class="coach-login-hint">رمز باید حداقل ۸ کاراکتر و ترکیبی از حرف و عدد باشد.</p>
+        <button class="coach-login-submit" type="submit" id="coachResetSubmit">ذخیره رمز جدید</button>
+      </form>
+      <nav class="coach-login-links">
+        <a href="/coach/login">ورود مربی</a>
+      </nav>
+      <p class="coach-login-error" id="coachLoginError" role="alert" hidden></p>
+    </section>
+  </main>
+  <script src="/coach-login.js"></script>
+</body>
+</html>

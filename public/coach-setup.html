@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>راه‌اندازی مربی | Yasnafit</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/coach-login.css" />
+</head>
+<body class="coach-login-body">
+  <main class="coach-login-shell">
+    <section class="coach-login-card" aria-labelledby="coachSetupTitle">
+      <div class="coach-login-brand">
+        <span class="coach-login-mark" aria-hidden="true">Y</span>
+        <div>
+          <strong>Yasnafit</strong>
+          <span>پنل مربی</span>
+        </div>
+      </div>
+      <h1 id="coachSetupTitle">ساخت اکانت مربی</h1>
+      <p class="coach-login-lead">این صفحه فقط یک‌بار برای ساخت اکانت مربی فعال است.</p>
+      <form id="coachSetupForm" autocomplete="on">
+        <label class="coach-login-field">
+          <span>ایمیل مربی</span>
+          <input id="coachSetupEmail" name="email" type="email" inputmode="email" autocomplete="username" required maxlength="254" value="crypto.javan17@gmail.com" readonly />
+        </label>
+        <label class="coach-login-field">
+          <span>رمز عبور</span>
+          <input id="coachSetupPassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <label class="coach-login-field">
+          <span>تکرار رمز عبور</span>
+          <input id="coachSetupPasswordConfirm" name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <p class="coach-login-hint">رمز باید حداقل ۸ کاراکتر و ترکیبی از حرف و عدد باشد. پس از ساخت، ثبت‌نام مربی دیگر ممکن نیست.</p>
+        <button class="coach-login-submit" type="submit" id="coachSetupSubmit">ساخت اکانت</button>
+      </form>
+      <nav class="coach-login-links">
+        <a href="/coach/login">ورود مربی</a>
+      </nav>
+      <p class="coach-login-error" id="coachLoginError" role="alert" hidden></p>
+    </section>
+  </main>
+  <script src="/coach-login.js"></script>
+</body>
+</html>
