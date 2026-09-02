@@ -107,6 +107,9 @@ function revokeCurrentSession(db,req){
 function revokeInvitationSessions(db,invitationId){
   return db.prepare('UPDATE student_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE invitation_id=? AND revoked_at IS NULL').run(invitationId).changes;
 }
+function revokeStudentSessions(db,studentId){
+  return db.prepare('UPDATE student_sessions SET revoked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE student_id=? AND revoked_at IS NULL').run(studentId).changes;
+}
 function safeStudent(student){
   return {
     case_number:student.case_number||'',
@@ -121,5 +124,5 @@ function safeStudent(student){
 }
 module.exports={
   SESSION_COOKIE,SESSION_TTL_MS,TOKEN_PATTERN,parseCookies,sessionCookie,clearSessionCookie,
-  inspectInvitation,consumeInvitation,createStudentSession,resolveStudentSession,revokeCurrentSession,revokeInvitationSessions,safeStudent
+  inspectInvitation,consumeInvitation,createStudentSession,resolveStudentSession,revokeCurrentSession,revokeInvitationSessions,revokeStudentSessions,safeStudent
 };

@@ -88,6 +88,95 @@ function setPersonalPassword(db,studentId,newPassword){
   db.prepare("UPDATE students SET password_hash=?,password_state='PERSONAL',password_changed_at=CURRENT_TIMESTAMP,auth_failed_attempts=0,auth_locked_until=NULL,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=?").run(hash,studentId);
   return {password_state:'PERSONAL',password_changed_at:new Date().toISOString()};
 }
+function passwordStateLabel(state){
+  return {TEMPORARY:'رمز موقت',PERSONAL:'رمز شخصی',RESET_REQUIRED:'نیاز به بازنشانی'}[state]||'نامشخص';
+}
+function credentialsView(student){
+  if(!student) return null;
+  const state=PASSWORD_STATES.has(student.password_state)?student.password_state:'RESET_REQUIRED';
+  const locked=Boolean(student.auth_locked_until && new Date(student.auth_locked_until)>new Date());
+  const username=student.mobile||student.mobile_normalized||'';
+  return {
+    id:student.id,
+    case_number:student.case_number||'',
+    full_name:student.full_name||'',
+    username,
+    password_state:state,
+    password_state_label:passwordStateLabel(state),
+    temporary_password:state==='TEMPORARY'&&username?temporaryPassword(username):null,
+    locked,
+    locked_until:locked?student.auth_locked_until:null,
+    failed_attempts:Number(student.auth_failed_attempts||0),
+    last_login_at:student.last_login_at||null,
+    password_changed_at:student.password_changed_at||null
+  };
+}
+function manageCredentials(db,studentId,{username,password,confirmPassword,resetTemporary=false,unlock=false}={}){
+  const student=db.prepare('SELECT * FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
+  if(!student) throw Object.assign(new Error('شاگرد پیدا نشد'),{statusCode:404});
+  const changes=[];
+  let mobile=student.mobile||student.mobile_normalized||'';
+  let mobileNormalized=student.mobile_normalized||student.mobile||'';
+  let passwordState=PASSWORD_STATES.has(student.password_state)?student.password_state:'RESET_REQUIRED';
+  let passwordHash=student.password_hash;
+  let revealedTemporary=null;
+  let revealedPassword=null;
+  if(username!=null && String(username).trim()!==''){
+    const normalized=normalizeMobile(username);
+    if(normalized!==String(mobileNormalized||mobile)){
+      const duplicate=db.prepare('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL').get(normalized,studentId);
+      if(duplicate) throw Object.assign(new Error('این شماره همراه برای شاگرد دیگری ثبت شده است'),{statusCode:409,code:'MOBILE_EXISTS'});
+      mobile=normalized;
+      mobileNormalized=normalized;
+      changes.push('username');
+      if(passwordState!=='PERSONAL'){
+        revealedTemporary=temporaryPassword(normalized);
+        passwordHash=hashPassword(revealedTemporary);
+        passwordState='TEMPORARY';
+        changes.push('temporary_password');
+      }
+    }
+  }
+  if(resetTemporary){
+    if(!mobileNormalized) throw Object.assign(new Error('شماره همراه برای ساخت رمز موقت لازم است'),{statusCode:400});
+    revealedTemporary=temporaryPassword(mobileNormalized);
+    passwordHash=hashPassword(revealedTemporary);
+    passwordState='TEMPORARY';
+    changes.push('reset_temporary');
+  }else if(password!=null && String(password)!==''){
+    if(confirmPassword!==undefined && String(confirmPassword)!==String(password)){
+      throw Object.assign(new Error('تکرار رمز عبور مطابقت ندارد'),{statusCode:400});
+    }
+    revealedPassword=validatePersonalPassword(password);
+    passwordHash=hashPassword(revealedPassword);
+    passwordState='PERSONAL';
+    changes.push('password');
+  }
+  if(unlock) changes.push('unlock');
+  if(!changes.length) throw Object.assign(new Error('تغییری برای ذخیره وجود ندارد'),{statusCode:400});
+  const passwordChanged=changes.includes('password')||changes.includes('reset_temporary')||changes.includes('temporary_password');
+  const clearLock=unlock||passwordChanged;
+  db.prepare(`
+    UPDATE students
+    SET mobile=?,mobile_normalized=?,password_hash=?,password_state=?,
+        password_changed_at=?,auth_failed_attempts=?,auth_locked_until=?,
+        updated_at=CURRENT_TIMESTAMP,version=version+1
+    WHERE id=? AND deleted_at IS NULL
+  `).run(
+    mobile,mobileNormalized,passwordHash,passwordState,
+    passwordChanged?new Date().toISOString():(student.password_changed_at||null),
+    clearLock?0:Number(student.auth_failed_attempts||0),
+    clearLock?null:student.auth_locked_until||null,
+    studentId
+  );
+  let sessionsRevoked=0;
+  if(passwordChanged||changes.includes('username')){
+    sessionsRevoked=require('./student-session-service').revokeStudentSessions(db,studentId);
+  }
+  const view=credentialsView(db.prepare('SELECT * FROM students WHERE id=?').get(studentId));
+  if(revealedTemporary) view.temporary_password=revealedTemporary;
+  return {...view,password_once:revealedPassword||null,sessions_revoked:sessionsRevoked,changes};
+}
 
 const IRAN_PROVINCES_AND_CITIES = {
   'تهران': ['تهران', 'ری', 'شمیرانات', 'اسلامشهر', 'شهریار', 'قدس', 'ملارد', 'ورامین', 'پاکدشت', 'بهارستان', 'دماوند', 'پردیس', 'قرچک', 'رباط‌کریم', 'فیروزکوه'],
@@ -242,4 +331,4 @@ function registerStudent(db, data = {}) {
   }
 }
 
-module.exports={IRAN_PROVINCES_AND_CITIES,normalizeMobile,normalizeDateOfBirth,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,registerStudent};
+module.exports={IRAN_PROVINCES_AND_CITIES,normalizeMobile,normalizeDateOfBirth,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,credentialsView,manageCredentials,registerStudent};

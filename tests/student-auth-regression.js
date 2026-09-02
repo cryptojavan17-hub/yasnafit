@@ -28,6 +28,25 @@ try{
   const personal=auth.authenticate(db,'09123456789','12345678');assert.equal(personal.student.password_state,'PERSONAL');
   assert.equal('password_hash' in auth.safeStudent(personal.student),false);assert.equal('mobile_normalized' in auth.safeStudent(personal.student),false);
   assert.throws(()=>db.prepare("INSERT INTO students(stable_id,full_name,mobile,mobile_normalized,status,version) VALUES('duplicate','Duplicate','0912 345 6789','09123456789','فعال',1)").run(),/UNIQUE/);
+  const creds=auth.credentialsView(db.prepare('SELECT * FROM students WHERE id=?').get(id));
+  assert.equal(creds.username,'09123456789');assert.equal(creds.password_state,'PERSONAL');assert.equal(creds.temporary_password,null);assert.equal('password_hash' in creds,false);
+  assert.throws(()=>auth.manageCredentials(db,id,{password:'NewPass12',confirmPassword:'mismatch'}),/تکرار رمز عبور/);
+  const managed=auth.manageCredentials(db,id,{password:'NewPass12',confirmPassword:'NewPass12'});
+  assert.equal(managed.password_state,'PERSONAL');assert.equal(managed.password_once,'NewPass12');assert.ok(managed.sessions_revoked>=1);
+  assert.ok(db.prepare('SELECT revoked_at FROM student_sessions WHERE student_id=?').get(id).revoked_at);
+  assert.equal(auth.authenticate(db,'09123456789','12345678').error,'INVALID_CREDENTIALS');
+  assert.equal(auth.authenticate(db,'09123456789','NewPass12').student.id,id);
+  const reset=auth.manageCredentials(db,id,{resetTemporary:true});
+  assert.equal(reset.password_state,'TEMPORARY');assert.equal(reset.temporary_password,'6789');assert.equal(reset.password_once,null);
+  assert.equal(auth.authenticate(db,'09123456789','NewPass12').error,'INVALID_CREDENTIALS');
+  assert.equal(auth.authenticate(db,'09123456789','6789').student.password_state,'TEMPORARY');
+  const renamed=auth.manageCredentials(db,id,{username:'09120000000'});
+  assert.equal(renamed.username,'09120000000');assert.equal(renamed.temporary_password,'0000');
+  assert.equal(auth.authenticate(db,'09123456789','6789').error,'INVALID_CREDENTIALS');
+  assert.equal(auth.authenticate(db,'09120000000','0000').student.id,id);
+  db.prepare('UPDATE students SET auth_failed_attempts=5,auth_locked_until=? WHERE id=?').run(new Date(Date.now()+15*60*1000).toISOString(),id);
+  const unlocked=auth.manageCredentials(db,id,{unlock:true});
+  assert.equal(unlocked.locked,false);assert.equal(unlocked.failed_attempts,0);
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
-  db.close();console.log(JSON.stringify({ok:true,normalized_mobile:true,scrypt:true,temporary_reusable_until_change:true,localized_temporary_password:true,legacy_hash_repair:true,optional_personal_password:true,unique_mobile:true,hashed_session:true}));
+  db.close();console.log(JSON.stringify({ok:true,normalized_mobile:true,scrypt:true,temporary_reusable_until_change:true,localized_temporary_password:true,legacy_hash_repair:true,optional_personal_password:true,coach_credentials:true,session_revoke_on_password_change:true,unique_mobile:true,hashed_session:true}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

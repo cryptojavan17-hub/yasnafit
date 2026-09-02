@@ -576,6 +576,39 @@ async function handleStudents(req,res,url){
 }
 
 async function handleStudentsDelete(req,res,url){
+  const credentialsMatch = url.pathname.match(/^\/api\/students\/(\d+)\/credentials$/);
+  if(credentialsMatch){
+    const student=studentByReference(credentialsMatch[1]);
+    if(!student) return sendError(res,404,'شاگرد پیدا نشد');
+    if(req.method==='GET'){
+      return send(res,200,studentAuthService.credentialsView(student));
+    }
+    if(req.method==='POST' || req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const body=await readBody(req);
+      try{
+        const result=studentAuthService.manageCredentials(db,student.id,{
+          username:body.username??body.mobile,
+          password:body.password,
+          confirmPassword:body.confirm_password,
+          resetTemporary:Boolean(body.reset_temporary),
+          unlock:Boolean(body.unlock)
+        });
+        log('دسترسی ورود شاگرد به‌روز شد', `${student.case_number} - ${result.changes.join(',')}`);
+        auditService.record(db,{
+          actorType:'coach',
+          action:'student.credentials_updated',
+          entityType:'student',
+          entityId:student.id,
+          metadata:{case_number:student.case_number,changes:result.changes,sessions_revoked:result.sessions_revoked}
+        });
+        return send(res,200,result);
+      }catch(error){
+        return sendError(res,error.statusCode||400,error.message);
+      }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
   const match = url.pathname.match(/^\/api\/students\/(\d+)$/);
   if(!match) return null;
   const student=studentByReference(match[1]);
