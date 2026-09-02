@@ -195,11 +195,11 @@ npm test && sudo systemctl restart yasnafit
 
 ## ۹. استقرار روی Railway (سرور ابری + Volume)
 
-این برنامه روی Railway هم بالا می‌آید، ولی چون stateful است (SQLite + آپلودها) **باید Volume بگیرد**، وگرنه هر deploy همه‌چیز را پاک می‌کند. پیکربندی build/deploy داخل خود مخزن است: `railway.json` (builder: Nixpacks، `buildCommand` با `node --check server.js` تا کد خراب همان‌جا رد شود، `startCommand: node server.js`، `healthcheckPath: /api/health`، `restartPolicyType: ON_FAILURE`، `numReplicas: 1` و `watchPatterns` تا فقط تغییر واقعی باعث build شود).
+این برنامه روی Railway هم بالا می‌آید، ولی چون stateful است (SQLite + آپلودها) **باید Volume بگیرد**، وگرنه هر deploy همه‌چیز را پاک می‌کند. پیکربندی build/deploy داخل خود مخزن است: `railway.json` (و `package-lock.json` هم commit شده تا هر builder — Nixpacks یا Railpack — پروژهٔ Node را بدون ابهام تشخیص بدهد؛ پروژه هیچ وابستگی نصب‌کردنی ندارد) (builder: Nixpacks، `buildCommand` با `node --check server.js` تا کد خراب همان‌جا رد شود، `startCommand: node server.js`، `healthcheckPath: /api/health`، `restartPolicyType: ON_FAILURE`، `numReplicas: 1` و `watchPatterns` تا فقط تغییر واقعی باعث build شود).
 
 ### ۹.۱ مراحل (حدود ۵ دقیقه)
 
-1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و شاخه‌ای که می‌خواهید (تا PR #2 merge نشده، همان شاخهٔ `arena/…` را انتخاب کنید).
+1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و **شاخهٔ درست را انتخاب کنید** (تا PR #2 merge نشده، همان شاخهٔ `arena/…`؛ `main` فعلاً فقط `README.md` و `login-hero.png` دارد و **هیچ کدی در آن نیست** ⇒ build روی `main` حتماً می‌شکند، §۹.۷).
 2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json`، `coach-authenticator.txt` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
 3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
 
@@ -234,7 +234,7 @@ npm test && sudo systemctl restart yasnafit
 * **هر سرویس فقط یک Volume** دارد و با replica کار نمی‌کند؛ `numReplicas: 1` در `railway.json` هم به همین دلیل قفل شده است.
 * **حجم Volume روی پلن رایگان/trial کوچک است** (در حد ۰٫۵GB). چرخش ۱۰ نسخهٔ بکاپ از همان فضا کم می‌کند؛ اگر جا کم آوردید `YASNAFIT_BACKUP_DIR` را به بیرون Volume منتقل کنید (آگاه باشید که آن‌وقت بکاپ‌ها با redeploy می‌پرند).
 * **پایان ماه رایگان:** اگر سرویس/Volume پاک شود، داده از دست می‌رود. **قبل از آن**: از پنل «پشتیبان‌گیری» (یا `POST /api/backup` با نشست مربی) بکاپ بگیرید و فایل `yasnafit-*.db` را از Volume بیرون بکشید و در دیسک شخصی/فضای ابری دیگر نگه دارید. بازگردانی = گذاشتن فایل به‌جای `data/yasnafit.db` و restart.
-* **انتقال دادهٔ لوکال به Railway:** هیچ UI برای آپلود فایل روی Volume وجود ندارد. دو راه عملی: (الف) روی Railway از صفر شروع کنید و لوکال را مدتی موازی نگه دارید — ساده‌ترین و بی‌ریسک‌ترین؛ (ب) یک endpoint ادمینی «restore from upload» اضافه شود — این **API جدید** است و فقط با تأیید صریح مالک نوشته می‌شود.
+* **انتقال دادهٔ لوکال به Railway:** از داشبورد راهی برای آپلود فایل روی Volume نیست، ولی با CLI شدنی است: `railway volume browse` (upload/download — §۹.۶). دو گزینه: (الف) از صفر شروع کنید و لوکال را مدتی موازی نگه دارید — ساده‌ترین و بی‌ریسک‌ترین (حرکت‌ها خودکار seed می‌شوند)؛ (ب) `data\yasnafit.db` لوکال (بعد از بستن سرور لوکال تا WAL checkpoint شود) را داخل Volume بگذارید و redeploy کنید. endpoint ادمینی «restore from upload» عمداً ساخته نشد؛ اگر روزی لازم شد، API جدید است و فقط با تأیید صریح مالک.
 
 ### ۹.۵ راستی‌آزمایی پس از deploy
 ```bash
@@ -261,3 +261,16 @@ railway logs --limit 80              # باید «Imported 2707 exercises…» �
 **انتقال دیتابیس لوکال به Volume** (چیزی که از داشبورد نشدنی بود، با CLI شدنی است): `railway volume browse` یک مرورگر فایل تعاملی دارد که **upload/download** هم می‌کند؛ با آن `data\yasnafit.db` را داخل Volume بگذارید (فایل‌های `-wal`/`-shm` را نبرید؛ اگر بودند، اول سرور لوکال را ببندید تا checkpoint شود) و بعد سرویس را `railway redeploy` کنید. برای کارهای یک‌باره هم `railway ssh -s <service> -- <cmd>` موجود است.
 
 > اگر این کار را کردید، حتماً بعد از بالا آمدن سرویس، تعداد شاگردان را با لوکال مقایسه کنید و **یک‌بار redeploy بزنید** تا مطمئن شوید داده روی Volume ماند.
+
+### ۹.۷ عیب‌یابی: اولین build چرا شکست خورد؟
+
+| چیزی که در لاگ می‌بینید | معنی دقیق | کار |
+|---|---|---|
+| `The app contents that Railpack analyzed contains: ./ ├── README.md └── login-hero.png` | سرویس **شاخهٔ `main`** را build می‌کند؛ `main` در این مخزن فقط یک مخزنِ تصویر/README است و `package.json` و `server.js` ندارد | Service → **Settings → Source → Branch** را روی `arena/01a0618b-yasnafit` (یا `main` بعد از merge PR #2) بگذارید و **Redeploy** |
+| `⚠ Script start.sh not found` + `✖ Railpack could not determine how to build the app` | همان مورد بالا: builder هیچ پروژه‌ای پیدا نکرده. روی شاخه‌های برنامه این خطا تکرار نمی‌شود، چون `railway.json` (همان‌جا commit شده) `builder: NIXPACKS` و `startCommand: node server.js` را دیکته می‌کند | شاخه را درست کنید؛ اگر خواستید از Railpack استفاده کنید، `package-lock.json` (که برای همین کار commit شده) و `startCommand` را چک کنید |
+| `Railpack could not determine how to build the app` ولی درخت، `package.json` دارد | builder روی Railpack قفل شده (تنظیم سرویس) و چیزی برای تشخیص Node پیدا نکرده | یا `builder` سرویس را روی **Nixpacks** بگذارید، یا بگذارید `railway.json` حاکم باشد (تنظیم دستی داشبورد بر config-as-code اولویت دارد) |
+| build با Node قدیمی / خطای syntax | نسخهٔ Node ایمیج | `NIXPACKS_NODE_VERSION=22` |
+| `EACCES` روی `mkdir` مسیر Volume | کانتینر با کاربر non-root اجرا می‌شود | `RAILWAY_RUN_UID=0` |
+| deploy موفق ولی بعد از redeploy همه‌چیز خالی | **Volume وصل نیست** یا mount path عوض شده | §۹.۱ بند ۲؛ هرگز mount path را بعد از نوشتن داده تغییر ندهید |
+
+**نکتهٔ ترتیب کار:** هیچ لاگ build را با «برنامه خراب است» اشتباه نگیرید — تا وقتی درخت build شامل `server.js` نباشد، کد اصلاً اجرا نشده. بعد از هر deploy هم اول `GET /api/health` را چک کنید (§۹.۵).

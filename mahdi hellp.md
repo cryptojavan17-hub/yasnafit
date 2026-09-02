@@ -58,13 +58,13 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0618b-yasnafit` |
-| آخرین کامیت (ریموت و محلی، **برابر**) | `8331634` — “feat(deploy): make the app Railway-ready …” (Task 18) • قبلش `4e89d10`/`f90fbca` (`mahdi hellp.md`) و `9be37bb` (ممیزی امنیتی Task 16/17) |
+| آخرین کامیت (ریموت و محلی، **برابر**) | ترتیب کامیت‌های جلسهٔ Railway: `8331634` (Task 18) → `64c1dc1` (docs) → `6c99194` (Task 18b storage-paths) → `0896bba` (docs) → **Task 19** (لاگ اول build + `package-lock.json` + §۹.۷). بعد از push، `git ls-remote origin refs/heads/arena/01a0618b-yasnafit` باید با `git rev-parse HEAD` برابر باشد |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
 | local vs origin | **برابر** (`8331634`) — `git status` تمیز |
-| PR | **#2 OPEN** (head: همین شاخه، title: “student password management inside the edit dialog (+ build stamp)”, `mergeable: UNKNOWN`) • PR **#1 CLOSED** |
+| PR | **#2 OPEN** (head: همین شاخه، title: “student password management inside the edit dialog (+ build stamp)”؛ از ۲۰۲۶-۰۹-۰۲ بعدازظهر: `mergeable: MERGEABLE` و `mergeStateStatus: CLEAN`) • #1 CLOSED |
 | وضعیت merge | تاکنون هیچ merge ای توسط Agent انجام نشده؛ تصمیم merge با مالک است |
-| اقدامات باز | (۱) مهدی باید در ویندوز `git pull --ff-only` بزند (۲) در صورت تأیید مالک: merge PR #2 به `main` تا Railway روی `main` deploy شود |
+| اقدامات باز | (۱) مهدی در ویندوز `git pull --ff-only` بزند (۲) یا در Railway شاخهٔ deploy را روی `arena/01a0618b-yasnafit` بگذارد یا PR #2 را merge کند تا `main` واقعاً کد داشته باشد |
 | هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و `main` را checkout کرده باشد. اگر `git log -1` شد `086f3e0`: `git fetch -q origin arena/01a0618b-yasnafit` + `git update-ref refs/heads/arena/01a0618b-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
 
 ---
@@ -72,6 +72,7 @@
 ## 6. Railway Deployment
 
 **حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال واقعی هنوز انجام نشده** — Agent به داشبورد Railway دسترسی ندارد (لاگین/کلیک با مالک است)؛ سمت مخزن کامل آماده است.
+* **اولین attempt واقعی (لاگ مهدی، ۲۰۲۶-۰۹-۰۲ ۲۱:۵۵):** سرویس **`main`** را build کرد و با **Railpack** شکست خورد: `⚠ Script start.sh not found` + `✖ Railpack could not determine how to build the app`؛ درخت تحلیل‌شده فقط `README.md` و `login-hero.png`. علت: `main` در این مخزن شاخهٔ فقط-دارایی است (با `git ls-tree` تأیید شد) و `server.js`/`package.json`/`railway.json` ندارد ⇒ **نه کد، نه config**. راه‌حل: Source → Branch = `arena/01a0618b-yasnafit` یا merge کردن PR #2 (که الان `CLEAN/MERGEABLE` است). رفع جانبی: `package-lock.json` commit شد تا Railpack هم پروژه را تشخیص دهد؛ جدول عیب‌یابی در `DEPLOYMENT.md` §۹.۷.
 
 * **سمت مخزن (انجام‌شده، commit همین جلسه):** `railway.json` در ریشه — `builder: NIXPACKS`، `buildCommand: npm install --no-audit --no-fund && node --check server.js` (build خراب را زود می‌شکند)، `startCommand: node server.js`، `healthcheckPath: /api/health` (عمومی و سبک — دقیقاً همین را Railway پروب می‌کند)، `restartPolicyType: ON_FAILURE` + `maxRetries: 5`، `numReplicas: 1`، `sleepApplication: false`، `watchPatterns` فقط `server.js|src/**|public/**|data-source/**|package.json|railway.json`.
 * **پشتیبانی state (مرجع واحد):** ماژول بدون-اثر-جانبی `src/storage-paths.js` مسیرهای دائمی را حل می‌کند: `dataDir = YASNAFIT_DATA_DIR || RAILWAY_VOLUME_MOUNT_PATH || <repo>/data`، `backupDir = YASNAFIT_BACKUP_DIR || (روی کانتینر داخل dataDir) || <repo>/backups`، به‌علاوهٔ `assessmentsDir`/`documentsDir`. پنج نقطه‌ای که `data/` را hardcode داشتند (`src/database.js`, `src/upload-service.js`, `src/assessment-document-service.js`, `src/student-service.js`, `src/migrations.js`) به این ماژول کلید شدند ⇒ هیچ فایل خصوصی بیرون Volume نوشته نمی‌شود؛ رفتار لوکال/ویندوز دقیقاً مثل قبل است.
@@ -234,6 +235,7 @@
 5. `pull` روی ویندوز؛ merge PR #2 با تأیید مالک؛ §۱۱ PROJECT-CONTEXT هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات).
 
 ### Exact next step for the next Agent
+0. اگر مهدی دوباره لاگ build فرستاد: اول درخت build را با `git ls-tree -r --name-only <شاخهٔ deploy>` مقایسه کنید؛ «Railpack could not determine how to build the app» در این مخزن تقریباً همیشه یعنی **سرویس روی `main` (شاخهٔ خالی) است**، نه کد خراب — جدول کامل در `DEPLOYMENT.md` §۹.۷.
 1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + commit جدیدِ Task 18؛ اگر `086f3e0` دیدید، فقط در سندباکس طبق §۵ recovery کنید). 2. از مالک بخواهید خروجی داشبورد Railway (URL عمومی + لاگ build) را بدهد تا §۶ از `UNKNOWN` خارج شود و **تأیید کنید که داده بعد از یک redeploy باقی می‌ماند** (Volume). 3. اگر خواست انتقال داده: طراحی `POST /api/admin/restore` (auth مربی + `YASNAFIT_ALLOW_REMOTE_SETUP`-مانند یک گیت جدا، حجم محدود، audit) **قبل از کدنویسی تأیید بگیرید**. 4. پایان تسک: به‌روزرسانی §۵/§۶/§۱۰/§۱۲/§۱۳/§۱۴/§۱۵/§۱۶ + مدخل **Task 19** در `docs/project-tracking/CHANGELOG.md` + گزارش فارسی با بلوک `bat`.
 
 ---
@@ -272,8 +274,8 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 |---|---|---|
 | Local (لوکال مهدی) | **BEHIND** | هنوز `6c99194` (آماده‌سازی Railway + storage-paths) را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
 | Local (سندباکس Agent) | **CURRENT** | Task 18 = `8331634` و Task 18b = کامیت همین جلسه (storage-paths)؛ تست‌ها محلی سبز |
-| Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز، base `main` قدیمی ⇒ mergeable_state dirty |
-| `main` | `086f3e0` — **پشت سر** شاخهٔ جلسه (تصمیم merge با مالک) |
+| Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز و **CLEAN/MERGEABLE** (086f3e0 ancestor شاخهٔ ماست ⇒ merge بدون تناقض) |
+| `main` | `086f3e0` — **فقط `README.md` + `login-hero.png`** (`git ls-tree -r --name-only origin/main`)؛ هیچ deploy ای نباید روی `main` تا merge بعدی انجام شود |
 | Railway | **REPO-SIDE READY / DASHBOARD PENDING** | سمت مخزن کامل است (`railway.json` + `src/storage-paths.js` + DEPLOYMENT §۹)؛ هنوز پروژه/سرویس در داشبورد ساخته و Volume وصل نشده ⇒ `UNKNOWN — needs verification` |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**

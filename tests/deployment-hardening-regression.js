@@ -167,6 +167,7 @@ assert.match(serverSource,/if\(p==='\/api\/health'\)\{[\s\S]{0,240}detailed/,
   'GET /api/health must stay routable without a session');
 // a container only contains what git contains: the movement seed must be tracked
 assert.ok(exists('data-source/exercises_data.json'),'a fresh deploy could not seed the 2707 movements');
+assert.ok(exists('package-lock.json'),'package-lock.json must stay committed so both Nixpacks and Railpack detect the Node project');
 // backups must be relocatable into the single mounted volume
 assert.match(storagePaths,/YASNAFIT_BACKUP_DIR/,'backups would stay outside the Railway volume');
 assert.match(databaseSource,/require\('\.\/storage-paths'\)/,'the database module ignores the shared storage root');

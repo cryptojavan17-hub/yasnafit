@@ -266,3 +266,15 @@ PASS / PARTIAL / FAILED
 - **REASON:** در کانتینر Railway فقط مسیر Volume persisted است؛ `backups/` در Task 18 اصلاح شد ولی `data/assessments` و `data/assessment-documents` (عکس‌ها و PDFهای خصوصی) هنوز به `<repo>/data` hardcode بودند و با هر deploy پاک می‌شدند.
 - **FILES:** `src/storage-paths.js` (new)، `src/database.js`، `src/upload-service.js`، `src/assessment-document-service.js`، `src/student-service.js`، `src/migrations.js`، `tests/deployment-hardening-regression.js`، `DEPLOYMENT.md`، `mahdi hellp.md`.
 - **TESTS:** `node --check` همهٔ فایل‌های دست‌خورده ✅ • `npm run test:deployment` = `{"ok":true, … "railway_config":true}` ✅ • `npm test` = **۱۸/۱۸ ✅** • شبیه‌سازی Volume (`RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol`) ⇒ دیتابیس + `assessments/` + `backups/` داخل Volume با `drwx------` و seed ۲۷۰۷ حرکت ✅؛ بدون env، مسیرهای قبلی دقیقاً حفظ شد ✅ (e2e روی حالت Volume در مرحلهٔ provisioning مربی 409 می‌دهد چون مسیر DB در تست hardcode است → پیشنهاد اصلاح در §۱۴ حافظه).
+
+---
+
+## ۱۴۰۴/۰۶/۱۱ — Task 19: اولین attempt دپلوی روی Railway + رفع همان دلیل شکست
+
+- **REPORTED (لاگ واقعی مهدی، 2026-09-02 ساعت 21:55):** سرویس در Railway با builder **Railpack** اجرا شد و خطا داد: `⚠ Script start.sh not found` و `✖ Railpack could not determine how to build the app` — درختی که تحلیل شده فقط `./README.md` و `./login-hero.png` بود.
+- **CAUSE (تأییدشده با `git ls-tree origin/main`):** سرویس **شاخهٔ `main`** را build می‌کرد. `main` در این مخزن یک شاخهٔ فقط-دارایی است (README + تصویر لاگین) و `package.json`/`server.js`/`railway.json` ندارد؛ پس نه کدی برای اجرا هست و نه config-as-code برای انتخاب builder. سمت برنامه (شاخهٔ `arena/01a0618b-yasnafit` = `0896bba`) سالم است.
+- **CHANGE:** commit شدن **`package-lock.json`** (پروژه صفر وابستگی دارد ⇒ قفل کوچک و بی‌ریسک) تا هر builder — Nixpacks یا Railpack — پروژهٔ Node را قطعی تشخیص بدهد؛ افزودن **`DEPLOYMENT.md` §۹.۷ «عیب‌یابی: اولین build چرا شکست خورد؟»** (جدول «متن لاگ ← علت ← کار» شامل همان دو خط خطای بالا، `NIXPACKS_NODE_VERSION`، `RAILWAY_RUN_UID`، و «Volume وصل نیست»؛ همچنین نکتهٔ اینکه تنظیم builder در داشبورد بر `railway.json` اولویت دارد)؛ هشدار در §۹.۱ بند ۱ که `main` خالی است؛ به‌روزرسانی §۹.۴ دربارهٔ انتقال داده با `railway volume browse` (به‌جای ساخت endpoint restore).
+- **GUARD:** `tests/deployment-hardening-regression.js` — commit بودن `package-lock.json` بررسی می‌شود (کنار گارد track بودن `data-source/exercises_data.json`).
+- **NO-CODE:** هیچ تغییری در `server.js`/`src/**` لازم نبود؛ نه endpoint جدید، نه مایگریشن، نه تغییر `version`.
+- **OPEN (منتظر تأیید مالک):** `PR #2` الان `MERGEABLE` و `mergeStateStatus: CLEAN` است ( قبلاً dirty گزارش شده بود) و `main` ancestor شاخهٔ ماست ⇒ merge fast-forward-able. merge فقط با دستور مالک انجام می‌شود؛ تا آن موقع یا شاخهٔ deploy سرویس را روی `arena/01a0618b-yasnafit` بگذارد.
+- **TESTS:** `npm run test:deployment` = `{"ok":true,…,"railway_config":true}` ✅ • `npm test` = **۱۸/۱۸ ✅** • `npm ci --dry-run` با قفل جدید بدون خطا ✅
