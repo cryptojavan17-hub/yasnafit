@@ -70,7 +70,24 @@ for(const selector of ['.edit-section','.edit-section-title','.credential-inline
 }
 assert.match(css,/\.student-modal\.edit-student-modal\s*\{/,'the edit dialog has no width rule');
 
-// 4) Service contract behind the card.
+// 4) Build stamp: the coach must be able to tell whether the pulled update is live.
+const serverSource=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const launcher=fs.readFileSync(path.join(root,'YASNAFIT-LAUNCHER.bat'),'utf8');
+assert.match(source,/api\('\/api\/build'\)/,'the students page never asks the server which build is running');
+assert.match(source,/studentsBuildStamp/,'the build chip is missing from the students header');
+assert.match(css,/\.students-build-chip\.stale/,'there is no visual warning for stale code');
+assert.match(serverSource,/\/api\/build/,'GET /api/build is not routed');
+assert.match(serverSource,/Build stamp: \$\{build\.branch/,'the server does not print the build stamp at startup');
+assert.match(launcher,/credentialEditorMarkup/,'the launcher does not verify that the pulled code is present');
+const buildInfo=require('../src/build-info');
+const build=buildInfo.getBuildInfo();
+assert.equal(build.version,require('../package.json').version);
+assert.equal(build.markers.student_credentials_in_edit_dialog,true,'the build probe cannot see the delivered dialog');
+assert.equal(build.markers.student_credentials_api,true,'the credentials endpoint is missing from this working copy');
+assert.equal(build.markers.mobile_password_sync,true,'the mobile/password sync helper is missing from this working copy');
+assert.ok(build.students_ui&&build.students_ui.mtime,'public/students.js is not readable for the stamp');
+
+// 5) Service contract behind the card.
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-credentials-ui-'));
 try{
   const db=new DatabaseSync(path.join(dir,'credentials.db'));
@@ -117,11 +134,16 @@ try{
   const otherColumns=auth.authColumnsForMobile('09121117788');
   const other=Number(insert.run('cred-ui-2','شاگرد دوم','09121117788',otherColumns.mobile_normalized,otherColumns.password_hash).lastInsertRowid);
   assert.throws(()=>auth.manageCredentials(db,other,{username:'09121114455'}),/برای شاگرد دیگری ثبت شده است/);
+  const both=auth.manageCredentials(db,id,{username:'09121117799',password:'BothPass123',confirmPassword:'BothPass123'});
+  assert.equal(both.password_state,'PERSONAL');
+  assert.equal(both.password_once,'BothPass123');
+  assert.equal(both.temporary_password,null,'a personal password must never be reported next to a temporary one');
+  assert.equal(auth.authenticate(db,'09121117799','BothPass123').student.id,id);
   const restored=auth.manageCredentials(db,id,{resetTemporary:true});
   assert.equal(restored.password_state,'TEMPORARY');
-  assert.equal(restored.temporary_password,'4455');
-  assert.equal(auth.authenticate(db,'09121114455','YasnaPass1').error,'INVALID_CREDENTIALS');
-  assert.equal(auth.authenticate(db,'09121114455','4455').student.password_state,'TEMPORARY');
+  assert.equal(restored.temporary_password,'7799');
+  assert.equal(auth.authenticate(db,'09121117799','BothPass123').error,'INVALID_CREDENTIALS');
+  assert.equal(auth.authenticate(db,'09121117799','7799').student.password_state,'TEMPORARY');
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
   db.close();
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

@@ -87,7 +87,7 @@
       <div class="students-head-wrap">
         <div class="students-head-right">
           <h1 class="students-main-title">شاگرد های من</h1>
-          <p class="students-sub-title">مدیریت جامع پرونده‌ها، پایش وضعیت ارزیابی و برنامه‌های فعال شاگردان</p>
+          <p class="students-sub-title">مدیریت جامع پرونده‌ها، پایش وضعیت ارزیابی و برنامه‌های فعال شاگردان <span class="students-build-chip" id="studentsBuildStamp"></span></p>
         </div>
         <div class="students-head-left">
           <a class="btn-ghost-header" href="/students/submissions">
@@ -186,6 +186,21 @@
         <div class="metric-card-val">${Number(stats.total || 0).toLocaleString('fa-IR')}</div>
       </article>
     `;
+  }
+  async function renderBuildStamp(){
+    const chip=document.querySelector('#studentsBuildStamp');
+    if(!chip)return;
+    try{
+      const build=await api('/api/build');
+      const ok=Boolean(build.markers&&build.markers.student_credentials_in_edit_dialog);
+      const stamp=build.students_ui&&build.students_ui.mtime?new Date(build.students_ui.mtime).toLocaleString('fa-IR'):'—';
+      chip.className=`students-build-chip ${ok?'ok':'stale'}`;
+      chip.title=`شاخه: ${build.branch||'?'} • کامیت: ${build.commit||'?'} • آخرین تغییر public/students.js: ${build.students_ui?build.students_ui.mtime:'?'}`;
+      chip.textContent=ok?`✓ کد روز — ${build.commit||'local'} • ${stamp}`:`⚠️ کد قدیمی است — git pull اعمال نشده (کامیت: ${build.commit||'نامشخص'})`;
+    }catch(error){
+      const fresh=document.querySelector('#studentsBuildStamp');
+      if(fresh)fresh.remove();
+    }
   }
   function renderStudents(items){
     const host=document.querySelector('#studentsResult');
@@ -476,7 +491,7 @@
           const result=await api(`/api/students/${reference}/credentials`,{method:'POST',body:JSON.stringify(payload)});
           current=result;
           if(result.password_once) messages.push('رمز شخصی جدید ثبت شد.');
-          if(result.temporary_password && (pendingReset||usernameChanged||result.password_state==='TEMPORARY')) messages.push(`رمز موقت این شاگرد: ${result.temporary_password}`);
+          if(result.temporary_password) messages.push(`رمز موقت این شاگرد: ${result.temporary_password}`);
           if(usernameChanged) messages.push(`نام کاربری به ${result.username} تغییر کرد.`);
           if(wantsUnlock) messages.push('قفل ورود شاگرد باز شد.');
           if(Number(result.sessions_revoked||0)) messages.push(`${Number(result.sessions_revoked).toLocaleString('fa-IR')} نشست فعال شاگرد باطل شد.`);
@@ -784,6 +799,7 @@
     if(detailMatch) return loadStudentDetail(detailMatch[1]);
     document.querySelector('#breadcrumb').textContent='شاگرد های من';
     const content=document.querySelector('#content');content.innerHTML=renderListShell();
+    renderBuildStamp();
     document.querySelector('#addStudentButton').onclick=openAddStudent;
     document.querySelector('#studentSearch').value=listState.search;
     document.querySelector('#studentStatusFilter').value=listState.status;

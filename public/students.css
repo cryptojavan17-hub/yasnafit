@@ -1274,3 +1274,29 @@
     align-items: stretch;
   }
 }
+
+/* Build stamp — lets the coach see at a glance whether the pulled update is live */
+.students-build-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  vertical-align: middle;
+  cursor: help;
+}
+.students-build-chip.ok {
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success);
+}
+.students-build-chip.stale {
+  border-color: var(--danger-border);
+  background: var(--danger-surface);
+  color: var(--danger);
+}

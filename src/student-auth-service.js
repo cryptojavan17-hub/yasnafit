@@ -193,7 +193,8 @@ function manageCredentials(db,studentId,{username,password,confirmPassword,reset
     sessionsRevoked=require('./student-session-service').revokeStudentSessions(db,studentId);
   }
   const view=credentialsView(db.prepare('SELECT * FROM students WHERE id=?').get(studentId));
-  if(revealedTemporary) view.temporary_password=revealedTemporary;
+  // A personal password set in the same save supersedes the rebuilt temporary one.
+  if(revealedTemporary&&passwordState!=='PERSONAL') view.temporary_password=revealedTemporary;
   return {...view,password_once:revealedPassword||null,sessions_revoked:sessionsRevoked,changes};
 }
 

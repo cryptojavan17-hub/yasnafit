@@ -9,6 +9,7 @@ echo ====================================================
 echo                YASNAFIT - LAUNCHER
 echo ====================================================
 call :STATUS
+call :CHECKCODE
 echo.
 echo 1. Start Server ^& Open Dashboard
 echo 2. Restart Server
@@ -28,11 +29,23 @@ goto MENU
 powershell -NoProfile -Command "$l=Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue; if($l){Write-Host 'Server Status: RUNNING' -ForegroundColor Green}else{Write-Host 'Server Status: STOPPED' -ForegroundColor Red}; if(Test-Path 'data\yasnafit.db'){Write-Host 'Database Health: ONLINE' -ForegroundColor Green}else{Write-Host 'Database Health: NOT INITIALIZED' -ForegroundColor Yellow}; Write-Host 'Port: %PORT%'"
 exit /b
 
+:CHECKCODE
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do echo Git branch: %%b
+for /f "delims=" %%s in ('git rev-parse --short HEAD 2^>nul') do echo Git commit: %%s
+findstr /C:"credentialEditorMarkup" "public\students.js" >nul 2>&1
+if errorlevel 1 goto :CODE_OLD
+echo UI check: NEW CODE is in public\students.js - student password dialog is available
+goto :CODE_DONE
+:CODE_OLD
+echo UI check: OLD CODE - the pulled update is NOT in this folder. Check the branch and run git pull again
+:CODE_DONE
+exit /b
+
 :START
 where node >nul 2>&1
 if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then reopen this launcher.& exit /b 1)
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
-if not errorlevel 1 (echo Server is already running on port %PORT%.& call :SHOW_AUTHENTICATOR& call :OPEN_DASHBOARD& exit /b)
+if not errorlevel 1 (echo Server is already running on port %PORT%. If you just pulled new code, choose 2 to restart it.& call :CHECKCODE& call :SHOW_AUTHENTICATOR& call :OPEN_DASHBOARD& exit /b)
 if not exist logs mkdir logs
 echo Starting Yasnafit server in background (no extra window)...
 REM Run node in background without new window (/B) - keeps launcher visible

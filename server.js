@@ -33,6 +33,7 @@ const auditService = require('./src/audit-service');
 const studentAuthService = require('./src/student-auth-service');
 const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
+const buildInfo = require('./src/build-info');
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
@@ -421,6 +422,7 @@ async function handleHealth(req,res){
 async function handleReleaseInfo(req,res,url){
   if(req.method!=='GET') return sendError(res,405,'متد مجاز نیست');
   if(url.pathname==='/api/version') return send(res,200,releaseService.getApplicationInfo());
+  if(url.pathname==='/api/build') return send(res,200,buildInfo.getBuildInfo());
   if(url.pathname==='/api/releases') return send(res,200,releaseService.listReleases(db));
   const match=url.pathname.match(/^\/api\/releases\/([^/]+)$/);
   if(match){
@@ -2405,7 +2407,7 @@ async function api(req,res,url){
     if(p==='/api/location/provinces' && req.method==='GET'){
       return send(res, 200, studentAuthService.IRAN_PROVINCES_AND_CITIES);
     }
-    if(p==='/api/version' || p==='/api/releases' || p.startsWith('/api/releases/')){
+    if(p==='/api/version' || p==='/api/build' || p.startsWith('/api/releases') || p==='/api/releases'){
       const releaseResponse=await handleReleaseInfo(req,res,url);
       if(releaseResponse) return releaseResponse;
     }
@@ -2719,5 +2721,7 @@ server.listen(port,'0.0.0.0',()=>{
   const totalProg = (()=>{ try { return db.prepare('SELECT COUNT(*) as total FROM training_programs WHERE deleted_at IS NULL').get().total; } catch(e){ return 0; } })();
   console.log(`Yasnafit is running at http://localhost:${port} with ${totalEx} exercises and ${totalProg} training programs`);
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
+  const build=buildInfo.getBuildInfo();
+  console.log(`Build stamp: ${build.branch||'unknown branch'} @ ${build.commit||'no git'}${build.uncommitted?' (with local edits)':''} | students.js ${build.students_ui?build.students_ui.mtime:'missing'} | features ${Object.entries(build.markers).map(([name,ok])=>`${name}=${ok?'✓':'✗'}`).join(' ')}`);
   console.log(`Database schema version: ${(() => { try { return db.prepare('SELECT value FROM settings WHERE key=?').get('schema_version')?.value || 'unknown'; } catch(e){ return 'unknown'; } })()}`);
 });
