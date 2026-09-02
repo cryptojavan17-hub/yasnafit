@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 'use strict';
-// Regression guard for "change a student's username and password from the edit dialog".
+// Regression guard for the student "ویرایش و رمز" dialog.
 // 1) The three-dot menu may only contain actions that are actually wired up.
-// 2) The student edit dialog owns the credential card and talks to the credentials API.
+// 2) The edit dialog owns username + password management in one compact form
+//    (no duplicate card, no repeat-password field, optional password, generator).
 // 3) The auth service keeps the login credential consistent with a changed mobile number.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -29,46 +30,79 @@ assert.equal(new Set(menuActions).size,menuActions.length,'duplicate three-dot a
 for(const action of menuActions){
   assert.ok(renderBlock.includes(`host.querySelectorAll('.${action}')`),`the three-dot action .${action} is rendered but never wired — the button does nothing`);
 }
-assert.doesNotMatch(renderBlock,/btn-credentials-student/,'the dead "رمز ورود" entry point is still rendered in the three-dot menu');
-assert.doesNotMatch(renderBlock,/data-credentials-student/,'the three-dot menu still exposes an unwired credentials attribute');
+assert.doesNotMatch(renderBlock,/btn-credentials-student|data-credentials-student/,'a second (unwired) credentials entry point came back');
+assert.match(renderBlock,/ویرایش و رمز/,'the menu entry is not labelled as edit + password');
 
-// 2) The edit dialog is the single place that manages credentials.
+// 2) The dialog itself: one form, five inputs, three small actions.
 const editStart=source.indexOf('function openEditStudentModal(');
 const editEnd=source.indexOf('function openAddStudent(');
 assert.ok(editStart>0&&editEnd>editStart,'the student edit dialog is missing');
 const editBlock=source.slice(editStart,editEnd);
-assert.match(editBlock,/مدیریت رمز ورود/,'the edit dialog lost the credential management card');
-assert.match(editBlock,/اطلاعات پرونده/,'the edit dialog lost the profile section');
-for(const field of ['editStudentFullName','editStudentGoal','editStudentCredentials','credUsername','credPassword','credConfirm']){
-  assert.ok(editBlock.includes(`#${field}`),`the edit dialog is missing #${field}`);
+assert.match(editBlock,/✏️ ویرایش و رمز/,'the dialog title does not match the menu entry');
+assert.match(editBlock,/رمز ورود/,'the dialog lost its password section');
+for(const field of ['editStudentFullName','credUsername','editStudentGoal','credPassword','editStudentCredentials','editStudentSave']){
+  assert.ok(editBlock.includes(`#${field}`)||editBlock.includes(`"${field}"`),`the edit dialog is missing ${field}`);
 }
-assert.match(editBlock,/api\(`\/api\/students\/\$\{reference\}\/credentials`\)/,'the edit dialog never loads the credential state');
-assert.match(editBlock,/method:'POST',body:JSON\.stringify\(payload\)/,'the edit dialog never posts credential changes');
-assert.match(editBlock,/\/api\/students\/\$\{reference\}`,\{method:'PUT'/,'the edit dialog no longer saves the profile with PUT');
-assert.match(editBlock,/حداقل ۸ کاراکتر/,'the edit dialog lacks the personal password length rule');
-assert.match(editBlock,/تکرار رمز عبور با رمز جدید یکسان نیست/,'the edit dialog does not check the repeated password');
-assert.match(editBlock,/data-toggle-reset/,'the temporary-password reset action is missing from the edit dialog');
-assert.match(editBlock,/payload\.reset_temporary=true/,'the reset action does not ask the server to restore the temporary password');
-assert.match(editBlock,/data-toggle-unlock/,'the account unlock action is missing from the edit dialog');
+assert.doesNotMatch(editBlock,/credConfirm/,`the simplified dialog must not ask for the password twice`);
+assert.doesNotMatch(editBlock,/credential-chips|credential-meta|credential-field-help|credential-link-row/,'the dialog is cluttered again');
+// the username input lives in the static form, not inside the re-rendered card, so typing survives
+assert.ok(editBlock.indexOf('"credUsername"')<editBlock.indexOf('"editStudentCredentials"'),'the username field is re-created by every repaint');
+// password is optional, revealable and generatable
+assert.match(source,/خالی یعنی بدون تغییر/,'the dialog does not say the password is optional');
+assert.match(source,/data-toggle-pass/,'the password reveal toggle is missing');
+assert.match(source,/data-random-pass/,'the random password button is missing');
+assert.match(editBlock,/randomStudentPassword\(\)/,'the random button does not generate a password');
+assert.match(source,/const PASSWORD_ALPHABET='([^']+)'/);
+const alphabet=source.match(/const PASSWORD_ALPHABET='([^']+)'/)[1];
+assert.ok(alphabet.length>=32,'the password alphabet is too small');
+for(const ambiguous of ['0','O','I','l','1'])assert.equal(alphabet.includes(ambiguous),false,`ambiguous character ${ambiguous} is in the password alphabet`);
+assert.match(editBlock,/رمز تصادفی ساخته شد و کپی هم شد/,'the generated password is not offered for sending');
+assert.match(source,/type="\$\{visible\?'text':'password'\}"/,'the reveal toggle does not change the input type');
+// save contract: credentials first (without a repeat field), then the profile
+assert.match(editBlock,/api\(`\/api\/students\/\$\{reference\}\/credentials`\)/,'the dialog never loads the credential state');
+assert.match(editBlock,/method:'POST',body:JSON\.stringify\(payload\)/,'the dialog never posts credential changes');
+assert.match(editBlock,/payload\.reset_temporary=true/,'the reset action does not restore the temporary password');
 assert.match(editBlock,/payload\.unlock=true/,'the unlock action is not sent to the server');
-assert.match(editBlock,/data-copy-login/,'the edit dialog cannot copy the login details');
-assert.match(source,/نشست‌های فعال شاگرد را باطل می‌کند/,'the credential card does not warn about revoked sessions');
-assert.match(editBlock,/نشست فعال شاگرد باطل شد/,'the edit dialog does not report the revoked sessions after saving');
-assert.doesNotMatch(editBlock,/data-open-student/,'the edit dialog still navigates away instead of saving inline');
+assert.doesNotMatch(editBlock,/confirm_password/,'the dialog still sends a repeat-password field');
+assert.match(editBlock,/\/api\/students\/\$\{reference\}`,\{method:'PUT'/,'the dialog no longer saves the profile with PUT');
+assert.match(editBlock,/اطلاعات پرونده ذخیره شد/,'the dialog does not confirm the profile save');
+assert.match(editBlock,/چیزی برای ذخیره تغییر نکرد/,'the dialog can claim a save that never happened');
+assert.doesNotMatch(editBlock,/full_name:fullName,goal,mobile|mobile:username/,'the dialog must not write the mobile through the profile PUT');
+assert.match(editBlock,/حداقل ۸ کاراکتر/,'the personal password length rule is missing');
+assert.match(source,/data-copy-login/,'the dialog cannot copy the login details');
+assert.match(editBlock,/نشست فعال شاگرد باطل شد/,'the dialog does not report the revoked sessions');
+assert.match(editBlock,/شمارهٔ ورود بدون اتصال به سرور ذخیره نمی‌شود/,'a username edit can be silently lost when the API is down');
+assert.doesNotMatch(editBlock,/data-open-student|location\.href/,'the dialog navigates instead of saving inline');
 
-// 3) The credential card markup lives in one renderer used by the dialog.
+// 2b) Every state variable the dialog reads must also be declared in it — a missing
+// declaration inside an async handler silently kills the save button (ReferenceError).
+const dialogDeclarations=new Set();
+for(const line of editBlock.split('\n')){
+  const head=line.match(/^\s*(?:let|const)\s+(.*)$/);
+  if(!head)continue;
+  for(const part of head[1].split(',')){
+    const name=part.trim().match(/^([A-Za-z_$][\w$]*)\s*=/);
+    if(name)dialogDeclarations.add(name[1]);
+  }
+}
+for(const name of ['current','typedPassword','pendingReset','pendingUnlock','revealPassword','notice','noticeKind','credentialsLoaded','busy','usernameChanged','username','password','fullName','goal','messages','payload','result','profileChanged','reference']){
+  assert.ok(dialogDeclarations.has(name),`the dialog reads ${name} but never declares it — saving would throw a ReferenceError`);
+}
+
+// 3) The credential card markup lives in one renderer used by the dialog (defined above section 2).
 assert.match(source,/function credentialEditorMarkup\(/,'the credential card renderer is missing');
 assert.match(source,/function loginShareText\(/,'the copy-login template is missing');
-const cardStart=source.indexOf('function credentialEditorMarkup(');
-const cardBlock=source.slice(cardStart,source.indexOf('function openEditStudentModal('));
-assert.match(cardBlock,/رمز موقت فعلی/,'the temporary password is not shown to the coach');
-assert.match(cardBlock,/قابل مشاهده نیست/,'the card pretends a hashed personal password can be revealed');
-assert.match(cardBlock,/password_once/,'the newly set personal password is not revealed once');
-assert.match(cardBlock,/autocomplete="new-password"/,'password fields are not marked as new-password');
-for(const selector of ['.edit-section','.edit-section-title','.credential-inline-actions','.credential-field-help','.credential-notice.ok','.credential-notice.error']){
+const cardBlock=source.slice(source.indexOf('function credentialEditorMarkup('),source.indexOf('function openEditStudentModal('));
+assert.match(cardBlock,/۴ رقم آخر/,'the temporary password is not surfaced to the coach');
+assert.match(cardBlock,/رمز شخصی|رمز موقت/,'the password state is missing from the status line');
+assert.match(cardBlock,/ورود قفل است/,'the locked state is not shown');
+assert.match(cardBlock,/password_once/,'the newly set password is not revealed once');
+assert.match(cardBlock,/autocomplete="new-password"/,'the password field is not marked as new-password');
+for(const selector of ['.edit-form-grid','.edit-divider','.edit-section-body','.credential-status','.credential-pass-row','.credential-icon-btn','.credential-actions','.credential-action-btn','.credential-notice.ok','.credential-notice.error','.credential-notice.warn']){
   assert.ok(css.includes(selector),`students.css is missing ${selector}`);
 }
 assert.match(css,/\.student-modal\.edit-student-modal\s*\{/,'the edit dialog has no width rule');
+assert.doesNotMatch(cardBlock,/<h3|credential-hint/,'the credential block grew headings again');
 
 // 4) Build stamp: the coach must be able to tell whether the pulled update is live.
 const serverSource=fs.readFileSync(path.join(root,'server.js'),'utf8');
@@ -120,17 +154,21 @@ try{
   assert.equal(same.password_hash,null);
   assert.equal(same.sessions_revoked,false);
 
-  auth.manageCredentials(db,id,{password:'YasnaPass1',confirmPassword:'YasnaPass1'});
-  const personal=db.prepare('SELECT * FROM students WHERE id=?').get(id);
-  const keepHash=auth.mobileAuthUpdate(personal,'09121119988');
+  // the dialog sends password only (no repeat field)
+  const personal=auth.manageCredentials(db,id,{password:'YasnaPass1'});
+  assert.equal(personal.password_state,'PERSONAL');
+  assert.equal(personal.password_once,'YasnaPass1');
+  assert.equal(personal.temporary_password,null,'a personal password must not be reported next to a temporary one');
+  const personalRow=db.prepare('SELECT * FROM students WHERE id=?').get(id);
+  const keepHash=auth.mobileAuthUpdate(personalRow,'09121119988');
   assert.equal(keepHash.changed,true);
   assert.equal(keepHash.password_hash,null,'a personal password must never be replaced by the temporary one');
   assert.equal(keepHash.password_state,null);
   assert.equal(keepHash.sessions_revoked,true);
-  assert.equal(auth.verifyPassword('9988',personal.password_hash),false);
+  assert.equal(auth.verifyPassword('9988',personalRow.password_hash),false);
 
   assert.throws(()=>auth.manageCredentials(db,id,{}),/تغییری برای ذخیره وجود ندارد/);
-  assert.throws(()=>auth.manageCredentials(db,id,{username:'09121114455',password:'shorty',confirmPassword:'shorty'}),/حداقل ۸/);
+  assert.throws(()=>auth.manageCredentials(db,id,{username:'09121114455',password:'shorty'}),/حداقل ۸/);
   const otherColumns=auth.authColumnsForMobile('09121117788');
   const other=Number(insert.run('cred-ui-2','شاگرد دوم','09121117788',otherColumns.mobile_normalized,otherColumns.password_hash).lastInsertRowid);
   assert.throws(()=>auth.manageCredentials(db,other,{username:'09121114455'}),/برای شاگرد دیگری ثبت شده است/);
@@ -148,4 +186,4 @@ try{
   db.close();
 }finally{fs.rmSync(dir,{recursive:true,force:true});}
 
-console.log(JSON.stringify({ok:true,menu_actions_wired:menuActions.length,edit_dialog_credentials_card:true,temporary_password_follows_mobile:true,personal_password_preserved:true,reset_and_unlock_exposed:true}));
+console.log(JSON.stringify({ok:true,menu_actions_wired:menuActions.length,dialog:'ویرایش و رمز',single_password_field:true,random_password:true,temporary_password_follows_mobile:true,personal_password_preserved:true,reset_and_unlock_exposed:true}));
