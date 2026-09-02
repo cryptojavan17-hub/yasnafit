@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ارسال ایمیل مربی | Yasnafit</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <link rel="stylesheet" href="/coach-login.css" />
+</head>
+<body class="coach-login-body">
+  <main class="coach-login-shell">
+    <section class="coach-login-card" aria-labelledby="coachMailTitle">
+      <div class="coach-login-brand">
+        <span class="coach-login-mark" aria-hidden="true">Y</span>
+        <div>
+          <strong>Yasnafit</strong>
+          <span>پنل مربی</span>
+        </div>
+      </div>
+      <h1 id="coachMailTitle">ارسال کد به جیمیل</h1>
+      <p class="coach-login-lead">کد ورود باید واقعاً به <strong>crypto.javan17@gmail.com</strong> برسد. جیمیل رمز معمولی حساب را برای برنامه قبول نمی‌کند؛ باید «رمز برنامه» بسازید.</p>
+      <ol class="coach-login-steps">
+        <li>تأیید دو مرحله‌ای گوگل را برای همین جیمیل روشن کنید.</li>
+        <li>صفحه <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">رمزهای برنامه گوگل</a> را باز کنید.</li>
+        <li>یک رمز برنامه با نام Yasnafit بسازید.</li>
+        <li>۱۶ حرف نمایش‌داده‌شده را در کادر زیر بگذارید. فاصله مهم نیست.</li>
+        <li>دکمه را بزنید تا یک ایمیل آزمایشی به همان اینباکس برود. اگر رسید، تنظیم درست است.</li>
+      </ol>
+      <form id="coachMailForm" autocomplete="off">
+        <label class="coach-login-field">
+          <span>رمز برنامه جیمیل</span>
+          <input id="coachMailPassword" name="app_password" type="password" autocomplete="off" required minlength="8" maxlength="128" />
+        </label>
+        <p class="coach-login-hint">رمز خودِ جیمیل را وارد نکنید. فقط App Password.</p>
+        <button class="coach-login-submit" type="submit" id="coachMailSubmit">ارسال ایمیل آزمایشی و ذخیره</button>
+      </form>
+      <nav class="coach-login-links">
+        <a href="/coach/login">ورود مربی</a>
+      </nav>
+      <p class="coach-login-error" id="coachLoginError" role="alert" hidden></p>
+    </section>
+  </main>
+  <script src="/coach-login.js"></script>
+</body>
+</html>

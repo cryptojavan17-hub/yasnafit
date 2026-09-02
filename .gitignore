@@ -1,0 +1,18 @@
+data/
+backups/
+logs/
+*.pid
+node_modules/
+# Exercise images - 1888 files, 60MB - keep local only, not in Git
+public/assets/images/exercises/imported/
+public/assets/videos/
+assets/
+# Personal login hero photo — local only, never committed to the public repo
+public/image/*
+!public/image/.gitkeep
+# OS
+.DS_Store
+Thumbs.db
+# IDE
+.vscode/
+.idea/

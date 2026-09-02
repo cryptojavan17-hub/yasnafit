@@ -1,0 +1,32 @@
+/* Releases / About */
+.sidebar-footer { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sidebar-version { display: block; width: 100%; margin-top: 3px; color: var(--text-disabled); font-size: 9px; direction: ltr; text-align: right; }
+.dashboard-version { display: inline-block; margin-top: 7px; color: var(--text-muted); font-size: 10px; direction: ltr; }
+.release-page { max-width: 1120px; margin: 0 auto; }
+.release-page-head { align-items: center; }
+.current-version-box { min-width: 230px; padding: 14px 17px; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--glass-hover); box-shadow: var(--shadow-sm); }
+.current-version-box span, .current-version-box small { color: var(--text-muted); font-size: 9px; }
+.current-version-box strong { color: var(--text); font-size: 17px; direction: ltr; text-align: right; }
+.version-distinction { margin: 0 0 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+.version-distinction span { padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--glass); color: var(--text-muted); font-size: 9px; }
+.version-distinction b { margin-left: 4px; color: var(--text-secondary); }
+.release-list { display: flex; flex-direction: column; gap: 12px; }
+.release-card { padding: 17px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--glass); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); transition: var(--transition); }
+.release-card:hover { transform: translateY(-1px); border-color: var(--border-strong); background: var(--glass-hover); }
+.release-card.current { border-color: var(--accent-border); box-shadow: var(--shadow); }
+.release-card > header { padding-bottom: 11px; display: flex; align-items: flex-start; justify-content: space-between; gap: 17px; border-bottom: 1px solid var(--border); }
+.release-card h2 { margin: 0; font-size: 16px; }
+.release-card header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 10px; }
+.release-card time { color: var(--text-muted); font-size: 9px; white-space: nowrap; }
+.release-version-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.release-version, .current-release-badge, .release-badge { padding: 3px 7px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--glass-hover); color: var(--text-secondary); font-size: 9px; }
+.release-version { color: var(--text); font-weight: 700; direction: ltr; }
+.current-release-badge { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.release-changes { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 9px; }
+.release-change-group { padding: 10px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-inset); }
+.release-change-group h3 { margin: 0 0 6px; }
+.release-change-group ul { margin: 0; padding-right: 17px; color: var(--text-secondary); font-size: 10px; line-height: 1.9; }
+.release-badge.feature, .release-badge.improvement, .release-badge.fix, .release-badge.security { background: var(--glass-hover); color: var(--text-secondary); }
+.release-badge.breaking { border-color: var(--danger-border); background: var(--danger-surface); color: var(--danger); }
+.release-loading { padding: 48px; text-align: center; }
+@media (max-width: 700px) { .release-card > header, .release-page-head { align-items: stretch; flex-direction: column; } .current-version-box { width: 100%; } .release-card time { white-space: normal; } }

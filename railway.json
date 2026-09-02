@@ -1,0 +1,24 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install --no-audit --no-fund && node --check server.js"
+  },
+  "deploy": {
+    "startCommand": "node server.js",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 300,
+    "numReplicas": 1,
+    "sleepApplication": false,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5,
+    "watchPatterns": [
+      "server.js",
+      "src/**",
+      "public/**",
+      "data-source/**",
+      "package.json",
+      "railway.json"
+    ]
+  }
+}

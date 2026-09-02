@@ -1,0 +1,870 @@
+/* Yasnafit — AI Copilot & Interactive Program Assistant Stylesheet */
+
+.ai-copilot-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  background: rgba(5, 5, 5, .96);
+  backdrop-filter: blur(24px);
+  overflow: hidden;
+  direction: rtl;
+  color: var(--text);
+  font-family: inherit;
+  animation: fadeIn 180ms ease;
+}
+
+.ai-copilot-modal[hidden] {
+  display: none;
+}
+
+.ai-copilot-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .4);
+  flex-shrink: 0;
+}
+
+.ai-copilot-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ai-copilot-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+
+.ai-copilot-headings h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.ai-copilot-meta-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.ai-copilot-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.ai-copilot-badge.active-combo {
+  border-color: var(--accent-border);
+  background: var(--accent-surface);
+  color: var(--accent-hover);
+}
+
+.ai-copilot-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 2-Column Workspace */
+.ai-copilot-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 20px 20px;
+  overflow: hidden;
+  height: calc(100vh - 65px);
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Right Panel: Program Rationale, Assessment Summary & Live Preview */
+.ai-copilot-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  max-height: 100%;
+  padding-left: 6px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) var(--surface-inset);
+}
+
+.ai-copilot-preview-col::-webkit-scrollbar {
+  width: 7px;
+}
+.ai-copilot-preview-col::-webkit-scrollbar-track {
+  background: var(--surface-inset);
+  border-radius: 4px;
+}
+.ai-copilot-preview-col::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+
+.ai-copilot-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ai-copilot-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-copilot-card-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 850;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-copilot-card-body {
+  padding: 14px 16px;
+}
+
+/* Assessment Diagnostic Grid */
+.ai-assessment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ai-assessment-summary-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-inset);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-assessment-summary-item span {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.ai-assessment-summary-item b {
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-bmi-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  background: var(--accent-surface);
+  color: var(--accent-hover);
+  border: 1px solid var(--accent-border);
+  margin-right: 4px;
+}
+
+/* Rationale Audit Report Styles */
+.ai-rationale-section {
+  margin-bottom: 14px;
+}
+
+.ai-rationale-section h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--accent-hover);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-rationale-list {
+  margin: 0;
+  padding-right: 18px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* Decision Cards Grid */
+.ai-decision-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ai-decision-card {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-decision-card b {
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-decision-card p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 6-Phase Scientific Table */
+.ai-phase-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.ai-phase-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+  direction: rtl;
+}
+
+.ai-phase-table th,
+.ai-phase-table td {
+  padding: 6px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-phase-table th {
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  font-weight: 750;
+}
+
+.ai-phase-table td {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.ai-phase-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-phase-num {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-hover);
+  font-weight: 850;
+  font-size: 9px;
+}
+
+.ai-phase-vol {
+  font-weight: 750;
+  color: var(--text-muted);
+}
+
+.ai-phase-reason {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Audit & Mismatch Grid */
+.ai-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-audit-card {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-audit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.ai-audit-head b {
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-audit-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-hover);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.ai-audit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.ai-audit-details b {
+  color: var(--text);
+  font-weight: 750;
+}
+
+/* Coach Tips Box */
+.ai-coach-tips-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border-right: 3px solid var(--accent);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.ai-coach-tips-box b {
+  font-size: 10px;
+  color: var(--accent-hover);
+  font-weight: 850;
+}
+
+/* Live Program Preview inside Copilot */
+.ai-preview-day {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+
+.ai-preview-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+.ai-preview-day-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-preview-combo-block {
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-right: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ai-preview-combo-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-hover);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.ai-preview-mov-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.ai-preview-mov-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ai-preview-mov-img {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 1);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .2);
+}
+
+.ai-preview-mov-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 1);
+  display: block;
+}
+
+.ai-preview-mov-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-preview-mov-name-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ai-preview-mov-name {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-preview-system-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  font-size: 8px;
+  font-weight: 750;
+  color: var(--text-secondary);
+}
+
+.ai-preview-muscles-tag {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ai-preview-sets-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ai-preview-set-pill {
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  box-sizing: border-box;
+  line-height: 1.1;
+  padding: 1px 4px;
+}
+
+.ai-preview-set-val {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+.ai-preview-set-unit {
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Left Panel: Live Copilot Chat */
+.ai-copilot-chat-col {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.ai-copilot-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ai-copilot-chat-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 850;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-copilot-chat-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface-inset);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) var(--surface-inset);
+}
+
+.ai-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 92%;
+  animation: fadeIn 140ms ease;
+}
+
+.ai-msg-user {
+  align-self: flex-start;
+}
+
+.ai-msg-assistant {
+  align-self: flex-end;
+  width: 95%;
+  max-width: 95%;
+}
+
+.ai-msg-bubble {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 11px;
+  line-height: 1.8;
+  word-break: break-word;
+  direction: rtl;
+}
+
+.ai-msg-user .ai-msg-bubble {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 3px;
+}
+
+.ai-msg-assistant .ai-msg-bubble {
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-bottom-left-radius: 3px;
+}
+
+.ai-msg-p {
+  margin: 0 0 8px;
+}
+.ai-msg-p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-msg-heading {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--accent-hover);
+  margin: 8px 0 4px;
+  line-height: 1.5;
+}
+
+.ai-msg-ul,
+.ai-msg-ol {
+  margin: 4px 0 8px;
+  padding-right: 18px;
+}
+
+.ai-msg-li {
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.ai-msg-assistant .ai-msg-li strong,
+.ai-msg-assistant .ai-msg-p strong {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.ai-msg-tools {
+  margin-top: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 9px;
+  color: var(--accent-hover);
+}
+
+.ai-copilot-quick-prompts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ai-quick-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ai-quick-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.ai-copilot-input-bar {
+  padding: 10px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ai-copilot-textarea {
+  flex: 1;
+  min-height: 42px;
+  max-height: 100px;
+  padding: 9px 12px;
+  font-size: 11px;
+  resize: none;
+}
+
+.ai-copilot-send-btn {
+  min-height: 42px;
+  padding: 0 18px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Assessment AI Analysis Modal */
+.ai-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .85);
+  backdrop-filter: blur(12px);
+  padding: 20px;
+  direction: rtl;
+}
+
+.ai-modal-overlay[hidden] {
+  display: none;
+}
+
+.ai-modal-dialog {
+  width: 100%;
+  max-width: 780px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .6);
+  overflow: hidden;
+  animation: pageIn 180ms ease;
+}
+
+.ai-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 850;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ai-diag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.ai-diag-card {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.ai-diag-card b {
+  display: block;
+  font-size: 11px;
+  color: var(--accent-hover);
+  margin-bottom: 3px;
+}
+
+.ai-modal-textarea-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-modal-textarea-wrap label {
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.ai-modal-textarea {
+  min-height: 140px;
+  max-height: 240px;
+  padding: 12px 14px;
+  font-size: 11px;
+  line-height: 1.8;
+  resize: vertical;
+}
+
+.ai-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 22px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .ai-copilot-workspace {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    height: auto;
+  }
+  .ai-copilot-preview-col {
+    max-height: 480px;
+  }
+  .ai-copilot-chat-col {
+    height: 480px;
+  }
+}
