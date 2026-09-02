@@ -270,7 +270,7 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | هنوز `8331634` را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
+| Local (لوکال مهدی) | **BEHIND** | هنوز `6c99194` (آماده‌سازی Railway + storage-paths) را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
 | Local (سندباکس Agent) | **CURRENT** | Task 18 = `8331634` و Task 18b = کامیت همین جلسه (storage-paths)؛ تست‌ها محلی سبز |
 | Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز، base `main` قدیمی ⇒ mergeable_state dirty |
 | `main` | `086f3e0` — **پشت سر** شاخهٔ جلسه (تصمیم merge با مالک) |
