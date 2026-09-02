@@ -235,7 +235,8 @@
 2. بعد از اولین deploy: لاگ build/رانتایم را ببینید؛ اگر Node قدیمی انتخاب شد `NIXPACKS_NODE_VERSION=22`؛ اگر `EACCES` روی Volume دیدید `RAILWAY_RUN_UID=0`.
 3. پاک کردن `YASNAFIT_ALLOW_REMOTE_SETUP` بعد از ساخت حساب مربی.
 4. انتقال داده: مسیر بی-ریسک `railway volume browse` (آپلود `data\yasnafit.db` داخل Volume) است — اگر ترجیح دادید از صفر شروع کنید، فقط seed حرکت‌ها خودکار انجام می‌شود.
-5. `pull` روی ویندوز؛ merge PR #2 با تأیید مالک؛ §۱۱ PROJECT-CONTEXT هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات).
+5. **انجام شد (۲۰۲۶-۰۹-۰۲):** `PR #2` با تأیید مهدی merge شد ⇒ `main` = `50aaa53` (اپ کامل). باقی‌مانده: `git pull --ff-only` روی ویندوز و سوییچ Branch سرویس Railway به `main`.
+6. §۱۱ `docs/project-tracking/PROJECT-CONTEXT.md` هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات، بی‌اثر بر کد).
 
 ### Exact next step for the next Agent
 0. **وضعیت سندباکس:** در این جلسه سندباکس دوباره بازسازی شد و HEAD به `086f3e0` برگشت (و `data/` به‌عنوان مسیر gitignored پاک شد)؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` برگردانده شد. اگر دوباره دیدید: همین کار را بکنید و **هرگز به مهدی پیشنهاد ندهید** (او فقط `git pull --ff-only`).
