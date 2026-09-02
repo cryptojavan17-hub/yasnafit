@@ -219,11 +219,6 @@
               <span>⋮</span>
             </button>
             <div class="student-action-menu-dropdown" id="actionMenu-${student.id}" hidden>
-              <button type="button" class="action-menu-item btn-credentials-student" data-credentials-student="${index}">
-                <span>🔑</span>
-                <span>رمز ورود</span>
-              </button>
-              <div class="action-menu-divider" role="separator"></div>
               <button type="button" class="action-menu-item btn-edit-student" data-edit-student="${index}">
                 <span>✏️</span>
                 <span>ویرایش</span>
@@ -324,170 +319,189 @@
     const password=data.password_once||data.temporary_password||'رمز شخصی شاگرد (قابل نمایش نیست)';
     return `ورود شاگرد یسنافیت\nآدرس: ${location.origin}/student/login\nنام کاربری: ${data.username||'—'}\nرمز عبور: ${password}`;
   }
-  function renderCredentialBody(data,notice=''){
-    const revealed=data.password_once||'';
+  // Body of the "مدیریت رمز ورود" card inside the student edit dialog.
+  function credentialEditorMarkup(data,notice,noticeKind){
+    const state=data.password_state||'RESET_REQUIRED';
     const temp=data.temporary_password||'';
-    return `<div class="student-modal-head">
-        <div>
-          <h2>مدیریت ورود شاگرد</h2>
-          <p class="credential-subtitle">${esc(data.full_name||'')} · پرونده ${esc(data.case_number||'—')}</p>
-        </div>
-        <button type="button" data-close-modal>×</button>
-      </div>
+    const revealed=data.password_once||'';
+    const locked=Boolean(data.locked);
+    const username=data.display_username??data.username??'';
+    const pendingReset=Boolean(data.pending_reset);
+    const pendingUnlock=Boolean(data.pending_unlock);
+    return `
       <div class="credential-chips">
-        <span class="credential-chip ${data.password_state==='PERSONAL'?'ok':''}">${esc(data.password_state_label||'نامشخص')}</span>
-        <span class="credential-chip ${data.locked?'warn':''}">${data.locked?'ورود قفل است':'ورود آزاد است'}</span>
+        <span class="credential-chip ${state==='PERSONAL'?'ok':''}">وضعیت رمز: ${esc(data.password_state_label||'نامشخص')}</span>
+        <span class="credential-chip ${locked?'warn':''}">${locked?'ورود قفل است':'ورود آزاد است'}</span>
       </div>
-      ${notice?`<div class="credential-notice">${esc(notice)}</div>`:''}
-      ${revealed?`<div class="temporary-password credential-once"><span>رمز شخصی جدید — فقط همین یک‌بار نمایش داده می‌شود</span><b dir="ltr">${esc(revealed)}</b><small>این رمز هش می‌شود و بعد از بستن پنجره دیگر قابل مشاهده نیست.</small></div>`:''}
-      <label class="credential-label">نام کاربری (شماره همراه)</label>
+      ${notice?`<div class="credential-notice ${noticeKind==='error'?'error':''}${noticeKind==='ok'?' ok':''}">${esc(notice)}</div>`:''}
+      ${revealed?`<div class="temporary-password credential-once"><span>رمز شخصی جدید — فقط همین یک‌بار نمایش داده می‌شود</span><b dir="ltr">${esc(revealed)}</b><small>همین حالا برای شاگرد بفرستید؛ بعد از بستن این پنجره قابل بازیابی نیست.</small></div>`:''}
+      <span class="credential-label">نام کاربری (شماره همراه)</span>
       <div class="credential-link-row">
-        <input id="credUsername" class="student-form-input" dir="ltr" maxlength="15" inputmode="tel" autocomplete="off" value="${esc(data.username||'')}">
+        <input id="credUsername" class="student-form-input" dir="ltr" maxlength="15" inputmode="tel" autocomplete="off" value="${esc(username)}">
         <button type="button" class="secondary" data-copy-username>کپی</button>
       </div>
+      <p class="credential-field-help">شاگرد با همین شماره وارد پنل خود می‌شود؛ اگر آن را عوض کنید، ورود با شمارهٔ قبلی بسته می‌شود.</p>
       <div class="temporary-password">
-        ${temp?`<span>رمز موقت فعلی (چهار رقم آخر موبایل)</span><b dir="ltr">${esc(temp)}</b><small>شاگرد هنوز رمز شخصی نگذاشته است. این رمز را می‌توانید کپی و برایش بفرستید.</small>`:`<span>رمز شخصی فعال است</span><b>قابل مشاهده نیست</b><small>رمز ذخیره‌شده هش شده است. در صورت نیاز رمز جدید بگذارید یا به رمز موقت برگردانید.</small>`}
+        ${temp?`<span>رمز موقت فعلی (چهار رقم آخر شماره همراه)</span><b dir="ltr">${esc(temp)}</b><small>این شاگرد هنوز رمز شخصی نگذاشته است. همین رمز را برایش بفرستید.</small>`:`<span>رمز شخصی فعال است</span><b>قابل مشاهده نیست</b><small>رمز در پایگاه داده هش شده است. برای بازنشانی، رمز جدید بنویسید یا به رمز موقت برگردانید.</small>`}
       </div>
+      ${pendingReset?`<div class="credential-notice warn">با ذخیره، رمز این شاگرد به چهار رقم آخر شماره همراه برمی‌گردد. برای لغو، دوباره همان دکمه را بزنید.</div>`:`
       <div class="credential-grid">
         <label>رمز شخصی جدید<input id="credPassword" class="student-form-input" type="password" minlength="8" maxlength="128" placeholder="حداقل ۸ کاراکتر" autocomplete="new-password"></label>
         <label>تکرار رمز جدید<input id="credConfirm" class="student-form-input" type="password" minlength="8" maxlength="128" placeholder="تکرار رمز" autocomplete="new-password"></label>
       </div>
-      <p class="credential-hint">با ذخیرهٔ رمز یا تغییر نام کاربری، نشست‌های فعال شاگرد باطل می‌شود.</p>
+      <p class="credential-field-help">اگر نمی‌خواهید رمز را عوض کنید، هر دو خانه را خالی بگذارید.</p>`}
+      <div class="credential-inline-actions">
+        <button type="button" class="secondary" data-toggle-reset aria-pressed="${pendingReset?'true':'false'}">${pendingReset?'لغو بازنشانی':'بازنشانی به رمز موقت'}</button>
+        ${locked?`<button type="button" class="secondary" data-toggle-unlock aria-pressed="${pendingUnlock?'true':'false'}">${pendingUnlock?'لغو باز کردن قفل':'باز کردن قفل ورود'}</button>`:''}
+        <button type="button" class="secondary" data-copy-login>کپی اطلاعات ورود</button>
+      </div>
       <div class="credential-meta">
         <span>آخرین ورود: ${esc(formatDateTime(data.last_login_at))}</span>
         <span>تغییر رمز: ${esc(formatDateTime(data.password_changed_at))}</span>
         ${Number(data.failed_attempts||0)?`<span>تلاش ناموفق: ${Number(data.failed_attempts).toLocaleString('fa-IR')}</span>`:''}
       </div>
-      <div class="student-modal-actions credential-actions">
-        ${data.locked?'<button type="button" class="secondary" data-unlock-cred>باز کردن قفل</button>':''}
-        <button type="button" class="secondary" data-reset-temp>بازنشانی به رمز موقت</button>
-        <button type="button" class="secondary" data-copy-login>کپی اطلاعات ورود</button>
-        <button type="button" class="secondary" data-close-modal>انصراف</button>
-        <button type="button" class="primary" data-save-cred>ذخیره</button>
-      </div>`;
-  }
-  async function openCredentialsModal(student){
-    const reference=student.case_number||student.id;
-    const modal=createModal('<div class="students-loading">در حال دریافت دسترسی ورود...</div>','credential-modal');
-    let current={
-      id:student.id,
-      case_number:student.case_number||'',
-      full_name:student.full_name||'',
-      username:student.mobile||'',
-      password_state:'RESET_REQUIRED',
-      password_state_label:'نامشخص',
-      temporary_password:null,
-      locked:false,
-      failed_attempts:0,
-      last_login_at:null,
-      password_changed_at:null
-    };
-    function bind(notice=''){
-      const box=modal.querySelector('.student-modal');
-      box.innerHTML=renderCredentialBody(current,notice);
-      box.querySelectorAll('[data-close-modal]').forEach(button=>button.onclick=()=>modal.remove());
-      const usernameInput=box.querySelector('#credUsername');
-      const passwordInput=box.querySelector('#credPassword');
-      const confirmInput=box.querySelector('#credConfirm');
-      const markCopied=button=>{const original=button.textContent;button.textContent='کپی شد ✓';setTimeout(()=>{if(button.isConnected) button.textContent=original;},1400);};
-      box.querySelector('[data-copy-username]').onclick=async()=>{await copyText(usernameInput.value.trim());markCopied(box.querySelector('[data-copy-username]'));};
-      box.querySelector('[data-copy-login]').onclick=async()=>{
-        await copyText(loginShareText({...current,username:usernameInput.value.trim(),password_once:current.password_once,temporary_password:current.temporary_password}));
-        markCopied(box.querySelector('[data-copy-login]'));
-      };
-      async function postCredentials(payload,successNotice){
-        try{
-          const result=await api(`/api/students/${reference}/credentials`,{method:'POST',body:JSON.stringify(payload)});
-          current=result;
-          bind(successNotice||(result.password_once?'رمز شخصی ذخیره شد و نشست‌های قبلی باطل شد.':result.temporary_password?`رمز موقت فعال است: ${result.temporary_password}`:'تغییرات ذخیره شد.'));
-          loadStudentList();
-        }catch(error){
-          bind(error.message);
-        }
-      }
-      box.querySelector('[data-save-cred]').onclick=async()=>{
-        const username=usernameInput.value.trim();
-        const password=passwordInput.value;
-        const confirmPassword=confirmInput.value;
-        if(!username) return bind('نام کاربری (شماره همراه) الزامی است.');
-        if((password||confirmPassword) && password!==confirmPassword) return bind('تکرار رمز عبور مطابقت ندارد.');
-        const payload={username};
-        if(password){payload.password=password;payload.confirm_password=confirmPassword;}
-        await postCredentials(payload);
-      };
-      box.querySelector('[data-reset-temp]').onclick=async()=>{
-        if(!confirm('رمز شاگرد به چهار رقم آخر شماره همراه برگردد و نشست‌های فعال باطل شود؟')) return;
-        await postCredentials({username:usernameInput.value.trim(),reset_temporary:true},'رمز موقت فعال شد و نشست‌های قبلی باطل شد.');
-      };
-      const unlock=box.querySelector('[data-unlock-cred]');
-      if(unlock) unlock.onclick=async()=>postCredentials({unlock:true},'قفل ورود شاگرد باز شد.');
-    }
-    try{
-      current=await api(`/api/students/${reference}/credentials`);
-      bind();
-    }catch(error){
-      bind(error.message);
-    }
+      <p class="credential-hint">ذخیره در این قسمت، نشست‌های فعال شاگرد را باطل می‌کند تا با رمز جدید وارد شود.</p>`;
   }
   function openEditStudentModal(student){
-    const cleanMobile = student.mobile || ''; // Full mobile
     const modal=createModal(`
       <form id="editStudentForm">
         <div class="student-modal-head">
-          <h2>✏️ ویرایش اطلاعات شاگرد</h2>
+          <div>
+            <h2>✏️ ویرایش شاگرد</h2>
+            <p class="credential-subtitle">${esc(student.full_name||'')} · پرونده ${esc(student.case_number||'—')}</p>
+          </div>
           <button type="button" data-close-modal>×</button>
         </div>
-        <div class="student-form-grid" style="display:flex; flex-direction:column; gap:12px;">
-          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
-            <span>نام و نام خانوادگی *</span>
-            <input name="full_name" required maxlength="100" autocomplete="name" value="${esc(student.full_name)}" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
-          </label>
-          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
-            <span>شماره همراه *</span>
-            <input name="mobile" required maxlength="11" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${esc(student.mobile||'')}" dir="ltr" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
-          </label>
-          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-secondary);">
-            <span>هدف تمرینی</span>
-            <input name="goal" maxlength="200" placeholder="مثال: کاهش وزن، هایپرتروفی، فیتنس" value="${esc(student.goal||'')}" style="height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-inset); color:var(--text-primary); outline:none;">
-          </label>
+        <section class="edit-section">
+          <h3 class="edit-section-title">📄 اطلاعات پرونده</h3>
+          <div class="credential-grid">
+            <label>نام و نام خانوادگی *<input id="editStudentFullName" class="student-form-input" maxlength="100" autocomplete="off" value="${esc(student.full_name||'')}"></label>
+            <label>هدف تمرینی<input id="editStudentGoal" class="student-form-input" maxlength="200" placeholder="مثال: کاهش وزن، هایپرتروفی، فیتنس" value="${esc(student.goal||'')}"></label>
+          </div>
+        </section>
+        <section class="edit-section edit-section-credentials">
+          <h3 class="edit-section-title">🔑 مدیریت رمز ورود</h3>
+          <div id="editStudentCredentials" class="edit-section-body"><div class="students-loading">در حال دریافت وضعیت رمز شاگرد…</div></div>
+        </section>
+        <div class="student-modal-actions">
+          <button type="button" class="secondary" data-close-modal>بستن</button>
+          <button type="submit" class="primary" id="editStudentSave">ذخیره تغییرات</button>
         </div>
-        <div class="student-modal-actions" style="margin-top:18px;">
-          <button type="button" class="secondary" data-close-modal>انصراف</button>
-          <button type="submit" class="primary">ذخیره تغییرات</button>
-        </div>
-      </form>
-    `);
-
-    modal.querySelectorAll('[data-close-modal]').forEach(b=>b.onclick=()=>modal.remove());
-
-    modal.querySelector('#editStudentForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const form = new FormData(e.currentTarget);
-      const fullName = String(form.get('full_name')||'').trim();
-      const rawMobile = asciiDigits(String(form.get('mobile')||''));
-      const goal = String(form.get('goal')||'').trim();
-      const fullMobile = rawMobile; // No auto 09
-
-      if (!fullName) return alert('نام و نام خانوادگی الزامی است.');
-      if (rawMobile.length < 7) return alert('شماره همراه را کامل وارد کنید.');
-
-      const submitBtn = e.currentTarget.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'در حال ذخیره…';
-
-      try {
-        await api(`/api/students/${student.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ full_name: fullName, mobile: fullMobile, goal })
-        });
-        modal.remove();
+      </form>`,'edit-student-modal');
+    const nameInput=modal.querySelector('#editStudentFullName');
+    const goalInput=modal.querySelector('#editStudentGoal');
+    const section=modal.querySelector('#editStudentCredentials');
+    const saveButton=modal.querySelector('#editStudentSave');
+    const reference=student.id||student.case_number;
+    let current={id:student.id,case_number:student.case_number||'',full_name:student.full_name||'',username:student.mobile||'',password_state:'RESET_REQUIRED',password_state_label:'در حال بررسی',temporary_password:null,locked:false,failed_attempts:0,last_login_at:null,password_changed_at:null};
+    let typedUsername=null,typedPassword='',typedConfirm='',pendingReset=false,pendingUnlock='',notice='',noticeKind='',credentialsLoaded=false,busy=false;
+    function state(){return {...current,display_username:typedUsername??current.username??'',password_once:current.password_once||null,pending_reset:pendingReset,pending_unlock:pendingUnlock};}
+    function paint(){
+      if(!credentialsLoaded){
+        section.innerHTML=`<div class="students-loading">${esc(notice||'در حال دریافت وضعیت رمز شاگرد…')}</div>${notice?`<div class="credential-inline-actions"><button type="button" class="secondary" data-reload-credentials>تلاش دوباره</button></div>`:''}`;
+        const retry=section.querySelector('[data-reload-credentials]');
+        if(retry) retry.onclick=loadCredentials;
+        return;
+      }
+      section.innerHTML=credentialEditorMarkup(state(),notice,noticeKind);
+      const usernameField=section.querySelector('#credUsername');
+      usernameField.oninput=()=>{typedUsername=usernameField.value;};
+      const passwordField=section.querySelector('#credPassword'),confirmField=section.querySelector('#credConfirm');
+      if(passwordField){passwordField.value=typedPassword;passwordField.oninput=()=>{typedPassword=passwordField.value;};}
+      if(confirmField){confirmField.value=typedConfirm;confirmField.oninput=()=>{typedConfirm=confirmField.value;};}
+      const markCopied=button=>{if(!button)return;const original=button.textContent;button.textContent='کپی شد ✓';setTimeout(()=>{if(button.isConnected)button.textContent=original;},1400);};
+      const copyUsername=section.querySelector('[data-copy-username]');
+      copyUsername.onclick=async()=>{await copyText(asciiDigits(usernameField.value));markCopied(copyUsername);};
+      const copyLogin=section.querySelector('[data-copy-login]');
+      copyLogin.onclick=async()=>{await copyText(loginShareText({...current,username:asciiDigits(usernameField.value)}));markCopied(copyLogin);};
+      const toggleReset=section.querySelector('[data-toggle-reset]');
+      toggleReset.onclick=()=>{
+        pendingReset=!pendingReset;
+        if(pendingReset){
+          pendingUnlock='';
+          typedPassword='';typedConfirm='';
+          const password=section.querySelector('#credPassword'),confirmPassword=section.querySelector('#credConfirm');
+          if(password) password.value='';
+          if(confirmPassword) confirmPassword.value='';
+        }
+        notice='';noticeKind='';paint();
+      };
+      const toggleUnlock=section.querySelector('[data-toggle-unlock]');
+      if(toggleUnlock) toggleUnlock.onclick=()=>{pendingUnlock=pendingUnlock?'':'unlock';notice='';noticeKind='';paint();};
+    }
+    function refocus(id){const element=section.querySelector(`#${id}`);if(element)element.focus();}
+    async function loadCredentials(){
+      notice='';noticeKind='';credentialsLoaded=false;paint();
+      try{
+        current=await api(`/api/students/${reference}/credentials`);
+        credentialsLoaded=true;paint();
+      }catch(error){
+        notice=`وضعیت رمز در دسترس نیست: ${error.message}`;noticeKind='error';credentialsLoaded=false;paint();
+      }
+    }
+    modal.querySelector('#editStudentForm').onsubmit=async event=>{
+      event.preventDefault();
+      if(busy) return;
+      const fullName=nameInput.value.trim(),goal=goalInput.value.trim();
+      const usernameField=section.querySelector('#credUsername');
+      const passwordField=section.querySelector('#credPassword'),confirmField=section.querySelector('#credConfirm');
+      const username=usernameField?asciiDigits(usernameField.value):'';
+      const password=passwordField?passwordField.value:'';
+      const confirmPassword=confirmField?confirmField.value:'';
+      // Remember whatever is typed so a failed validation never throws the coach's input away.
+      if(usernameField)typedUsername=usernameField.value;
+      if(passwordField)typedPassword=password;
+      if(confirmField)typedConfirm=confirmPassword;
+      if(!fullName){noticeKind='error';notice='نام و نام خانوادگی الزامی است.';paint();nameInput.focus();return;}
+      if(credentialsLoaded && usernameField){
+        if(username.length<7){noticeKind='error';notice='شماره همراه (نام کاربری) را کامل وارد کنید.';paint();refocus('credUsername');return;}
+        if(!pendingReset && (password||confirmPassword)){
+          if(password.length<8){noticeKind='error';notice='رمز شخصی جدید باید حداقل ۸ کاراکتر باشد.';paint();refocus('credPassword');return;}
+          if(password!==confirmPassword){noticeKind='error';notice='تکرار رمز عبور با رمز جدید یکسان نیست.';paint();refocus('credConfirm');return;}
+        }
+      }
+      const usernameChanged=credentialsLoaded && usernameField && username!==asciiDigits(current.username||'');
+      const wantsPassword=!pendingReset && Boolean(password);
+      const wantsUnlock=Boolean(pendingUnlock)&&credentialsLoaded;
+      const wantsCredentials=Boolean(usernameField)&&(usernameChanged||pendingReset||wantsPassword||wantsUnlock);
+      if(wantsCredentials && !credentialsLoaded){noticeKind='error';notice='برای ذخیرهٔ رمز یا نام کاربری، اتصال به سرور لازم است. روی «تلاش دوباره» بزنید.';paint();return;}
+      busy=true;saveButton.disabled=true;saveButton.textContent='در حال ذخیره…';
+      const messages=[];
+      try{
+        if(wantsCredentials){
+          const payload={username};
+          if(pendingReset) payload.reset_temporary=true;
+          else if(wantsPassword){payload.password=password;payload.confirm_password=confirmPassword;}
+          if(wantsUnlock) payload.unlock=true;
+          const result=await api(`/api/students/${reference}/credentials`,{method:'POST',body:JSON.stringify(payload)});
+          current=result;
+          if(result.password_once) messages.push('رمز شخصی جدید ثبت شد.');
+          if(result.temporary_password && (pendingReset||usernameChanged||result.password_state==='TEMPORARY')) messages.push(`رمز موقت این شاگرد: ${result.temporary_password}`);
+          if(usernameChanged) messages.push(`نام کاربری به ${result.username} تغییر کرد.`);
+          if(wantsUnlock) messages.push('قفل ورود شاگرد باز شد.');
+          if(Number(result.sessions_revoked||0)) messages.push(`${Number(result.sessions_revoked).toLocaleString('fa-IR')} نشست فعال شاگرد باطل شد.`);
+          pendingReset=false;pendingUnlock='';typedUsername=null;typedPassword='';typedConfirm='';
+        }
+        const profileChanged=fullName!==String(student.full_name||'').trim()||goal!==String(student.goal||'').trim();
+        if(profileChanged){
+          await api(`/api/students/${reference}`,{method:'PUT',body:JSON.stringify({full_name:fullName,goal})});
+          student.full_name=fullName;student.goal=goal;
+          messages.unshift('اطلاعات پرونده ذخیره شد.');
+        }else if(!messages.length){
+          messages.push('چیزی برای ذخیره تغییر نکرد.');
+        }
+        notice=messages.join(' ');noticeKind='ok';paint();
         loadStudentList();
-      } catch (err) {
-        alert('خطا در ویرایش: ' + err.message);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'ذخیره تغییرات';
+        saveButton.textContent='ذخیره شد ✓';
+        setTimeout(()=>{if(saveButton.isConnected){saveButton.disabled=false;saveButton.textContent='ذخیره تغییرات';}},1400);
+      }catch(error){
+        noticeKind='error';notice=error.message;paint();
+        saveButton.disabled=false;saveButton.textContent='ذخیره تغییرات';
+      }finally{
+        busy=false;
       }
     };
+    loadCredentials();
   }
 
   function openAddStudent(){

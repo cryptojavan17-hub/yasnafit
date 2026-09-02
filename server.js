@@ -632,10 +632,11 @@ async function handleStudentsDelete(req,res,url){
       const fullName = String(b.full_name || '').trim();
       if(!fullName) return sendError(res, 400, 'نام و نام خانوادگی الزامی است');
       
-      let mobileNormalized = student.mobile_normalized;
+      let mobileNormalized = student.mobile_normalized || student.mobile || '';
+      let mobileUpdate = { mobile: mobileNormalized, mobile_normalized: mobileNormalized, changed: false, password_hash: null, password_state: null, temporary_password: null, sessions_revoked: false };
       if (b.mobile) {
-        const auth = studentAuthService.authColumnsForMobile(b.mobile);
-        mobileNormalized = auth.mobile_normalized;
+        mobileUpdate = studentAuthService.mobileAuthUpdate(student, b.mobile);
+        mobileNormalized = mobileUpdate.mobile_normalized;
         const dup = one('SELECT id FROM students WHERE mobile_normalized=? AND id<>? AND deleted_at IS NULL', mobileNormalized, id);
         if(dup) return sendError(res, 409, 'این شماره همراه برای شاگرد دیگری ثبت شده است');
       }
@@ -643,20 +644,45 @@ async function handleStudentsDelete(req,res,url){
       db.prepare(`
         UPDATE students
         SET full_name = ?, mobile = ?, mobile_normalized = ?,
-            goal = COALESCE(?, goal), updated_at = CURRENT_TIMESTAMP, version = version + 1
+            goal = COALESCE(?, goal),
+            password_hash = COALESCE(?, password_hash),
+            password_state = COALESCE(?, password_state),
+            auth_failed_attempts = CASE WHEN ?=1 THEN 0 ELSE COALESCE(auth_failed_attempts, 0) END,
+            auth_locked_until = CASE WHEN ?=1 THEN NULL ELSE auth_locked_until END,
+            updated_at = CURRENT_TIMESTAMP, version = version + 1
         WHERE id = ? AND deleted_at IS NULL
-      `).run(fullName, mobileNormalized, mobileNormalized, b.goal !== undefined ? String(b.goal).trim() : null, id);
+      `).run(
+        fullName, mobileUpdate.mobile, mobileNormalized,
+        b.goal !== undefined ? String(b.goal).trim() : null,
+        mobileUpdate.password_hash, mobileUpdate.password_state,
+        mobileUpdate.changed ? 1 : 0, mobileUpdate.changed ? 1 : 0,
+        id
+      );
 
-      log('اطلاعات شاگرد ویرایش شد', `${student.case_number} - ${fullName}`);
+      let sessionsRevoked = 0;
+      if(mobileUpdate.changed) sessionsRevoked = studentSessionService.revokeStudentSessions(db, id);
+
+      log('اطلاعات شاگرد ویرایش شد', `${student.case_number} - ${fullName}${mobileUpdate.changed ? ` - نام کاربری ${mobileNormalized}` : ''}`);
       auditService.record(db, {
         actorType: 'coach',
         action: 'student.updated',
         entityType: 'student',
         entityId: id,
-        metadata: { case_number: student.case_number, full_name: fullName }
+        metadata: {
+          case_number: student.case_number,
+          full_name: fullName,
+          username_changed: mobileUpdate.changed,
+          sessions_revoked: sessionsRevoked
+        }
       });
 
       const updated = studentService.getManagedStudentDetail(db, id);
+      if(mobileUpdate.changed){
+        // The coach may need the rebuilt temporary password (last four digits) right away.
+        updated.credentials = studentAuthService.credentialsView(one('SELECT * FROM students WHERE id=? AND deleted_at IS NULL', id));
+        updated.temporary_password = mobileUpdate.temporary_password;
+        updated.sessions_revoked = sessionsRevoked;
+      }
       return send(res, 200, updated);
     }catch(e){
       return sendError(res, 400, e.message);

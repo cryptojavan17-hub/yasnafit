@@ -111,6 +111,25 @@ function credentialsView(student){
     password_changed_at:student.password_changed_at||null
   };
 }
+// Keeps the login credential in sync when a coach edits the student's mobile number
+// outside of the credentials dialog: the temporary password is always the last four
+// digits of the *current* mobile, so a TEMPORARY account must be re-hashed.
+function mobileAuthUpdate(student,mobile){
+  const normalized=normalizeMobile(mobile);
+  const previous=String(student?.mobile_normalized||student?.mobile||'');
+  const state=PASSWORD_STATES.has(student?.password_state)?student.password_state:'RESET_REQUIRED';
+  const changed=normalized!==previous;
+  const update={mobile:normalized,mobile_normalized:normalized,changed,password_hash:null,password_state:null,temporary_password:null,sessions_revoked:false};
+  if(!changed)return update;
+  if(state!=='PERSONAL'){
+    const temporary=temporaryPassword(normalized);
+    update.password_hash=hashPassword(temporary);
+    update.password_state='TEMPORARY';
+    update.temporary_password=temporary;
+  }
+  update.sessions_revoked=true;
+  return update;
+}
 function manageCredentials(db,studentId,{username,password,confirmPassword,resetTemporary=false,unlock=false}={}){
   const student=db.prepare('SELECT * FROM students WHERE id=? AND deleted_at IS NULL').get(studentId);
   if(!student) throw Object.assign(new Error('شاگرد پیدا نشد'),{statusCode:404});
@@ -331,4 +350,4 @@ function registerStudent(db, data = {}) {
   }
 }
 
-module.exports={IRAN_PROVINCES_AND_CITIES,normalizeMobile,normalizeDateOfBirth,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,credentialsView,manageCredentials,registerStudent};
+module.exports={IRAN_PROVINCES_AND_CITIES,normalizeMobile,normalizeDateOfBirth,temporaryPassword,normalizeTemporaryPasswordInput,hashPassword,verifyPassword,validatePersonalPassword,authColumnsForMobile,safeStudent,authenticate,setPersonalPassword,credentialsView,mobileAuthUpdate,manageCredentials,registerStudent};

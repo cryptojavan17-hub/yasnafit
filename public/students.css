@@ -1192,3 +1192,85 @@
     justify-content: center;
   }
 }
+
+/* Student edit dialog — profile fields + "مدیریت رمز ورود" card */
+.student-modal.edit-student-modal {
+  width: min(680px, 96vw);
+}
+.edit-section {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.edit-section-title {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.edit-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.edit-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.edit-section-body .credential-grid {
+  margin-top: 0;
+}
+.edit-section-body .credential-link-row,
+.edit-section-body .temporary-password {
+  margin-bottom: 0;
+}
+.credential-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.credential-inline-actions .secondary {
+  flex: 0 0 auto;
+}
+.credential-inline-actions [aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-surface);
+  color: var(--text-primary);
+}
+.credential-field-help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.credential-notice.ok {
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success);
+}
+.credential-notice.error {
+  border-color: var(--danger-border);
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+.credential-notice.warn {
+  border-color: var(--danger-border);
+  background: var(--warning-surface);
+  color: var(--warning);
+}
+@media (max-width: 600px) {
+  .edit-section {
+    padding: 12px;
+  }
+  .credential-inline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
