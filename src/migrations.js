@@ -441,11 +441,7 @@ const migrations = [
 
       // Create data directory for private photos
       try {
-        const path = require('path');
-        const fs = require('fs');
-        const root = path.resolve(__dirname, '..');
-        const assessmentsDir = path.join(root, 'data', 'assessments');
-        fs.mkdirSync(assessmentsDir, {recursive:true});
+        require('./storage-paths').ensurePrivateDir(require('./storage-paths').assessmentsDir);
       } catch(e){}
     }
   },

@@ -200,7 +200,7 @@ npm test && sudo systemctl restart yasnafit
 ### ۹.۱ مراحل (حدود ۵ دقیقه)
 
 1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و شاخه‌ای که می‌خواهید (تا PR #2 merge نشده، همان شاخهٔ `arena/…` را انتخاب کنید).
-2. روی سرویس: **Right click → Attach Volume** و **Mount Path را دقیقاً `/app/data`** بگذارید. (پوشهٔ `data/` برنامه در Nixpacks همان `/app/data` است؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد، `smtp.json` و `coach-authenticator.txt` روی دیسک دائمی می‌نشینند.)
+2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json`، `coach-authenticator.txt` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
 3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
 
 | متغیر | مقدار | چرا |
@@ -209,7 +209,7 @@ npm test && sudo systemctl restart yasnafit
 | `NODE_ENV` | `production` | حذف `POST /api/test/reset-rate-limit` و رفتار پروداکشن |
 | `YASNAFIT_TRUST_PROXY` | `1` | ترافیک فقط از پروکسی Railway می‌آید ⇒ IP واقعی برای rate-limit و تشخیص HTTPS |
 | `YASNAFIT_COOKIE_SECURE` | `1` | کوکی نشست‌ها حتماً `Secure` بخورد |
-| `YASNAFIT_BACKUP_DIR` | `/app/data/backups` | بکاپ‌ها هم داخل Volume بیفتند (پیش‌فرض `backups/` کنار برنامه است که روی Railway ناپایدار است) |
+| `YASNAFIT_BACKUP_DIR` | لازم نیست | وقتی Volume وصل باشد بکاپ به‌صورت خودکار داخل آن می‌نشیند؛ فقط اگر خواستید جای دیگری برود ستش کنید |
 | `YASNAFIT_ALLOW_REMOTE_SETUP` | `1` **فقط موقتاً** | برای اولین ورود — بند ۹.۳ را ببینید |
 
    اگر build نسخهٔ Node قدیمی گرفت: `NIXPACKS_NODE_VERSION=22`؛ اگر روی Volume خطای `EACCES` دیدید: `RAILWAY_RUN_UID=0`.
@@ -244,3 +244,20 @@ curl -i  https://<domain>/api/build                         # 401 بدون کو�
 curl -i -X POST https://<domain>/api/test/reset-rate-limit   # 404 چون NODE_ENV=production
 ```
 سپس در مرورگر: `/coach/login` ← «ادامه» ← `/coach/2fa` ← ورود. یک شاگرد بسازید و **یک redeploy بزنید**: اگر همان شاگرد سر جایش ماند، Volume درست وصل است.
+
+### ۹.۶ روش سریع با Railway CLI (بدون داشبورد)
+اگر CLI را نصب دارید (`npm i -g @railway/cli` یا `curl -fsSL cli.new | sh`)، همهٔ کارها از ترمینال هم می‌شود — لاگین را خودتان انجام دهید (توکن را در چت/فایل نگه دارید نه در history):
+
+```bash
+railway login --browserless          # احراز هویت با مرورگر، بدون نیاز به باز کردن داشبورد
+railway init -n yasnafit             # یا railway link برای اتصال به پروژهٔ موجود
+railway up --detach                  # اولین deploy از همین پوشه
+railway volume add --mount-path /app/data --name yasnafit-data
+railway variables --set "NODE_ENV=production" --set "YASNAFIT_TRUST_PROXY=1" --set "YASNAFIT_COOKIE_SECURE=1"
+railway domain                       # ساخت دامنهٔ عمومی *.up.railway.app
+railway logs --limit 80              # باید «Imported 2707 exercises…» و «Build stamp: …» دیده شود
+```
+
+**انتقال دیتابیس لوکال به Volume** (چیزی که از داشبورد نشدنی بود، با CLI شدنی است): `railway volume browse` یک مرورگر فایل تعاملی دارد که **upload/download** هم می‌کند؛ با آن `data\yasnafit.db` را داخل Volume بگذارید (فایل‌های `-wal`/`-shm` را نبرید؛ اگر بودند، اول سرور لوکال را ببندید تا checkpoint شود) و بعد سرویس را `railway redeploy` کنید. برای کارهای یک‌باره هم `railway ssh -s <service> -- <cmd>` موجود است.
+
+> اگر این کار را کردید، حتماً بعد از بالا آمدن سرویس، تعداد شاگردان را با لوکال مقایسه کنید و **یک‌بار redeploy بزنید** تا مطمئن شوید داده روی Volume ماند.

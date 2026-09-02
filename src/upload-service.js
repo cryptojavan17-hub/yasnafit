@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { assessmentsDir, ensurePrivateDir } = require('./storage-paths');
+
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const PHOTO_TYPES = ['front', 'back', 'side', 'front_flex', 'back_flex', 'other'];
@@ -27,10 +29,10 @@ function getAssessmentDir(studentId, assessmentId){
   if(!Number.isInteger(Number(studentId)) || !Number.isInteger(Number(assessmentId))) {
     throw new Error('Invalid assessment storage identifiers');
   }
-  const root = path.resolve(__dirname, '..', 'data', 'assessments');
+  const root = assessmentsDir;
   const dir = path.resolve(root, String(studentId), String(assessmentId));
   if(!isWithin(root, dir)) throw new Error('Invalid assessment storage path');
-  fs.mkdirSync(dir, {recursive: true, mode: 0o700});
+  ensurePrivateDir(dir);
   return dir;
 }
 
@@ -261,7 +263,7 @@ function saveAssessmentPhoto(db, studentId, assessmentId, file, photoType='front
 function getPhotoFilePath(db, photoId){
   const photo = db.prepare('SELECT * FROM assessment_photos WHERE id=? AND deleted_at IS NULL').get(photoId);
   if(!photo || !fs.existsSync(photo.storage_path)) return null;
-  const root = path.resolve(__dirname, '..', 'data', 'assessments');
+  const root = assessmentsDir;
   if(!isWithin(root, photo.storage_path) || !fs.statSync(photo.storage_path).isFile()) return null;
   return photo;
 }

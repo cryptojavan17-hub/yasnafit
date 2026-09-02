@@ -512,7 +512,9 @@ function getStudentInvites(db,studentId){
 }
 
 function storageRoot(kind){
-  return path.resolve(__dirname,'..','data',kind);
+  if(kind==='assessments')return require('./storage-paths').assessmentsDir;
+  if(kind==='assessment-documents')return require('./storage-paths').documentsDir;
+  return path.join(require('./storage-paths').dataDir,kind);
 }
 function isInside(root, target){
   const base=path.resolve(root), resolved=path.resolve(target);

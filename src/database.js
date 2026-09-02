@@ -3,13 +3,8 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 const { runMigrations } = require('./migrations');
 
+const { dataDir, backupDir } = require('./storage-paths');
 const root = path.resolve(__dirname, '..');
-const dataDir = path.join(root, 'data');
-// On a container platform (Railway/Fly) only one directory is usually a persistent
-// volume, so backups can be pointed inside it; the default keeps the repo layout.
-const backupDir = process.env.YASNAFIT_BACKUP_DIR
-  ? path.resolve(process.env.YASNAFIT_BACKUP_DIR)
-  : path.join(root, 'backups');
 const dataSourcePath = path.join(root, 'data-source', 'exercises_data.json');
 // data/ holds the SQLite file plus smtp.json and the coach session store; backups/
 // holds full database copies. Neither may be world-readable on a shared server.

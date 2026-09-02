@@ -256,3 +256,13 @@ PASS / PARTIAL / FAILED
 ### Known side effects
 <…>
 ```
+
+---
+
+## ۱۴۰۴/۰۶/۱۱ — Task 18b: همهٔ مسیرهای private داده از یک مرجع (رو به Volume)
+
+- **SCOPE (ادامهٔ Task 18؛ بدون endpoint/مایگریشن جدید):** بسته‌شدن ریسک «رفتَن فایل خصوصی بیرون Volume».
+- **CHANGE:** ماژول جدید `src/storage-paths.js` (فقط resolve/cleanup path، بدون اثر جانبی): `dataDir = YASNAFIT_DATA_DIR || RAILWAY_VOLUME_MOUNT_PATH || <repo>/data`، `backupDir = YASNAFIT_BACKUP_DIR || (روی کانتینر داخل dataDir) || <repo>/backups`، + `assessmentsDir`/`documentsDir` و helper مشترک `ensurePrivateDir` (mkdir 0700). مصرف‌کننده‌ها: `src/database.js`، `src/upload-service.js`، `src/assessment-document-service.js`، `src/student-service.js`، `src/migrations.js`. افزودن `DEPLOYMENT.md` §۹.۶ = دستورهای Railway CLI (`up`، `volume add --mount-path`، `variables --set`، `domain`، `logs`، `ssh`، `volume browse` برای upload/download فایل داخل Volume).
+- **REASON:** در کانتینر Railway فقط مسیر Volume persisted است؛ `backups/` در Task 18 اصلاح شد ولی `data/assessments` و `data/assessment-documents` (عکس‌ها و PDFهای خصوصی) هنوز به `<repo>/data` hardcode بودند و با هر deploy پاک می‌شدند.
+- **FILES:** `src/storage-paths.js` (new)، `src/database.js`، `src/upload-service.js`، `src/assessment-document-service.js`، `src/student-service.js`، `src/migrations.js`، `tests/deployment-hardening-regression.js`، `DEPLOYMENT.md`، `mahdi hellp.md`.
+- **TESTS:** `node --check` همهٔ فایل‌های دست‌خورده ✅ • `npm run test:deployment` = `{"ok":true, … "railway_config":true}` ✅ • `npm test` = **۱۸/۱۸ ✅** • شبیه‌سازی Volume (`RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol`) ⇒ دیتابیس + `assessments/` + `backups/` داخل Volume با `drwx------` و seed ۲۷۰۷ حرکت ✅؛ بدون env، مسیرهای قبلی دقیقاً حفظ شد ✅ (e2e روی حالت Volume در مرحلهٔ provisioning مربی 409 می‌دهد چون مسیر DB در تست hardcode است → پیشنهاد اصلاح در §۱۴ حافظه).

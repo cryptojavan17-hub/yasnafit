@@ -36,7 +36,7 @@
   * **شاگرد:** شمارهٔ همراه + رمز scrypt؛ نشست تصادفی ۳۲ بایتی که فقط هشش در DB ذخیره می‌شود؛ کوکی `yasnafit_student_session`؛ ورود از لینک دعوت `/join/:token` (یک‌بارمصرف).
 * **File storage:** آپلود عکس بدن/مدارک خصوصی با `src/upload-service.js` (سقف ۵MB هر فایل، ۱۰ فایل هر ارزیابی، ۲۰MB multipart، allowlist MIME+پسوندم + بررسی امضای بایت + `sanitizeFileName`)؛ فایل‌های خصوصی **هرگز از `public/` سرو نمی‌شوند** و فقط با نشست متناظر خوانده می‌شوند. عکس/ویدیوی حرکات: `public/assets/images/exercises/imported/` (gitignored، ~۱۸۸۸ فایل فقط لوکال) و `/files/exercise/*`.
 * **Security layer (جدید، §Task 16):** `src/request-security.js` — CSP یکنواخت + `X-Content-Type-Options: nosniff` + `X-Frame-Options: DENY` + `Referrer-Policy: no-referrer` + `Permissions-Policy` + `Cross-Origin-Opener/Resource-Policy` که روی **همهٔ پاسخ‌ها** اعمال می‌شود؛ تنها جای خواندن `X-Forwarded-*` در کل مخزن همین فایل است و فقط با `YASNAFIT_TRUST_PROXY=1`.
-* **Railway deployment:** از 2026-09-02 **`railway.json` در ریشه وجود دارد** (Nixpacks + `node server.js` + `healthcheckPath: /api/health` + `numReplicas: 1`) و `src/database.js` با `YASNAFIT_BACKUP_DIR` مسیر بکاپ را به داخل Volume منتقل می‌کند. همچنان **Dockerfile/Procfile/CI وجود ندارد** و مسیر جایگزینِ مستندشده VPS + nginx + systemd است (`DEPLOYMENT.md` §۱–۸؛ §۹ مخصوص Railway). وضعیت اکانت Railway: `UNKNOWN — needs verification` (§۶).
+* **Railway deployment:** از 2026-09-02 **`railway.json` در ریشه وجود دارد** (Nixpacks + `node server.js` + `healthcheckPath: /api/health` + `numReplicas: 1`) و همهٔ مسیرهای دائمی (دیتابیس، عکس‌ها/اسناد خصوصی، بکاپ‌ها) از `src/storage-paths.js` خوانده می‌شوند تا روی Volume بنشینند. همچنان **Dockerfile/Procfile/CI وجود ندارد** و مسیر جایگزینِ مستندشده VPS + nginx + systemd است (`DEPLOYMENT.md` §۱–۸؛ §۹ مخصوص Railway). وضعیت اکانت Railway: `UNKNOWN — needs verification` (§۶).
 * **Android/mobile:** هیچ کد موبایل در مخزن نیست (فقط فلوی موبایل-پسند UI شاگرد). TODO: T-08.
 * **Synchronization:** لایهٔ سینک **وجود ندارد**؛ زیرساخت آماده است (`stable_id`, `version`, soft-delete). TODO: T-07.
 
@@ -71,16 +71,18 @@
 
 ## 6. Railway Deployment
 
-**حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال واقعی به هنوز انجام نشده** — Agent به داشبورد Railway دسترسی ندارد (لاگین/کلیک با مالک است)؛ سمت مخزن کامل آماده است.
+**حساب:** مهدی با ایمیل `yasnafit@atomicmail.io` پلن یک‌ماههٔ رایگان Railway گرفته (تاریخ ثبت: 2026-09-02). **اتصال واقعی هنوز انجام نشده** — Agent به داشبورد Railway دسترسی ندارد (لاگین/کلیک با مالک است)؛ سمت مخزن کامل آماده است.
 
 * **سمت مخزن (انجام‌شده، commit همین جلسه):** `railway.json` در ریشه — `builder: NIXPACKS`، `buildCommand: npm install --no-audit --no-fund && node --check server.js` (build خراب را زود می‌شکند)، `startCommand: node server.js`، `healthcheckPath: /api/health` (عمومی و سبک — دقیقاً همین را Railway پروب می‌کند)، `restartPolicyType: ON_FAILURE` + `maxRetries: 5`، `numReplicas: 1`، `sleepApplication: false`، `watchPatterns` فقط `server.js|src/**|public/**|data-source/**|package.json|railway.json`.
-* **پشتیبانی state:** `src/database.js` حالا `YASNAFIT_BACKUP_DIR` را می‌پذیرد (پیش‌فرض: `backups/` کنار برنامه، بدون تغییر رفتار لوکال) و `backupDir` را export می‌کند؛ `server.js` چرخش ۱۰ نسخه را روی همان مسیر انجام می‌دهد ⇒ روی Railway `/app/data/backups` تا داخل Volume بیفتد.
-* **Volume (قدم دستی مالک):** Right-click سرویس → **Attach Volume** → Mount Path **دقیقاً `/app/data`** (چون Nixpacks برنامه را در `/app` می‌سازد و همه‌چیز زیر `data/` است: DB، `assessments/`، `assessment-documents/`، `smtp.json`، `coach-authenticator.txt`). هر سرویس فقط **یک** Volume دارد و با replica کار نمی‌کند؛ پلن رایگان/trial ~۰٫۵GB.
-* **Variables (فقط نام — مقدار در داشبورد):** `NODE_ENV=production`، `YASNAFIT_TRUST_PROXY=1`، `YASNAFIT_COOKIE_SECURE=1`، `YASNAFIT_BACKUP_DIR=/app/data/backups`، و **موقتاً** `YASNAFIT_ALLOW_REMOTE_SETUP=1` برای اولین ساخت حساب مربی (بعد از ساخت باید پاک شود). اختیاری/در صورت خطا: `NIXPACKS_NODE_VERSION=22`، `RAILWAY_RUN_UID=0`. `PORT` را ست نکنید (Railway می‌دهد) و `YASNAFIT_HOST` هم **نگذارید** `127.0.0.1` شود.
+* **پشتیبانی state (مرجع واحد):** ماژول بدون-اثر-جانبی `src/storage-paths.js` مسیرهای دائمی را حل می‌کند: `dataDir = YASNAFIT_DATA_DIR || RAILWAY_VOLUME_MOUNT_PATH || <repo>/data`، `backupDir = YASNAFIT_BACKUP_DIR || (روی کانتینر داخل dataDir) || <repo>/backups`، به‌علاوهٔ `assessmentsDir`/`documentsDir`. پنج نقطه‌ای که `data/` را hardcode داشتند (`src/database.js`, `src/upload-service.js`, `src/assessment-document-service.js`, `src/student-service.js`, `src/migrations.js`) به این ماژول کلید شدند ⇒ هیچ فایل خصوصی بیرون Volume نوشته نمی‌شود؛ رفتار لوکال/ویندوز دقیقاً مثل قبل است.
+* **CLI (کارهایی که داشبورد نمی‌کند):** `railway login --browserless`، `railway up`، `railway volume add --mount-path /app/data`، `railway volume attach/list/detach`، `railway variables --set "KEY=value"`، `railway domain`، `railway logs`، `railway ssh -s <service> -- <cmd>` و **`railway volume browse`** (مرورگر فایل تعاملی با upload/download ⇒ عملی‌ترین راه بردن `data\yasnafit.db` لوکال داخل Volume یا بیرون کشیدن بکاپ).
+* **Volume (قدم دستی مالک):** Right-click سرویس → **Attach Volume** → Mount Path `/app/data` **یا `/data`** — هر دو کار می‌کند چون برنامه `RAILWAY_VOLUME_MOUNT_PATH` را که Railway inject می‌کند دنبال می‌کند. ⚠️ بعد از نوشته‌شدن داده، mount path را عوض نکنید (مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود). هر سرویس فقط **یک** Volume دارد و با replica کار نمی‌کند؛ پلن رایگان/trial ~۰٫۵GB.
+* **Variables (فقط نام — مقدار در داشبورد):** `NODE_ENV=production`، `YASNAFIT_TRUST_PROXY=1`، `YASNAFIT_COOKIE_SECURE=1`، و **موقتاً** `YASNAFIT_ALLOW_REMOTE_SETUP=1` برای اولین ساخت حساب مربی (بعد از ساخت باید پاک شود). اختیاری/در صورت خطا: `NIXPACKS_NODE_VERSION=22`، `RAILWAY_RUN_UID=0`. `PORT` را ست نکنید (Railway می‌دهد) و `YASNAFIT_HOST` هم **نگذارید** `127.0.0.1` شود.
 * **Domain:** Settings → Networking → **Generate Domain** ⇒ `https://<name>.up.railway.app`.
-* **راستی‌آزمایی‌های انجام‌شده (شبیه‌سازی محیط Railway در سندباکس، 2026-09-02):** با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1 YASNAFIT_BACKUP_DIR=$PWD/data/backups` → `GET /api/health` = 200 با بدنهٔ حداقلی ✓، `POST /api/coach/auth/login` → 200 و `Set-Cookie …; Secure` ✓، `POST /api/test/reset-rate-limit` → 404 ✓، `GET /api/build` → 401 ✓، بکاپ داخل `data/backups` نوشته شد ✓، دیتابیس تازه با ۳۰ مایگریشن + seed ۲۷۰۷ حرکت از `data-source/exercises_data.json` (موجود در git) بالا آمد ✓.
+* **شبیه‌سازی Volume با مسیر دلخواه (2026-09-02، موفق):** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol node server.js` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume با مجوز `drwx------` و seed ۲۷۰۷ حرکت ✅. (e2e روی این حالت در مرحلهٔ provisioning مربی 409 می‌دهد، چون مسیر DB را hardcode به `data/` نگه می‌دارد — محدودیت harness، ذیل T-11.)
+* **راستی‌آزمایی‌های دیگر:** با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1` → `GET /api/health` = 200 با بدنهٔ حداقلی ✓، `POST /api/coach/auth/login` → 200 و `Set-Cookie …; Secure` ✓، `POST /api/test/reset-rate-limit` → 404 ✓، `GET /api/build` → 401 ✓، بکاپ داخل `data/backups` نوشته شد ✓، دیتابیس تازه با ۳۰ مایگریشن + seed ۲۷۰۷ حرکت از `data-source/exercises_data.json` (موجود در git) بالا آمد ✓.
 * **هنوز تأییدنشده:** `Railway project/service ID`، `region`، `public URL`، `وضعیت build اولین deploy`، `آیا Volume وصل شده` ⇒ `UNKNOWN — needs verification`.
-* **ریسک‌های اعلام‌شده در `DEPLOYMENT.md` §۹:** عکس/ویدیوی ۱۸۸۸ حرکت عمداً در git نیست ⇒ روی Railway placeholder می‌بینیم؛ پایان ماه رایگان ممکن است Volume را پاک کند ⇒ بکاپ منظم؛ هیچ UI برای آپلود فایل روی Volume نیست، پس انتقال `data/yasnafit.db` لوکال یا «از صفر شروع» است یا یک API جدید restore (منتظر تأیید مالک).
+* **ریسک‌های اعلام‌شده در `DEPLOYMENT.md` §۹:** عکس/ویدیوی ۱۸۸۸ حرکت عمداً در git نیست ⇒ روی Railway placeholder می‌بینیم؛ پایان ماه رایگان ممکن است Volume را پاک کند ⇒ بکاپ منظم؛ انتقال `data\yasnafit.db` لوکال به Volume بدون endpoint جدید ممکن است: `railway volume browse` (upload) — مستند در `DEPLOYMENT.md` §۹.۶؛ اگر CLI را ترجیح ندادید، گزینهٔ دیگر «از صفر شروع کردن» است (API restore عمداً ساخته نشد).
 * **قاعده:** تا وقتی کامیت دیپلوی‌شده با `git rev-parse` و لاگ سرویس مقایسه نشده، هرگز اعلام نکنید Local و Railway هم‌زمان‌اند.
 
 ---
@@ -92,7 +94,7 @@
 * **URL/پورت:** `http://localhost:3020` (پورت با `PORT` عوض می‌شود)
 * **دیتابیس لوکال:** `data\yasnafit.db` (+ `-wal`/`-shm`) — gitignored
 * **تصویر هیروی صفحهٔ ورود:** `public\login-hero.png` (نسخهٔ **مورد استفاده**، ارجاع در `public/student-app.js` و `public/luxury-login.css`)؛ جایگزین شخصی: `public\image\logo.png` (gitignore). چهرهٔ تصویر هیرو را عوض نکنید (تأکید مالک در کامیت `086f3e0`).
-* **مسیر بکاپ:** پیش‌فرض `backups/` کنار برنامه؛ با `YASNAFIT_BACKUP_DIR` قابل جابه‌جایی است (روی Railway: `/app/data/backups`).
+* **مسیر داده/بکاپ:** همه از `src/storage-paths.js` (`YASNAFIT_DATA_DIR`، `YASNAFIT_BACKUP_DIR`، و `RAILWAY_VOLUME_MOUNT_PATH` به‌صورت خودکار). لوکال بدون این متغیرها دقیقاً مثل قبل `data/` و `backups/` است.
 * **قاعدهٔ ری‌استارت:** تغییر `public/*` ← فقط رفرش مرورگر (`Ctrl+Shift+R`)؛ تغییر `server.js` یا `src/*` ← ری‌استارت سرور (لانچر گزینهٔ ۲).
 * **LAN برای شاگرد:** لانچر **هیچ IP شبکه‌ای چاپ نمی‌کند** و فقط `http://localhost:3020/coach/login` را باز می‌کند. برای دسترسی شاگرد در شبکهٔ محلی: سرور با پیش‌فرض `YASNAFIT_HOST=0.0.0.0` بالا بیاید (همین حالت فعلی) و IP ویندوز + باز بودن پورت ۳۰۲۰ در فایروال (پروفایل Private) دستی بررسی شود. (در صورت نیاز می‌توان چاپ IP را به لانچر افزود — تا امروز درخواست/کد آن وجود ندارد.)
 * **بقیهٔ رفتار لانچر (تأییدشده):** `:STATUS` با `Get-NetTCPConnection` وضعیت پورت و وجود `data\yasnafit.db` را نشان می‌دهد؛ `:CHECKCODE` با `findstr credentialEditorMarkup public\students.js` «NEW CODE / OLD CODE» چاپ می‌کند؛ `:START` سرور را در پس‌زمینه با لاگ در `logs\server.log` بالا می‌آورد؛ `:SHOW_AUTHENTICATOR` محتوای `data\coach-authenticator.txt` را نمایش/نوتپد می‌کند؛ `:STOP` با `netstat` پروسهٔ پورت را می‌کشد؛ `:LOGS` دم ۶۰ خط لاگ را نشان می‌دهد.
@@ -140,7 +142,7 @@
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
-* **2026-09-02** — **Task 18 (آماده‌سازی Railway):** افزودن `railway.json`، `YASNAFIT_BACKUP_DIR` (بکاپ داخل Volume) + export `dataDir/backupDir`، بخش کامل «§۹ استقرار روی Railway» به `DEPLOYMENT.md`، و گاردهای جدید در `tests/deployment-hardening-regression.js` (اعتبار `railway.json`، routable بودن `/api/health` قبل از گیت مربی، tracked بودن `data-source/exercises_data.json`، نبود `path.join(__dirname,'backups')` در server.js). شبیه‌سازی زنده با متغیرهای Railway موفق بود (§۶). اتصال واقعی به داشبورد Railway **انجام نشده** (کار مالک).
+* **2026-09-02** — **Task 18 (آماده‌سازی Railway، کامیت `8331634` + تکمیل storage-paths در همین جلسه):** افزودن `railway.json`، ماژول جدید `src/storage-paths.js` (دیتابیس + عکس‌ها/اسناد خصوصی + بکاپ همه از یک مرجع و روی Volume)، بخش کامل «§۹ استقرار روی Railway» به `DEPLOYMENT.md`، و گاردهای جدید در `tests/deployment-hardening-regression.js` (اعتبار `railway.json`، routable بودن `/api/health` قبل از گیت مربی، tracked بودن `data-source/exercises_data.json`، نبود `path.join(__dirname,'backups')` در server.js). شبیه‌سازی زنده با متغیرهای Railway موفق بود (§۶). اتصال واقعی به داشبورد Railway **انجام نشده** (کار مالک).
 
 * **2026-08-24** — Task 1…5: ابزار program-helper، ساخت سیستم مستندات، ممیزی نهایی، بانک حرکات/ویدیو، BR-14 (کاتالوگ ۱۲ سیستم)، بازطراحی Program Builder.
 * **2026-08-24** — Task 6…11: انتخابگر تاریخ شمسی گرافیکی (`jalali-picker.js`)، بازگشت «حذف روز» به منوی روز، بازطراحی داشبورد مربی.
@@ -207,14 +209,15 @@
 
 ### What was done
 1. ساخت فایل حافظهٔ `mahdi hellp.md` (این فایل) با ۱۷ بخش، فقط بر پایهٔ داده‌های تأییدشده؛ هر چیز نامعلوم با `UNKNOWN — needs verification`.
-2. **Task 18 — آماده‌سازی Railway** (کامیت `8331634`، push شده): `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، `watchPatterns`)؛ `YASNAFIT_BACKUP_DIR` در `src/database.js` + export `dataDir/backupDir` و استفاده از `backupDir` مشترک در چرخش بکاپ `server.js`؛ بخش §۹ کامل در `DEPLOYMENT.md` (مراحل داشبورد، Volume `/app/data`، جدول متغیرها، ساخت حساب مربی با `YASNAFIT_ALLOW_REMOTE_SETUP`، ریسک‌ها، curlهای راستی‌آزمایی)؛ گاردهای جدید در سوئیت `test:deployment`.
+2. **Task 18 — آماده‌سازی Railway** (کامیت `8331634`، push شده): `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، restart ON_FAILURE، watchPatterns)، `YASNAFIT_BACKUP_DIR` + export `dataDir/backupDir` در `src/database.js`، هم‌راستاسازی چرخش ۱۰ نسخه با همان مسیر در `server.js`، بخش کامل §۹ «استقرار روی Railway» در `DEPLOYMENT.md` (§۹.۶ = روش CLI)، و گاردهای جدید در `tests/deployment-hardening-regression.js`. **Task 18b (همین جلسه):** ماژول `src/storage-paths.js` + کلید‌شدن پنج نقطهٔ hardcode (`database.js`, `upload-service.js`, `assessment-document-service.js`, `student-service.js`, `migrations.js`) تا DB/عکس‌ها/اسناد/بکاپ همه روی Volume بنشینند.
 3. **بازیابی سندباکس:** در میانهٔ جلسه `.git` سندباکس دوباره به `main` (`086f3e0`) برگشت و همه‌چیز untracked دیده می‌شد؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` (بدون force-push) به `4e89d10` برگردانده شد و بعد از آن `git status` تمیز بود. **روی ماشین مهدی هرگز این کار تکرار نشود** — آنجا `git pull --ff-only`.
 
 ### What changed
+`railway.json` (جدید)، `src/storage-paths.js` (جدید)، `src/database.js`، `src/upload-service.js`، `src/assessment-document-service.js`، `src/student-service.js`، `src/migrations.js`، `server.js`، `DEPLOYMENT.md`، `tests/deployment-hardening-regression.js`، `mahdi hellp.md`، `docs/project-tracking/CHANGELOG.md` (Task 18 و 18b).
 `railway.json` (جدید)، `src/database.js`، `server.js`، `DEPLOYMENT.md`، `tests/deployment-hardening-regression.js`، `mahdi hellp.md`.
 
 ### What was tested
-`npm test` = **۱۸/۱۸** ✅ • `npm run test:e2e` ✅ (سرور تازه، DB با ۳۰ مایگریشن) • شبیه‌سازی محیط Railway: استارت با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1 YASNAFIT_BACKUP_DIR=$PWD/data/backups` → healthcheck 200 با بدنهٔ حداقلی، `Set-Cookie … ; Secure` روی چلنج لاگین، `/api/test/reset-rate-limit` → 404، `/api/build` → 401، نوشتن بکاپ در مسیر جدید (`backup() → data/backups/yasnafit-*.db`) • `data/` و `data/backups` با `drwx------` ✅.
+`npm test` = **۱۸/۱۸** ✅ (دو بار: بعد Task 18 و بعد Task 18b) • `npm run test:e2e` ✅ • `npm run test:deployment` = `railway_config: true` ✅ • شبیه‌سازی محیط Railway: `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1` → healthcheck 200 با بدنهٔ حداقلی، `Set-Cookie … ; Secure` روی چلنج لاگین، `/api/test/reset-rate-limit` → 404، `/api/build` → 401، نوشتن بکاپ در مسیر Volume، و `data/`+`data/backups` با `drwx------` ✅ • **شبیه‌سازی Volume با مسیر دلخواه:** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume ✅ و بدون env هم دقیقاً همان مسیرهای قبلی حفظ شد ✅
 
 ### What passed
 همهٔ موارد بالا.
@@ -224,10 +227,10 @@
 * دو ادعا در متن پیش‌نویس DEPLOYMENT غلط بود و اصلاح شد: (۱) «لانچر IP شبکه را چاپ می‌کند» — چاپ نمی‌کند؛ (۲) «`data-source/exercises_data.json` بیرون از git است» — در git **هست** (خطای خواندن ناشی از همان rewind سندباکس).
 
 ### What remains
-1. **اقدام مالک در داشبورد Railway** (اتصال repo + Attach Volume `/app/data` + Variables + Generate Domain) — §۶ و `DEPLOYMENT.md` §۹.
+1. **اقدام مالک در داشبورد Railway یا CLI** (وصل repo → Attach Volume → Variables → Generate Domain → اولین حساب مربی) — §۶؛ دستورهای CLI در `DEPLOYMENT.md` §۹.۶.
 2. بعد از اولین deploy: لاگ build/رانتایم را ببینید؛ اگر Node قدیمی انتخاب شد `NIXPACKS_NODE_VERSION=22`؛ اگر `EACCES` روی Volume دیدید `RAILWAY_RUN_UID=0`.
 3. پاک کردن `YASNAFIT_ALLOW_REMOTE_SETUP` بعد از ساخت حساب مربی.
-4. تصمیم انتقال داده (از صفر vs endpoint restore)؛ اگر endpoint ساخته شد = API جدید + مایگریشن‌نظارت در CHANGELOG.
+4. انتقال داده: مسیر بی-ریسک `railway volume browse` (آپلود `data\yasnafit.db` داخل Volume) است — اگر ترجیح دادید از صفر شروع کنید، فقط seed حرکت‌ها خودکار انجام می‌شود.
 5. `pull` روی ویندوز؛ merge PR #2 با تأیید مالک؛ §۱۱ PROJECT-CONTEXT هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات).
 
 ### Exact next step for the next Agent
@@ -268,10 +271,10 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 | محیط | وضعیت | یادداشت |
 |---|---|---|
 | Local (لوکال مهدی) | **BEHIND** | هنوز `8331634` را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
-| Local (سندباکس Agent) | **CURRENT** | `8331634`، working tree تمیز؛ سرور روی 3020 زنده و ۱۸/۱۸ تست سبز |
-| Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit = 9be37bb`؛ PR #2 باز |
+| Local (سندباکس Agent) | **CURRENT** | Task 18 = `8331634` و Task 18b = کامیت همین جلسه (storage-paths)؛ تست‌ها محلی سبز |
+| Git / GitHub origin | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز، base `main` قدیمی ⇒ mergeable_state dirty |
 | `main` | `086f3e0` — **پشت سر** شاخهٔ جلسه (تصمیم merge با مالک) |
-| Railway | **NOT CONNECTED YET** — کانفیگ مخزن (`railway.json`) آماده و تست‌شده است، اما سرویس/Volume/Domain هنوز در داشبورد ساخته نشده‌اند: `UNKNOWN — needs verification` |
+| Railway | **REPO-SIDE READY / DASHBOARD PENDING** | سمت مخزن کامل است (`railway.json` + `src/storage-paths.js` + DEPLOYMENT §۹)؛ هنوز پروژه/سرویس در داشبورد ساخته و Volume وصل نشده ⇒ `UNKNOWN — needs verification` |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 

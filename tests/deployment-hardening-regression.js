@@ -17,6 +17,7 @@ const exists=relative=>fs.existsSync(path.join(root,relative));
 const serverSource=read('server.js');
 const indexHtml=read('public/index.html');
 const deploymentDoc=read('DEPLOYMENT.md');
+const storagePaths=read('src/storage-paths.js')||'';
 assert.ok(serverSource,'server.js is missing');
 assert.ok(indexHtml,'public/index.html is missing');
 assert.ok(deploymentDoc,'DEPLOYMENT.md must document how the app is exposed on a server');
@@ -167,7 +168,8 @@ assert.match(serverSource,/if\(p==='\/api\/health'\)\{[\s\S]{0,240}detailed/,
 // a container only contains what git contains: the movement seed must be tracked
 assert.ok(exists('data-source/exercises_data.json'),'a fresh deploy could not seed the 2707 movements');
 // backups must be relocatable into the single mounted volume
-assert.match(databaseSource,/process\.env\.YASNAFIT_BACKUP_DIR/,'backups would stay outside the Railway volume');
+assert.match(storagePaths,/YASNAFIT_BACKUP_DIR/,'backups would stay outside the Railway volume');
+assert.match(databaseSource,/require\('\.\/storage-paths'\)/,'the database module ignores the shared storage root');
 assert.match(databaseSource,/module\.exports = \{ db, dbPath, dataDir, backupDir,/,'the resolved backup dir is not exported for rotation');
 assert.ok(!/path\.join\(__dirname, 'backups'\)/.test(serverSource),'backup rotation still points at the repo folder');
 assert.match(serverSource,/const \{ db, dbPath, backup, backupDir, log \} = require\('\.\/src\/database'\);/,'rotation does not use the shared backupDir');
@@ -175,6 +177,14 @@ for(const token of ['/app/data','YASNAFIT_BACKUP_DIR','Attach Volume','YASNAFIT_
   assert.ok(deploymentDoc.includes(token),'DEPLOYMENT.md does not cover the Railway step '+token);
 }
 
+// every student file must follow the data root, otherwise a container volume silently
+// loses private photos while the database survives
+assert.match(storagePaths,/RAILWAY_VOLUME_MOUNT_PATH/,'the app ignores the volume path the platform already announces');
+assert.match(storagePaths,/YASNAFIT_DATA_DIR/,'the data root cannot be moved to a mounted volume');
+for(const file of ['src/upload-service.js','src/assessment-document-service.js','src/student-service.js','src/migrations.js']){
+  const text=read(file)||'';
+  assert.ok(!/'data'\s*,\s*'(assessments|assessment-documents)'/.test(text)&&!/, 'data',/.test(text),`${file} still hardcodes the repo data folder for student files`);
+}
 console.log(JSON.stringify({
   ok:true,
   dead_files_removed:deleted.length,
