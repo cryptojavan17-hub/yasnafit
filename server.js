@@ -38,6 +38,9 @@ const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
 const requestSecurity = require('./src/request-security');
 const buildInfo = require('./src/build-info');
+if(requestSecurity.ALLOW_2FA_SKIP){
+  console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
+}
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
@@ -234,8 +237,14 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req});
+    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:requestSecurity.ALLOW_2FA_SKIP});
     if(result.error) return coachAuthError(res,result.error,result.message);
+    if(result.two_factor_skipped){
+      log('ورود مربی (۲FA موقتاً خاموش)', result.coach?.email||'');
+      return send(res,200,{ok:true,next:'/coach/dashboard',two_factor_skipped:true,coach:result.coach,expires_at:result.expires_at},{
+        'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
+      });
+    }
     return send(res,200,{ok:true,next:'/coach/2fa',expires_at:result.expires_at},{
       'Set-Cookie':coachAuthService.challengeCookie(req,result.challenge_id)
     });
@@ -456,6 +465,7 @@ async function handleHealth(req,res,{detailed=false}={}){
     students: totalStudents,
     programs: totalPrograms,
     schema_version: schemaVersion,
+    two_factor_skipped: requestSecurity.ALLOW_2FA_SKIP,
     uptime: Math.round(process.uptime())
   });
 }

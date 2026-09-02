@@ -18,6 +18,10 @@ const ALLOW_REMOTE_SETUP=truthy(process.env.YASNAFIT_ALLOW_REMOTE_SETUP);
 // volume (e.g. Railway without the CLI). Printing the key into the service log is a
 // deliberate, temporary trade-off: the variable must be deleted right after use.
 const REVEAL_AUTHENTICATOR_KEY=truthy(process.env.YASNAFIT_REVEAL_AUTHENTICATOR_KEY);
+// Testing escape hatch: when set, a correct coach password opens a session without the
+// 6-digit code. The TOTP key itself is NOT touched (nothing is lost when the variable is
+// removed) — this only skips the step, so it must never stay on in a real deployment.
+const ALLOW_2FA_SKIP=truthy(process.env.YASNAFIT_ALLOW_2FA_SKIP);
 const LOOPBACK=/^(?:::1|::ffff:127\.|127\.|localhost$)/i;
 function isLoopbackSocket(req){
   const peer=String(req?.socket?.remoteAddress||'');
@@ -93,7 +97,7 @@ function clientErrorMessage(error,fallback='خطای داخلی سرور. در �
 }
 
 module.exports={
-  TRUST_PROXY,FORCE_SECURE_COOKIES,PRODUCTION,ALLOW_REMOTE_SETUP,REVEAL_AUTHENTICATOR_KEY,isLoopbackSocket,
+  TRUST_PROXY,FORCE_SECURE_COOKIES,PRODUCTION,ALLOW_REMOTE_SETUP,REVEAL_AUTHENTICATOR_KEY,ALLOW_2FA_SKIP,isLoopbackSocket,
   clientIp,isHttps,requestHost,sameOrigin,
   securityHeaders,applySecurityHeaders,clientErrorMessage,
   CONTENT_SECURITY_POLICY

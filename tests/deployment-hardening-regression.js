@@ -147,7 +147,7 @@ assert.match(serverSource,/if\(ext === '\.html' && !isCoachAuthorized\(req\)\)\{
   'a missing .html URL still hands the coach shell to anonymous callers');
 
 // --- 7. the deployment runbook covers the sharp edges ------------------------------
-for(const token of ['YASNAFIT_TRUST_PROXY','YASNAFIT_HOST','YASNAFIT_COOKIE_SECURE','proxy_set_header X-Forwarded-For','systemd','22.5','chmod 700','/api/backup','provision-coach-totp','coach-authenticator.txt','YASNAFIT_REVEAL_AUTHENTICATOR_KEY']){
+for(const token of ['YASNAFIT_TRUST_PROXY','YASNAFIT_HOST','YASNAFIT_COOKIE_SECURE','proxy_set_header X-Forwarded-For','systemd','22.5','chmod 700','/api/backup','provision-coach-totp','coach-authenticator.txt','YASNAFIT_REVEAL_AUTHENTICATOR_KEY','YASNAFIT_ALLOW_2FA_SKIP']){
   assert.ok(deploymentDoc.includes(token),`DEPLOYMENT.md does not mention ${token}`);
 }
 assert.doesNotMatch(deploymentDoc,/YASNAFIT_COACH_TOKEN/,'the removed shared bearer token must not be documented');
@@ -186,6 +186,18 @@ const provisionScript=read('scripts/provision-coach-totp.js')||'';
 assert.match(provisionScript,/require\('\.\.\/src\/storage-paths'\)/,'the TOTP script would provision a key outside the volume');
 assert.ok(!/path\.join\(__dirname, '\.\.', 'data'/.test(provisionScript),'the TOTP script still hardcodes <repo>/data');
 assert.match(provisionScript,/existsSync\(dbPath\)/,'the TOTP script must refuse to create an empty database and hand out a useless key');
+// the 2FA skip is a temporary testing switch: off by default, gated, and documented
+assert.equal(requestSecurity.ALLOW_2FA_SKIP,false,'the 2FA skip must be off unless explicitly requested');
+assert.match(read('src/request-security.js'),/ALLOW_2FA_SKIP=truthy\(process\.env\.YASNAFIT_ALLOW_2FA_SKIP\)/,
+  'the 2FA skip flag is not read from the environment');
+assert.match(serverSource,/skipTotp:requestSecurity\.ALLOW_2FA_SKIP/,
+  'POST /api/coach/auth/login is not honoring the 2FA skip flag');
+assert.match(serverSource,/if\(result\.two_factor_skipped\)/,
+  'the skipped login must answer with a session instead of an OTP challenge');
+assert.match(read('public/coach-login.js'),/location\.replace\(data\.next \|\| '\/coach\/2fa'\)/,
+  'the login page ignores the server-provided next target, so a skipped login lands on the code screen');
+assert.ok(!/skipTotp/.test(read('src/student-auth-service.js')||''),
+  'the 2FA skip must not leak into student authentication');
 assert.ok(!/console\.log\('Secret:'/.test(provisionScript) || /RAILWAY_VOLUME_MOUNT_PATH/.test(provisionScript),
   'the TOTP script must not print the key into a container log');
 assert.match(serverSource,/const \{ db, dbPath, backup, backupDir, log \} = require\('\.\/src\/database'\);/,'rotation does not use the shared backupDir');

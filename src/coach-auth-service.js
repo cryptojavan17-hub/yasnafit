@@ -522,7 +522,7 @@ function createCoach(db,{email,password,displayName='مربی'}){
   return db.prepare('SELECT * FROM coaches WHERE id=?').get(Number(result.lastInsertRowid));
 }
 
-async function startLogin(db,{email,password,dataDir,req=null}){
+async function startLogin(db,{email,password,dataDir,req=null,skipTotp=false}){
   if(setupRequired(db)){
     logAuthEvent(db,{email:String(email||''),eventType:'login_failed',req,detail:'setup_required'});
     return {error:'SETUP_REQUIRED'};
@@ -550,6 +550,19 @@ async function startLogin(db,{email,password,dataDir,req=null}){
     const failure=recordPasswordFailure(db,coach.id,coach.auth_failed_attempts);
     logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:failure==='AUTH_LOCKED'?'locked':'login_failed',req,detail:'bad_password'});
     return {error:failure};
+  }
+  if(skipTotp){
+    // Temporary testing path: the password is the only factor, the enrolled key stays as is.
+    const rawSession=crypto.randomBytes(32).toString('base64url');
+    const sessionExpiresAt=new Date(Date.now()+SESSION_TTL_MS).toISOString();
+    db.prepare(`
+      INSERT INTO coach_sessions(stable_id,coach_id,session_hash,expires_at,last_seen_at,updated_at)
+      VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+    `).run(genUUID(),coach.id,hashToken(rawSession),sessionExpiresAt);
+    clearFailures(db,coach.id);
+    db.prepare('UPDATE coaches SET last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(coach.id);
+    logAuthEvent(db,{coachId:coach.id,email:coach.email_normalized,eventType:'login_success',req,detail:'two_factor_skipped'});
+    return {two_factor_skipped:true,raw_session:rawSession,expires_at:sessionExpiresAt,coach:safeCoach(coach)};
   }
   if(!coach.totp_secret){
     const provisioned=provisionCoachTotp(db,{req,coachId:coach.id});

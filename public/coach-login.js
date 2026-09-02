@@ -72,11 +72,12 @@
       showError('');
       setBusy(submit, true, 'در حال بررسی…');
       try {
-        await api('/api/coach/auth/login', {
+        const data = await api('/api/coach/auth/login', {
           email: document.getElementById('coachEmail').value,
           password: document.getElementById('coachPassword').value
         });
-        location.replace('/coach/2fa');
+        // 2FA is normally mandatory; only a skipped login (YASNAFIT_ALLOW_2FA_SKIP) sends another target.
+        location.replace(data.next || '/coach/2fa');
       } catch (error) {
         if (error.code === 'SETUP_REQUIRED') {
           location.replace('/coach/setup');

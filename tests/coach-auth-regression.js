@@ -180,6 +180,20 @@ try{
   db.prepare('UPDATE coach_otp_challenges SET expires_at=? WHERE stable_id=?').run(new Date(Date.now()-1000).toISOString(),expireLogin.challenge_id);
   assert.equal(auth.verifyOtp(db,{challengeId:expireLogin.challenge_id,code:loginCode(db,secret)}).error,'CODE_EXPIRED');
 
+  // --- YASNAFIT_ALLOW_2FA_SKIP: a testing escape hatch, never a password bypass ---
+  const noFlag=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir});
+  assert.ok(noFlag.challenge_id,'2FA must stay mandatory while the variable is unset');
+  assert.equal(noFlag.two_factor_skipped,undefined);
+  const skipLogin=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir,skipTotp:true});
+  assert.equal(skipLogin.two_factor_skipped,true);
+  assert.ok(!skipLogin.challenge_id,'the skip path must not mint an OTP challenge');
+  const skipReq={headers:{cookie:`yasnafit_coach_session=${skipLogin.raw_session}`},socket:{}};
+  assert.ok(auth.resolveSession(db,skipReq),'a skipped login must open a usable session');
+  const skipBadPassword=await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'WrongPass1',dataDir,skipTotp:true});
+  assert.equal(skipBadPassword.error,'INVALID_CREDENTIALS','skipping 2FA must never skip the password check');
+  assert.equal(db.prepare('SELECT totp_secret FROM coaches WHERE id=1').get().totp_secret,secret,
+    'the enrolled authenticator key must survive a skipped login');
+
   const sessionA=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:loginCode(db,secret)});
   const sessionB=auth.verifyOtp(db,{challengeId:(await auth.startLogin(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',dataDir})).challenge_id,code:loginCode(db,secret)});
   const reqA={headers:{cookie:`yasnafit_coach_session=${sessionA.raw_session}`},socket:{}};
