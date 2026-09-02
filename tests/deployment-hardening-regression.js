@@ -39,6 +39,7 @@ const self=path.join(__dirname,path.basename(__filename));
   for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
     if(['.git','node_modules','data','backups','logs','docs','.venv'].includes(entry.name))continue;
     if(path.join(dir,entry.name)===self)continue;                    // this guard lists the dead paths
+    if(entry.name==='mahdi hellp.md')continue;   // the session memory file documents what was deleted
     const full=path.join(dir,entry.name);
     if(entry.isDirectory())walk(full);
     else if(/\.(js|json|css|html|md|bat|yml|yaml)$/.test(entry.name))scanned.push(full);
