@@ -301,3 +301,12 @@ PASS / PARTIAL / FAILED
 - **FILES:** `src/request-security.js`، `src/coach-auth-service.js`، `server.js`، `public/coach-login.js`، `tests/coach-auth-regression.js` (۶ assert جدید روی رفتار skip)، `tests/deployment-hardening-regression.js` (۵ گارد + توکن مستندات)، `DEPLOYMENT.md` §۹.۹ و جدول Variables.
 - **TESTS:** `node --check` ✅ • `npm test` = **۱۸/۱۸ ✅** • `npm run test:e2e` = exit 0 ✅ (همچنان `next === '/coach/2fa'` را در حالت پیش‌فرض تأیید می‌کند) • **تست جهش روی خودِ گاردها:** حذف آرگومان `skipTotp` ⇒ fail با پیام «POST /api/coach/auth/login is not honoring the 2FA skip flag»؛ hardcode‌کردن مسیر کلاینت ⇒ fail؛ `YASNAFIT_ALLOW_2FA_SKIP=1` در محیط تست ⇒ fail («must be off unless explicitly requested»)؛ هر سه بعد از بازگردانی سبز ✅ • **دود زنده:** سرور بدون flag → `Set-Cookie: yasnafit_coach_challenge…` + `next:'/coach/2fa'`؛ با flag → `Set-Cookie: yasnafit_coach_session…` + `next:'/coach/dashboard'`، `/api/build` با آن کوکی `200`، `/api/health?detailed=1` → `two_factor_skipped:true` ✅
 - **NOTE:** در سندباکس، پلت‌فرم یک‌بار `data/` (gitignored) را پاک کرد و DB dev از نو ساخته شد؛ برای سازگاری با `tests/e2e-workflow.js` حساب مربی dev سندباکس با رمز پیش‌فرض همان تست بازسازی شد (فقط سندباکس؛ هیچ اثری روی ماشین مهدی یا Railway).
+
+---
+
+## ۱۴۰۴/۰۶/۱۱ — انتشار: merge PR #2 به `main`
+
+- **ACTION (با تأیید صریح مالک):** `gh pr merge 2 --merge` → `main` = **`50aaa53`** («Merge pull request #2 from cryptojavan17-hub/arena/01a0618b-yasnafit»، 2026-09-02 19:40 UTC). قبل از merge، توضیح کامل PR (۴ دسته تغییر + نتایج تست + ۶ نکتهٔ pre-merge) بازنویسی شد؛ `mergeable: MERGEABLE` و `mergeStateStatus: CLEAN`.
+- **VERIFIED:** `git diff --stat origin/main HEAD` **خالی** ⇒ محتوای `main` بایت‌به‌بایت همان `5cc8a17` تست‌شده است (۱۲۲ فایل، ۷۱٬۳۸۷ خط اضافه / ۱ حذف) و `login-hero.png` ریشه با `R100` به `public/login-hero.png` رفته. `npm test` روی `50aaa53` = **۱۸/۱۸ ✅**.
+- **CONSEQUENCE (مهم‌ترین اثر):**KI-014 بسته شد — از این بعد **deploy از `main` هم build می‌شود**، چون `package.json`/`server.js`/`railway.json`/`package-lock.json` روی `main` هستند (قبلاً `main` فقط README + تصویر لاگین بود و Railpack می‌شکست). `DEPLOYMENT.md` §۹.۱ و §۹.۷ و `mahdi hellp.md` (§3/§5/§6/§11/§14/§16) با همین واقعیت به‌روز شدند.
+- **STILL OPEN:** اتصال سرویس به `main` (در داشبورد)، **Attach Volume**، سه متغیر پروداکشن، پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست، تنظیم `/coach/mail`، و `git pull --ff-only` روی ویندوز. `version` همچنان `0.9.1` (عمداً).

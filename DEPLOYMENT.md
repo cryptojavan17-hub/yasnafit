@@ -199,7 +199,7 @@ npm test && sudo systemctl restart yasnafit
 
 ### ۹.۱ مراحل (حدود ۵ دقیقه)
 
-1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و **شاخهٔ درست را انتخاب کنید** (تا PR #2 merge نشده، همان شاخهٔ `arena/…`؛ `main` فعلاً فقط `README.md` و `login-hero.png` دارد و **هیچ کدی در آن نیست** ⇒ build روی `main` حتماً می‌شکند، §۹.۷).
+1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` → **Branch: `main`**. از ۲۰۲۶-۰۹-۰۲ (`50aaa53`، merge PR #2) کل برنامه روی `main` است و `railway.json` + `package-lock.json` هم همان‌جا commit شده‌اند؛ اگر سرویس شما روی `arena/…` تنظیم شده، همان هم معتبر است (محتوا یکسان است) ولی برای deploy طولانی‌مدت `main` را انتخاب کنید.
 2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json`، `coach-authenticator.txt` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
 3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
 
@@ -268,7 +268,7 @@ railway logs --limit 80              # باید «Imported 2707 exercises…» �
 
 | چیزی که در لاگ می‌بینید | معنی دقیق | کار |
 |---|---|---|
-| `The app contents that Railpack analyzed contains: ./ ├── README.md └── login-hero.png` | سرویس **شاخهٔ `main`** را build می‌کند؛ `main` در این مخزن فقط یک مخزنِ تصویر/README است و `package.json` و `server.js` ندارد | Service → **Settings → Source → Branch** را روی `arena/01a0618b-yasnafit` (یا `main` بعد از merge PR #2) بگذارید و **Redeploy** |
+| `The app contents that Railpack analyzed contains: ./ ├── README.md └── login-hero.png` | سرویس **`main` خالی** را build می‌کرد (این وضعیت تا قبل از merge PR #2 یعنی ۲۰۲۶-۰۹-۰۲ وجود داشت و حالا برطرف شده)
 | `⚠ Script start.sh not found` + `✖ Railpack could not determine how to build the app` | همان مورد بالا: builder هیچ پروژه‌ای پیدا نکرده. روی شاخه‌های برنامه این خطا تکرار نمی‌شود، چون `railway.json` (همان‌جا commit شده) `builder: NIXPACKS` و `startCommand: node server.js` را دیکته می‌کند | شاخه را درست کنید؛ اگر خواستید از Railpack استفاده کنید، `package-lock.json` (که برای همین کار commit شده) و `startCommand` را چک کنید |
 | `Railpack could not determine how to build the app` ولی درخت، `package.json` دارد | builder روی Railpack قفل شده (تنظیم سرویس) و چیزی برای تشخیص Node پیدا نکرده | یا `builder` سرویس را روی **Nixpacks** بگذارید، یا بگذارید `railway.json` حاکم باشد (تنظیم دستی داشبورد بر config-as-code اولویت دارد) |
 | build با Node قدیمی / خطای syntax | نسخهٔ Node ایمیج | `NIXPACKS_NODE_VERSION=22` |
