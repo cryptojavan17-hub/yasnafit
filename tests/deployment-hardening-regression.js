@@ -67,6 +67,15 @@ for(const file of fs.readdirSync(path.join(root,'public')).filter(name=>name.end
   assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i.test(html),`public/${file} still ships an inline script (breaks script-src 'self')`);
   assert.doesNotMatch(html,/\son(click|change|input|submit|load|error)\s*=\s*"/i,`public/${file} uses an inline event handler`);
 }
+// Inline event-handler attributes injected from JS are equally dead under
+// script-src 'self': the guard must scan the client modules too, not only the
+// HTML shells (regression: the program list "ویرایش" button was unclickable).
+const INLINE_HANDLER_IN_JS=/\son[a-z]+\s*=\s*["'`]/i;
+for(const file of fs.readdirSync(path.join(root,'public')).filter(name=>name.endsWith('.js'))){
+  const source=read(`public/${file}`);
+  if(source===null)continue;
+  assert.doesNotMatch(source,INLINE_HANDLER_IN_JS,`public/${file} injects an inline event-handler attribute (dead under script-src 'self') — wire it with a data-* attribute and addEventListener instead`);
+}
 assert.match(indexHtml,/src="\/boot\.js"/,'the post-load deep-link redispatch must live in /boot.js');
 // every asset the coach shell asks for must exist, otherwise a CSP that forbids CDNs
 // turns a deleted file into a blank page
@@ -230,6 +239,7 @@ console.log(JSON.stringify({
   ok:true,
   dead_files_removed:deleted.length,
   html_files_scanned:fs.readdirSync(path.join(root,'public')).filter(name=>name.endsWith('.html')).length,
+  js_modules_scanned_for_inline_handlers:fs.readdirSync(path.join(root,'public')).filter(name=>name.endsWith('.js')).length,
   proxy_trust_gated:true,
   admin_endpoints_gated:true,
   secret_file_modes:true,

@@ -1,3 +1,17 @@
+// CSP (script-src 'self') blocks inline onerror attributes in injected HTML.
+// Media fallbacks are therefore handled centrally on the capture phase, which
+// also catches resource load errors that do not bubble.
+window.addEventListener('error',event=>{
+  const el=event.target;
+  if(!el||!el.tagName)return;
+  if(el.tagName==='IMG'&&el.dataset.fallback&&!el.dataset.fallbackDone){
+    el.dataset.fallbackDone='1';
+    el.src=el.dataset.fallback;
+  }else if(el.tagName==='VIDEO'&&el.dataset.fallbackClass){
+    el.closest('.mv-player')?.classList.add(el.dataset.fallbackClass);
+  }
+},true);
+
 const sidebarMenu = [
   ['داشبورد','/coach/dashboard','🏠'],
   ['شاگردان',null,'👥',[

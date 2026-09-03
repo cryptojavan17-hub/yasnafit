@@ -72,7 +72,7 @@
     return `
       <div class="image-wrap has-image" id="wrap-${ex.original_id||'m'}-${ex.id}">
         <img class="exercise-image" src="${esc(imgSrc)}" alt="${esc(ex.name_fa)}"
-          onerror="this.onerror=null; this.src='/blank-white.svg';"
+          data-fallback="/blank-white.svg"
           loading="lazy"
         >
       </div>
@@ -368,7 +368,8 @@
       bindBulkActions();
 
     } catch (e) {
-      host.innerHTML = `<div class="error-state"><p>خطا در بارگذاری: ${esc(e.message)}</p><button onclick="location.reload()">تلاش مجدد</button></div>`;
+      host.innerHTML = `<div class="error-state"><p>خطا در بارگذاری: ${esc(e.message)}</p><button data-retry-reload>تلاش مجدد</button></div>`;
+      host.querySelector('[data-retry-reload]').onclick=()=>location.reload();
     } finally {
       state.loading = false;
     }
@@ -485,7 +486,7 @@
             <div id="modalMuscleChips" style="display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px;"></div>
           </div>
         </div>
-        ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;background:rgba(255,255,255,1);" onerror="this.onerror=null; this.src='/blank-white.svg';"></div>` : ''}
+        ${item?.image_path ? `<div class="form-preview"><p>پیش‌نمایش تصویر:</p><img src="${esc(item.image_path)}" style="max-width:100px;max-height:100px;border-radius:8px;background:rgba(255,255,255,1);" data-fallback="/blank-white.svg"></div>` : ''}
         <div class="modal-actions">
           <button class="secondary close" type="button">انصراف</button>
           <button class="primary">💾 ذخیره</button>

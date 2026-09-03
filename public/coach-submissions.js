@@ -121,10 +121,13 @@
           </div>
           <div class="program-actions">
             <a class="btn btn-primary btn-small" href="/assessments/${item.id}">مشاهده ارزیابی</a>
-            <button class="btn btn-secondary btn-small" onclick="location.href='/students/${item.case_number || item.student_id}/timeline'">📜 تاریخچه شاگرد</button>
+            <button class="btn btn-secondary btn-small" data-student-timeline="${item.case_number || item.student_id}">📜 تاریخچه شاگرد</button>
           </div>
         </div>
       `).join('');
+      host.querySelectorAll('[data-student-timeline]').forEach(b=>{
+        b.onclick=()=>{ location.href=`/students/${b.dataset.studentTimeline}/timeline`; };
+      });
     } catch (e) {
       host.innerHTML = `<div style="color:var(--danger)">خطا: ${esc(e.message)}</div>`;
     }
@@ -588,7 +591,7 @@
         <div class="program-builder">
           <div class="page-head">
             <div><h1>📜 تایم‌لاین ${esc(student.full_name)}</h1><p><span class="case-chip">پرونده ${esc(student.case_number || '------')}</span> • ارزیابی‌ها و برنامه‌های ماهانه</p></div>
-            <button class="btn btn-secondary" onclick="history.back()">← بازگشت</button>
+            <button class="btn btn-secondary" data-back>← بازگشت</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:16px">
             ${(data.timeline || []).map(item => {
@@ -601,7 +604,7 @@
                     <h3 style="margin:0 0 8px">ارزیابی #${a.assessment_number} - ${esc(fa(a.status))}</h3>
                     <p style="font-size:12px;color:var(--text-secondary)">وزن: ${a.weight} kg • ${new Date(a.date).toLocaleDateString('fa-IR')}</p>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">${(a.photos || []).map(p => `<img src="/api/student-photos/${p.id}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`).join('')}</div>
-                    <button class="btn btn-secondary btn-small" onclick="location.href='/assessments/${a.id}'" style="margin-top:8px">بررسی</button>
+                    <button class="btn btn-secondary btn-small" data-open-assessment="${a.id}" style="margin-top:8px">بررسی</button>
                   </div>
                 </div>
                 `;
@@ -624,7 +627,7 @@
                   <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
                     <h3 style="margin:0 0 8px">${esc(p.title)}</h3>
                     <p style="font-size:12px;color:var(--text-secondary)">📅 ${esc(p.start_date || '')} تا ${esc(p.end_date || '')} • ${esc(fa(p.status))}</p>
-                    <button class="btn btn-primary btn-small" onclick="location.href='/programs/exercise/form?id=${p.id}'">ویرایش برنامه</button>
+                    <button class="btn btn-primary btn-small" data-edit-program="${p.id}">ویرایش برنامه</button>
                   </div>
                 </div>
                 `;
@@ -633,6 +636,13 @@
           </div>
         </div>
       `;
+      content.querySelector('[data-back]').onclick=()=>history.back();
+      content.querySelectorAll('[data-open-assessment]').forEach(b=>{
+        b.onclick=()=>{ location.href=`/assessments/${b.dataset.openAssessment}`; };
+      });
+      content.querySelectorAll('[data-edit-program]').forEach(b=>{
+        b.onclick=()=>{ location.href=`/programs/exercise/form?id=${b.dataset.editProgram}`; };
+      });
     } catch (e) {
       content.innerHTML = `<div style="color:var(--danger)">خطا: ${esc(e.message)}</div>`;
     }
