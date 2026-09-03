@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-03** (توسط Agent جلسهٔ `arena/01a066e6-yasnafit` — هم‌زمان‌سازی شروع جلسه: PR #2 روی `main` است و دو کامیت docs پایانی جلسهٔ قبل به شاخهٔ جدید cherry-pick شد).
+> آخرین به‌روزرسانی: **2026-09-03** (توسط Agent جلسهٔ `arena/01a066e6-yasnafit` — پس از Task 22: پشتیبانی Volume برای عکس‌های حرکات).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -34,7 +34,7 @@
 * **Authentication:**
   * **مربی:** ایمیل + رمز + TOTP گوگل‌اتنتیکاتور (flow سه‌مرحله‌ای: `/coach/login` → `/coach/2fa`). کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/, +`Secure` در HTTPS) و کوکی چلنج `yasnafit_coach_challenge`. ایمیل مربی در کد قفل است: `crypto.javan17@gmail.com`. **توکن مشترک `YASNAFIT_COACH_TOKEN` و مسیر `/coach-access/*` حذف شده‌اند** (۴۰۴). بازیابی رمز با لینک ایمیلی (App Password جیمیل) و در نبود SMTP با نوشتن در `data/coach-reset-dev.txt`.
   * **شاگرد:** شمارهٔ همراه + رمز scrypt؛ نشست تصادفی ۳۲ بایتی که فقط هشش در DB ذخیره می‌شود؛ کوکی `yasnafit_student_session`؛ ورود از لینک دعوت `/join/:token` (یک‌بارمصرف).
-* **File storage:** آپلود عکس بدن/مدارک خصوصی با `src/upload-service.js` (سقف ۵MB هر فایل، ۱۰ فایل هر ارزیابی، ۲۰MB multipart، allowlist MIME+پسوندم + بررسی امضای بایت + `sanitizeFileName`)؛ فایل‌های خصوصی **هرگز از `public/` سرو نمی‌شوند** و فقط با نشست متناظر خوانده می‌شوند. عکس/ویدیوی حرکات: `public/assets/images/exercises/imported/` (gitignored، ~۱۸۸۸ فایل فقط لوکال) و `/files/exercise/*`.
+* **File storage:** آپلود عکس بدن/مدارک خصوصی با `src/upload-service.js` (سقف ۵MB هر فایل، ۱۰ فایل هر ارزیابی، ۲۰MB multipart، allowlist MIME+پسوندم + بررسی امضای بایت + `sanitizeFileName`)؛ فایل‌های خصوصی **هرگز از `public/` سرو نمی‌شوند** و فقط با نشست متناظر خوانده می‌شوند. عکس/ویدیوی حرکات: `public/assets/images/exercises/imported/` (gitignored، ~۱۸۸۸ فایل فقط لوکال) و `/files/exercise/*`. **از Task 22** عکس‌های حرکات علاوه‌بر ریپو از **Volume** هم سرو می‌شوند: `mediaDir` = `YASNAFIT_MEDIA_DIR` || `<dataDir>/media` و `exerciseImagesDir` = `<mediaDir>/images/exercises/imported` (در `src/storage-paths.js`)؛ ترتیب خواندن: ریپو → Volume؛ **ویدیوها repo-side می‌مانند** (تصمیم مالک — روی Railway ۴۰۴).
 * **Security layer (جدید، §Task 16):** `src/request-security.js` — CSP یکنواخت + `X-Content-Type-Options: nosniff` + `X-Frame-Options: DENY` + `Referrer-Policy: no-referrer` + `Permissions-Policy` + `Cross-Origin-Opener/Resource-Policy` که روی **همهٔ پاسخ‌ها** اعمال می‌شود؛ تنها جای خواندن `X-Forwarded-*` در کل مخزن همین فایل است و فقط با `YASNAFIT_TRUST_PROXY=1`.
 * **Railway deployment:** از 2026-09-02 **`railway.json` در ریشه وجود دارد** (Nixpacks + `node server.js` + `healthcheckPath: /api/health` + `numReplicas: 1`) و همهٔ مسیرهای دائمی (دیتابیس، عکس‌ها/اسناد خصوصی، بکاپ‌ها) از `src/storage-paths.js` خوانده می‌شوند تا روی Volume بنشینند. همچنان **Dockerfile/Procfile/CI وجود ندارد** و مسیر جایگزینِ مستندشده VPS + nginx + systemd است (`DEPLOYMENT.md` §۱–۸؛ §۹ مخصوص Railway). وضعیت اکانت Railway: `UNKNOWN — needs verification` (§۶).
 * **Android/mobile:** هیچ کد موبایل در مخزن نیست (فقط فلوی موبایل-پسند UI شاگرد). TODO: T-08.
@@ -58,13 +58,13 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a066e6-yasnafit` |
-| آخرین کامیت | `cc6cd25` = cherry-pick `8f181b4` (docs حافظه) روی `b405fa6` (= cherry-pick `9102182`) روی `50aaa53` (merge PR #2) ⇒ درخت دقیقاً برابر tip شاخهٔ قبلی است (`git diff` خالی). زنجیرهٔ جلسهٔ قبل روی `main`: `8331634` → `64c1dc1` → `6c99194` → `0896bba` → `b98c929` → `36ed8ab` → `69ec5c9` → `3d1c0d6` → `5cc8a17` → `50aaa53` |
+| آخرین کامیت | `e60d3eb` = **Task 22** (feat: سرو عکس‌های حرکات از Volume) روی `ef1be5a` (docs memory) روی `cc6cd25`/`b405fa6` (cherry-pick docs جلسهٔ قبل) روی `50aaa53` (merge PR #2) |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
 | local vs origin | **برابر** — `arena/01a066e6-yasnafit` به origin push شده و `git ls-remote` با HEAD یکی است؛ `git status` تمیز |
 | PR | **#2 MERGED** (2026-09-02 19:40 UTC، `gh pr merge 2 --merge` با تأیید صریح مهدی) • #1 CLOSED • شاخهٔ `arena/01a0618b-yasnafit` آرشیو شد (tip = `8f181b4`) و دو کامیت docs آن به شاخهٔ جدید منتقل شد |
 | وضعیت merge | merge انجام‌شده و **برابربودن محتوا تأیید شد**: `git diff origin/main HEAD` خالی ⇒ چیزی حین merge گم نشده. برای کارهای بعدی همین شاخهٔ جلسه استفاده شود |
-| اقدامات باز | (۱) مهدی در ویندوز: بلوک bat §17 (شاخهٔ جدید `arena/01a066e6-yasnafit`) — فقط `git pull --ff-only` (۲) روی Railway: **Attach Volume** + تأیید/سوییچ Branch به `main` + پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۳) اگر `YASNAFIT_REVEAL_AUTHENTICATOR_KEY` استفاده شد، آن هم پاک شود |
+| اقدامات باز | (۱) مهدی در ویندوز: بلوک bat §17 — فقط `git pull --ff-only` (۲) **merge PR مربوط به Task 22 با تأیید مالک**، سپس redeploy روی Railway و چک §۹.۱۰ (`railway logs \| grep Media` → `Volume: 1888` و `curl /api/exercise-image/4` → ۲۰۰ تصویر) (۳) Volume وصل است — **mount path را عوض نکنید** (۴) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` (و `YASNAFIT_REVEAL_AUTHENTICATOR_KEY` اگر استفاده شد) بعد از تست |
 | هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و HEAD را به کامیتی قدیمی برگرداند. در آن صورت فقط در سندباکس: `git fetch -q origin arena/01a066e6-yasnafit` + `git update-ref refs/heads/arena/01a066e6-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
 
 ---
@@ -85,7 +85,8 @@
 * **Domain:** Settings → Networking → **Generate Domain** ⇒ `https://<name>.up.railway.app`.
 * **شبیه‌سازی Volume با مسیر دلخواه (2026-09-02، موفق):** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol node server.js` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume با مجوز `drwx------` و seed ۲۷۰۷ حرکت ✅. (e2e روی این حالت در مرحلهٔ provisioning مربی 409 می‌دهد، چون مسیر DB را hardcode به `data/` نگه می‌دارد — محدودیت harness، ذیل T-11.)
 * **راستی‌آزمایی‌های دیگر:** با `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1` → `GET /api/health` = 200 با بدنهٔ حداقلی ✓، `POST /api/coach/auth/login` → 200 و `Set-Cookie …; Secure` ✓، `POST /api/test/reset-rate-limit` → 404 ✓، `GET /api/build` → 401 ✓، بکاپ داخل `data/backups` نوشته شد ✓، دیتابیس تازه با ۳۰ مایگریشن + seed ۲۷۰۷ حرکت از `data-source/exercises_data.json` (موجود در git) بالا آمد ✓.
-* **هنوز تأییدنشده:** `Railway project/service ID`، `region`، `public URL`، `وضعیت build اولین deploy`، `آیا Volume وصل شده` ⇒ `UNKNOWN — needs verification`.
+* **گزارش مالک (۲۰۲۶-۰۹-۰۳ — Volume رسماً تأیید شد):** ۱۸۸۸ عکس حرکت (≈۵۷MB) در `/app/data/media/images/exercises/imported/{ID}.png|jpg` قرار گرفت (`railway ssh -- "ls … | wc -l"` → `1888`؛ `4.png` موجود). کد قبل از Task 22 فقط مسیر ریپو را می‌خواند ⇒ روی production همیشه `blank-white.svg`. تصمیم مالک: **ویدیوها منتقل نمی‌شوند** (حجم زیاد). رفع: **Task 22** همین جلسه (`e60d3eb`) — راستی‌آزمایی در `DEPLOYMENT.md` §۹.۱۰.
+* **هنوز تأییدنشده:** `Railway project/service ID`، `region`، `کامیت دقیق deploy زنده` ⇒ `UNKNOWN — needs verification`. (وصل‌بودن Volume: از ۲۰۲۶-۰۹-۰۳ با گزارش مالک **تأیید شد** — بند بالا.)
 * **ریسک‌های اعلام‌شده در `DEPLOYMENT.md` §۹:** عکس/ویدیوی ۱۸۸۸ حرکت عمداً در git نیست ⇒ روی Railway placeholder می‌بینیم؛ پایان ماه رایگان ممکن است Volume را پاک کند ⇒ بکاپ منظم؛ انتقال `data\yasnafit.db` لوکال به Volume بدون endpoint جدید ممکن است: `railway volume browse` (upload) — مستند در `DEPLOYMENT.md` §۹.۶؛ اگر CLI را ترجیح ندادید، گزینهٔ دیگر «از صفر شروع کردن» است (API restore عمداً ساخته نشد).
 * **قاعده:** تا وقتی کامیت دیپلوی‌شده با `git rev-parse` و لاگ سرویس مقایسه نشده، هرگز اعلام نکنید Local و Railway هم‌زمان‌اند.
 
@@ -140,12 +141,13 @@
 15. روی سرور: `YASNAFIT_HOST=127.0.0.1` + پروکسی nginx با TLS؛ `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی ترافیک حتماً از پروکسی است؛ `NODE_ENV=production`؛ `YASNAFIT_COOKIE_SECURE=1` در HTTPS. جزئیات: `DEPLOYMENT.md`.
 
 **حافظهٔ جلسه (این فایل)**
-16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 22** (Task 21 آخرین تسک ثبت‌شده است؛ بعد از آن مدخل «انتشار: merge PR #2» آمده).
+16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 23** (Task 22 = پشتیبانی Volume برای عکس‌های حرکات).
 
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
+* **2026-09-03** — **Task 22 (`e60d3eb` — پشتیبانی Volume برای عکس‌های حرکات):** درخواست مستقیم مالک (۱۸۸۸ عکس روی `/app/data/media/images/exercises/imported`، فقط عکس نه ویدیو). `mediaDir`/`exerciseImagesDir`/`ensureMediaDirs()` (۰۷۰۰) در `src/storage-paths.js`؛ خواندن Volume در `/api/exercise-image/{id}` (پروب مستقیم `{id}.png|jpg|jpeg` + بر اساس `original_id`؛ اولویت ریپو) و در مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` (فقط پسوندهای تصویری، گارد `isSafePath`)؛ لاگ boot `[Media] تصاویر حرکات: N فایل (Volume: X | ریپو: Y)` + هشدار صفر؛ ویدیو repo-side (۴۰۴). ۸ گارد جدید (جهش‌سنجی‌شده)؛ `npm test` = ۱۸/۱۸؛ تست زنده با Volume ساختگی سبز؛ KI-015 = FIXED؛ `DEPLOYMENT.md` §۹.۱۰. PR باز شد — **merge با تأیید مالک**.
 * **2026-09-03** — **شروع جلسهٔ `arena/01a066e6-yasnafit` (هم‌زمان‌سازی، بدون تغییر کد):** شاخهٔ جدید از `main` = `50aaa53` ساخته شد؛ دو کامیت docs پایانی جلسهٔ قبل (`9102182` → `b405fa6` و `8f181b4` → `cc6cd25`) cherry-pick شدند ⇒ درخت دقیقاً = tip شاخهٔ قبلی. Railway دوباره از بیرون تأیید شد (`0.9.1` زنده، auth-status بدون تغییر — §6). حافظه (همین فایل: §4/§5/§6/§9/§12/§13/§15/§16/§17) با واقعیت جدید به‌روز شد.
 * **2026-09-02** — **Task 18 (آماده‌سازی Railway، کامیت `8331634` + تکمیل storage-paths در همین جلسه):** افزودن `railway.json`، ماژول جدید `src/storage-paths.js` (دیتابیس + عکس‌ها/اسناد خصوصی + بکاپ همه از یک مرجع و روی Volume)، بخش کامل «§۹ استقرار روی Railway» به `DEPLOYMENT.md`، و گاردهای جدید در `tests/deployment-hardening-regression.js` (اعتبار `railway.json`، routable بودن `/api/health` قبل از گیت مربی، tracked بودن `data-source/exercises_data.json`، نبود `path.join(__dirname,'backups')` در server.js). شبیه‌سازی زنده با متغیرهای Railway موفق بود (§۶). اتصال واقعی به داشبورد Railway **انجام نشده** (کار مالک).
 
@@ -169,6 +171,7 @@
 | KI-002 | شکاف ۵↔۱۲ سیستم تمرینی | High | **FIXED** (BR-14) | — | کاتالوگ DB در T-14 |
 | KI-003 | پخش ویدیو در UI پیاده نشده | Medium | OPEN | `public/program-builder.js` | T-02 |
 | KI-014 | `main` در GitHub فقط `README.md` + `login-hero.png` داشت ⇒ build روی `main` با Railpack می‌شکست | High (deploy) | **FIXED** (۲۰۲۶-۰۹-۰۲: PR #2 merge شد ⇒ `main` = `50aaa53` اپ کامل + `railway.json` + `package-lock.json`) | `main`, PR #2 | اگر deploy بعدی روی `main` خطا داد، لاگ را با `git ls-tree -r --name-only origin/main` مقایسه کنید |
+| KI-015 | عکس‌های ۱۸۸۸ حرکت روی Railway سرو نمی‌شد (کد فقط مسیر ریپو را می‌خواند ⇒ همیشه placeholder) | Medium (UX) | **FIXED** (۲۰۲۶-۰۹-۰۳، Task 22 — `e60d3eb`) | `src/storage-paths.js`, `server.js` | merge PR + redeploy + چک `[Media]` (§۹.۱۰) |
 | KI-004 | `node:sqlite` experimental | Low | OPEN (پایش) | `src/database.js` | پایش Node LTS |
 | KI-005 | کلون تازه ۱۸۸۸ عکس حرکت را ندارد (by design) | Medium | OPEN | `public/assets/images/exercises/imported/` | ایمپورت لوکال |
 | KI-006 | rate limiter در حافظه (با ری‌استارت ریست) | Low | OPEN/WONTFIX | `server.js` | T-13 |
@@ -202,48 +205,45 @@
 
 ## 13. Current Task
 
-* **عنوان (جلسهٔ جاری، ۲۰۲۶-۰۹-۰۳ — `arena/01a066e6-yasnafit`):** شروع جلسه — فقط هم‌زمان‌سازی حافظه/مستندات با واقعیت جدید (`main` اپ کامل است، Railway زنده تأیید شد، شاخهٔ قبلی آرشیو). **تسک اصلی این جلسه هنوز از سمت مالک اعلام نشده است.**
+* **عنوان (جلسهٔ جاری، ۲۰۲۶-۰۹-۰۳ — `arena/01a066e6-yasnafit`):** **Task 22 — پشتیبانی Volume برای عکس‌های حرکات روی Railway** (درخواست مستقیم مالک؛ فقط عکس‌ها، نه ویدیو) + هم‌زمان‌سازی شروع جلسه.
 * **عنوان تسک قبلی:** Task 20 (بازیابی کلید Google Authenticator روی سرور ابری) + Task 21 (گریز موقت 2FA با `YASNAFIT_ALLOW_2FA_SKIP`) + انتشار: merge PR #2 به `main` — همه انجام‌شده.
 * **هدف:** آماده‌سازی واقعی (قابل تست) برای هاست اینترنتی؛ حذف کد/فایل بلااستفاده؛ اطمینان از سالم بودن flow ورود مربی.
-* **فایل‌های مرتبط:** `src/request-security.js`, `public/boot.js`, `server.js`, `src/database.js`, `src/coach-auth-service.js`, `src/student-session-service.js`, `public/index.html`, `public/coach-login.html`/`.js`, `DEPLOYMENT.md`, `tests/deployment-hardening-regression.js`, `tests/coach-auth-regression.js`.
+* **فایل‌های مرتبط:** `src/storage-paths.js`, `server.js` (هندلر `/api/exercise-image/{id}` و هندلر استاتیک `/assets/images/exercises/*` + `/files/exercise/*` و لاگ boot)، `tests/deployment-hardening-regression.js`, `DEPLOYMENT.md` (§۹.۱۰), `docs/project-tracking/KNOWN-ISSUES.md` (KI-015), `docs/project-tracking/CHANGELOG.md` (Task 22).
 * **نتیجهٔ مورد انتظار:** `npm test` سبز + هدرها/گیت‌ها زنده + مستند استقرار.
-* **وضعیت نهایی:** سمت مخزن **انجام شد** (Task 18، در حال commit)؛ سمت داشبورد Railway در انتظار اقدام مالک. نتیجه در §14.
+* **وضعیت نهایی:** کد + تست + مستندات **انجام و push شد** (`e60d3eb` + docs حافظه)؛ **PR به `main` باز است و merge با تأیید مالک انجام می‌شود**؛ بعد از merge: redeploy و چک §۹.۱۰ (`[Media]` → `Volume: 1888`). نتیجه در §14.
 
 ---
 
 ## 14. Last Session Handoff
 
 ### What was done
-1. ساخت فایل حافظهٔ `mahdi hellp.md` (این فایل) با ۱۷ بخش، فقط بر پایهٔ داده‌های تأییدشده؛ هر چیز نامعلوم با `UNKNOWN — needs verification`.
-2. **Task 18 — آماده‌سازی Railway** (کامیت `8331634`، push شده): `railway.json` (Nixpacks، `node --check` در build، `healthcheckPath: /api/health`، `numReplicas: 1`، restart ON_FAILURE، watchPatterns)، `YASNAFIT_BACKUP_DIR` + export `dataDir/backupDir` در `src/database.js`، هم‌راستاسازی چرخش ۱۰ نسخه با همان مسیر در `server.js`، بخش کامل §۹ «استقرار روی Railway» در `DEPLOYMENT.md` (§۹.۶ = روش CLI)، و گاردهای جدید در `tests/deployment-hardening-regression.js`. **Task 18b (همین جلسه):** ماژول `src/storage-paths.js` + کلید‌شدن پنج نقطهٔ hardcode (`database.js`, `upload-service.js`, `assessment-document-service.js`, `student-service.js`, `migrations.js`) تا DB/عکس‌ها/اسناد/بکاپ همه روی Volume بنشینند.
-3. **بازیابی سندباکس:** در میانهٔ جلسه `.git` سندباکس دوباره به `main` (`086f3e0`) برگشت و همه‌چیز untracked دیده می‌شد؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` (بدون force-push) به `4e89d10` برگردانده شد و بعد از آن `git status` تمیز بود. **روی ماشین مهدی هرگز این کار تکرار نشود** — آنجا `git pull --ff-only`.
+1. **هم‌زمان‌سازی شروع جلسه (`ef1be5a`):** شاخهٔ `arena/01a066e6-yasnafit` از `main` = `50aaa53` (merge PR #2)؛ دو کامیت docs پایانی جلسهٔ قبل cherry-pick شد (`b405fa6`, `cc6cd25`) ⇒ درخت = tip شاخهٔ قبلی؛ حافظه با واقعیت جدید به‌روز شد؛ Railway از بیرون دوباره تأیید شد (`0.9.1` زنده).
+2. **Task 22 — پشتیبانی Volume برای عکس‌های حرکات (`e60d3eb`):** درخواست دقیق مالک (فقط عکس‌ها). `mediaDir` (= `YASNAFIT_MEDIA_DIR` || `<dataDir>/media`)، `exerciseImagesDir` (= `<mediaDir>/images/exercises/imported`) و `ensureMediaDirs()` (۰۷۰۰) به `src/storage-paths.js` اضافه شد و در boot صدا زده می‌شود. در `server.js`: هندلر `/api/exercise-image/{id}` بعد از ریپو، Volume را هم می‌خواند (پروب مستقیم O(1) برای `{id}.png|jpg|jpeg|gif|webp` + جست‌وجوی بر اساس `original_id`؛ ترتیب: ریپو → Volume → organized → public؛ گارد مرکزی `allowedImageRoot`)؛ مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` دو پروب Volume گرفتند — **فقط برای پسوندهای تصویری**؛ مسیر ویدیو دست‌نخورده (۴۰۴ دقیق). لاگ boot: `[Media] تصاویر حرکات: N فایل (Volume: X | ریپو: Y) · ریشه: …` + هشدار وقتی صفر است.
+3. **مستندات:** `DEPLOYMENT.md` §۹.۱۰ (محل، انتقال، راستی‌آزمایی)؛ مدخل Task 22 در `docs/project-tracking/CHANGELOG.md`؛ **KI-015** در `KNOWN-ISSUES.md` (FIXED)؛ به‌روزرسانی همین فایل.
+4. **تخطئهٔ شعبه:** درخواست مالک «شاخهٔ جدید arena/media-volume-support» بود؛ جلسه به شاخهٔ ثابت `arena/01a066e6-yasnafit` گره خورده، پس کار روی همان انجام و به مالک توضیح داده شد — PR به `main`.
 
 ### What changed
-`railway.json` (جدید)، `src/storage-paths.js` (جدید)، `src/database.js`، `src/upload-service.js`، `src/assessment-document-service.js`، `src/student-service.js`، `src/migrations.js`، `server.js`، `DEPLOYMENT.md`، `tests/deployment-hardening-regression.js`، `mahdi hellp.md`، `docs/project-tracking/CHANGELOG.md` (Task 18 و 18b).
-`railway.json` (جدید)، `src/database.js`، `server.js`، `DEPLOYMENT.md`، `tests/deployment-hardening-regression.js`، `mahdi hellp.md`.
+`src/storage-paths.js`، `server.js`، `tests/deployment-hardening-regression.js` (۸ گارد جدید)، `DEPLOYMENT.md`، `docs/project-tracking/CHANGELOG.md`، `docs/project-tracking/KNOWN-ISSUES.md`، `mahdi hellp.md`.
 
 ### What was tested
-`npm test` = **۱۸/۱۸** ✅ (دو بار: بعد Task 18 و بعد Task 18b) • `npm run test:e2e` ✅ • `npm run test:deployment` = `railway_config: true` ✅ • شبیه‌سازی محیط Railway: `NODE_ENV=production YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=1` → healthcheck 200 با بدنهٔ حداقلی، `Set-Cookie … ; Secure` روی چلنج لاگین، `/api/test/reset-rate-limit` → 404، `/api/build` → 401، نوشتن بکاپ در مسیر Volume، و `data/`+`data/backups` با `drwx------` ✅ • **شبیه‌سازی Volume با مسیر دلخواه:** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume ✅ و بدون env هم دقیقاً همان مسیرهای قبلی حفظ شد ✅
+`node --check` هر ۳ فایل کد ✅ • `npm test` = **۱۸/۱۸ ✅** (بعد از همهٔ تغییرات کد و مستندات) • **جهش‌سنجی گارد جدید:** حذف ارجاع Volume در `server.js` ⇒ MUTANT_EXIT=1؛ بازگردانی ⇒ 0 ✅ • **تست زنده با Volume ساختگی** (`RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-media` + `4.png` و `2707.jpg`): لاگ `[Media] تصاویر حرکات: 2 فایل (Volume: 2 | ریپو: 0)` ✅ • `GET /api/exercise-image/4` → ۲۰۰ `image/png` (از Volume) ✅ • `/api/exercise-image/2707` → ۲۰۰ `image/jpeg` ✅ • id ناموجود → ۲۰۰ blank svg ✅ • `GET /assets/images/exercises/imported/4.png` → ۲۰۰ `image/png` (Volume) ✅ • `GET /files/exercise/videos/4.mp4` → ۴۰۴ ✅ • seed ۲۷۰۷ حرکت روی همان Volume ✅ • رفتار لوکال بدون env دست‌نخورده (ریپو اول) ✅
 
 ### What passed
 همهٔ موارد بالا.
 
 ### What failed
-* **تقریباً فاجعه:** هنگام افزودن بلوک تست، به‌دلیل anchor اشتباه، محتوای `tests/deployment-hardening-regression.js` با یک blob موقت بازنویسی شد. چون فایل در commit قبلی (`4e89d10`) بود، با `git checkout -- tests/deployment-hardening-regression.js` کامل بازیابی و سپس درست اصلاح شد (نتیجه: تست سبز). **درس:** برای درج بلوک در تست‌ها از anchor انتهای فایل (`rindex`) استفاده کن و بعد از هر بازنویسی `node --check` بگیر.
-* دو ادعا در متن پیش‌نویس DEPLOYMENT غلط بود و اصلاح شد: (۱) «لانچر IP شبکه را چاپ می‌کند» — چاپ نمی‌کند؛ (۲) «`data-source/exercises_data.json` بیرون از git است» — در git **هست** (خطای خواندن ناشی از همان rewind سندباکس).
+هیچ تستی شکست نخورد. یک خطای گذرای ابزار هنگام یکی از ویرایش‌ها رخ داد که با retry برطرف شد. (یادآوری: سندباکس curl به اینترنت ندارد؛ بررسی‌های زندهٔ Railway با ابزار fetch انجام می‌شود.)
 
 ### What remains
-1. **اقدام مالک در داشبورد Railway یا CLI** (وصل repo → Attach Volume → Variables → Generate Domain → اولین حساب مربی) — §۶؛ دستورهای CLI در `DEPLOYMENT.md` §۹.۶.
-2. بعد از اولین deploy: لاگ build/رانتایم را ببینید؛ اگر Node قدیمی انتخاب شد `NIXPACKS_NODE_VERSION=22`؛ اگر `EACCES` روی Volume دیدید `RAILWAY_RUN_UID=0`.
-3. پاک کردن `YASNAFIT_ALLOW_REMOTE_SETUP` بعد از ساخت حساب مربی.
-4. انتقال داده: مسیر بی-ریسک `railway volume browse` (آپلود `data\yasnafit.db` داخل Volume) است — اگر ترجیح دادید از صفر شروع کنید، فقط seed حرکت‌ها خودکار انجام می‌شود.
-5. **انجام شد (۲۰۲۶-۰۹-۰۲):** `PR #2` با تأیید مهدی merge شد ⇒ `main` = `50aaa53` (اپ کامل). باقی‌مانده: `git pull --ff-only` روی ویندوز و سوییچ Branch سرویس Railway به `main`.
-6. §۱۱ `docs/project-tracking/PROJECT-CONTEXT.md` هنوز توکن قدیمی را «فعلی» می‌داند (اصلاح مستندات، بی‌اثر بر کد).
+1. **مالک:** merge PR مربوط به Task 22 → redeploy روی Railway → چک §۹.۱۰: `railway logs | grep Media` باید `Volume: 1888` نشان دهد و `curl https://yasnafit-production.up.railway.app/api/exercise-image/4` باید ۲۰۰ با `image/png|jpeg` برگرداند (نه `image/svg+xml`). اگر `Volume: 0` دیدید: mount path با محل آپلود ناسازگار است.
+2. مهدی در ویندوز: بلوک bat §17 (pull) + ری‌استارت لانچر + `Ctrl+Shift+R`.
+3. پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` (و `YASNAFIT_REVEAL_AUTHENTICATOR_KEY` اگر استفاده شده) پس از تست.
+4. §۱۱: اصلاح مستندات `PROJECT-CONTEXT.md` (احراز هویت قدیمی را «فعلی» می‌داند) هنوز OPEN است.
 
 ### Exact next step for the next Agent
-0. **وضعیت سندباکس:** در این جلسه سندباکس دوباره بازسازی شد و HEAD به `086f3e0` برگشت (و `data/` به‌عنوان مسیر gitignored پاک شد)؛ با `git fetch origin <branch>` + `git update-ref` + `git reset --hard FETCH_HEAD` برگردانده شد. اگر دوباره دیدید: همین کار را بکنید و **هرگز به مهدی پیشنهاد ندهید** (او فقط `git pull --ff-only`).
-2. اگر مهدی دوباره لاگ build فرستاد:
-1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + commit جدیدِ Task 18؛ اگر `086f3e0` دیدید، فقط در سندباکس طبق §۵ recovery کنید). 2. از مالک بخواهید خروجی داشبورد Railway (URL عمومی + لاگ build) را بدهد تا §۶ از `UNKNOWN` خارج شود و **تأیید کنید که داده بعد از یک redeploy باقی می‌ماند** (Volume). 3. اگر خواست انتقال داده: طراحی `POST /api/admin/restore` (auth مربی + `YASNAFIT_ALLOW_REMOTE_SETUP`-مانند یک گیت جدا، حجم محدود، audit) **قبل از کدنویسی تأیید بگیرید**. 4. پایان تسک: به‌روزرسانی §۵/§۶/§۱۰/§۱۲/§۱۳/§۱۴/§۱۵/§۱۶ + مدخل **Task 19** در `docs/project-tracking/CHANGELOG.md` + گزارش فارسی با بلوک `bat`.
+1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + docs(memory) ثبت Task 22 روی `e60d3eb`).
+2. اگر مالک گفت redeploy انجام شد: با fetch محتوایی `https://yasnafit-production.up.railway.app/api/exercise-image/4` را چک کن — انتظار `Content-Type: image/png|jpeg`؛ نتیجه را در §۶ و KI-015 و §۱۶ ثبت کن. اگر هنوز `image/svg+xml` بود، یعنی کد جدید deploy نشده یا عکس در مسیر Volume نیست.
+3. تسک بعدی را از مالک/TODO بگیر؛ مدخل بعدی changelog: **Task 23**. پایان هر تسک: به‌روزرسانی همین فایل + commit + گزارش فارسی با بلوک `bat` §17.
 
 ---
 
@@ -251,7 +251,13 @@
 
 | مسیر | دلیل | وضعیت |
 |---|---|---|
-| `mahdi hellp.md` | هم‌زمان‌سازی شروع جلسهٔ `arena/01a066e6-yasnafit` (۲۰۲۶-۰۹-۰۳)؛ با cherry-pick دو کامیت docs جلسهٔ قبل | committed این جلسه |
+| `src/storage-paths.js` | `mediaDir`/`exerciseImagesDir`/`ensureMediaDirs()` (Task 22) | committed `e60d3eb` |
+| `server.js` | خواندن Volume برای عکس‌های حرکات + لاگ boot `[Media]` (Task 22) | committed `e60d3eb` |
+| `tests/deployment-hardening-regression.js` | ۸ گارد media-volume (جهش‌سنجی‌شده) | committed `e60d3eb` |
+| `DEPLOYMENT.md` | §۹.۱۰ عکس‌های حرکات روی Volume | committed `e60d3eb` |
+| `docs/project-tracking/KNOWN-ISSUES.md` | KI-015 (FIXED) | committed `e60d3eb` |
+| `docs/project-tracking/CHANGELOG.md` | مدخل Task 22 | committed `e60d3eb` |
+| `mahdi hellp.md` | هم‌زمان‌سازی شروع جلسهٔ `arena/01a066e6-yasnafit` (۲۰۲۶-۰۹-۰۳) + ثبت Task 22 | committed این جلسه |
 | `src/request-security.js` | لایهٔ متمرکز هدرها/اعتماد به پروکسی/پیام خطا (Task 16) | committed `9be37bb` |
 | `public/boot.js` | جایگزین inline script صفحهٔ مربی | committed |
 | `server.js` | اعمال هدرها، گیت‌های `/api/health`+`/api/build`+reset-rate-limit، `listenHost`، `sendCaughtError`، ۴۰۴ `*.html`، setup لوپ‌بک | committed |
@@ -281,10 +287,10 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 | محیط | وضعیت | یادداشت |
 |---|---|---|
 | Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a066e6-yasnafit`) هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
-| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a066e6-yasnafit` = `cc6cd25` روی `main` = `50aaa53`؛ درخت = tip شاخهٔ قبلی (`git diff` خالی) |
-| Git / GitHub origin | **CURRENT** | `main` = `50aaa53` (اپ کامل — PR #2 merged)؛ `refs/heads/arena/01a066e6-yasnafit` = HEAD همین جلسه (push شده) |
+| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a066e6-yasnafit` = `e60d3eb` (Task 22) + docs(memory) این ثبت؛ روی `main` = `50aaa53` |
+| Git / GitHub origin | **CURRENT** | `main` = `50aaa53` (اپ کامل — PR #2 merged)؛ `arena/01a066e6-yasnafit` push است؛ **PR #3 (Task 22 → main) باز — merge با تأیید مالک** |
 | `main` | **`50aaa53` — اپ کامل روی main** | `package.json`/`server.js`/`railway.json`/`package-lock.json` روی `main` هستند ⇒ build روی `main` موفق است (KI-014 = FIXED) |
-| Railway | **LIVE (0.9.1)** | ۲۰۲۶-۰۹-۰۳ از بیرون دوباره تأیید شد (`/api/health` → 200؛ auth-status بدون تغییر)؛ کامیت deploy و وضعیت Volume از بیرون `UNKNOWN — needs verification` |
+| Railway | **LIVE (0.9.1) — Volume تأیید شد** | گزارش مالک ۲۰۲۶-۰۹-۰۳: ۱۸۸۸ عکس حرکت در `/app/data/media/images/exercises/imported` روی Volume است؛ کد فعلیِ deploy عکس‌ها را نمی‌خواند تا وقتی PR #3 merge + redeploy شود؛ بعدش چک §۹.۱۰ |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
