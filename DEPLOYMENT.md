@@ -199,7 +199,7 @@ npm test && sudo systemctl restart yasnafit
 
 ### ۹.۱ مراحل (حدود ۵ دقیقه)
 
-1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` و **شاخهٔ درست را انتخاب کنید** (تا PR #2 merge نشده، همان شاخهٔ `arena/…`؛ `main` فعلاً فقط `README.md` و `login-hero.png` دارد و **هیچ کدی در آن نیست** ⇒ build روی `main` حتماً می‌شکند، §۹.۷).
+1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` → **Branch: `main`**. از ۲۰۲۶-۰۹-۰۲ (`50aaa53`، merge PR #2) کل برنامه روی `main` است و `railway.json` + `package-lock.json` هم همان‌جا commit شده‌اند؛ اگر سرویس شما روی `arena/…` تنظیم شده، همان هم معتبر است (محتوا یکسان است) ولی برای deploy طولانی‌مدت `main` را انتخاب کنید.
 2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json`، `coach-authenticator.txt` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
 3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
 
@@ -268,7 +268,7 @@ railway logs --limit 80              # باید «Imported 2707 exercises…» �
 
 | چیزی که در لاگ می‌بینید | معنی دقیق | کار |
 |---|---|---|
-| `The app contents that Railpack analyzed contains: ./ ├── README.md └── login-hero.png` | سرویس **شاخهٔ `main`** را build می‌کند؛ `main` در این مخزن فقط یک مخزنِ تصویر/README است و `package.json` و `server.js` ندارد | Service → **Settings → Source → Branch** را روی `arena/01a0618b-yasnafit` (یا `main` بعد از merge PR #2) بگذارید و **Redeploy** |
+| `The app contents that Railpack analyzed contains: ./ ├── README.md └── login-hero.png` | سرویس **`main` خالی** را build می‌کرد (این وضعیت تا قبل از merge PR #2 یعنی ۲۰۲۶-۰۹-۰۲ وجود داشت و حالا برطرف شده)
 | `⚠ Script start.sh not found` + `✖ Railpack could not determine how to build the app` | همان مورد بالا: builder هیچ پروژه‌ای پیدا نکرده. روی شاخه‌های برنامه این خطا تکرار نمی‌شود، چون `railway.json` (همان‌جا commit شده) `builder: NIXPACKS` و `startCommand: node server.js` را دیکته می‌کند | شاخه را درست کنید؛ اگر خواستید از Railpack استفاده کنید، `package-lock.json` (که برای همین کار commit شده) و `startCommand` را چک کنید |
 | `Railpack could not determine how to build the app` ولی درخت، `package.json` دارد | builder روی Railpack قفل شده (تنظیم سرویس) و چیزی برای تشخیص Node پیدا نکرده | یا `builder` سرویس را روی **Nixpacks** بگذارید، یا بگذارید `railway.json` حاکم باشد (تنظیم دستی داشبورد بر config-as-code اولویت دارد) |
 | build با Node قدیمی / خطای syntax | نسخهٔ Node ایمیج | `NIXPACKS_NODE_VERSION=22` |
@@ -342,3 +342,14 @@ node server.js
 (سری‌تر از لانچر است ولی همان اثر را دارد؛ برای بازگرداندن، همان پنجره را ببندید و با لانچر عادی اجرا کنید.)
 
 ⚠️ **خطر:** تا وقتی این متغیر روی سرویس عمومی روشن است، هرکس رمز عبور مربی را دارد **بدون دومین عامل** وارد پنل تمام شاگردها می‌شود. آن را برای «همیشه» روشن نگذارید؛ اگر مشکلتان فقط گم‌شدن کلید است، §۹.۸ راه امن‌تری است (کلید را برمی‌دارید و 2FA سر جایش می‌ماند).
+
+### ۹.۱۰ عکس‌های حرکات روی Volume (از ۲۰۲۶-۰۹-۰۳ / Task 22)
+
+۱۸۸۸ عکس حرکت (≈۵۷MB) عمداً در git نیستند؛ روی Railway باید روی Volume باشند:
+* **محل دقیق:** `<dataDir>/media/images/exercises/imported/{ID}.png|jpg` — با Volume روی `/app/data` یعنی `/app/data/media/images/exercises/imported`. متغیر اختیاری `YASNAFIT_MEDIA_DIR` ریشهٔ `media` را جابه‌جا می‌کند (بدون آن، `<dataDir>/media`).
+* **انتقال فایل‌ها:** با `railway volume browse` (upload) یا `railway ssh`؛ ساختار پوشه‌ای بالا را دقیقاً حفظ کنید. **ویدیوها (حجم زیاد) طبق تصمیم مالک منتقل نمی‌شوند** و درخواست ویدیو روی Railway همچنان ۴۰۴ است.
+* **سرو شدن:** `/api/exercise-image/{id}` و مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` بعد از جست‌وجوی ریپو، Volume را هم می‌خوانند (اولویت با ریپو؛ نام `{id}.png|jpg|jpeg` و جست‌وجو بر اساس `original_id`؛ گارد `isSafePath` و رد `..`).
+* **راستی‌آزمایی پس از redeploy:**
+  1. `railway logs | grep Media` → باید `[Media] تصاویر حرکات: 1888 فایل (Volume: 1888 | ریپو: 0)` را نشان دهد.
+  2. `curl -I https://yasnafit-production.up.railway.app/api/exercise-image/4` → `200` با `Content-Type: image/png` یا `image/jpeg`.
+  3. اگر `Volume: 0` دیدید، mount path با محل آپلود ناسازگار است — فایل‌ها باید دقیقاً در `<mount>/media/images/exercises/imported` باشند.

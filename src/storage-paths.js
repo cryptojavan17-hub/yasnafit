@@ -7,6 +7,10 @@
 // root when present. YASNAFIT_DATA_DIR / YASNAFIT_BACKUP_DIR always win, and the fallback
 // is the repository layout used on desktops.
 //
+// Exercise images are public teaching material but far too large for git, so they follow
+// the same rule: YASNAFIT_MEDIA_DIR wins, otherwise <dataDir>/media (which is the volume
+// on a container and <repo>/data/media locally). Videos stay repo-side by owner decision.
+//
 // Note: private file rows store absolute paths, so the mount path of a volume that already
 // holds data must never be changed afterwards.
 const fs=require('node:fs');
@@ -30,6 +34,9 @@ const backupDir=resolveDir(process.env.YASNAFIT_BACKUP_DIR,defaultBackupDir,'YAS
 
 const assessmentsDir=path.join(dataDir,'assessments');
 const documentsDir=path.join(dataDir,'assessment-documents');
+// Bulk media (exercise images) lives beside the database so a container volume carries it.
+const mediaDir=resolveDir(process.env.YASNAFIT_MEDIA_DIR,path.join(dataDir,'media'),'YASNAFIT_MEDIA_DIR');
+const exerciseImagesDir=path.join(mediaDir,'images','exercises','imported');
 
 function ensurePrivateDir(dir){
   fs.mkdirSync(dir,{recursive:true,mode:0o700});
@@ -38,4 +45,13 @@ function ensurePrivateDir(dir){
   return dir;
 }
 
-module.exports={root,dataDir,backupDir,assessmentsDir,documentsDir,ensurePrivateDir};
+function ensureMediaDirs(){
+  // ensurePrivateDir already applies mode 0o700; levels are created one by one so every
+  // intermediate directory gets the private mode too.
+  for(const dir of [mediaDir,path.join(mediaDir,'images'),path.join(mediaDir,'images','exercises'),exerciseImagesDir]){
+    ensurePrivateDir(dir);
+  }
+  return {mediaDir,exerciseImagesDir};
+}
+
+module.exports={root,dataDir,backupDir,assessmentsDir,documentsDir,mediaDir,exerciseImagesDir,ensurePrivateDir,ensureMediaDirs};
