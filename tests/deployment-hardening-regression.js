@@ -213,6 +213,19 @@ for(const file of ['src/upload-service.js','src/assessment-document-service.js',
   const text=read(file)||'';
   assert.ok(!/'data'\s*,\s*'(assessments|assessment-documents)'/.test(text)&&!/, 'data',/.test(text),`${file} still hardcodes the repo data folder for student files`);
 }
+
+// exercise images must also be servable from the persistent volume (Railway): the media
+// root follows YASNAFIT_MEDIA_DIR and otherwise sits inside the data root, so an attached
+// volume carries it automatically
+assert.match(storagePaths,/YASNAFIT_MEDIA_DIR/,'the media root cannot be moved onto the mounted volume');
+assert.match(storagePaths,/exerciseImagesDir=path\.join\(mediaDir,'images','exercises','imported'\)/,'exercise images would not resolve to <media>/images/exercises/imported');
+assert.match(storagePaths,/function ensureMediaDirs\(\)/,'media directories are not ensured at boot');
+assert.match(serverSource,/storagePaths\.exerciseImagesDir/,'the exercise-image handler ignores the volume copy');
+assert.match(serverSource,/storagePaths\.ensureMediaDirs\(\)/,'the media tree is not created at boot');
+assert.match(serverSource,/\[Media\] تصاویر حرکات: /,'the boot log must report how many exercise images are visible');
+assert.match(serverSource,/isSafePath\(storagePaths\.mediaDir/,'volume media must stay behind the safe-path guard');
+// the repository copy stays the priority so local behaviour is unchanged
+assert.ok(serverSource.indexOf('path.join(importedRoot, base)')<serverSource.indexOf('path.join(volumeImportedRoot, base)'),'the repo copy must be preferred over the volume copy');
 console.log(JSON.stringify({
   ok:true,
   dead_files_removed:deleted.length,

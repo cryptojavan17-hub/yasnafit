@@ -93,6 +93,13 @@
 - **RESOLUTION:** `gh pr merge 2 --merge` (2026-09-02 19:40 UTC) ⇒ `main` برنامهٔ کامل، `railway.json` و `package-lock.json` را گرفت؛ برابری محتوا با `git diff origin/main HEAD` (خالی) تأیید شد.
 - **NEXT ACTION (مالک):** در سرویس Railway Branch را روی `main` بگذارید (یا همان شاخهٔ جلسه را نگه دارید)، Volume را وصل کنید (§۹.۱ بند ۲) و چک‌های §۹.۵ را اجرا کنید.
 
+## KI-015 | عکس‌های ۱۸۸۸ حرکت روی Railway سرو نمی‌شدند (کد فقط مسیر ریپو را می‌خواند)
+- **SEVERITY:** Medium (تجربهٔ بصری؛ placeholder سفید به‌جای عکس حرکت) • **STATUS:** **FIXED** (2026-09-03، Task 22)
+- **DESCRIPTION (گزارش مالک):** ۱۸۸۸ عکس حرکت (≈۵۷MB) روی Volume در `/app/data/media/images/exercises/imported/{ID}.png|jpg` قرار گرفته بود (`railway ssh … ls | wc -l` = 1888)، ولی سرو عکس فقط `public/assets/images/exercises/imported` و `data-source/` را می‌خواند؛ آن مسیر gitignored است، پس روی Railway همیشه `blank-white.svg` برمی‌گشت.
+- **RESOLUTION (Task 22):** `mediaDir`/`exerciseImagesDir` در `src/storage-paths.js` (با `YASNAFIT_MEDIA_DIR`؛ پیش‌فرض `<dataDir>/media` ⇒ روی Railway همان `/app/data/media`)؛ جست‌وجوی Volume در `/api/exercise-image/{id}` (پروب مستقیم `{id}.png|jpg|jpeg` + بر اساس `original_id`، اولویت با ریپو) و در مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` (فقط پسوندهای تصویری، با گارد `isSafePath`)؛ لاگ boot `[Media] تصاویر حرکات: N فایل (Volume: X | ریپو: Y)`. ویدیوها طبق تصمیم مالک repo-side می‌مانند (روی Railway ۴۰۴).
+- **FILES:** `src/storage-paths.js`, `server.js`, `tests/deployment-hardening-regression.js`, `DEPLOYMENT.md` (§۹.۱۰).
+- **NEXT ACTION (مالک):** merge PR + redeploy؛ سپس `railway logs | grep Media` باید `Volume: 1888` را نشان دهد و `curl /api/exercise-image/4` باید `image/png|jpeg` برگرداند.
+
 ---
 
 ## تاریخچه FIXED (نگه‌داشته‌شده)

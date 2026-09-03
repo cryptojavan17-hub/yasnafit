@@ -38,6 +38,7 @@ const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
 const requestSecurity = require('./src/request-security');
 const buildInfo = require('./src/build-info');
+const storagePaths = require('./src/storage-paths');
 if(requestSecurity.ALLOW_2FA_SKIP){
   console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
 }
@@ -62,6 +63,14 @@ if(coachBootstrap.setup_required){
   }
 }
 
+
+// Exercise images may live on the persistent volume (Railway); create the tree up front so
+// files dropped there out-of-band (railway volume browse/ssh) are served without extra setup.
+try{
+  storagePaths.ensureMediaDirs();
+}catch(error){
+  console.log('[Media] ⚠ ساخت پوشه‌های مدیا روی Volume ممکن نشد:',error.message);
+}
 
 // --- MIME Types ---
 const types = {
@@ -154,6 +163,18 @@ function isSafePath(base, target){
   const normalizedBase = path.resolve(base);
   const normalizedTarget = path.resolve(target);
   return normalizedTarget === normalizedBase || normalizedTarget.startsWith(normalizedBase + path.sep);
+}
+
+const exerciseImageExtensions=['.png','.jpg','.jpeg','.gif','.webp'];
+function countFlatImages(dir){
+  try{
+    if(!fs.existsSync(dir))return 0;
+    let count=0;
+    for(const name of fs.readdirSync(dir)){
+      if(exerciseImageExtensions.includes(path.extname(name).toLowerCase()))count++;
+    }
+    return count;
+  }catch(error){return 0;}
 }
 
 function isCoachAuthorized(req){
@@ -1067,8 +1088,20 @@ async function handleExercises(req,res,url){
     }
 
     const importedRoot = path.join(publicDir, 'assets', 'images', 'exercises', 'imported');
+    const volumeImportedRoot = storagePaths.exerciseImagesDir; // persistent volume copy (Railway)
     const organizedRoot = path.join(dataSourceDir, 'exercises_organized');
     const publicRoot = path.join(publicDir, 'assets', 'images', 'exercises');
+    // Serving is allowed from the repo, the seed folder, or the media volume — never elsewhere.
+    const allowedImageRoot = candidate => isSafePath(publicDir,candidate) || isSafePath(dataSourceDir,candidate) || isSafePath(storagePaths.mediaDir,candidate);
+    // Cheap O(1) probe for the flat "ID.ext" naming used by the 2707-movement import and the volume copy.
+    function findDirectImage(dir, id){
+      if(!dir || !fs.existsSync(dir)) return null;
+      for(const ext of exerciseImageExtensions){
+        const candidate = path.join(dir, id + ext);
+        if(isSafePath(dir, candidate) && fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+      }
+      return null;
+    }
 
     // 1. Check in database first to disambiguate internal ID vs original_id vs manual exercise
     const ex = one('SELECT id, original_id, image_path FROM exercises WHERE original_id=? OR id=? AND deleted_at IS NULL', sanitizedId, sanitizedId);
@@ -1078,11 +1111,12 @@ async function handleExercises(req,res,url){
         const base = path.basename(rel);
         const candidates = [
           path.join(importedRoot, base),
+          path.join(volumeImportedRoot, base),
           path.join(organizedRoot, rel),
           path.join(publicRoot, base)
         ];
         for(const c of candidates){
-          if(fs.existsSync(c) && (isSafePath(publicDir, c) || isSafePath(dataSourceDir, c))){
+          if(fs.existsSync(c) && allowedImageRoot(c)){
             const ext = path.extname(c).toLowerCase();
             res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
             return fs.createReadStream(c).pipe(res);
@@ -1091,10 +1125,13 @@ async function handleExercises(req,res,url){
       }
       if(ex.original_id){
         const origIdStr = String(ex.original_id);
-        let found = findByOriginalId(importedRoot, origIdStr)
+        let found = findDirectImage(importedRoot, origIdStr)
+                 || findDirectImage(volumeImportedRoot, origIdStr)
+                 || findByOriginalId(importedRoot, origIdStr)
+                 || findByOriginalId(volumeImportedRoot, origIdStr)
                  || findByOriginalId(organizedRoot, origIdStr)
                  || findByOriginalId(publicRoot, origIdStr);
-        if(found && fs.existsSync(found) && (isSafePath(publicDir, found) || isSafePath(dataSourceDir, found))){
+        if(found && fs.existsSync(found) && allowedImageRoot(found)){
           const ext = path.extname(found).toLowerCase();
           res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
           return fs.createReadStream(found).pipe(res);
@@ -1105,8 +1142,11 @@ async function handleExercises(req,res,url){
       return res.end(blankWhiteSvg);
     }
 
-    // 2. Direct lookup on disk for sanitizedId
-    let found = findByOriginalId(importedRoot, sanitizedId)
+    // 2. Direct lookup on disk for sanitizedId (repo first, then the volume copy)
+    let found = findDirectImage(importedRoot, sanitizedId)
+             || findDirectImage(volumeImportedRoot, sanitizedId)
+             || findByOriginalId(importedRoot, sanitizedId)
+             || findByOriginalId(volumeImportedRoot, sanitizedId)
              || findByOriginalId(organizedRoot, sanitizedId)
              || findByOriginalId(publicRoot, sanitizedId);
 
@@ -1121,7 +1161,7 @@ async function handleExercises(req,res,url){
       }
     }
 
-    if(found && fs.existsSync(found) && (isSafePath(publicDir, found) || isSafePath(dataSourceDir, found))){
+    if(found && fs.existsSync(found) && allowedImageRoot(found)){
       const ext = path.extname(found).toLowerCase();
       res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'public, max-age=86400'});
       return fs.createReadStream(found).pipe(res);
@@ -2692,6 +2732,9 @@ const server=http.createServer(async(req,res)=>{
         return res.end(JSON.stringify({error:'Invalid filename'}));
       }
 
+      // Exercise images may also live on the persistent volume (Railway). Videos stay
+      // repo-side by owner decision, so volume probing is limited to image extensions.
+      const volumeImagesRoot = storagePaths.exerciseImagesDir;
       const possiblePaths = [
         path.join(dataSourceDir, 'exercises_organized', relative),
         path.join(publicDir, 'assets', 'images', 'exercises', 'imported', basename),
@@ -2699,9 +2742,13 @@ const server=http.createServer(async(req,res)=>{
         path.join(publicDir, 'assets', 'images', 'exercises', 'imported', relative),
         path.join(publicDir, 'assets', 'videos', 'exercises', basename),
       ];
+      if(exerciseImageExtensions.includes(path.extname(basename).toLowerCase())){
+        possiblePaths.push(path.join(volumeImagesRoot, basename));
+        possiblePaths.push(path.join(volumeImagesRoot, relative));
+      }
 
       for(const fp of possiblePaths){
-        if(!isSafePath(publicDir, fp) && !isSafePath(dataSourceDir, fp)) continue;
+        if(!isSafePath(publicDir, fp) && !isSafePath(dataSourceDir, fp) && !isSafePath(storagePaths.mediaDir, fp)) continue;
         if(fs.existsSync(fp) && fs.statSync(fp).isFile()){
           const ext = path.extname(fp).toLowerCase();
           if(!types[ext]) continue; // only allow known types
@@ -2790,6 +2837,11 @@ server.listen(port,listenHost,()=>{
   if(!requestSecurity.TRUST_PROXY) console.log('[Security] X-Forwarded-* headers are ignored (set YASNAFIT_TRUST_PROXY=1 behind a reverse proxy).');
   if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
+  const repoImageCount = countFlatImages(path.join(publicDir,'assets','images','exercises','imported'));
+  const volumeImageCount = countFlatImages(storagePaths.exerciseImagesDir);
+  const mediaSummary = `[Media] تصاویر حرکات: ${repoImageCount+volumeImageCount} فایل (Volume: ${volumeImageCount} | ریپو: ${repoImageCount}) · ریشه: ${storagePaths.exerciseImagesDir}`;
+  if(repoImageCount+volumeImageCount===0) console.log(`[Media] ⚠ هیچ تصویر حرکتی پیدا نشد؛ تا ایمپورت، placeholder سرو می‌شود. ${mediaSummary}`);
+  else console.log(mediaSummary);
   const build=buildInfo.getBuildInfo();
   console.log(`Build stamp: ${build.branch||'unknown branch'} @ ${build.commit||'no git'}${build.uncommitted?' (with local edits)':''} | students.js ${build.students_ui?build.students_ui.mtime:'missing'} | features ${Object.entries(build.markers).map(([name,ok])=>`${name}=${ok?'✓':'✗'}`).join(' ')}`);
   console.log(`Database schema version: ${(() => { try { return db.prepare('SELECT value FROM settings WHERE key=?').get('schema_version')?.value || 'unknown'; } catch(e){ return 'unknown'; } })()}`);

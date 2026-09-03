@@ -342,3 +342,14 @@ node server.js
 (سری‌تر از لانچر است ولی همان اثر را دارد؛ برای بازگرداندن، همان پنجره را ببندید و با لانچر عادی اجرا کنید.)
 
 ⚠️ **خطر:** تا وقتی این متغیر روی سرویس عمومی روشن است، هرکس رمز عبور مربی را دارد **بدون دومین عامل** وارد پنل تمام شاگردها می‌شود. آن را برای «همیشه» روشن نگذارید؛ اگر مشکلتان فقط گم‌شدن کلید است، §۹.۸ راه امن‌تری است (کلید را برمی‌دارید و 2FA سر جایش می‌ماند).
+
+### ۹.۱۰ عکس‌های حرکات روی Volume (از ۲۰۲۶-۰۹-۰۳ / Task 22)
+
+۱۸۸۸ عکس حرکت (≈۵۷MB) عمداً در git نیستند؛ روی Railway باید روی Volume باشند:
+* **محل دقیق:** `<dataDir>/media/images/exercises/imported/{ID}.png|jpg` — با Volume روی `/app/data` یعنی `/app/data/media/images/exercises/imported`. متغیر اختیاری `YASNAFIT_MEDIA_DIR` ریشهٔ `media` را جابه‌جا می‌کند (بدون آن، `<dataDir>/media`).
+* **انتقال فایل‌ها:** با `railway volume browse` (upload) یا `railway ssh`؛ ساختار پوشه‌ای بالا را دقیقاً حفظ کنید. **ویدیوها (حجم زیاد) طبق تصمیم مالک منتقل نمی‌شوند** و درخواست ویدیو روی Railway همچنان ۴۰۴ است.
+* **سرو شدن:** `/api/exercise-image/{id}` و مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` بعد از جست‌وجوی ریپو، Volume را هم می‌خوانند (اولویت با ریپو؛ نام `{id}.png|jpg|jpeg` و جست‌وجو بر اساس `original_id`؛ گارد `isSafePath` و رد `..`).
+* **راستی‌آزمایی پس از redeploy:**
+  1. `railway logs | grep Media` → باید `[Media] تصاویر حرکات: 1888 فایل (Volume: 1888 | ریپو: 0)` را نشان دهد.
+  2. `curl -I https://yasnafit-production.up.railway.app/api/exercise-image/4` → `200` با `Content-Type: image/png` یا `image/jpeg`.
+  3. اگر `Volume: 0` دیدید، mount path با محل آپلود ناسازگار است — فایل‌ها باید دقیقاً در `<mount>/media/images/exercises/imported` باشند.
