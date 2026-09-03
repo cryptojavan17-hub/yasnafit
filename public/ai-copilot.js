@@ -581,7 +581,7 @@ ${safetyText}
                   <div class="ai-preview-mov-row">
                     <div class="ai-preview-mov-right">
                       <div class="ai-preview-mov-img">
-                        <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';">
+                        <img src="${esc(imgSrc)}" alt="" data-fallback="/blank-white.svg">
                       </div>
                       <div class="ai-preview-mov-info">
                         <div class="ai-preview-mov-name-group">
@@ -620,7 +620,7 @@ ${safetyText}
             <div class="ai-preview-mov-row">
               <div class="ai-preview-mov-right">
                 <div class="ai-preview-mov-img">
-                  <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';">
+                  <img src="${esc(imgSrc)}" alt="" data-fallback="/blank-white.svg">
                 </div>
                 <div class="ai-preview-mov-info">
                   <div class="ai-preview-mov-name-group">

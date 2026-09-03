@@ -779,7 +779,7 @@
       content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(internalStudentId)));button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(caseNumber);}catch(error){alert(error.message);}});
       content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(caseNumber)}catch(error){alert(error.message)}};
-    }catch(error){content.innerHTML=`<section class="panel error"><h2>پرونده شاگرد پیدا نشد</h2><p>${esc(error.message)}</p><button class="secondary" onclick="location.href='/users-list'">بازگشت</button></section>`;}
+    }catch(error){content.innerHTML=`<section class="panel error"><h2>پرونده شاگرد پیدا نشد</h2><p>${esc(error.message)}</p><button class="secondary" data-back-users>بازگشت</button></section>`;content.querySelector('[data-back-users]').onclick=()=>{location.href='/users-list';};}
   }
 
   window.renderStudentsPage=async(label,route)=>{

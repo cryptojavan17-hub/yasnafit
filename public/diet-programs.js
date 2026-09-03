@@ -188,9 +188,10 @@
             <div class="empty-icon">🥗</div>
             <h3>هنوز برنامه غذایی در این بخش ثبت نشده است</h3>
             <p>یک برنامه غذایی جدید با ساختار هم‌تراز کالری، بالانس وعده‌ها و تحلیل هوش مصنوعی بسازید.</p>
-            <button type="button" class="btn btn-success" onclick="location.href='/programs/diet/form'">＋ ساخت برنامه غذایی</button>
+            <button type="button" class="btn btn-success" data-goto-diet-form>＋ ساخت برنامه غذایی</button>
           </div>
         `;
+        host.querySelector('[data-goto-diet-form]').onclick=()=>{ location.href='/programs/diet/form'; };
         return;
       }
 
@@ -999,7 +1000,7 @@ ${cautions.map(c => `• ${c}`).join('\n')}`;
           </div>
           <footer class="ai-modal-footer">
             <button type="button" class="secondary" id="closeDietViewModalBtn">بستن</button>
-            <button type="button" class="btn btn-primary" onclick="location.href='/programs/diet/form?id=${prog.id}'">✏️ ویرایش برنامه</button>
+            <button type="button" class="btn btn-primary" data-edit-diet="${prog.id}">✏️ ویرایش برنامه</button>
           </footer>
         </div>
       `;
@@ -1015,6 +1016,8 @@ ${cautions.map(c => `• ${c}`).join('\n')}`;
       };
       document.getElementById('closeDietViewModalX').onclick = close;
       document.getElementById('closeDietViewModalBtn').onclick = close;
+      const editDietBtn=document.querySelector('[data-edit-diet]');
+      if(editDietBtn)editDietBtn.onclick=()=>{ location.href=`/programs/diet/form?id=${editDietBtn.dataset.editDiet}`; };
     } catch (err) {
       alert('خطا در بارگذاری برنامه: ' + err.message);
     }

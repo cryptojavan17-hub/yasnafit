@@ -175,7 +175,7 @@
             return `
               <div class="pdf-combo-row">
                 <div class="pdf-mov-img">
-                  <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+                  <img src="${esc(imgSrc)}" alt="" data-fallback="/blank-white.svg" loading="lazy">
                 </div>
                 <div class="pdf-mov-info">
                   <div class="pdf-mov-name-row">
@@ -235,7 +235,7 @@
           return `
             <div class="pdf-mov-row">
               <div class="pdf-mov-img">
-                <img src="${esc(imgSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+                <img src="${esc(imgSrc)}" alt="" data-fallback="/blank-white.svg" loading="lazy">
               </div>
               <div class="pdf-mov-info">
                 <div class="pdf-mov-name-row">

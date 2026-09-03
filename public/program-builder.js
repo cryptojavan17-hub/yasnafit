@@ -418,7 +418,7 @@
           <button class="btn btn-primary btn-small" id="btnAiGenerateDraft" type="button" style="font-weight:800;display:inline-flex;align-items:center;gap:5px;" title="ساخت خودکار پیش‌نویس برنامه تمرینی با هوش مصنوعی بر اساس ارزیابی شاگرد">
             🤖 تولید پیش‌نویس هوشمند
           </button>
-          <button class="btn btn-secondary btn-small" onclick="history.back()">← بازگشت</button>
+          <button class="btn btn-secondary btn-small" data-back>← بازگشت</button>
         </div>
       </div>
 
@@ -688,7 +688,7 @@
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-summary-row">
                       <div class="movement-image">
-                        <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/blank-white.svg'))}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+                        <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/blank-white.svg'))}" alt="" data-fallback="/blank-white.svg" loading="lazy">
                       </div>
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <div class="mov-name-group">
@@ -1313,7 +1313,7 @@
         <div class="mv-video">
           <b>آموزش حرکت</b>
           <div class="mv-player ${videoSrc ? '' : 'no-video'}" id="mvPlayerWrap">
-            ${videoSrc ? `<video id="mvVideo" controls playsinline preload="metadata" src="${esc(videoSrc)}" onerror="this.closest('.mv-player').classList.add('no-video')"></video>` : ''}
+            ${videoSrc ? `<video id="mvVideo" controls playsinline preload="metadata" src="${esc(videoSrc)}" data-fallback-class="no-video"></video>` : ''}
             <div class="mv-video-placeholder"><span>▶</span><small>ویدیو برای این حرکت ثبت نشده است</small></div>
           </div>
           <small class="mv-muted">پخش / توقف / فول‌اسکرین با کنترل‌های پلیر</small>
@@ -1468,7 +1468,7 @@
       const thumbSrc = (ex.image_path && ex.image_path.trim()) ? ex.image_path : (ex.original_id ? `/api/exercise-image/${ex.original_id}` : '/blank-white.svg');
       return `
       <div class="drawer-item" data-ex-id="${ex.id}" data-ex-orig="${ex.original_id||''}" data-ex-name="${esc(ex.name_fa)}" data-ex-img="${esc(ex.image_path||'')}">
-        <img src="${esc(thumbSrc)}" alt="" onerror="this.onerror=null; this.src='/blank-white.svg';" loading="lazy">
+        <img src="${esc(thumbSrc)}" alt="" data-fallback="/blank-white.svg" loading="lazy">
         <div>
           <b>${esc(ex.name_fa)}</b>
           <small>${esc(exerciseCategories.find(category=>category.id===ex.category_id)?.name||ex.category_id)} • ${ex.location==='gym'?'باشگاه':ex.location==='home'?'منزل':'همه محل‌ها'}${ex.equipment?` • ${esc(ex.equipment)}`:''}</small>
@@ -1522,9 +1522,12 @@
         <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
           <b style="font-size:12px">${esc(p.title)}</b><br>
           <small style="color:var(--text-muted)">${esc(p.start_date||'')} - ${p.program_data?.days?.length||0} روز</small><br>
-          <button class="btn btn-secondary btn-small" onclick="window.loadProgramToCurrent(${p.id})">بارگزاری</button>
+          <button class="btn btn-secondary btn-small" data-load-prog="${p.id}">بارگزاری</button>
         </div>
       `).join('');
+      host.querySelectorAll('[data-load-prog]').forEach(b=>{
+        b.onclick=()=>{ window.loadProgramToCurrent(Number(b.dataset.loadProg)); };
+      });
     } catch(e){}
   }
 
@@ -1655,6 +1658,8 @@
     };
     document.getElementById('btnSave').onclick=()=> saveProgram(false);
     document.getElementById('btnSaveReturn').onclick=()=> saveProgram(true);
+    const backToPrograms=document.querySelector('[data-back]');
+    if(backToPrograms)backToPrograms.onclick=()=>history.back();
     document.getElementById('btnAssign').onclick=async()=>{
       const studentId = document.getElementById('progStudent').value;
       if(!studentId && !currentProgram.student_id) return alert('لطفاً ابتدا شاگرد مورد نظر را در بخش مشخصات برنامه انتخاب کنید.');
@@ -1979,7 +1984,8 @@
       const list=await api('/api/training-programs');
       const host=document.getElementById('progList');
       if(list.length===0){
-        host.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><h3>هنوز برنامه‌ای ساخته نشده</h3><p>یک برنامه تمرینی جدید با ساختار روز → سیستم → حرکت → ست بسازید (نسخه 2، با هش‌ها)</p><button class="btn btn-primary" onclick="location.href='/programs/exercise/form'">＋ ساخت اولین برنامه</button></div>`;
+        host.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><h3>هنوز برنامه‌ای ساخته نشده</h3><p>یک برنامه تمرینی جدید با ساختار روز → سیستم → حرکت → ست بسازید (نسخه 2، با هش‌ها)</p><button class="btn btn-primary" data-goto-form>＋ ساخت اولین برنامه</button></div>`;
+        host.querySelector('[data-goto-form]').onclick=()=>{ location.href='/programs/exercise/form'; };
         return;
       }
       host.innerHTML = list.map(p=>{
@@ -2001,7 +2007,7 @@
             <span>🔑 ${esc(fa(p.status||'DRAFT'))}</span>
           </div>
           <div class="program-actions">
-            <button class="btn btn-primary btn-small" onclick="location.href='/programs/exercise/form?id=${p.id}'">✏️ ویرایش</button>
+            <button class="btn btn-primary btn-small" data-edit="${p.id}">✏️ ویرایش</button>
             <button class="btn btn-secondary btn-small" data-preview="${p.id}">👁 JSON</button>
             <button class="btn btn-secondary btn-small" data-pdf="${p.id}">📄 PDF</button>
             <button class="btn btn-danger btn-small" data-del="${p.id}">🗑 حذف</button>
@@ -2009,6 +2015,9 @@
         </div>
         `;
       }).join('');
+      host.querySelectorAll('[data-edit]').forEach(b=>{
+        b.onclick=()=>{ location.href=`/programs/exercise/form?id=${b.dataset.edit}`; };
+      });
       host.querySelectorAll('[data-del]').forEach(b=>{
         b.onclick=async(e)=>{
           e.preventDefault();
