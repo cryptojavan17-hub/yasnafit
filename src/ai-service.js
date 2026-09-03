@@ -1087,6 +1087,28 @@ async function chatCompletion(db, options = {}) {
 // ==========================================
 // High-Level Automated Program Generation
 // ==========================================
+// Task 24: ردیف گذرایی که فقط برای استخراج محتوای تولیدشده ساخته شده است باید همیشه
+// حذف شود تا هیچ‌وقت به‌صورت «کارت تکراری» دیده نشود — حتی وقتی مراحل بعدی خطا می‌دهند.
+function discardGeneratedProgramRow(db, programId){
+  try {
+    db.exec('BEGIN');
+    try {
+      db.prepare('DELETE FROM movement_sets WHERE movement_id IN (SELECT pm.id FROM program_movements pm JOIN exercise_systems es ON es.id=pm.system_id JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?)').run(programId);
+      db.prepare('DELETE FROM program_movements WHERE system_id IN (SELECT es.id FROM exercise_systems es JOIN program_days pd ON pd.id=es.day_id WHERE pd.program_id=?)').run(programId);
+      db.prepare('DELETE FROM exercise_systems WHERE day_id IN (SELECT id FROM program_days WHERE program_id=?)').run(programId);
+      db.prepare('DELETE FROM program_days WHERE program_id=?').run(programId);
+      db.prepare('DELETE FROM training_programs WHERE id=?').run(programId);
+      db.exec('COMMIT');
+    } catch (hardErr) {
+      try { db.exec('ROLLBACK'); } catch (_) { /* noop */ }
+      // fallback: همان soft-deleteای که DELETE /api/programs/:id انجام می‌دهد
+      db.prepare("UPDATE training_programs SET deleted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL").run(programId);
+    }
+  } catch (e) {
+    console.warn('[AI Service] Failed to discard transient generated program row:', e.message);
+  }
+}
+
 async function generateProgramFromAssessment(db, { studentId, assessmentId, programId, customInstructions = '' }) {
   if (!studentId && !assessmentId && !programId) {
     throw new Error('شناسه شاگرد یا ارزیابی الزامی است.');
@@ -1098,6 +1120,27 @@ async function generateProgramFromAssessment(db, { studentId, assessmentId, prog
   if (!sid && aid) {
     const ass = db.prepare('SELECT student_id FROM body_assessments WHERE id = ? AND deleted_at IS NULL').get(aid);
     if (ass) sid = ass.student_id;
+  }
+
+  // Task 24: وقتی برنامه‌ای در فرم باز است، «تولید پیش‌نویس هوشمند» باید محتوای همان
+  // ردیف را جایگزین کند (بدون ساخت کارت تکراری). ردیف برنامهٔ باز از همین ابتدا
+  // resolve و اعتبارسنجی می‌شود تا کل مسیر (AI و fallback قطعی) روی همان id کار کند.
+  let originalProgramId = null;
+  if (programId) {
+    const openProgram = db.prepare('SELECT * FROM training_programs WHERE id = ? AND deleted_at IS NULL').get(Number(programId));
+    if (!openProgram) {
+      const err = new Error('برنامهٔ باز در فرم پیدا نشد (حذف شده است)؛ تولید پیش‌نویس انجام نشد.');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (sid && openProgram.student_id && Number(openProgram.student_id) !== sid) {
+      const err = new Error('برنامهٔ باز متعلق به شاگرد دیگری است؛ جایگزینی محتوای آن مجاز نیست.');
+      err.statusCode = 400;
+      throw err;
+    }
+    originalProgramId = openProgram.id;
+    if (!sid && openProgram.student_id) sid = Number(openProgram.student_id);
+    if (!aid && openProgram.assessment_id) aid = Number(openProgram.assessment_id);
   }
 
   if (!sid) {
@@ -1526,6 +1569,61 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
     createdProgId = fallbackResult.id;
   }
 
+  // Task 24: وقتی برنامه‌ای باز بوده (originalProgramId)، محتوای تازه‌تولیدشده باید روی
+  // «همان ردیف» اعمال شود (UPDATE + جایگزینی روزها) و ردیف گذرا حذف گردد.
+  // INSERT فقط وقتی مجاز است که هیچ programIdای داده نشده باشد.
+  let replacedExistingProgram = false;
+  if (originalProgramId && createdProgId && Number(createdProgId) !== Number(originalProgramId)) {
+    const orphanBuilt = programService.buildProgramFromDB(db, createdProgId);
+    if (!orphanBuilt) {
+      discardGeneratedProgramRow(db, createdProgId);
+      const err = new Error('برنامهٔ تولیدشده برای جایگزینی در برنامهٔ باز پیدا نشد.');
+      err.statusCode = 500;
+      throw err;
+    }
+    // هش‌های ذخیره‌شده strip می‌شوند تا saveProgramToDB هش تازه و یکتا بسازد
+    // (کپی هش‌های زنده با UNIQUE day_hash برنامهٔ مبدأ تضاد پیدا می‌کند).
+    const replacementDays = (orphanBuilt.programData?.days || []).map((d, dIdx) => ({
+      day_number: d.day_number || (dIdx + 1),
+      focus: d.focus || '',
+      coach_note: d.coach_note || '',
+      is_rest_day: !!d.is_rest_day,
+      data: (d.data || []).map(sys => ({
+        exercise_system_id: sys.exercise_system_id || 1,
+        system_type: sys.system_type || 'normal',
+        movement_list: (sys.movement_list || []).map((m, movIdx) => ({
+          exercise_id: m.exercise_id,
+          original_exercise_id: m.original_exercise_id ?? null,
+          name: m.nameFa || m.name || '',
+          description: m.description || '',
+          image_path: m.image_path || null,
+          target_muscles: m.target_muscles || [],
+          order_index: m.order_index ?? movIdx,
+          sets: (m.sets || []).map(s => ({
+            type: s.type || s.set_type || 'REPEAT',
+            count: s.count ?? s.count_value,
+            weight: s.weight ?? null,
+            restSeconds: s.restSeconds ?? s.rest_seconds ?? 60
+          }))
+        }))
+      }))
+    }));
+    try {
+      programService.saveProgramToDB(db, originalProgramId, {
+        title: orphanBuilt.dbProgram.title,
+        coach_note: orphanBuilt.dbProgram.coach_note || '',
+        student_id: sid,
+        assessment_id: orphanBuilt.dbProgram.assessment_id != null ? Number(orphanBuilt.dbProgram.assessment_id) : undefined,
+        days: replacementDays
+      });
+      replacedExistingProgram = true;
+    } finally {
+      // در هر حالت (موفق یا خطا) ردیف گذرا نباید باقی بماند — نه کارت تکراری، نه ردیف سرگردان.
+      discardGeneratedProgramRow(db, createdProgId);
+    }
+    createdProgId = Number(originalProgramId);
+  }
+
   // Retrieve built program and construct comprehensive scientific rationale
   const builtProg = programService.buildProgramFromDB(db, createdProgId);
   const daysCount = builtProg?.programData?.days?.length || targetDays || 3;
@@ -1546,7 +1644,10 @@ ${customInstructions ? `- دستورالعمل مربی: ${customInstructions}` 
     studentInfo: rationaleReport.studentProfile,
     rationaleReport,
     initialChatMessage: rationaleReport.initialChatMessage,
-    message: 'برنامه تمرینی پیش‌نویس با موفقیت ساخته شد.',
+    replacedExisting: replacedExistingProgram,
+    message: replacedExistingProgram
+      ? 'محتوای برنامهٔ باز با نسخهٔ تولیدشده جایگزین شد (برنامهٔ جدیدی ساخته نشد).'
+      : 'برنامه تمرینی پیش‌نویس با موفقیت ساخته شد.',
     redirectUrl: `/programs/exercise/form?id=${createdProgId}`
   };
 }

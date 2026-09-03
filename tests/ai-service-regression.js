@@ -249,6 +249,61 @@ const publicDir = path.join(root, 'public');
   const nonNormalSystems = allSystems.filter(sysId => sysId !== 1);
   assert.ok(nonNormalSystems.length >= 2, `Program must contain diverse training systems like Superset/Triset/Dropset (got ${nonNormalSystems.length})`);
 
+  console.log('--- 4d. Task 24: Regeneration with programId must replace in place (no duplicate card) ---');
+  const countLivePrograms = () => db.prepare('SELECT COUNT(*) AS c FROM training_programs WHERE deleted_at IS NULL').get().c;
+  const countTotalPrograms = () => db.prepare('SELECT COUNT(*) AS c FROM training_programs').get().c;
+  const liveBefore = countLivePrograms();
+  const totalBefore = countTotalPrograms();
+  const openProgId = genResult.programId; // برنامهٔ تولیدشده در 4c = برنامهٔ باز در فرم
+
+  const regenResult = await aiService.generateProgramFromAssessment(db, {
+    studentId,
+    assessmentId,
+    programId: openProgId
+  });
+  assert.ok(regenResult.success, 'Regeneration with programId must succeed');
+  assert.equal(Number(regenResult.programId), Number(openProgId), 'Returned programId must stay the SAME row id (in-place replacement)');
+  assert.equal(regenResult.replacedExisting, true, 'Response must flag in-place replacement');
+  assert.equal(countLivePrograms(), liveBefore, 'Live training_programs row count must NOT increase when programId is provided (no duplicate card)');
+  assert.equal(countTotalPrograms(), totalBefore, 'No transient generated row may remain in training_programs (hard cleanup)');
+
+  // Same row, new content: normalized tables (source of truth) must reflect the generated days
+  const replacedBuilt = programService.buildProgramFromDB(db, openProgId);
+  assert.ok(replacedBuilt, 'Replaced program must still exist with the same id');
+  assert.ok(replacedBuilt.programData.days.length >= 3, 'Replaced program must contain the generated days');
+  assert.equal(replacedBuilt.dbProgram.status, 'DRAFT', 'Replaced program must remain DRAFT');
+  assert.equal(Number(replacedBuilt.dbProgram.student_id), Number(studentId), 'student linkage must stay on the same program');
+  assert.equal(Number(replacedBuilt.dbProgram.assessment_id), Number(assessmentId), 'assessment linkage must stay valid');
+  const replacedDayHashes = replacedBuilt.programData.days.map(d => d.day_hash);
+  assert.equal(new Set(replacedDayHashes).size, replacedDayHashes.length, 'Replaced days must have unique fresh day_hash values');
+  for (const day of replacedBuilt.programData.days) {
+    for (const sys of (day.data || [])) {
+      for (const mov of (sys.movement_list || [])) {
+        const exCheck = db.prepare('SELECT id FROM exercises WHERE id = ?').get(mov.exercise_id);
+        assert.ok(exCheck, `Replaced movement exercise_id ${mov.exercise_id} must exist in the 2700-exercise bank`);
+      }
+    }
+  }
+
+  // Repeat regeneration: same guarantees must hold on every press of the button
+  const regenResult2 = await aiService.generateProgramFromAssessment(db, { studentId, assessmentId, programId: openProgId });
+  assert.equal(Number(regenResult2.programId), Number(openProgId), 'Second regeneration must also replace the same row');
+  assert.equal(countLivePrograms(), liveBefore, 'Row count still unchanged after repeated regeneration');
+
+  // Without programId: legacy behavior — a NEW row is created (exactly one)
+  const freshGen = await aiService.generateProgramFromAssessment(db, { studentId, assessmentId });
+  assert.ok(Number(freshGen.programId) > 0 && Number(freshGen.programId) !== Number(openProgId), 'Without programId a new program must be created');
+  assert.equal(freshGen.replacedExisting, false, 'Fresh creation must not be flagged as replacement');
+  assert.equal(countLivePrograms(), liveBefore + 1, 'Row count must increase by exactly one when no programId is given');
+
+  // programId that does not exist: clear error, and NO row must be created
+  await assert.rejects(
+    () => aiService.generateProgramFromAssessment(db, { studentId, assessmentId, programId: 999999 }),
+    /پیدا نشد/,
+    'Generation with a missing open program must fail with a clear error'
+  );
+  assert.equal(countLivePrograms(), liveBefore + 1, 'A failed lookup must not create any program row');
+
   console.log('--- 5. Testing Settings Page UI & Design Tokens Compliance ---');
   const aiSettingsJs = fs.readFileSync(path.join(publicDir, 'ai-settings.js'), 'utf8');
   const aiSettingsCss = fs.readFileSync(path.join(publicDir, 'ai-settings.css'), 'utf8');

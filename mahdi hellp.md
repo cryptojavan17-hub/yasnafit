@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-03** (توسط Agent جلسهٔ `arena/01a0671e-yasnafit` — تأیید زندهٔ redeploy Task 22 + Task 23: رفع دکمه‌های مردهٔ CSP در بانک برنامه‌ها).
+> آخرین به‌روزرسانی: **2026-09-03** (توسط Agent جلسهٔ `arena/01a06884-yasnafit` — Task 24: رفع کارت تکراری «🤖 تولید پیش‌نویس هوشمند» + هم‌زمان‌سازی با merge PR #4).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -47,7 +47,7 @@
 * **GitHub:** `https://github.com/cryptojavan17-hub/yasnafit`
 * **مسیر لوکال (مهدی):** `C:\Users\MAHDI\Desktop\yasnafit-git`
 * **شاخه‌های مهم:** `main` — از ۲۰۲۶-۰۹-۰۲ **`50aaa53` = اپ کامل** (PR #2 merge شد؛ قبلاً فقط `README.md` + `login-hero.png` بود، و آن تصویر با `R100` به `public/login-hero.png` منتقل شد). `086f3e0` («Add exact login hero image - do not change face») پدر آن است
-* **شاخهٔ کاری جلسه:** `arena/01a0671e-yasnafit` (از `main` = `8354a68` = merge PR #3 ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. شاخه‌های قبلی (`arena/01a066e6-yasnafit` با tip `6e79fd9`، و `arena/01a0618b-yasnafit`) آرشیو هستند.
+* **شاخهٔ کاری جلسه:** `arena/01a06884-yasnafit` (از `main` = `23fbbf1` = merge PR #4 ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. شاخه‌های قبلی (`arena/01a0671e-yasnafit` با tip `58615d4` = Task 23، `arena/01a066e6-yasnafit` با tip `6e79fd9`) آرشیو هستند. نکته: جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` (همان 2026-09-03) هیچ کامیت/pushای نداشت و کارش از دست رفت — Task 24 در جلسهٔ فعلی از نو ساخته شد.
 * **مستندات ریشه (حذفشان ممنوع):** `README.md`, `ARCHITECTURE.md`, `DATABASE_SCHEMA.md`, `CHANGELOG.md` (محصولی/نسخه‌ها), `EXERCISE_MANAGEMENT.md`, **`DEPLOYMENT.md` (جدید)**.
 * **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…17)، `KNOWN-ISSUES.md` (KI-001…KI-013)، `TODO.md` (T-01…T-16)، `TECHNICAL-DECISIONS.md` (TD-*)، `archive/`.
 
@@ -57,15 +57,15 @@
 
 | مورد | وضعیت تأییدشده |
 |---|---|
-| شاخهٔ جاری | `arena/01a0671e-yasnafit` (از `main` = `8354a68` = merge PR #3 ساخته شد) |
-| آخرین کامیت | Task 23 (fix: دکمه‌های مردهٔ CSP) روی docs(memory) روی `8354a68` (merge PR #3 = Task 22 روی main) |
-| کامیت قبلی | `6e79fd9` (docs memory جلسهٔ قبل) • `e60d3eb` (Task 22) • `50aaa53` (merge PR #2) |
-| working tree | **تمیز** بعد از کامیت Task 23 (`git status --short` خالی) |
-| local vs origin | شاخهٔ جلسه به origin push شده؛ `main` = `8354a68` (PR #3 MERGED در 2026-09-03 11:24 UTC) |
-| PR | **#3 MERGED** (Task 22 → main) • #2 MERGED • #1 CLOSED • **PR #4 (Task 23 → main) — merge با تأیید مالک** |
-| وضعیت merge | محتوای PR #3 روی `main` است و deploy شده (تأیید با ریست uptime) |
-| اقدامات باز | (۱) مالک: لاگ `[Media]` و تست چشمی `/api/exercise-image/4` برای بستن کامل KI-015 (۲) merge PR #4 + Check for updates در Railway (۳) مهدی در ویندوز: بلوک bat §17 (۴) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۵) Auto-deploy Railway خاموش است — روشن‌کردن پیشنهاد شد |
-| هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و HEAD را به کامیتی قدیمی برگرداند. در آن صورت فقط در سندباکس: `git fetch -q origin arena/01a0671e-yasnafit` + `git update-ref refs/heads/arena/01a0671e-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
+| شاخهٔ جاری | `arena/01a06884-yasnafit` (از `main` = `23fbbf1` = merge PR #4 ساخته شد) |
+| آخرین کامیت | Task 24 (fix: جایگزینی درجای تولید پیش‌نویس هوشمند) + docs(memory) روی `23fbbf1` (merge PR #4 = Task 23 روی main) |
+| کامیت قبلی | کامیت‌های Task 23/docs جلسهٔ `arena/01a0671e-yasnafit` (tip `58615d4`) • `8354a68` (merge PR #3) • `e60d3eb` (Task 22) |
+| working tree | **تمیز** بعد از کامیت Task 24 (`git status --short` خالی) |
+| local vs origin | شاخهٔ جلسه به origin push شده؛ `main` = `23fbbf1` (PR #4 MERGED — Task 23) |
+| PR | **#4 MERGED** (Task 23 → main) • #3 MERGED • #2 MERGED • #1 CLOSED • **PR #5 (Task 24 → main) — merge فقط با تأیید مالک** |
+| وضعیت merge | محتوای PR #4 روی `main` است و با auto-deploy منتشر شده (ریست uptime تأیید — §۶) |
+| اقدامات باز | (۱) مالک: لاگ `[Media]` و تست چشمی `/api/exercise-image/4` برای بستن کامل KI-015 (۲) merge PR #5 (Task 24) — auto-deploy روشن است، بعد از merge فقط ریست uptime را با fetch تأیید کنید («Check for updates» لازم نیست) (۳) مهدی در ویندوز: بلوک bat §17 (۴) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۵) اصلاح `PROJECT-CONTEXT.md` (احراز هویت قدیمی) |
+| هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و HEAD را به کامیتی قدیمی برگرداند. در آن صورت فقط در سندباکس: `git fetch -q origin arena/01a06884-yasnafit` + `git update-ref refs/heads/arena/01a06884-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. ⚠️ درس جلسهٔ `arena/01a0686c`: کارِ کامیت‌نشده با قطع شدن چت از دست می‌رود — زودتر کامیت/push کنید. |
 
 ---
 
@@ -82,6 +82,8 @@
 * **وضعیت زنده (۲۰۲۶-۰۹-۰۲ ۲۲:۴x، تأییدشده با fetch از بیرون):** `https://yasnafit-production.up.railway.app` بالا است — `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":856}` (یعنی کد همین شاخه deploy شده) و `GET /api/coach/auth/status` → `setup_required:false، totp_required:false، totp_confirmed:true، mail_configured:false`. **Volume: تأیید نشده** (از بیرون قابل تشخیص نیست؛ با یک redeploy و نگاه‌کردن به شمارش رکوردها ثابت می‌شود).
 * **وضعیت زنده (۲۰۲۶-۰۹-۰۳، تأیید مجدد با fetch از بیرون، جلسهٔ `arena/01a066e6-yasnafit`):** سرویس همچنان بالاست — `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":53053}` (پروسه ~۱۴٫۷ ساعت پیش ری‌استارت شده؛ سازگار با auto-deploy پس از merge PR #2، ولی **کامیت deploy از بیرون تأییدنشده** — قاعدهٔ §6 پایین) و `GET /api/coach/auth/status` → `setup_required:false، totp_confirmed:true، mail_configured:false` (بدون تغییر نسبت به دیروز؛ `mail_email`/`mail_host` در پاسخ هست ولی `mail_configured:false`).
 * **وضعیت زنده (۲۰۲۶-۰۹-۰۳، جلسهٔ `arena/01a0671e-yasnafit`):** قبل از ظهر: uptime هنوز ~۵۷هزار (پروسهٔ دیشب ۲۰:۱۲ UTC) چون **Auto-deploy خاموش بود** و merge PR #3 (11:24 UTC) منتشر نشده بود؛ اسکرین‌شات مالک از Settings این را تأیید کرد («Auto deploy is disabled»، Branch = `main`). مالک «Check for updates/Deploy latest» زد ⇒ **~۱۳:۰۴ UTC پروسه ری‌استارت شد** (`uptime: 915` در 13:19 UTC، `version: 0.9.1`) — یعنی کد Task 22 (merge PR #3 = `8354a68`) الان روی production اجرا می‌شود. **هنوز باز:** لاگ `[Media]` (انتظار `Volume: 1888 | ریپو: 0`) و تست چشمی `/api/exercise-image/4` (عکس واقعی نه مربع سفید) — KI-015 تا این دو مورد سبز شود بسته نمی‌شود. نکتهٔ ابزار: fetch ابزار Agent روی هر پاسخ تصویری (حتی SVG سالم `blank-white.svg`) خطای گمراه‌کنندهٔ HTTP 500 می‌دهد ⇒ تشخیص content-type تصویر فقط با لاگ/مرورگر مالک.
+* **Auto-deploy روشن شد (۲۰۲۶-۰۹-۰۳ عصر — از جلسهٔ `arena/01a0671e-yasnafit` به بعد):** مالک Auto-deploy را روی Branch = `main` روشن کرد ⇒ بعد از هر merge، Railway خودش منتشر می‌کند و **«Check for updates» دیگر لازم نیست**؛ فقط بعد از merge با `GET /api/health` (fetch) ریست uptime را تأیید کنید. تأیید مالک بعد از merge PR #4 (Task 23): ریست uptime + خواندن کد جدید از خود `program-builder.js` سرو‌شده روی production.
+* **وضعیت زنده (۲۰۲۶-۰۹-۰۳، جلسهٔ `arena/01a06884-yasnafit` — baseline قبل از merge PR #5):** `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":2999}` (پروسه ~۵۰ دقیقه قبل از fetch ری‌استارت شده — سازگار با auto-deploy پس از merge PR #4) ⇒ کد Task 23 روی production اجرا می‌شود.
 * **ماجرای «کد Google Authenticator کار نمی‌کند» (علت قطعی، از کد):** کلید TOTP در دیتابیس همان سرور است (`coaches.totp_secret`) و `setupCoach` آن را `NULL` می‌گذارد؛ در اولین restart، `ensureCoachAuthenticator()` یک **کلید تازه** می‌سازد، `totp_confirmed_at` را ست می‌کند و کلید را در `<mount>/coach-authenticator.txt` می‌نویسد ⇒ کلید قدیمیِ نسخهٔ لوکال روی Railway هیچ‌وقت قبول نمی‌شود. در UI هم هیچ‌وقت کلید نشان داده نمی‌شود (طراحی عمدی؛ مسیر HTTP برای نمایش/چرخش کلید وجود ندارد). راه‌حل‌ها در `DEPLOYMENT.md` §۹.۸: (۱) خواندن فایل از Volume با `railway ssh`/`railway volume browse`، (۲) `node scripts/provision-coach-totp.js --rotate` داخل کانتینر، (۳) اگر CLI ندارید: موقتاً `YASNAFIT_REVEAL_AUTHENTICATOR_KEY=1` و بعد از ورود پاکش کنید. ⚠️ اعداد قفل: `MAX_OTP_FAILURES=3` ⇒ `AUTH_LOCKED` به مدت `LOCK_MS=15 دقیقه`؛ عمر چلنج `OTP_TTL_MS=5 دقیقه`؛ کد یک‌بارمصرف (`totp_last_counter`)؛ تلورانس ساعت ±۳۰ ثانیه (`window=1`).
 * **Domain:** Settings → Networking → **Generate Domain** ⇒ `https://<name>.up.railway.app`.
 * **شبیه‌سازی Volume با مسیر دلخواه (2026-09-02، موفق):** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol node server.js` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume با مجوز `drwx------` و seed ۲۷۰۷ حرکت ✅. (e2e روی این حالت در مرحلهٔ provisioning مربی 409 می‌دهد، چون مسیر DB را hardcode به `data/` نگه می‌دارد — محدودیت harness، ذیل T-11.)
@@ -123,7 +125,7 @@
 ## 9. Important Project Rules (قواعد دائمی)
 
 **کاری/ابزاری**
-1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسه (`arena/01a066e6-yasnafit`). push فقط به همان شاخه.
+1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسهٔ جاری (فعلاً `arena/01a06884-yasnafit`). push فقط به همان شاخه.
 2. **دستکاری/بازنویسی تاریخچه و force-push ممنوع.** قبل از pull/reset/checkout/rebase اول `git status` و شاخه را چک کن؛ `git reset --hard` روی ماشین مهدی فقط با اجازهٔ صریح.
 3. هیچ داده/حرکت/شاگرد غیرواقعی (fake) ساخته نشود؛ حرکات فقط از دیتاست ۲۷۰۷تایی.
 4. فایل/رسانه خصوصی شاگرد هرگز از `public/` سرو نشود؛ ریشهٔ فایل‌ها با `isSafePath` محدود شود.
@@ -142,13 +144,14 @@
 15. روی سرور: `YASNAFIT_HOST=127.0.0.1` + پروکسی nginx با TLS؛ `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی ترافیک حتماً از پروکسی است؛ `NODE_ENV=production`؛ `YASNAFIT_COOKIE_SECURE=1` در HTTPS. جزئیات: `DEPLOYMENT.md`.
 
 **حافظهٔ جلسه (این فایل)**
-16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 23** (Task 22 = پشتیبانی Volume برای عکس‌های حرکات).
+16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 25** (Task 24 = رفع کارت تکراری «تولید پیش‌نویس هوشمند»).
 
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
-* **2026-09-03** — **Task 23 (جلسهٔ `arena/01a0671e-yasnafit` — رفع دکمه‌های مردهٔ CSP در بانک برنامه‌ها):** گزارش مالک: دکمهٔ «✏️ ویرایش» کار نمی‌کند و هر تغییر برنامه یک کارت جدید می‌سازد. ریشه: CSP `script-src 'self'` ویژگی‌های `onclick="…"` درون‌خطیِ تزریقی از `public/*.js` را بلاک می‌کند و گارد فقط `*.html` را اسکن می‌کرد؛ چون ویرایش مرده بود، تغییر برنامه همیشه از فرم خالی ⇒ POST ⇒ کارت جدید (منطق PUT سرور از اول درست بود).fix: ۹ دکمه به الگوی `data-*` + بایندینگ JS و ۱۱ fallback رسانه به listener سراسری capture (در `app.js` و `student-app.js`) تبدیل شد؛ گارد تست حالا `public/*.js` را هم اسکن می‌کند (جهش‌سنجی‌شده). `npm test` = ۱۸/۱۸.
+* **2026-09-03** — **Task 24 (جلسهٔ `arena/01a06884-yasnafit` — رفع کارت تکراری «🤖 تولید پیش‌نویس هوشمند»):** گزارش مالک: هر بار زدن دکمه یک برنامه/کارت جدید ساخته می‌شود حتی وقتی برنامه‌ای در فرم باز است. ریشه: `generateProgramFromAssessment` پارامتر `programId` را در ساخت استفاده نمی‌کرد و ابزار `create_draft_program` (و fallback قطعی) همیشه INSERT جدید می‌زدند. رفع: resolve/اعتبارسنجی ردیف برنامهٔ باز در ابتدای تابع (نبود ⇒ 404 بدون ساخت ردیف؛ شاگرد دیگر ⇒ 400)؛ بعد از تولید، اگر `originalProgramId` هست، محتوا با `saveProgramToDB` روی **همان ردیف** اعمال می‌شود (روزها در جداول نرمال‌شده جایگزین می‌شوند — منبع حقیقت — و JSON همگام می‌شود) و ردیف گذرا hard-delete می‌شود (fallback: soft-delete) — در هر سناریویی کارت تکراری باقی نمی‌ماند. هش‌ها هنگام مهاجرت strip می‌شوند (تضاد UNIQUE `day_hash` — ریشهٔ شکست تلاش قبلی). پاسخ API همان `programId` قبلی + `replacedExisting` را برمی‌گرداند تا چت کپیلوت با `update_draft_program` روی همان برنامه بماند. مسیر چت AI (`update_draft_program`) دست‌نخورده. گارد 4d در `test:ai` (بدون AI واقعی — BR-8) + جهش‌سنجی (mutant ⇒ exit 1). `npm test` = ۱۸/۱۸. **PR #5 باز — merge فقط با تأیید مالک.** نکته: نسخهٔ قبلی این کار در جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` کامیت/push نشد و با قطع شدن چت از دست رفت؛ در این جلسه از نو ساخته شد.
+* **2026-09-03** — **Task 23 (جلسهٔ `arena/01a0671e-yasnafit` — رفع دکمه‌های مردهٔ CSP در بانک برنامه‌ها):** گزارش مالک: دکمهٔ «✏️ ویرایش» کار نمی‌کند و هر تغییر برنامه یک کارت جدید می‌سازد. ریشه: CSP `script-src 'self'` ویژگی‌های `onclick="…"` درون‌خطیِ تزریقی از `public/*.js` را بلاک می‌کند و گارد فقط `*.html` را اسکن می‌کرد؛ چون ویرایش مرده بود، تغییر برنامه همیشه از فرم خالی ⇒ POST ⇒ کارت جدید (منطق PUT سرور از اول درست بود).fix: ۹ دکمه به الگوی `data-*` + بایندینگ JS و ۱۱ fallback رسانه به listener سراسری capture (در `app.js` و `student-app.js`) تبدیل شد؛ گارد تست حالا `public/*.js` را هم اسکن می‌کند (جهش‌سنجی‌شده). `npm test` = ۱۸/۱۸. **merge شد (PR #4) و با auto-deploy منتشر شد** — مالک خواندن کد جدید از `program-builder.js` سرو‌شده روی production را تأیید کرد.
 * **2026-09-03** — **تأیید زندهٔ انتشار Task 22 (همان جلسه):** تشخیص اینکه Auto-deploy خاموش است (اسکرین‌شات Settings مالک) → راهنمای Deploy latest → **ری‌استارت پروسه در ~۱۳:۰۴ UTC تأیید شد** (uptime از ~۵۷هزار به ۹۱۵ ریست؛ version 0.9.1) ⇒ کد merge PR #3 (`8354a68`) روی production اجرا می‌شود. لاگ `[Media]` و تست چشمی عکس هنوز از مالک نگرفته شده (KI-015 همچنان در انتظار تأیید نهایی).
 * **2026-09-03** — **Task 22 (`e60d3eb` — پشتیبانی Volume برای عکس‌های حرکات):** درخواست مستقیم مالک (۱۸۸۸ عکس روی `/app/data/media/images/exercises/imported`، فقط عکس نه ویدیو). `mediaDir`/`exerciseImagesDir`/`ensureMediaDirs()` (۰۷۰۰) در `src/storage-paths.js`؛ خواندن Volume در `/api/exercise-image/{id}` (پروب مستقیم `{id}.png|jpg|jpeg` + بر اساس `original_id`؛ اولویت ریپو) و در مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` (فقط پسوندهای تصویری، گارد `isSafePath`)؛ لاگ boot `[Media] تصاویر حرکات: N فایل (Volume: X | ریپو: Y)` + هشدار صفر؛ ویدیو repo-side (۴۰۴). ۸ گارد جدید (جهش‌سنجی‌شده)؛ `npm test` = ۱۸/۱۸؛ تست زنده با Volume ساختگی سبز؛ KI-015 = FIXED؛ `DEPLOYMENT.md` §۹.۱۰. PR باز شد — **merge با تأیید مالک**.
 * **2026-09-03** — **شروع جلسهٔ `arena/01a066e6-yasnafit` (هم‌زمان‌سازی، بدون تغییر کد):** شاخهٔ جدید از `main` = `50aaa53` ساخته شد؛ دو کامیت docs پایانی جلسهٔ قبل (`9102182` → `b405fa6` و `8f181b4` → `cc6cd25`) cherry-pick شدند ⇒ درخت دقیقاً = tip شاخهٔ قبلی. Railway دوباره از بیرون تأیید شد (`0.9.1` زنده، auth-status بدون تغییر — §6). حافظه (همین فایل: §4/§5/§6/§9/§12/§13/§15/§16/§17) با واقعیت جدید به‌روز شد.
@@ -208,47 +211,49 @@
 
 ## 13. Current Task
 
-* **عنوان (جلسهٔ جاری، ۲۰۲۶-۰۹-۰۳ — `arena/01a0671e-yasnafit`):** **Task 23 — رفع دکمه‌های مردهٔ CSP («✏️ ویرایش» بانک برنامه‌ها + کارت تکراری به‌ازای هر تغییر)** + راستی‌آزمایی انتشار Task 22 روی production.
-* **عنوان تسک قبلی:** Task 22 (پشتیبانی Volume عکس حرکات) — merge شد (PR #3) و deploy آن با ریست uptime تأیید شد.
-* **هدف:** دکمهٔ ویرایش کار کند و هر برنامه فقط یک کارت داشته باشد که تغییراتش در همان کارت ذخیره شود (PUT).
-* **فایل‌های مرتبط:** `public/program-builder.js`, `public/diet-programs.js`, `public/coach-submissions.js`, `public/students.js`, `public/exercises.js`, `public/student-app.js`, `public/app.js`, `public/ai-copilot.js`, `public/program-pdf.js`, `tests/deployment-hardening-regression.js`, `docs/project-tracking/CHANGELOG.md`.
-* **نتیجهٔ مورد انتظار:** `npm test` سبز + گارد جدید جهش‌سنجی‌شده + بعد از merge/redeploy، تأیید چشمی مالک در بانک برنامه‌ها.
-* **وضعیت نهایی:** کد + تست + مستندات انجام شد؛ **PR #4 به `main` باز است — merge با تأیید مالک**؛ بعد از merge: مالک در Railway «Check for updates» بزند و در بانک برنامه‌ها ویرایش/ذخیره را چشمی تست کند.
+* **عنوان (جلسهٔ جاری، 2026-09-03 — `arena/01a06884-yasnafit`):** **Task 24 — رفع کارت تکراری «🤖 تولید پیش‌نویس هوشمند» (جایگزینی درجا وقتی برنامه‌ای در فرم باز است)**.
+* **عنوان تسک قبلی:** Task 23 (رفع دکمه‌های مردهٔ CSP) — merge شد (PR #4) و انتشارش با auto-deploy/ریست uptime تأیید شد.
+* **هدف:** با باز بودن یک برنامه در فرم، «تولید پیش‌نویس هوشمند» باید محتوای **همان برنامه** را جایگزین کند (همان id بماند، ردیف جدید ساخته نشود)؛ INSERT فقط وقتی هیچ برنامه‌ای باز نیست. ادامهٔ چت کپیلوت هم روی همان برنامه بماند.
+* **فایل‌های مرتبط:** `src/ai-service.js` (فقط این سمت سرور تغییر کرد)، `src/program-service.js` (فقط خوانده شد — `saveProgramToDB`/`buildProgramFromDB` دست‌نخورده)، `public/ai-copilot.js` و `public/program-builder.js` (فقط راستی‌آزمایی شدند — از قبل درست `programId` می‌فرستند)، `tests/ai-service-regression.js` (گارد 4d)، `docs/project-tracking/CHANGELOG.md`، همین فایل.
+* **نتیجهٔ مورد انتظار:** `npm test` سبز (۱۸/۱۸) + گارد 4d جهش‌سنجی‌شده + بعد از merge/auto-deploy، تأیید چشمی مالک: چند بار زدن دکمه روی یک برنامهٔ باز فقط همان کارت را به‌روز کند.
+* **وضعیت نهایی:** کد + تست + مستندات انجام شد؛ **PR #5 به `main` باز است — merge فقط با تأیید مالک**؛ auto-deploy روشن است ⇒ بعد از merge فقط ریست uptime با `GET /api/health` (fetch) تأیید شود («Check for updates» لازم نیست).
 
 ---
 
 ## 14. Last Session Handoff
 
 ### What was done
-1. **راستی‌آزمایی انتشار Task 22:** با fetch زنده مشخص شد پروسهٔ قدیمی هنوز بالا بود (uptime ~۵۶–۵۷هزار = بوت ۲۰۲۶-۰۹-۰۲ ۲۰:۱۲ UTC در حالی که merge PR #3 ساعت 11:24 UTC بود)؛ اسکرین‌شات Settings مالک علت را قطعی کرد: **Auto deploy خاموش** (Branch = `main`). بعد از «Deploy latest» مالک، **ریست uptime تأیید شد** (`uptime: 915` در 13:19 UTC، `version: 0.9.1`) ⇒ کد Task 22 روی production اجرا می‌شود. برای مالک توضیح داده شد که دامین یکی است و مسیرها نقش‌ها را جدا می‌کنند (`/` مربی، `/student/login` شاگرد، `/join/<token>` دعوت) و چک «چه کسانی وارد شده‌اند» با دو دستور SELECT در تب Console Railway انجام می‌شود (جداول `coach_auth_events` و `student_sessions`).
-2. **Task 23 — رفع دکمه‌های مردهٔ CSP (گزارش مالک از بانک برنامه‌ها):** ریشهٔ واحد برای «ویرایش کار نمی‌کند» و «کارت جدید به‌ازای هر تغییر»: ویژگی‌های `onclick="…"` درون‌خطیِ تزریقی از `public/*.js` توسط CSP `script-src 'self'` بلاک می‌شوند و گارد فقط `*.html` را می‌دید. ۹ دکمه به `data-*` + بایندینگ JS تبدیل شد؛ ۱۱ `onerror` رسانه به listener سراسری capture-phase در `app.js`/`student-app.js` تبدیل شد (`data-fallback` / `data-fallback-class`)؛ گارد تست به اسکن `public/*.js` گسترش یافت (جهش‌سنجی: exit 1/0).
-3. **مستندات:** مدخل Task 23 در `docs/project-tracking/CHANGELOG.md`؛ به‌روزرسانی همین فایل (§4/§5/§6/§10/§13/§14/§15/§16/§17).
+1. **شروع جلسهٔ جدید `arena/01a06884-yasnafit` از `main` = `23fbbf1` (merge PR #4).** جلسهٔ قبل (`arena/01a0686c-yasnafit`) وسط Task 24 به‌خاطر طولانی شدن چت قطع شد و چون کامیت/push نکرده بود، کارش از دست رفت (بررسی: `grep originalProgramId src/ai-service.js` = صفر و شاخه‌اش روی origin هم نبود) ⇒ Task 24 از نو ساخته شد.
+2. **Task 24 — رفع کارت تکراری «تولید پیش‌نویس هوشمند»:** در `generateProgramFromAssessment` (src/ai-service.js): (الف) resolve/اعتبارسنجی ردیف باز از `programId` در ابتدای تابع (نبود ⇒ خطای 404 شفاف بدون ساخت ردیف؛ تعلق به شاگرد دیگر ⇒ 400؛ resolve `sid`/`aid` از ردیف برنامه وقتی پاس نشده‌اند). (ب) بعد از تعیین `createdProgId` در **هر دو مسیر** (AI با `create_draft_program` و fallback قطعی)، اگر `originalProgramId` هست: محتوا با `buildProgramFromDB` از ردیف گذرا خوانده، هش‌های روز/سیستم/حرکت/ست strip می‌شوند و با `saveProgramToDB` روی **همان ردیف اصلی** اعمال می‌شود (جایگزینی روزها در جداول نرمال‌شده = منبع حقیقت + همگام‌سازی JSON)؛ سپس ردیف گذرا با `discardGeneratedProgramRow` حذف hard می‌شود (fallback: همان soft-delete مسیر DELETE) — داخل `try/finally` تا حتی در خطا هم کارت تکراری نماند. (ج) پاسخ API همان `programId` قبلی + فلگ `replacedExisting` و پیام به‌روزرسانی برمی‌گرداند ⇒ `activeCopilotState.programId` در `ai-copilot.js` دست‌نخورده می‌ماند و ادامهٔ چت با `update_draft_program` روی همان برنامه کار می‌کند. مسیر چت AI دست نخورد؛ `program-service.js` هم تغییر نکرد. نکتهٔ فنی: ریشهٔ شکست تلاش قبلی (UNIQUE `day_hash`) کپی هش‌های زندهٔ ردیف گذرا بود — strip هش‌ها آن را قطعی حل می‌کند.
+3. **مستندات:** مدخل Task 24 در `docs/project-tracking/CHANGELOG.md`؛ به‌روزرسانی همین فایل (§4/§5/§9/§10/§13/§14/§15/§16/§17).
 
 ### What changed
-`public/program-builder.js`, `public/diet-programs.js`, `public/coach-submissions.js`, `public/students.js`, `public/exercises.js`, `public/student-app.js`, `public/app.js`, `public/ai-copilot.js`, `public/program-pdf.js`, `tests/deployment-hardening-regression.js`, `docs/project-tracking/CHANGELOG.md`, `mahdi hellp.md`.
+`src/ai-service.js` (+۱۰۳ خط: resolve برنامهٔ باز، `discardGeneratedProgramRow`، بلوک جایگزینی درجا، پیام/فلگ پاسخ)، `tests/ai-service-regression.js` (+۵۵ خط: بخش 4d)، `docs/project-tracking/CHANGELOG.md`، `mahdi hellp.md`. (سمت فرانت هیچ تغییری لازم نداشت.)
 
 ### What was tested
-`node --check` ۱۱ فایل ✅ • `npm test` = **۱۸/۱۸ ✅** (سه بار اجرا، exit 0) • **جهش‌سنجی گارد جدید:** افزودن ` onclick="…"` به program-builder ⇒ exit 1؛ بازگردانی ⇒ exit 0 ✅ • grep نهایی: صفر هندلر صفحتی باقی‌مانده در `public/*.js` ✅ • تشخیص ابزار fetch روی پاسخ تصویری مستند شد (خطای HTTP 500 گمراه‌کننده؛ حتی روی SVG سالم) ✅
+`node --check` ۲ فایل ✅ • baseline `npm test` قبل از تغییر = ۱۸/۱۸ ✅ • بعد از تغییر `npm run test:ai` سبز (مسیر fallback قطعی، بدون AI واقعی — BR-8) ✅ • `npm test` کامل = **۱۸/۱۸ ✅ (exit 0)** • **جهش‌سنجی:** غیرفعال‌کردن شرط بلوک جایگزینی (`if (false && …)`) ⇒ `test:ai` exit 1 دقیقاً روی «Returned programId must stay the SAME row id»؛ بازگردانی ⇒ exit 0 ✅ • fetch زندهٔ `/api/health` → `{"ok":true,"version":"0.9.1","uptime":2999}` (baseline قبل از merge) ✅
 
 ### What passed
-همهٔ موارد بالا + تأیید زندهٔ redeploy (ریست uptime).
+همهٔ موارد بالا؛ working tree تمیز؛ کامیت روی شاخهٔ جلسه + push + **PR #5 باز**.
 
 ### What failed
-هیچ تستی شکست نخورد. دو نکتهٔ عملی: (۱) curl سندباکس به اینترنت دسترسی ندارد (SSL_ERROR_SYSCALL) — بررسی زنده فقط با ابزار fetch؛ (۲) ویرایش fuzzy یک‌بار دو بولت §۶ را ادغام کرد که بلافاصله جداسازی شد.
+- کار جلسهٔ `arena/01a0686c-yasnafit` (همان Task 24) به‌دلیل کامیت/push نکردن با قطع شدن چت از دست رفت — درس: زودتر کامیت/push شود.
+- (تجربهٔ تکرارشدهٔ جلسات قبل: ابزار `edit_file` فازی گاهی بلاک‌های مشابه را اشتباه می‌گیرد — این بار همهٔ ویرایش‌ها با anchorهای یکتا و راستی‌آزمایی grep/تست انجام شد.)
 
 ### What remains
-1. **مالک:** لاگ `[Media]` (Railway → Logs → جست‌وجوی Media؛ انتظار `Volume: 1888 | ریپو: 0`) و باز کردن `/api/exercise-image/4` در مرورگر (عکس واقعی) ⇒ بعدش KI-015 بسته می‌شود.
-2. **مالک:** merge PR #4 (Task 23) → Railway «Check for updates» → تست چشمی: در بانک برنامه‌ها «✏️ ویرایش» باید فرم را با همان برنامه باز کند و ذخیره همان کارت را آپدیت کند.
-3. پیشنهاد به مالک: روشن‌کردن Auto-deploy در Settings (فعلاً خاموش است).
-4. مهدی در ویندوز: بلوک bat §17 (pull) + ری‌استارت لانچر + `Ctrl+Shift+R`.
-5. پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست.
-6. §۱۱: اصلاح `PROJECT-CONTEXT.md` (احراز هویت قدیمی) هنوز OPEN.
+1. **مالک:** merge PR #5 (Task 24) — بعدش auto-deploy خودش منتشر می‌کند؛ فقط ریست uptime را با `GET /api/health` (fetch) تأیید کنید («Check for updates» لازم نیست).
+2. **مالک (تست چشمی بعد از deploy):** یک برنامهٔ پیش‌نویس را باز کند و «🤖 تولید پیش‌نویس هوشمند» را چند بار بزند ⇒ باید همیشه همان کارت به‌روز شود و کارت جدیدی ساخته نشود؛ ادامهٔ چت کپیلوت هم همان برنامه را آپدیت کند.
+3. **مالک (هنوز باز — KI-015):** لاگ `[Media]` (انتظار `Volume: 1888 | ریپو: 0`) + باز کردن `/api/exercise-image/4` (عکس واقعی، نه مربع سفید) ⇒ بعدش KI-015 در KNOWN-ISSUES و §۱۱ بسته می‌شود. اگر `Volume: 0` بود: DEPLOYMENT.md §۹.۱۰ (DB/Volume هرگز ریست نشود).
+4. مهدی در ویندوز: بلوک bat §17 (pull شاخهٔ جلسه) + ری‌استارت لانچر + `Ctrl+Shift+R`.
+5. پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (کار مالک).
+6. اصلاح `PROJECT-CONTEXT.md` (احراز هویت قدیمی را «فعلی» می‌داند) — هنوز OPEN.
+7. اختیاری (فقط با تأیید مالک): cache-busting نسخه‌دار اسکریپت‌ها به‌خاطر کش ۲۴ ساعتهٔ JS (`max-age=86400`) بعد از هر deploy.
 
 ### Exact next step for the next Agent
-1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + کامیت Task 23 روی شاخهٔ `arena/01a0671e-yasnafit`).
-2. وضعیت PR #4 را بگیر (`gh pr view 4`): اگر merged → مالک Check for updates زده؟ uptime را با fetch چک کن و تست چشمی ویرایش را از مالک بپرس؛ نتیجه را در §۶/§۱۴/§۱۶ ثبت کن.
-3. اگر مالک لاگ `[Media]` را داد: `Volume: 1888` ⇒ KI-015 را در `KNOWN-ISSUES.md` و §۱۱ همین فایل به‌عنوان تأییدشدهٔ زنده ببند؛ `Volume: 0` ⇒ طبق DEPLOYMENT.md §۹.۱۰ مسیر را بررسی کن (DB/Volume هرگز ریست نشود).
-4. تسک بعدی را از مالک/TODO بگیر؛ مدخل بعدی changelog: **Task 24**. پایان هر تسک: به‌روزرسانی همین فایل + commit + گزارش فارسی با بلوک `bat` §17.
+1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + کامیت‌های Task 24 روی `arena/01a06884-yasnafit`؛ مبنا `main` = `23fbbf1`).
+2. وضعیت PR #5 را بگیر (`gh pr view 5`): اگر merged شد → با fetch ریست uptime را تأیید کن و نتیجه را در §۶/§۱۴/§۱۶ بنویس؛ تست چشمی بند ۲ بالا را از مالک بپرس.
+3. اگر مالک لاگ `[Media]`/تست عکس را داد → KI-015 را در KNOWN-ISSUES.md و §۱۱ ببند (با بررسی زندهٔ خودت تکمیل کن).
+4. تسک بعدی را از مالک/TODO بگیر؛ مدخل بعدی changelog: **Task 25**. پایان هر تسک: به‌روزرسانی همین فایل + commit + گزارش فارسی با بلوک `bat` §17.
 
 ---
 
@@ -256,7 +261,11 @@
 
 | مسیر | دلیل | وضعیت |
 |---|---|---|
-| `public/program-builder.js`, `public/diet-programs.js`, `public/coach-submissions.js`, `public/students.js`, `public/exercises.js`, `public/student-app.js`, `public/app.js`, `public/ai-copilot.js`, `public/program-pdf.js` | Task 23: حذف هندلرهای درون‌خطیِ CSP-مرده ⇒ `data-*` + بایندینگ JS + fallback رسانهٔ سراسری | committed این جلسه |
+| `src/ai-service.js` | Task 24: جایگزینی درجای «تولید پیش‌نویس هوشمند» وقتی برنامه‌ای باز است (resolve `originalProgramId` + بلوک مهاجرت با strip هش + `discardGeneratedProgramRow` + پاسخ با همان id و `replacedExisting`) | committed این جلسه |
+| `tests/ai-service-regression.js` | Task 24: گارد 4d — بدون programId ⇒ ردیف جدید؛ با programId ⇒ همان id، بدون ردیف تکراری (live/total)، روزها/هش‌ها/پیوندها؛ programId ناموجود ⇒ خطا و صفر ردیف (جهش‌سنجی‌شده) | committed این جلسه |
+| `docs/project-tracking/CHANGELOG.md` | مدخل Task 24 | committed این جلسه |
+| `mahdi hellp.md` | به‌روزرسانی جلسهٔ `arena/01a06884-yasnafit` (Task 24 + auto-deploy روشن + بازسازی از دست رفتن کار جلسهٔ `arena/01a0686c`) | committed این جلسه |
+| `public/program-builder.js`, `public/diet-programs.js`, `public/coach-submissions.js`, `public/students.js`, `public/exercises.js`, `public/student-app.js`, `public/app.js`, `public/ai-copilot.js`, `public/program-pdf.js` | Task 23: حذف هندلرهای درون‌خطیِ CSP-مرده ⇒ `data-*` + بایندینگ JS + fallback رسانهٔ سراسری | committed جلسهٔ قبل (merge PR #4) |
 | `tests/deployment-hardening-regression.js` | Task 23: گارد اسکن `public/*.js` برای هندلر صفحتی (جهش‌سنجی‌شده) | committed این جلسه |
 | `docs/project-tracking/CHANGELOG.md` | مدخل Task 23 | committed این جلسه |
 | `mahdi hellp.md` | به‌روزرسانی جلسهٔ `arena/01a0671e-yasnafit` (تأیید redeploy + Task 23) | committed این جلسه |
@@ -295,11 +304,11 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0671e-yasnafit`) هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
-| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a0671e-yasnafit` = کامیت Task 23 (این جلسه)؛ مبنا `main` = `8354a68` |
-| Git / GitHub origin | **CURRENT** | `main` = `8354a68` (merge PR #3 = Task 22)؛ شاخهٔ جلسه push است؛ **PR #4 (Task 23 → main) باز — merge با تأیید مالک** |
-| `main` | **`8354a68` — Task 22 روی main** | بلافاصله بعد از merge، build باید موفق شود (`railway.json` و lockfile از PR #2 روی main هستند) |
-| Railway | **LIVE (0.9.1) — کد Task 22 اجرا می‌شود** | Auto-deploy **خاموش** است؛ مالک ۲۰۲۶-۰۹-۰۳ «Deploy latest» زد ⇒ ~۱۳:۰۴ UTC پروسه ری‌استارت شد (تأیید با ریست uptime). ۱۸۸۸ عکس روی Volume در `/app/data/media/images/exercises/imported`؛ لاگ `[Media]` و تست چشمی عکس هنوز از مالک نگرفته شده (KI-015 منتظر) |
+| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a06884-yasnafit`) هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
+| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a06884-yasnafit` = کامیت‌های Task 24 (این جلسه)؛ مبنا `main` = `23fbbf1` |
+| Git / GitHub origin | **CURRENT** | `main` = `23fbbf1` (merge PR #4 = Task 23)؛ شاخهٔ جلسه push است؛ **PR #5 (Task 24 → main) باز — merge فقط با تأیید مالک** |
+| `main` | **`23fbbf1` — Task 23 روی main** | بلافاصله بعد از merge، build باید موفق شود (`railway.json` و lockfile از PR #2 روی main هستند) |
+| Railway | **LIVE (0.9.1) — کد Task 23 اجرا می‌شود** | **Auto-deploy از عصر 2026-09-03 روشن است** (Branch = `main`) ⇒ بعد از merge PR #5 خودش منتشر می‌کند؛ فقط ریست uptime با `GET /api/health` (fetch) تأیید شود. ۱۸۸۸ عکس روی Volume در `/app/data/media/images/exercises/imported`؛ لاگ `[Media]` و تست چشمی عکس هنوز از مالک نگرفته شده (KI-015 منتظر) |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
@@ -307,12 +316,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
-نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0671e-yasnafit`)؛ ساختار بلوک تغییر نکند:
+نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a06884-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git fetch origin
-git checkout arena/01a0671e-yasnafit
-git pull --ff-only origin arena/01a0671e-yasnafit
+git checkout arena/01a06884-yasnafit
+git pull --ff-only origin arena/01a06884-yasnafit
 .\YASNAFIT-LAUNCHER.bat
 ```
