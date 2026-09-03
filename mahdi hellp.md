@@ -62,9 +62,9 @@
 | کامیت قبلی | `6e79fd9` (docs memory جلسهٔ قبل) • `e60d3eb` (Task 22) • `50aaa53` (merge PR #2) |
 | working tree | **تمیز** بعد از کامیت Task 23 (`git status --short` خالی) |
 | local vs origin | شاخهٔ جلسه به origin push شده؛ `main` = `8354a68` (PR #3 MERGED در 2026-09-03 11:24 UTC) |
-| PR | **#3 MERGED** (Task 22 → main) • #2 MERGED • #1 CLOSED • **PR #4 (Task 23 → main) — merge با تأیید مالک** |
+| PR | **#4 MERGED** (Task 23 → main، 2026-09-03 16:44 UTC با تأیید صریح مالک؛ **Auto-deploy روشن شد و انتشار خودکار انجام گرفت** — ریست uptime تأیید کرد) • #3 MERGED • #2 MERGED • #1 CLOSED |
 | وضعیت merge | محتوای PR #3 روی `main` است و deploy شده (تأیید با ریست uptime) |
-| اقدامات باز | (۱) مالک: لاگ `[Media]` و تست چشمی `/api/exercise-image/4` برای بستن کامل KI-015 (۲) merge PR #4 + Check for updates در Railway (۳) مهدی در ویندوز: بلوک bat §17 (۴) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۵) Auto-deploy Railway خاموش است — روشن‌کردن پیشنهاد شد |
+| اقدامات باز | (۱) مالک: تست چشمی بانک برنامه‌ها (دکمهٔ «✏️ ویرایش» + ذخیره در همان کارت) روی deploy جدید (۲) مالک: لاگ `[Media]` و تست چشمی `/api/exercise-image/4` برای بستن کامل KI-015 (۳) مهدی در ویندوز: بلوک bat §17 (۴) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست |
 | هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و HEAD را به کامیتی قدیمی برگرداند. در آن صورت فقط در سندباکس: `git fetch -q origin arena/01a0671e-yasnafit` + `git update-ref refs/heads/arena/01a0671e-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
 
 ---
@@ -213,7 +213,7 @@
 * **هدف:** دکمهٔ ویرایش کار کند و هر برنامه فقط یک کارت داشته باشد که تغییراتش در همان کارت ذخیره شود (PUT).
 * **فایل‌های مرتبط:** `public/program-builder.js`, `public/diet-programs.js`, `public/coach-submissions.js`, `public/students.js`, `public/exercises.js`, `public/student-app.js`, `public/app.js`, `public/ai-copilot.js`, `public/program-pdf.js`, `tests/deployment-hardening-regression.js`, `docs/project-tracking/CHANGELOG.md`.
 * **نتیجهٔ مورد انتظار:** `npm test` سبز + گارد جدید جهش‌سنجی‌شده + بعد از merge/redeploy، تأیید چشمی مالک در بانک برنامه‌ها.
-* **وضعیت نهایی:** کد + تست + مستندات انجام شد؛ **PR #4 به `main` باز است — merge با تأیید مالک**؛ بعد از merge: مالک در Railway «Check for updates» بزند و در بانک برنامه‌ها ویرایش/ذخیره را چشمی تست کند.
+* **وضعیت نهایی:** کد + تست + مستندات انجام شد؛ **PR #4 با تأیید مالک merge شد (16:44 UTC) و Auto-deploy خودش منتشرش کرد (~۱۶:۴۶، تأیید با ریست uptime)** — رفع روی production زنده است؛ فقط تست چشمی مالک در بانک برنامه‌ها مانده.
 
 ---
 
@@ -238,15 +238,15 @@
 
 ### What remains
 1. **مالک:** لاگ `[Media]` (Railway → Logs → جست‌وجوی Media؛ انتظار `Volume: 1888 | ریپو: 0`) و باز کردن `/api/exercise-image/4` در مرورگر (عکس واقعی) ⇒ بعدش KI-015 بسته می‌شود.
-2. **مالک:** merge PR #4 (Task 23) → Railway «Check for updates» → تست چشمی: در بانک برنامه‌ها «✏️ ویرایش» باید فرم را با همان برنامه باز کند و ذخیره همان کارت را آپدیت کند.
-3. پیشنهاد به مالک: روشن‌کردن Auto-deploy در Settings (فعلاً خاموش است).
+2. **انجام شد:** PR #4 (Task 23) با تأیید مالک merge شد (16:44 UTC) و **Auto-deploy تازه‌روشن‌شده خودش انتشار داد** (تأیید: uptime از ~۱۳۱۰۰ به ۲۰۱ ریست شد در 16:48 UTC). ⏳ تست چشمی مالک باقی است: در بانک برنامه‌ها «✏️ ویرایش» باید فرم را با همان برنامه باز کند و «ذخیره» همان کارت را آپدیت کند (نه کارت جدید).
+3. Auto-deploy Railway روشن شد (۲۰۲۶-۰۹-۰۳ عصر، کار مالک) — از این به بعد merge هر PR خودکار منتشر می‌شود؛ «Check for updates» دیگر لازم نیست.
 4. مهدی در ویندوز: بلوک bat §17 (pull) + ری‌استارت لانچر + `Ctrl+Shift+R`.
 5. پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست.
 6. §۱۱: اصلاح `PROJECT-CONTEXT.md` (احراز هویت قدیمی) هنوز OPEN.
 
 ### Exact next step for the next Agent
 1. همین فایل را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + کامیت Task 23 روی شاخهٔ `arena/01a0671e-yasnafit`).
-2. وضعیت PR #4 را بگیر (`gh pr view 4`): اگر merged → مالک Check for updates زده؟ uptime را با fetch چک کن و تست چشمی ویرایش را از مالک بپرس؛ نتیجه را در §۶/§۱۴/§۱۶ ثبت کن.
+2. وضعیت PR #4: **MERGED و Auto-deploy هم کار کرد** (تأیید ریست uptime). از مالک بپرس: تست چشمی بانک برنامه‌ها (ویرایش + ذخیرهٔ همان کارت) و همچنان لاگ `[Media]` + `/api/exercise-image/4` برای KI-015.
 3. اگر مالک لاگ `[Media]` را داد: `Volume: 1888` ⇒ KI-015 را در `KNOWN-ISSUES.md` و §۱۱ همین فایل به‌عنوان تأییدشدهٔ زنده ببند؛ `Volume: 0` ⇒ طبق DEPLOYMENT.md §۹.۱۰ مسیر را بررسی کن (DB/Volume هرگز ریست نشود).
 4. تسک بعدی را از مالک/TODO بگیر؛ مدخل بعدی changelog: **Task 24**. پایان هر تسک: به‌روزرسانی همین فایل + commit + گزارش فارسی با بلوک `bat` §17.
 
@@ -297,9 +297,9 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 |---|---|---|
 | Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0671e-yasnafit`) هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
 | Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a0671e-yasnafit` = کامیت Task 23 (این جلسه)؛ مبنا `main` = `8354a68` |
-| Git / GitHub origin | **CURRENT** | `main` = `8354a68` (merge PR #3 = Task 22)؛ شاخهٔ جلسه push است؛ **PR #4 (Task 23 → main) باز — merge با تأیید مالک** |
-| `main` | **`8354a68` — Task 22 روی main** | بلافاصله بعد از merge، build باید موفق شود (`railway.json` و lockfile از PR #2 روی main هستند) |
-| Railway | **LIVE (0.9.1) — کد Task 22 اجرا می‌شود** | Auto-deploy **خاموش** است؛ مالک ۲۰۲۶-۰۹-۰۳ «Deploy latest» زد ⇒ ~۱۳:۰۴ UTC پروسه ری‌استارت شد (تأیید با ریست uptime). ۱۸۸۸ عکس روی Volume در `/app/data/media/images/exercises/imported`؛ لاگ `[Media]` و تست چشمی عکس هنوز از مالک نگرفته شده (KI-015 منتظر) |
+| Git / GitHub origin | **CURRENT** | `main` = `23fbbf1` (merge PR #4 = Task 23)؛ شاخهٔ جلسه push است |
+| `main` | **`23fbbf1` — Task 23 روی main** | از PR #2 به بعد `railway.json`/lockfile/اپ کامل روی main هستند ⇒ build موفق |
+| Railway | **LIVE (0.9.1) — Task 23 اجرا می‌شود** | **Auto-deploy از ۲۰۲۶-۰۹-۰۳ عصر روشن است** ⇒ merge PR #4 (16:44 UTC) خودکار منتشر شد (~۱۶:۴۶، تأیید با ریست uptime به ۲۰۱). ۱۸۸۸ عکس روی Volume؛ لاگ `[Media]` و تست چشمی عکس هنوز از مالک نگرفته نشده (KI-015 منتظر) |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
