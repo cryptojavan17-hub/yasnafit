@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-02** (توسط Agent جلسهٔ `arena/01a0618b-yasnafit` — پس از Task 16 و Task 17).
+> آخرین به‌روزرسانی: **2026-09-03** (توسط Agent جلسهٔ `arena/01a066e6-yasnafit` — هم‌زمان‌سازی شروع جلسه: PR #2 روی `main` است و دو کامیت docs پایانی جلسهٔ قبل به شاخهٔ جدید cherry-pick شد).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -47,7 +47,7 @@
 * **GitHub:** `https://github.com/cryptojavan17-hub/yasnafit`
 * **مسیر لوکال (مهدی):** `C:\Users\MAHDI\Desktop\yasnafit-git`
 * **شاخه‌های مهم:** `main` — از ۲۰۲۶-۰۹-۰۲ **`50aaa53` = اپ کامل** (PR #2 merge شد؛ قبلاً فقط `README.md` + `login-hero.png` بود، و آن تصویر با `R100` به `public/login-hero.png` منتقل شد). `086f3e0` («Add exact login hero image - do not change face») پدر آن است
-* **شاخهٔ کاری جلسه:** `arena/01a0618b-yasnafit` — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه.
+* **شاخهٔ کاری جلسه:** `arena/01a066e6-yasnafit` (از `main` = `50aaa53` ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. شاخهٔ قبلی `arena/01a0618b-yasnafit` آرشیو است؛ دو کامیت docs پایانی‌اش روی این شاخه cherry-pick شده‌اند.
 * **مستندات ریشه (حذفشان ممنوع):** `README.md`, `ARCHITECTURE.md`, `DATABASE_SCHEMA.md`, `CHANGELOG.md` (محصولی/نسخه‌ها), `EXERCISE_MANAGEMENT.md`, **`DEPLOYMENT.md` (جدید)**.
 * **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…17)، `KNOWN-ISSUES.md` (KI-001…KI-013)، `TODO.md` (T-01…T-16)، `TECHNICAL-DECISIONS.md` (TD-*)، `archive/`.
 
@@ -57,15 +57,15 @@
 
 | مورد | وضعیت تأییدشده |
 |---|---|
-| شاخهٔ جاری | `arena/01a0618b-yasnafit` |
-| آخرین کامیت (ریموت و محلی، **برابر**) | `50aaa53` = **merge commit پull Request #2 روی `main`**؛ شاخهٔ `arena/01a0618b-yasnafit` هم روی همین کامیت fast-forward شده (بعدش فقط کامیت‌های docs این جلسه). زنجیرهٔ جلسه: `8331634` → `64c1dc1` → `6c99194` → `0896bba` → `b98c929` → `36ed8ab` → `69ec5c9` → `3d1c0d6` → `5cc8a17` → `50aaa53` |
+| شاخهٔ جاری | `arena/01a066e6-yasnafit` |
+| آخرین کامیت | `cc6cd25` = cherry-pick `8f181b4` (docs حافظه) روی `b405fa6` (= cherry-pick `9102182`) روی `50aaa53` (merge PR #2) ⇒ درخت دقیقاً برابر tip شاخهٔ قبلی است (`git diff` خالی). زنجیرهٔ جلسهٔ قبل روی `main`: `8331634` → `64c1dc1` → `6c99194` → `0896bba` → `b98c929` → `36ed8ab` → `69ec5c9` → `3d1c0d6` → `5cc8a17` → `50aaa53` |
 | کامیت قبلی | `695f4b1` (revert ویجت سشن‌های معاملاتی) • `ff635be` (همان ویجت، لغوشده) • `f66070f` (Task 15) |
 | working tree | **تمیز** (`git status --short` خالی) |
-| local vs origin | **برابر** (`8331634`) — `git status` تمیز |
-| PR | **#2 MERGED** (2026-09-02 19:40 UTC، `gh pr merge 2 --merge` با تأیید صریح مهدی؛ `mergeable` بود و بدون تعارض) • #1 CLOSED |
+| local vs origin | **برابر** — `arena/01a066e6-yasnafit` به origin push شده و `git ls-remote` با HEAD یکی است؛ `git status` تمیز |
+| PR | **#2 MERGED** (2026-09-02 19:40 UTC، `gh pr merge 2 --merge` با تأیید صریح مهدی) • #1 CLOSED • شاخهٔ `arena/01a0618b-yasnafit` آرشیو شد (tip = `8f181b4`) و دو کامیت docs آن به شاخهٔ جدید منتقل شد |
 | وضعیت merge | merge انجام‌شده و **برابربودن محتوا تأیید شد**: `git diff origin/main HEAD` خالی ⇒ چیزی حین merge گم نشده. برای کارهای بعدی همین شاخهٔ جلسه استفاده شود |
-| اقدامات باز | (۱) مهدی در ویندوز: `git checkout main` + `git pull --ff-only origin main` (یا همان شاخهٔ arena؛ هر دو یکی‌اند) (۲) روی Railway: سوییچ Branch به `main` (اختیاری؛ الان هر دو شاخه یک محتوا دارند) + **Attach Volume** + سه متغیر + پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست |
-| هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و `main` را checkout کرده باشد. اگر `git log -1` شد `086f3e0`: `git fetch -q origin arena/01a0618b-yasnafit` + `git update-ref refs/heads/arena/01a0618b-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
+| اقدامات باز | (۱) مهدی در ویندوز: بلوک bat §17 (شاخهٔ جدید `arena/01a066e6-yasnafit`) — فقط `git pull --ff-only` (۲) روی Railway: **Attach Volume** + تأیید/سوییچ Branch به `main` + پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۳) اگر `YASNAFIT_REVEAL_AUTHENTICATOR_KEY` استفاده شد، آن هم پاک شود |
+| هشدار Arena (تجربهٔ واقعی) | سندباکس ممکن است بین جلسات بازسازی شود و HEAD را به کامیتی قدیمی برگرداند. در آن صورت فقط در سندباکس: `git fetch -q origin arena/01a066e6-yasnafit` + `git update-ref refs/heads/arena/01a066e6-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD` (بدون تغییر شاخه، بدون force-push). **روی ماشین لوکال مهدی این کار را نکنید** — آنجا `git pull --ff-only`. |
 
 ---
 
@@ -80,6 +80,7 @@
 * **Volume (قدم دستی مالک):** Right-click سرویس → **Attach Volume** → Mount Path `/app/data` **یا `/data`** — هر دو کار می‌کند چون برنامه `RAILWAY_VOLUME_MOUNT_PATH` را که Railway inject می‌کند دنبال می‌کند. ⚠️ بعد از نوشته‌شدن داده، mount path را عوض نکنید (مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود). هر سرویس فقط **یک** Volume دارد و با replica کار نمی‌کند؛ پلن رایگان/trial ~۰٫۵GB.
 * **Variables (فقط نام — مقدار در داشبورد):** `NODE_ENV=production`، `YASNAFIT_TRUST_PROXY=1`، `YASNAFIT_COOKIE_SECURE=1`، و **موقتاً** `YASNAFIT_ALLOW_REMOTE_SETUP=1` برای اولین ساخت حساب مربی (بعد از ساخت باید پاک شود). اختیاری/در صورت خطا: `NIXPACKS_NODE_VERSION=22`، `RAILWAY_RUN_UID=0`. **فقط در اضطرار و موقتاً:** `YASNAFIT_REVEAL_AUTHENTICATOR_KEY=1` ⇒ کلید 2FA را یک‌بار در لاگ چاپ می‌کند (§۹.۸)، و `YASNAFIT_ALLOW_2FA_SKIP=1` ⇒ مرحلهٔ کد ۶ رقمی مربی را رد می‌کند تا پنل برای تست باز شود (§۹.۹)؛ هر دو باید بعد از تست پاک شوند (رمز عبور همیشه الزامی می‌ماند و `totp_secret` هم دست‌نخورده). `PORT` را ست نکنید (Railway می‌دهد) و `YASNAFIT_HOST` هم **نگذارید** `127.0.0.1` شود.
 * **وضعیت زنده (۲۰۲۶-۰۹-۰۲ ۲۲:۴x، تأییدشده با fetch از بیرون):** `https://yasnafit-production.up.railway.app` بالا است — `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":856}` (یعنی کد همین شاخه deploy شده) و `GET /api/coach/auth/status` → `setup_required:false، totp_required:false، totp_confirmed:true، mail_configured:false`. **Volume: تأیید نشده** (از بیرون قابل تشخیص نیست؛ با یک redeploy و نگاه‌کردن به شمارش رکوردها ثابت می‌شود).
+* **وضعیت زنده (۲۰۲۶-۰۹-۰۳، تأیید مجدد با fetch از بیرون، جلسهٔ `arena/01a066e6-yasnafit`):** سرویس همچنان بالاست — `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":53053}` (پروسه ~۱۴٫۷ ساعت پیش ری‌استارت شده؛ سازگار با auto-deploy پس از merge PR #2، ولی **کامیت deploy از بیرون تأییدنشده** — قاعدهٔ §6 پایین) و `GET /api/coach/auth/status` → `setup_required:false، totp_confirmed:true، mail_configured:false` (بدون تغییر نسبت به دیروز؛ `mail_email`/`mail_host` در پاسخ هست ولی `mail_configured:false`).
 * **ماجرای «کد Google Authenticator کار نمی‌کند» (علت قطعی، از کد):** کلید TOTP در دیتابیس همان سرور است (`coaches.totp_secret`) و `setupCoach` آن را `NULL` می‌گذارد؛ در اولین restart، `ensureCoachAuthenticator()` یک **کلید تازه** می‌سازد، `totp_confirmed_at` را ست می‌کند و کلید را در `<mount>/coach-authenticator.txt` می‌نویسد ⇒ کلید قدیمیِ نسخهٔ لوکال روی Railway هیچ‌وقت قبول نمی‌شود. در UI هم هیچ‌وقت کلید نشان داده نمی‌شود (طراحی عمدی؛ مسیر HTTP برای نمایش/چرخش کلید وجود ندارد). راه‌حل‌ها در `DEPLOYMENT.md` §۹.۸: (۱) خواندن فایل از Volume با `railway ssh`/`railway volume browse`، (۲) `node scripts/provision-coach-totp.js --rotate` داخل کانتینر، (۳) اگر CLI ندارید: موقتاً `YASNAFIT_REVEAL_AUTHENTICATOR_KEY=1` و بعد از ورود پاکش کنید. ⚠️ اعداد قفل: `MAX_OTP_FAILURES=3` ⇒ `AUTH_LOCKED` به مدت `LOCK_MS=15 دقیقه`؛ عمر چلنج `OTP_TTL_MS=5 دقیقه`؛ کد یک‌بارمصرف (`totp_last_counter`)؛ تلورانس ساعت ±۳۰ ثانیه (`window=1`).
 * **Domain:** Settings → Networking → **Generate Domain** ⇒ `https://<name>.up.railway.app`.
 * **شبیه‌سازی Volume با مسیر دلخواه (2026-09-02، موفق):** `RAILWAY_VOLUME_MOUNT_PATH=/tmp/yasna-vol node server.js` ⇒ `yasnafit.db` + `assessments/` + `backups/` همه داخل Volume با مجوز `drwx------` و seed ۲۷۰۷ حرکت ✅. (e2e روی این حالت در مرحلهٔ provisioning مربی 409 می‌دهد، چون مسیر DB را hardcode به `data/` نگه می‌دارد — محدودیت harness، ذیل T-11.)
@@ -120,7 +121,7 @@
 ## 9. Important Project Rules (قواعد دائمی)
 
 **کاری/ابزاری**
-1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسه (`arena/01a0618b-yasnafit`). push فقط به همان شاخه.
+1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسه (`arena/01a066e6-yasnafit`). push فقط به همان شاخه.
 2. **دستکاری/بازنویسی تاریخچه و force-push ممنوع.** قبل از pull/reset/checkout/rebase اول `git status` و شاخه را چک کن؛ `git reset --hard` روی ماشین مهدی فقط با اجازهٔ صریح.
 3. هیچ داده/حرکت/شاگرد غیرواقعی (fake) ساخته نشود؛ حرکات فقط از دیتاست ۲۷۰۷تایی.
 4. فایل/رسانه خصوصی شاگرد هرگز از `public/` سرو نشود؛ ریشهٔ فایل‌ها با `isSafePath` محدود شود.
@@ -139,12 +140,13 @@
 15. روی سرور: `YASNAFIT_HOST=127.0.0.1` + پروکسی nginx با TLS؛ `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی ترافیک حتماً از پروکسی است؛ `NODE_ENV=production`؛ `YASNAFIT_COOKIE_SECURE=1` در HTTPS. جزئیات: `DEPLOYMENT.md`.
 
 **حافظهٔ جلسه (این فایل)**
-16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 19** (Task 18 = آماده‌سازی Railway).
+16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 22** (Task 21 آخرین تسک ثبت‌شده است؛ بعد از آن مدخل «انتشار: merge PR #2» آمده).
 
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
+* **2026-09-03** — **شروع جلسهٔ `arena/01a066e6-yasnafit` (هم‌زمان‌سازی، بدون تغییر کد):** شاخهٔ جدید از `main` = `50aaa53` ساخته شد؛ دو کامیت docs پایانی جلسهٔ قبل (`9102182` → `b405fa6` و `8f181b4` → `cc6cd25`) cherry-pick شدند ⇒ درخت دقیقاً = tip شاخهٔ قبلی. Railway دوباره از بیرون تأیید شد (`0.9.1` زنده، auth-status بدون تغییر — §6). حافظه (همین فایل: §4/§5/§6/§9/§12/§13/§15/§16/§17) با واقعیت جدید به‌روز شد.
 * **2026-09-02** — **Task 18 (آماده‌سازی Railway، کامیت `8331634` + تکمیل storage-paths در همین جلسه):** افزودن `railway.json`، ماژول جدید `src/storage-paths.js` (دیتابیس + عکس‌ها/اسناد خصوصی + بکاپ همه از یک مرجع و روی Volume)، بخش کامل «§۹ استقرار روی Railway» به `DEPLOYMENT.md`، و گاردهای جدید در `tests/deployment-hardening-regression.js` (اعتبار `railway.json`، routable بودن `/api/health` قبل از گیت مربی، tracked بودن `data-source/exercises_data.json`، نبود `path.join(__dirname,'backups')` در server.js). شبیه‌سازی زنده با متغیرهای Railway موفق بود (§۶). اتصال واقعی به داشبورد Railway **انجام نشده** (کار مالک).
 
 * **2026-08-24** — Task 1…5: ابزار program-helper، ساخت سیستم مستندات، ممیزی نهایی، بانک حرکات/ویدیو، BR-14 (کاتالوگ ۱۲ سیستم)، بازطراحی Program Builder.
@@ -188,7 +190,7 @@
 * **P0:** در حال حاضر هیچ مورد P0 بازی وجود ندارد (تأییدشده در TODO).
 * **وصل کردن سرویس در داشبورد Railway (مالک):** New Project → Deploy from GitHub (شاخهٔ مربوطه) → **Attach Volume با mount path `/app/data`** → Variables طبق §۶ → Generate Domain → بعد از ساخت حساب مربی، `YASNAFIT_ALLOW_REMOTE_SETUP` را پاک کنید. (هرگز DB را برای «حل مشکل deploy» ریست نکنید.)
 * **تصمیم انتقال دادهٔ لوکال → Railway:** (الف) از صفر شروع کردن (پیشنهاد فعلی) یا (ب) افزودن endpoint ادمین «restore from upload» — گزینهٔ (ب) API جدید است و فقط با تأیید صریح مالک نوشته می‌شود.
-* (جدید) **اعمال کد روی لوکال مهدی:** `9be37bb` push شده اما کپی ویندوزی هنوز قدیمی است → `git pull --ff-only` + ری‌استارت لانچر + `Ctrl+Shift+R`.
+* (به‌روز ۲۰۲۶-۰۹-۰۳) **اعمال کد روی لوکال مهدی:** کپی ویندوزی پشت سر است → بلوک bat §17 با شاخهٔ `arena/01a066e6-yasnafit` + ری‌استارت لانچر + `Ctrl+Shift+R`. DB لوکال دست‌نخورده می‌ماند.
 
 ### Medium Priority
 * T-14 کاتالوگ ۱۲ سیستم به DB (هنگام سینک) • T-02 پخش ویدیوی حرکات در UI • T-03 آپلود عکس حرکت از UI • T-04 پرکردن `equipment/difficulty/description/name_en` • T-05 پاکسازی داده تستی e2e • T-06 سرنوشت جداول legacy • T-07 طراحی لایهٔ سینک • T-15 افزودن `tool/smoke-*.js` به زنجیرهٔ `npm test` • T-11 مقاوم‌سازی harness تست.
@@ -200,8 +202,8 @@
 
 ## 13. Current Task
 
-* **عنوان (جلسهٔ جاری):** Railway بالا آمد؛ رفع مشکل «کد Google Authenticator کار نمی‌کند» (Task 20) و افزودن کلید تست برای رد کردن موقت 2FA (Task 21). فایل‌های مرتبط: بکاپ) و نوشتن `mahdi hellp.md`.
-* **عنوان تسک قبلی:** ممیزی نهایی امنیتی + پاک‌سازی فایل‌های مرده + پاسخ به گزارش «دکمهٔ ادامه صفحهٔ اول» (انجام‌شده: Task 16/17).
+* **عنوان (جلسهٔ جاری، ۲۰۲۶-۰۹-۰۳ — `arena/01a066e6-yasnafit`):** شروع جلسه — فقط هم‌زمان‌سازی حافظه/مستندات با واقعیت جدید (`main` اپ کامل است، Railway زنده تأیید شد، شاخهٔ قبلی آرشیو). **تسک اصلی این جلسه هنوز از سمت مالک اعلام نشده است.**
+* **عنوان تسک قبلی:** Task 20 (بازیابی کلید Google Authenticator روی سرور ابری) + Task 21 (گریز موقت 2FA با `YASNAFIT_ALLOW_2FA_SKIP`) + انتشار: merge PR #2 به `main` — همه انجام‌شده.
 * **هدف:** آماده‌سازی واقعی (قابل تست) برای هاست اینترنتی؛ حذف کد/فایل بلااستفاده؛ اطمینان از سالم بودن flow ورود مربی.
 * **فایل‌های مرتبط:** `src/request-security.js`, `public/boot.js`, `server.js`, `src/database.js`, `src/coach-auth-service.js`, `src/student-session-service.js`, `public/index.html`, `public/coach-login.html`/`.js`, `DEPLOYMENT.md`, `tests/deployment-hardening-regression.js`, `tests/coach-auth-regression.js`.
 * **نتیجهٔ مورد انتظار:** `npm test` سبز + هدرها/گیت‌ها زنده + مستند استقرار.
@@ -249,6 +251,7 @@
 
 | مسیر | دلیل | وضعیت |
 |---|---|---|
+| `mahdi hellp.md` | هم‌زمان‌سازی شروع جلسهٔ `arena/01a066e6-yasnafit` (۲۰۲۶-۰۹-۰۳)؛ با cherry-pick دو کامیت docs جلسهٔ قبل | committed این جلسه |
 | `src/request-security.js` | لایهٔ متمرکز هدرها/اعتماد به پروکسی/پیام خطا (Task 16) | committed `9be37bb` |
 | `public/boot.js` | جایگزین inline script صفحهٔ مربی | committed |
 | `server.js` | اعمال هدرها، گیت‌های `/api/health`+`/api/build`+reset-rate-limit، `listenHost`، `sendCaughtError`، ۴۰۴ `*.html`، setup لوپ‌بک | committed |
@@ -277,11 +280,11 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | هنوز `6c99194` (آماده‌سازی Railway + storage-paths) را pull نکرده؛ با `git pull --ff-only` هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
-| Local (سندباکس Agent) | **CURRENT** | Task 18 = `8331634` و Task 18b = کامیت همین جلسه (storage-paths)؛ تست‌ها محلی سبز |
-| Git / GitHub origin | **CURRENT** | `main` = `arena/01a0618b-yasnafit` = `50aaa53` (PR #2 merge شد؛ سپس یک کامیت docs روی شاخهٔ جلسه) | **CURRENT** | `refs/heads/arena/01a0618b-yasnafit` = HEAD همین جلسه (push شده، `git ls-remote` برابر HEAD)؛ PR #2 باز و **CLEAN/MERGEABLE** (086f3e0 ancestor شاخهٔ ماست ⇒ merge بدون تناقض) |
-| `main` | **`50aaa53` — اپ کامل روی main** (قبلاً فقط `README.md` + `login-hero.png` بود؛ `login-hero.png` با `R100` به `public/login-hero.png` منتقل شد) ⇒ deploy از `main` حالا build می‌شود، چون `package.json`/`server.js`/`railway.json`/`package-lock.json` روی همین شاخه‌اند |
-| Railway | **LIVE (0.9.1) — روی `main` هم قابل deploy است** |
+| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a066e6-yasnafit`) هم‌زمان می‌شود (DB لوکال او دست‌نخورده می‌ماند) |
+| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a066e6-yasnafit` = `cc6cd25` روی `main` = `50aaa53`؛ درخت = tip شاخهٔ قبلی (`git diff` خالی) |
+| Git / GitHub origin | **CURRENT** | `main` = `50aaa53` (اپ کامل — PR #2 merged)؛ `refs/heads/arena/01a066e6-yasnafit` = HEAD همین جلسه (push شده) |
+| `main` | **`50aaa53` — اپ کامل روی main** | `package.json`/`server.js`/`railway.json`/`package-lock.json` روی `main` هستند ⇒ build روی `main` موفق است (KI-014 = FIXED) |
+| Railway | **LIVE (0.9.1)** | ۲۰۲۶-۰۹-۰۳ از بیرون دوباره تأیید شد (`/api/health` → 200؛ auth-status بدون تغییر)؛ کامیت deploy و وضعیت Volume از بیرون `UNKNOWN — needs verification` |
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
@@ -289,12 +292,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
-نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0618b-yasnafit`)؛ ساختار بلوک تغییر نکند:
+نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a066e6-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git fetch origin
-git checkout arena/01a0618b-yasnafit
-git pull --ff-only origin arena/01a0618b-yasnafit
+git checkout arena/01a066e6-yasnafit
+git pull --ff-only origin arena/01a066e6-yasnafit
 .\YASNAFIT-LAUNCHER.bat
 ```
