@@ -153,6 +153,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   check('ماتریس ۱۲ سیستم: سقف همه درست اعمال شد', matrixOk);
 
+  // ۱۰) Task 26 — انتخابگر «ست‌های حرکت» زیر افزودن دستی + اعمال خودکار، و حذف «عضله هدف» از فرم حرکت
+  get('btnAddDay').onclick(); dayCount += 1; const dIdxA = dayCount - 1;
+  addSysBtn.dataset.addSys = String(dIdxA); addSysBtn.onclick();
+  picks.find(p => p.dataset.pickSystem === '1').onclick();          // سیستم معمولی = ۱ حرکت
+  addMovBtn.dataset.addMov = `${dIdxA}-0`; addMovBtn.onclick();
+  check('نوار «ست‌های حرکت» هنگام افزودن، زیر پنل دستی دیده می‌شود', get('drawerSetPreset').hidden === false);
+  get('drawerPresetSelect').value = '0';                            // preset «۴ * ۱۰»
+  fakeItems.forEach(i => i.onclick());
+  await sleep(500);                                                 // openMovementModal async است (await روی /api/exercises/:id)
+  const modalA = get('mvBody').innerHTML;
+  // توجه: خودِ mvPresetSelect پانزده <option value="0..14"> دارد، پس فقط ورودی‌های ست شمرده می‌شوند
+  check('preset انتخابی خودکار روی حرکت تازه اعمال شد (۴ ست × ۱۰)',
+    (modalA.match(/data-set-card="/g) || []).length === 4 &&
+    (modalA.match(/data-mv-count="\d+" value="10"/g) || []).length === 4);
+  check('فرم حرکت: بدون «عضله هدف» ولی با «آموزش حرکت»',
+    !modalA.includes('mv-anatomy') && !modalA.includes('عضله هدف') && modalA.includes('آموزش حرکت'));
+  els['drawerDone'].onclick();
+  check('بستن بانک ⇒ نوار ست‌ها مخفی می‌شود', get('drawerSetPreset').hidden === true);
+
+  get('btnAddDay').onclick(); dayCount += 1; const dIdxB = dayCount - 1;
+  addSysBtn.dataset.addSys = String(dIdxB); addSysBtn.onclick();
+  picks.find(p => p.dataset.pickSystem === '1').onclick();
+  addMovBtn.dataset.addMov = `${dIdxB}-0`; addMovBtn.onclick();
+  get('drawerPresetSelect').value = '';                             // پیش‌فرض
+  fakeItems.forEach(i => i.onclick());
+  await sleep(500);
+  const modalB = get('mvBody').innerHTML;
+  check('بدون انتخاب preset ⇒ رفتار قبلی حفظ شد (۱ ست × ۱۲)',
+    (modalB.match(/data-set-card="/g) || []).length === 1 &&
+    (modalB.match(/data-mv-count="\d+" value="12"/g) || []).length === 1);
+  els['drawerDone'].onclick();
+
   const pass = Object.values(results).every(Boolean);
   console.log(pass ? '\nSMOKE PROGRAM-BUILDER PASS ✅' : '\nSMOKE PROGRAM-BUILDER FAIL ❌');
   process.exit(pass ? 0 : 1);

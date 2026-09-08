@@ -49,11 +49,18 @@ assert.ok(programBuilderSrc.includes('data-mv-del'), 'Delete set button must exi
 assert.ok(programBuilderSrc.includes('data-mv-unit'), 'Unit select must exist');
 assert.ok(programBuilderSrc.includes('data-mv-count'), 'Count input must exist');
 
-// 5. Verify anatomy, 3D base images, 21 muscle overlays, and video player
-assert.ok(programBuilderSrc.includes('class="mv-anatomy"'), 'Anatomy section must exist');
-assert.ok(programBuilderSrc.includes('front_grey_body.webp'), 'Front base body must exist');
-assert.ok(programBuilderSrc.includes('back_grey_body.webp'), 'Back base body must exist');
+// 5. Target-muscle UI removed by owner decision (2026-09-08) — data + video must survive
+assert.doesNotMatch(programBuilderSrc, /class="mv-anatomy"/, 'the target-muscle anatomy block must stay removed from the movement form (owner decision 2026-09-08)');
+assert.doesNotMatch(programBuilderSrc, /front_grey_body\.webp|back_grey_body\.webp/, 'coach-side body figures must stay removed');
+assert.doesNotMatch(programBuilderSrc, /quickAddMuscleSelect|quickAddSelectedMuscles|renderQuickAddMuscles/, 'the manual-add target-muscle picker must stay removed');
+assert.ok(programBuilderSrc.includes('muscleCatalog'), 'the muscle catalog must stay — it still feeds mov.target_muscles for the PDF and the student panel');
+assert.ok(programBuilderSrc.includes('mov.target_muscles=activeMuscleIds'), 'target_muscles data must still be attached to the movement');
+assert.ok(programBuilderSrc.includes('class="mv-video"'), 'Video section must exist');
+assert.ok(programBuilderSrc.includes('id="mvConfirm"'), 'Confirm button must exist');
+assert.ok(programBuilderSrc.includes('id="mvClose"'), 'Close button must exist');
+assert.doesNotMatch(programBuilderSrc, /id="mvMuscleQuickSelect"/, 'Muscle menu list must be removed');
 
+// the catalog itself stays complete: the student panel and the PDF still render these overlays
 const expectedMuscles = [
   // Front
   'front_deltoid_anterior.webp',
@@ -81,21 +88,42 @@ const expectedMuscles = [
 ];
 
 expectedMuscles.forEach(file => {
-  assert.ok(programBuilderSrc.includes(file), `Muscle overlay missing: ${file}`);
+  assert.ok(programBuilderSrc.includes(file), `Muscle catalog entry missing: ${file}`);
 });
 
-assert.doesNotMatch(programBuilderSrc, /id="mvMuscleQuickSelect"/, 'Muscle menu list must be removed');
-assert.ok(programBuilderSrc.includes('class="mv-video"'), 'Video section must exist');
-assert.ok(programBuilderSrc.includes('id="mvConfirm"'), 'Confirm button must exist');
-assert.ok(programBuilderSrc.includes('id="mvClose"'), 'Close button must exist');
+// 6. Sets picker now lives under the manual-add panel and auto-applies to new movements
+const builderCss = fs.readFileSync(path.join(__dirname, '../public/program-builder.css'), 'utf8');
+assert.ok(programBuilderSrc.includes('id="drawerSetPreset"'), 'the sets bar must exist in the exercise-bank drawer');
+assert.ok(programBuilderSrc.includes('id="drawerPresetSelect"'), 'the sets preset select must exist in the exercise-bank drawer');
+assert.ok(programBuilderSrc.includes('<option value="">۱ × ۱۲ (پیش‌فرض)</option>'), 'the sets picker must keep an explicit default option');
+const quickAddIdx = programBuilderSrc.indexOf('id="drawerQuickAdd"');
+const setsBarIdx = programBuilderSrc.indexOf('id="drawerSetPreset"');
+assert.ok(quickAddIdx > -1 && setsBarIdx > quickAddIdx, 'the sets bar must be rendered BELOW the manual-add panel');
+assert.ok(programBuilderSrc.includes('function setsForNewMovement'), 'the auto-apply helper must exist');
+assert.equal((programBuilderSrc.match(/setsForNewMovement\(\)/g) || []).length, 3, 'both add paths (manual add + bank pick) must take their sets from the picker');
+assert.ok(programBuilderSrc.includes('presetBar.hidden=false'), 'the sets bar must become visible while a system is being filled');
+
+// 7. Manual-add panel must be readable and tappable (owner: "usually not visible, painful on mobile")
+assert.match(builderCss, /\.quickadd-submit \{[^}]*min-height: var\(--component-control-height\)/, 'the register button must use the shared control height');
+assert.match(builderCss, /\.quickadd-grid input, \.quickadd-grid select \{[^}]*min-height: var\(--component-control-height\)[^}]*font-size: 13px/, 'manual-add inputs must be readable');
+assert.match(builderCss, /\.quickadd-head > b \{ font-size: 1[3-9]px/, 'the manual-add title must not stay at 10px');
+assert.match(builderCss, /\.quickadd-hint \{[^}]*font-size: 1[1-9]px/, 'the hint text must not stay at 8px');
+assert.match(builderCss, /\.drawer-manual-toggle \{[^}]*min-height: var\(--component-control-height\)/, 'the manual-add toggle must be a real tap target');
+assert.match(builderCss, /\.drawer-preset-select \{[^}]*min-height: var\(--component-control-height\)/, 'the sets picker must be a real tap target');
+assert.match(builderCss, /@media \(max-width: 640px\) \{[\s\S]*?\.quickadd-submit \{ width: 100%; min-height: 46px/, 'the register button must go full-width on phones');
+assert.doesNotMatch(builderCss, /\.mv-anatomy/, 'dead anatomy CSS must be gone');
+assert.doesNotMatch(builderCss, /!important/, 'no !important overrides');
 
 console.log(JSON.stringify({
   ok: true,
   presets_count: expectedPresets.length,
   units_count: expectedUnits.length,
-  muscles_count: expectedMuscles.length,
+  muscles_catalog_count: expectedMuscles.length,
   top_cleaned: true,
   cards_configured: true,
-  anatomy_clean_image_only: true,
+  target_muscle_ui_removed: true,
+  target_muscle_data_preserved: true,
+  sets_picker_under_manual_add: true,
+  manual_add_mobile_readable: true,
   bottom_preserved: true
 }));
