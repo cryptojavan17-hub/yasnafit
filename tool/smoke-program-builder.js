@@ -5,19 +5,24 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const clsRec = () => { const s = new Set(); return { add: c => s.add(c), remove: c => s.delete(c), toggle: (c, f) => { f ? s.add(c) : s.delete(c); }, contains: c => s.has(c) }; };
+const clsRec = () => { const s = new Set(); return { add: c => s.add(c), remove: c => s.delete(c), toggle: (c, f) => { if (f === undefined) { s.has(c) ? s.delete(c) : s.add(c); } else { f ? s.add(c) : s.delete(c); } return s.has(c); }, contains: c => s.has(c) }; };
 const els = {};
 const mkEl = id => ({
   id, innerHTML: '', textContent: '', value: '', hidden: false, disabled: false, open: false,
   onclick: null, oninput: null, onchange: null, title: '', dataset: {}, style: {},
-  selectedOptions: [{ textContent: 'پرونده ۱۲۳ • زینب تست • فیتنس' }],
-  classList: clsRec(), appendChild() {}, insertBefore() {}, remove() {}, focus() {},
+  selectedOptions: [{ textContent: 'پرونده ۱۲۳ • زینب تست • فیتنس' }], options: [],
+  classList: clsRec(), appendChild() {}, insertBefore() {}, remove() {},
+  // Task 27 — scroll/focus spies: the drawer must scroll its own tab, never the page
+  scrollTop: 0, offsetTop: 0, _scrolledIntoView: null, _focusOpts: null, _scrollTo: null,
+  scrollIntoView(opt) { this._scrolledIntoView = opt || true; },
+  scrollTo(opt) { this._scrollTo = opt; },
+  focus(opt) { this._focusOpts = opt || null; },
   parentElement: { appendChild() {} },
   querySelector: sel => els[sel.replace('#', '')] || null,
   querySelectorAll: function(sel) { return (typeof this._qs === 'function' && this._qs(sel)) || []; },
 });
 const get = id => (els[id] = els[id] || mkEl(id));
-['exerciseDrawer', 'drawerList', 'drawerTitle', 'drawerTabAdd', 'drawerContext', 'drawerDone', 'drawerSearch', 'drawerFilterStep', 'drawerSearchSection', 'drawerCategorySection', 'systemPicker', 'systemPickerGrid'].forEach(get);
+['exerciseDrawer', 'drawerList', 'drawerTitle', 'drawerTabAdd', 'drawerContext', 'drawerDone', 'drawerSearch', 'drawerFilterStep', 'drawerSearchSection', 'drawerCategorySection', 'systemPicker', 'systemPickerGrid', 'drawerQuickAdd', 'drawerManualToggle', 'quickAddName', 'quickAddCloseX', 'quickAddCategory'].forEach(get);
 
 const registry = {};
 const btn = (ds) => ({ dataset: ds, onclick: null, classList: clsRec(), disabled: false, style: {} });
@@ -39,7 +44,7 @@ global.document = {
   querySelector: sel => (sel === '#content' ? content : ((sel === 'body > #exerciseDrawer' || sel === 'body > #systemPicker') ? null : mkEl(sel))),
   querySelectorAll: sel => registry[sel] || [],
   createElement: () => mkEl('tmp'),
-  addEventListener() {}, body: { appendChild() {} },
+  addEventListener() {}, body: { appendChild() {}, classList: clsRec() },
 };
 global.location = { search: '?id=101', pathname: '/programs/exercise/form', href: '' };
 global.history = { pushState() {}, replaceState() {} };
@@ -105,6 +110,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('بانک باز شد', drawer.classList.contains('open'));
   check('زمینه بانک: شمارنده «۰ از ۵»', !els['drawerContext'].hidden && els['drawerContext'].innerHTML.includes('۰ از ۵'));
 
+  // ۱۱) Task 27 — اسکرول کشوی بانک حرکات: یک کانتینر، قفل صفحه، دیده‌شدن پنل افزودن دستی
+  check('باز شدن بانک ⇒ اسکرول تب از صفر شروع می‌شود', get('drawerTabAdd').scrollTop === 0);
+  check('باز شدن بانک ⇒ قفل اسکرول صفحه (body.drawer-open)', document.body.classList.contains('drawer-open'));
+  get('drawerTabAdd').scrollTop = 320;                                 // کاربر داخل بانک اسکرول کرده
+  get('drawerQuickAdd').hidden = true;                                  // در مارک‌آپ واقعی پنل دستی hidden شروع می‌شود
+  els['drawerManualToggle'].onclick();                                  // «＋ افزودن حرکت دستی»
+  check('پنل افزودن دستی باز شد', get('drawerQuickAdd').hidden === false);
+  check('پنل افزودن دستی داخل #drawerTabAdd اسکرول می‌شود', !!get('drawerQuickAdd')._scrolledIntoView && get('drawerQuickAdd')._scrolledIntoView.block === 'start');
+  check('فوکوس روی نام حرکت بدون پرش صفحه (preventScroll)', get('quickAddName')._focusOpts && get('quickAddName')._focusOpts.preventScroll === true);
+  els['drawerManualToggle'].onclick();
+  check('بستن پنل افزودن دستی ⇒ پنل مخفی می‌شود', get('drawerQuickAdd').hidden === true);
+  get('drawerTabAdd').scrollTop = 0;
+
   gymBtn.onclick();
   await sleep(50);
   els['drawerSearch'].value = 'پا';
@@ -127,6 +145,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   els['drawerDone'].onclick();
   check('بستن دستی + مخفی‌شدن زمینه', !drawer.classList.contains('open') && els['drawerContext'].hidden);
+  check('بستن بانک ⇒ قفل اسکرول صفحه برداشته می‌شود', !document.body.classList.contains('drawer-open'));
   check('سیستم کامل: بدون دکمه افزودن و بدون متن تکمیل', !dayHtml().includes('data-add-mov') && !dayHtml().includes('system-complete'));
 
   // ۹) ماتریس ۱۲ سیستم: ۶ کلیک روی هر سیستم، انتظار دقیقاً N حرکت

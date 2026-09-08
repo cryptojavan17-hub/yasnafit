@@ -114,6 +114,20 @@ assert.match(builderCss, /@media \(max-width: 640px\) \{[\s\S]*?\.quickadd-submi
 assert.doesNotMatch(builderCss, /\.mv-anatomy/, 'dead anatomy CSS must be gone');
 assert.doesNotMatch(builderCss, /!important/, 'no !important overrides');
 
+// 8. Task 27 — the exercise-bank drawer must scroll as ONE container (owner: "کشوی بانک حرکات اسکرول نمی‌شود")
+const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+assert.match(builderCss, /#drawerTabAdd\{flex:1;min-height:0;flex-direction:column;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;padding-bottom:calc\(10px \+ env\(safe-area-inset-bottom,0px\)\)\}/, 'the add tab must be the single scroll container with contained overscroll and safe-area padding');
+assert.match(builderCss, /\.drawer-bank-flow\{position:sticky;top:0;z-index:4;flex:0 1 auto;max-height:min\(46vh,380px\);overflow-y:auto\}/, 'the bank flow (location + filters) must stay sticky with its own bounded scroll');
+assert.match(builderCss, /\.drawer-list\{min-height:120px;flex:1 0 auto;overflow:visible\}/, 'the result list must grow inside the tab instead of nesting a second scrollbar');
+assert.match(builderCss, /body\.drawer-open\{overflow:hidden\}/, 'the page behind the drawer must be locked while the bank is open');
+assert.match(builderCss, /@media \(max-width: 640px\) \{[\s\S]*?\.drawer-bank-flow \{ max-height: min\(42vh, 320px\); \}/, 'phones must shrink the sticky bank flow so results stay reachable');
+assert.match(programBuilderSrc, /tab\.scrollTop=0;/, 'reopening the bank must start from the top of the tab');
+assert.match(programBuilderSrc, /document\.body\?\.classList\?\.add\('drawer-open'\)/, 'opening the bank must lock the page scroll');
+assert.match(programBuilderSrc, /document\.body\?\.classList\?\.remove\('drawer-open'\)/, 'closing the bank must release the page scroll');
+assert.match(programBuilderSrc, /panel\.scrollIntoView\(\{block:'start',inline:'nearest',behavior:'smooth'\}\)/, 'the manual-add panel must be scrolled into view inside the drawer');
+assert.match(programBuilderSrc, /focus\(\{preventScroll:true\}\)/, 'focusing the manual-add name field must not yank the page');
+assert.match(indexHtml, /<meta name="viewport" content="width=device-width, initial-scale=1\.0, viewport-fit=cover, interactive-widget=resizes-content" \/>/, 'the coach shell viewport must keep the drawer usable when the mobile keyboard opens');
+
 console.log(JSON.stringify({
   ok: true,
   presets_count: expectedPresets.length,
@@ -125,5 +139,6 @@ console.log(JSON.stringify({
   target_muscle_data_preserved: true,
   sets_picker_under_manual_add: true,
   manual_add_mobile_readable: true,
+  drawer_scroll_single_container: true,
   bottom_preserved: true
 }));

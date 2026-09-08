@@ -5,6 +5,7 @@ Application versions follow Semantic Versioning. `package.json.version` is the c
 ## 0.9.1 — 2026-08-31
 
 ### Fixes
+- Exercise-bank drawer (Task 27): the whole «add» tab is now a single scroll container with contained overscroll, the location/filter block stays sticky at the top with its own bounded height (shorter on phones), the result list no longer nests a second scrollbar, the page behind the drawer is locked while it is open, reopening starts from the top, the manual-add panel scrolls into view inside the drawer (focus without page jump), and the coach shell viewport keeps the drawer usable when the mobile keyboard opens (`viewport-fit=cover`, `interactive-widget=resizes-content`).
 - Student assessment step 2 (body measurements) now accepts localized numbers end-to-end: Persian and Arabic-Indic digits, decimal separators (`۷۵/۵`, `٧٨٫٥`), and unit suffixes (`70 کیلو`, `175 cm`) are parsed and stored as numbers instead of failing with `weight نامعتبر است`.
 - Self-registration no longer silently drops localized height/weight to null.
 - Coach-side student validation (`validateStudent`) and program-set validation (`validateSet`) accept localized weight values.
