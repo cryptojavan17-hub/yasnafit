@@ -4,7 +4,8 @@
 > بعد از هر تسک توسعه، این فایل باید به‌روز شود (قواعد کامل: انتهای همین فایل و `CHANGELOG.md`).
 > هر ادعایی در این سند یکی از این وضعیت‌ها را دارد: `VERIFIED` (تأییدشده با کد/اجرا)، `PARTIALLY VERIFIED`، `NOT VERIFIED`، `NOT IMPLEMENTED`.
 
-**آخرین به‌روزرسانی:** 2026-08-24 • **نسخه برنامه:** 0.9.0 • **وضعیت تست‌ها:** همه پاس (اجرا‌شده در 2026-08-24)
+**آخرین به‌روزرسانی:** 2026-09-08 — **Task 25: اصلاح بخش‌های احراز هویت (§3 ردیف «احراز هویت» + متغیرهای محیطی، §6 ردیف Authentication، §11)** چون مکانیزم قدیمی «توکن مربی» در Task 16 (2026-09-02) حذف شده بود ولی اینجا هنوز `VERIFIED`/فعلی نوشته می‌شد. شمارنده‌های قابل‌راستی‌آزمایی هم در همین پاس اصلاح شدند (طول `server.js`، تعداد مایگریشن، تعداد سوئیت تست، نسخه)؛ تنها **تعداد جدول‌ها (۳۹)** همچنان snapshot 2026-08-24 است و بازراستی‌آزمایی نشده. مرجع زندهٔ وضعیت جلسه/استقرار: فایل حافظهٔ ریشهٔ مخزن.
+**نسخه برنامه:** 0.9.1 (مقدار فعلی `package.json` — در این تسک تغییر نکرد) • **وضعیت تست‌ها:** ۱۸/۱۸ سوئیت پاس (اجرای واقعی `npm test` در 2026-09-08، سندباکس Agent)
 
 ---
 
@@ -49,18 +50,18 @@ Backend / Sync Layer (سرور مرکزی — NOT IMPLEMENTED)
 | لایه | پیاده‌سازی واقعی |
 |---|---|
 | Runtime | Node.js >= 22.5 (تست‌شده با v22.22.3) — `engines` در package.json |
-| Backend | **یک فایل `server.js` (~1937 خط)** — HTTP سرور خالش Node بدون Express؛ روتر دستی با regex روی pathname |
+| Backend | **یک فایل `server.js` (~۲۸۴۸ خط در 2026-09-08)** — HTTP سرور خالش Node بدون Express؛ روتر دستی با regex روی pathname |
 | دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ ۳۹ جدول |
 | Frontend | Vanilla JS + HTML + CSS خالص؛ بدون فریم‌ورک/باندلر؛ دو شل جدا: `public/index.html` (مربی) و `public/student.html` (شاگرد) |
 | API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی |
 | سرویس‌ها | لایه `src/*-service.js` (program, student, assessment, engagement, upload, release, audit, student-auth, student-session, assessment-document) + `src/database.js`، `src/migrations.js`، `src/validation.js` |
-| احراز هویت | مربی: توکن فایل محلی `data/coach-access-token` (۴۳ کاراکتر) → کوکی سشن تصادفی per-boot، یا Bearer با env `YASNAFIT_COACH_TOKEN`؛ مقایسه constant-time. شاگرد: موبایل + رمز scrypt + سشن هش‌شده در جدول `student_sessions` |
+| احراز هویت | `VERIFIED` (بازبینی کد 2026-09-08 — Task 25) **مربی:** ایمیل + رمز (scrypt) + **TOTP گوگل‌اتنتیکاتور**؛ فلوی سه‌مرحله‌ای `/coach/login` → `/coach/2fa` با API‌های `/api/coach/auth/{setup,login,challenge,verify,forgot,reset,change-password,logout,logout-all,status,mail}`. کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/, Max-Age ۱۲ ساعت، `+Secure` روی HTTPS) و کوکی چلنج `yasnafit_coach_challenge` (۵ دقیقه). ایمیل مربی در کد قفل است (`SETUP_EMAIL` در `src/coach-auth-service.js`) و ساخت حساب فقط از لوپ‌بک مجاز است (مگر `YASNAFIT_ALLOW_REMOTE_SETUP=1`). **مکانیزم قدیمی «توکن فایل محلی `data/coach-access-token` + کوکی per-boot + Bearer با env مشترک» در Task 16 کاملاً حذف شده** و مسیر `/coach-access/*` عمداً **۴۰۴** برمی‌گرداند. **شاگرد:** موبایل + رمز scrypt + نشست تصادفی ۳۲ بایتی که فقط هشش در `student_sessions` ذخیره می‌شود؛ ورود با لینک دعوت یک‌بارمصرف `/join/:token` |
 | Storage | استاتیک از `public/`؛ فایل‌های خصوصی شاگرد در `data/assessments` و `data/assessment-documents` (خارج از public) با محافظ path-traversal |
 | آماده‌سازی سینک | stable_id + version + soft-delete روی موجودیت‌های sync (بنگرید §5) |
-| Migrations | ۲۲ مایگریشن نسخه‌ای idempotent در `src/migrations.js`؛ جدول `schema_migrations`؛ `settings.schema_version` |
-| تست | ۹ سوئیت رگرسیون + e2e با `node:assert` — بدون فریم‌ورک تست خارجی؛ `npm test` |
+| Migrations | **۳۰ مایگریشن** نسخه‌ای idempotent در `src/migrations.js` (`001_initial` … `030_coach_totp_authenticator`)؛ جدول `schema_migrations`؛ `settings.schema_version` |
+| تست | **۱۸ سوئیت رگرسیون** در زنجیرهٔ `npm test` + `npm run test:e2e` جدا — با `node:assert` و بدون فریم‌ورک تست خارجی |
 
-**متغیرهای محیطی شناخته‌شده** `VERIFIED`: `PORT`، `NODE_ENV`، `YASNAFIT_COACH_TOKEN` (حالت سرور/Bearer)، `YASNAFIT_BASE_URL` و `YASNAFIT_COACH_TOKEN` (تست e2e). مقدار توکن‌ها هرگز در مستندات نوشته نمی‌شود.
+**متغیرهای محیطی شناخته‌شده** `VERIFIED` (اسکن `process.env` در `server.js` + `src/*.js` — 2026-09-08): `PORT`، `NODE_ENV`، `YASNAFIT_HOST` (fallback به `HOST`؛ پیش‌فرض `0.0.0.0`)، `YASNAFIT_TRUST_PROXY` (تنها دروازهٔ خواندن `X-Forwarded-*`)، `YASNAFIT_COOKIE_SECURE`، مسیرهای دائمی `YASNAFIT_DATA_DIR` / `YASNAFIT_BACKUP_DIR` / `YASNAFIT_MEDIA_DIR` / `RAILWAY_VOLUME_MOUNT_PATH` (همه از `src/storage-paths.js`)، ایمیل `YASNAFIT_SMTP_{HOST,PORT,USER,PASS,FROM,SECURE}`، و فقط برای تست/ابزار: `YASNAFIT_BASE_URL`، `YASNAFIT_COACH_EMAIL`، `YASNAFIT_COACH_PASSWORD` (`tests/e2e-workflow.js` و `scripts/provision-coach-totp.js`). سه فلگ **موقت/اضطراری** هم وجود دارد که باید بعد از استفاده پاک شوند: `YASNAFIT_ALLOW_REMOTE_SETUP`، `YASNAFIT_ALLOW_2FA_SKIP`، `YASNAFIT_REVEAL_AUTHENTICATOR_KEY`. ⚠️ **`YASNAFIT_COACH_TOKEN` دیگر در کد وجود ندارد** (حذف در Task 16) و گارد `tests/deployment-hardening-regression.js` مستندشدنش را هم ممنوع کرده است. مقدار هیچ متغیری هرگز در مستندات، چت یا Git نوشته نمی‌شود — فقط نام‌ها.
 
 ---
 
@@ -73,7 +74,7 @@ yasnafit/
 ├── server.js                  ← کل HTTP سرور: روتینگ، احراز هویت، API، سرو فایل استاتیک
 ├── src/
 │   ├── database.js            ← اتصال DB، seed، ایمپورت ۲۷۰۷ حرکت از JSON
-│   ├── migrations.js          ← ۲۲ مایگریشن (001_initial … 022_mobile_prefix_repair)
+│   ├── migrations.js          ← ۳۰ مایگریشن (001_initial … 030_coach_totp_authenticator)
 │   ├── program-service.js     ← ساخت/ذخیره/بازخوانی برنامه از جدول‌های نرمال (منبع حقیقت)
 │   ├── student-service.js     ← CRM شاگرد، آنبوردینگ، ارزیابی‌ها
 │   ├── student-auth-service.js / student-session-service.js ← رمز scrypt + سشن هش‌شده
@@ -86,7 +87,7 @@ yasnafit/
 ├── public/                    ← فرانت‌اند (مربی + شاگرد) — بنگرید §6
 ├── data/                      ← (gitignore) دیتابیس، توکن مربی، فایل‌های خصوصی شاگرد
 ├── data-source/exercises_data.json ← دیتاست مرجع ۲۷۰۷ حرکت
-├── tests/                     ← ۹ سوئیت رگرسیون + e2e
+├── tests/                     ← ۱۸ سوئیت رگرسیون + e2e
 ├── tool/                      ← اسکریپت‌های کمکی (program-helper.py)
 ├── docs/project-tracking/     ← همین سیستم مستندات (منبع حقیقت فنی)
 ├── YASNAFIT-LAUNCHER.bat      ← لانچر ویندوز (اجرای سرور، ایمپورت عکس‌ها و...)
@@ -99,7 +100,7 @@ yasnafit/
 
 ## 5. Database Architecture
 
-`VERIFIED` — ۳۹ جدول (بدون جدول‌های سیستمی sqlite).
+`PARTIALLY VERIFIED` — ۳۹ جدول (بدون جدول‌های سیستمی sqlite)؛ **این شمارش snapshot 2026-08-24 است** و بعد از مایگریشن‌های ۰۲۳…۰۳۰ بازراستی‌آزمایی نشده.
 
 ### زنجیره برنامه تمرینی (منبع حقیقت نرمال‌شده)
 ```
@@ -148,7 +149,7 @@ training_programs → program_days → exercise_systems → program_movements �
 | Notifications | **IMPLEMENTED** `VERIFIED` | هر دو طرف، خوانده‌شده/خوانده‌نشده، یادآوری پایان برنامه |
 | Media (عکس) | **IMPLEMENTED** `VERIFIED` | آپلود امن خصوصی، fallback تصویر حرکات (زنجیره ۴ مرحله‌ای)، گاید ژست زنانه |
 | Media (ویدیو) | **PARTIAL** | مسیر ویدیو در DB + سرو از `/files/exercise/videos/` `VERIFIED`؛ **پخش‌کننده در UI وجود ندارد** `VERIFIED` |
-| Authentication | **IMPLEMENTED** `VERIFIED` | مربی (توکن/کوکی/Bearer) + شاگرد (scrypt + سشن هش‌شده) کاملاً جدا |
+| Authentication | **IMPLEMENTED** `VERIFIED` (بازبینی 2026-09-08 — Task 25) | مربی: ایمیل+رمز+TOTP سه‌مرحله‌ای، نشست ۱۲ ساعته، قفل ۱۵ دقیقه‌ای پس از ۳ خطای کد یا ۵ خطای رمز، بازیابی رمز با لینک ۱۵ دقیقه‌ای • شاگرد: scrypt + سشن هش‌شده — دو مسیر کاملاً جدا. توکن مشترک قدیمی حذف شده (`/coach-access/*` = ۴۰۴) |
 | Access Control | **PARTIAL** | تک‌مربی محلی؛ جدول coaches/coach_students پایه‌گذاری شده اما UI چندمربی/نقش وجود ندارد `VERIFIED` |
 | Audit Logs | **IMPLEMENTED** `VERIFIED` | رویدادهای ساختاریافته (message.sent, workout.started/completed و...) |
 | Android Preparation | **PARTIAL** | فقط metadata سینک؛ کدی نیست `VERIFIED` |
@@ -249,10 +250,10 @@ T-14: انتقال کاتالوگ به DB (`training_system_catalog`) هنگام
 
 `VERIFIED` — خلاصه (مقادیر محرمانه هرگز در مستندات نمی‌آید):
 
-- **دسترسی مربی:** فایل `data/coach-access-token` (gitignore، مقدارش اینجا نمی‌آید) → `/coach-access/{token}` → کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/)؛ سشن تصادفی per-boot؛ یا Bearer/x-coach-token با env `YASNAFIT_COACH_TOKEN`؛ مقایسه constant-time.
+- **دسترسی مربی (از Task 16 — 2026-09-02):** ایمیل قفل‌شده در کد + رمز scrypt + **TOTP شش‌رقمی** (`src/totp.js`: دورهٔ ۳۰ ثانیه، تلورانس `window=1` ⇒ ±۳۰ ثانیه، کد یک‌بارمصرف با `totp_last_counter`). فلوی سه‌مرحله‌ای `/coach/login` → `/coach/2fa`؛ کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/, Max-Age = `SESSION_TTL_MS` ۱۲ ساعت، `Secure` روی HTTPS) + کوکی چلنج `yasnafit_coach_challenge` (`OTP_TTL_MS` ۵ دقیقه). قفل‌ها: `MAX_OTP_FAILURES=3` و `MAX_PASSWORD_FAILURES=5` ⇒ `LOCK_MS=15 دقیقه`؛ لینک بازیابی رمز `RESET_TTL_MS=15 دقیقه` اعتبار دارد و در نبود SMTP در `data/coach-reset-dev.txt` نوشته می‌شود. نشست تصادفی ۳۲ بایتی است و کلید TOTP در `coaches.totp_secret` روی همان سرور نگهداری می‌شود؛ در UI هرگز نمایش داده نمی‌شود (راه‌های بازیابی/چرخش: `DEPLOYMENT.md` §۹.۸). ⚠️ **مکانیزم قبلی — فایل `data/coach-access-token`، مسیر `/coach-access/{token}` و Bearer با env مشترک — حذف شده و `/coach-access/*` عمداً ۴۰۴ است**؛ هیچ مسیر HTTP برای خواندن توکن مشترک وجود ندارد.
 - **شاگرد:** رمز scrypt، سشن هش‌شده در DB با انقضا، کوکی HttpOnly/SameSite=Strict.
 - **Rate limiting:** روی لینک دعوت (۲۰/۱۰دقیقه)، join (۳۰/دقیقه)، ورود شاگرد (۳۰/۱۵دقیقه) — در حافظه (ریست با ری‌استارت).
-- **CSP:** `default-src 'self'` + nosniff + Referrer-Policy no-referrer؛ مدارک با CSP جدا `default-src 'none'` و Cache-Control private/no-store.
+- **هدرهای امنیتی (متمرکز از Task 16):** `src/request-security.js` روی **همهٔ پاسخ‌ها** اعمال می‌شود — CSP (`default-src 'self'` + `script-src 'self'` ⇒ اسکریپت درون‌خطی و `on*=` در `public/*.html` ممنوع، گارد تست فعال)، `X-Content-Type-Options: nosniff`، `X-Frame-Options: DENY`، `Referrer-Policy: no-referrer`، `Cross-Origin-Opener-Policy`/`Cross-Origin-Resource-Policy: same-origin` و `Permissions-Policy` بسته. مدارک/فایل‌های خصوصی CSP جدا `default-src 'none'` + `Cache-Control: private, no-store` دارند. **تنها** جای خواندن `X-Forwarded-*` در کل مخزن همین ماژول است و فقط با `YASNAFIT_TRUST_PROXY=1`.
 - **Same-origin** برای تغییرات (mutation) شاگرد.
 - **مغالطه مسیر (path traversal):** محافظ `isWithin(root,…)` روی سرو فایل‌های خصوصی.
 - **ممیزی:** رویدادهای ساختاریافته با redaction.
@@ -262,11 +263,11 @@ T-14: انتقال کاتالوگ به DB (`training_system_catalog`) هنگام
 
 ## 12. Testing
 
-- **فریم‌ورک:** `node:assert/strict` + fetch — بدون وابستگی خارجی؛ ۹ فایل تست.
+- **فریم‌ورک:** `node:assert/strict` + fetch — بدون وابستگی خارجی؛ ۱۸ سوئیت در `npm test` + `tests/e2e-workflow.js`.
 - **انواع:** رگرسیون مایگریشن، UI-design (استاتیک روی سورس)، واژگانی، auth، سشن شاگرد، پروفایل ارزیابی، engagement، مدیریت شاگرد، و **e2e** (چرخه کامل دعوت→آنبوردینگ→ارزیابی→برنامه→تمرین→ماه دوم→ایزوله‌سازی).
 - **دستور:** `npm test` (یا تک‌تک: `npm run test:e2e` و…).
 - **شرط e2e:** سرور باید روی 3020 در حال اجرا باشد (`npm start`)، وگرنه ECONNREFUSED می‌گیرد — گارد نشده (KI-001).
-- **وضعیت آخرین اجرا (2026-08-24):** ✅ همه ۹ سوئیت PASS — قبل از ثبت هر ادعای «پاس» باید واقعاً اجرا شده باشد.
+- **وضعیت آخرین اجرا (2026-09-08، سندباکس Agent):** ✅ `npm test` = **۱۸/۱۸ سوئیت PASS** (exit 0) — قبل از ثبت هر ادعای «پاس» باید واقعاً اجرا شده باشد.
 - حجم تقریبی: ~۳۰۰ نقطه assert در ۹ فایل (شمارش grep؛ عدد دقیق اجرا متغیر است).
 
 ---
@@ -274,17 +275,18 @@ T-14: انتقال کاتالوگ به DB (`training_system_catalog`) هنگام
 ## 13. Current Development State
 
 ```
-VERSION:            0.9.0
-CURRENT BRANCH:     arena/01a02ff4-yasnafit  (هیچ کاری مستقیم روی main ممنوع)
-LAST COMMIT:        0f6a28a "fix: portal exercise drawer outside animated content"
-LAST VERIFIED:      2026-08-24 (بعد از Task 6: تقویم شمسی + جستجوی سراسری نرمال‌شده + افزودن دستی — همه تست‌ها PASS)
-TEST STATUS:        ✅ PASS (۹/۹ سوئیت — نیازمند سرور در حال اجرا برای e2e)
+VERSION:            0.9.1  (مقدار package.json — در مستندات تغییر داده نمی‌شود)
+CURRENT BRANCH:     شاخهٔ جلسهٔ جاری Arena (هیچ کاری مستقیم روی main ممنوع) — نام دقیق شاخه فقط در §۱۷ فایل حافظهٔ ریشهٔ مخزن و در گزارش پایان هر جلسه اعلام می‌شود
+MAIN:               607587f  (merge PR #5 = Task 24)
+LAST COMMIT (main): 607587f "Merge pull request #5" (Task 24 — جایگزینی درجای تولید پیش‌نویس هوشمند)
+LAST VERIFIED:      2026-09-08 (Task 25 — بازبینی احراز هویت و شمارنده‌ها؛ `npm test` = ۱۸/۱۸ PASS؛ `GET /api/health` روی production = `0.9.1` با uptime 418274)
+TEST STATUS:        ✅ PASS (۱۸/۱۸ سوئیت — `test:e2e` نیازمند سرور در حال اجراست، KI-001)
 BUILD STATUS:       N/A (بدون مرحله بیلد — جاوااسکریپت خالص)
 SERVER STATUS:      اجراشده و سالم روی پورت 3020 (در محیط این تسک)
-DATABASE STATUS:    schema 022_mobile_prefix_repair؛ ۳۹ جدول؛ ۲۷۰۷ حرکت؛ داده تستی e2e انباشته می‌شود (ممیزی 2026-08-24 آخرِ روز: ۲۵ شاگرد/۹ برنامه/۳ جلسه تمرین — با هر اجرای e2e رشد می‌کند، بنگرید KI-007)
+DATABASE STATUS:    schema 030_coach_totp_authenticator؛ ۳۹ جدول (snapshot 2026-08-24)؛ ۲۷۰۷ حرکت در دیتاست مرجع؛ داده تستی e2e انباشته می‌شود (ممیزی 2026-08-24 آخرِ روز: ۲۵ شاگرد/۹ برنامه/۳ جلسه تمرین — با هر اجرای e2e رشد می‌کند، بنگرید KI-007)
 ```
 
-**COMPLETED:** همه ماژول‌های §6 با وضعیت IMPLEMENTED + مستندات ریشه + ۲۲ مایگریشن.
+**COMPLETED:** همه ماژول‌های §6 با وضعیت IMPLEMENTED + مستندات ریشه + `DEPLOYMENT.md` + ۳۰ مایگریشن + لایهٔ امنیتی متمرکز (Task 16) + استقرار Railway (§۶ حافظه).
 **IN PROGRESS:** سیستم مستندات دائمی (همین پوشه — ایجاد شد در 2026-08-24).
 **BLOCKED:** —
 **TODO / TECHNICAL DEBT:** → `TODO.md` (خلاصه: کاتالوگ ۱۲ سیستم، پخش ویدیو، آپلود عکس از UI، فیلد تجهیزات/عضله هدف، سینک، اندروید، جداول legacy).
@@ -335,7 +337,7 @@ DATABASE STATUS:    schema 022_mobile_prefix_repair؛ ۳۹ جدول؛ ۲۷۰۷ �
 
 ### قاعده مالک (BR-13 — 2026-08-24): راهنمای کوتاه به‌روزرسانی در پایان هر تسک
 در پایان **هر** تسک/جلسه، یک راهنمای کوتاه PowerShell برای دریافت آخرین تغییرات ارائه شود.
-**مهم:** هر جلسه Arena یک شاخه جدید دارد — همیشه «شاخه جلسه فعلی» اعلام شود و کاربر از دستورهای قدیمی جلسات قبل استفاده نکند (رخداد واقعی: کاربر به شاخه جلسه قبلی pull می‌زد و چیزی نمی‌آمد). شاخه جلسه فعلی: `arena/01a02ff4-yasnafit`
+**مهم:** هر جلسه Arena یک شاخه جدید دارد — همیشه «شاخه جلسه فعلی» اعلام شود و کاربر از دستورهای قدیمی جلسات قبل استفاده نکند (رخداد واقعی: کاربر به شاخه جلسه قبلی pull می‌زد و چیزی نمی‌آمد). نام شاخهٔ جلسهٔ فعلی را **همیشه** از §۱۷ فایل حافظهٔ ریشهٔ مخزن یا از گزارش پایان همان جلسه بگیرید (این سند عمداً نام شاخهٔ ثابتی نگه نمی‌دارد تا کهنه نشود)
 ```powershell
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git pull --ff-only origin <شاخه جلسه فعلی>

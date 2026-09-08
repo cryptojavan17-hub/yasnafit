@@ -94,11 +94,23 @@
 - **NEXT ACTION (مالک):** در سرویس Railway Branch را روی `main` بگذارید (یا همان شاخهٔ جلسه را نگه دارید)، Volume را وصل کنید (§۹.۱ بند ۲) و چک‌های §۹.۵ را اجرا کنید.
 
 ## KI-015 | عکس‌های ۱۸۸۸ حرکت روی Railway سرو نمی‌شدند (کد فقط مسیر ریپو را می‌خواند)
-- **SEVERITY:** Medium (تجربهٔ بصری؛ placeholder سفید به‌جای عکس حرکت) • **STATUS:** **FIXED** (2026-09-03، Task 22)
+- **SEVERITY:** Medium (تجربهٔ بصری؛ placeholder سفید به‌جای عکس حرکت) • **STATUS:** ✅ **CLOSED / VERIFIED** (رفع: 2026-09-03 Task 22 — تأیید نهایی روی production: **2026-09-08**)
 - **DESCRIPTION (گزارش مالک):** ۱۸۸۸ عکس حرکت (≈۵۷MB) روی Volume در `/app/data/media/images/exercises/imported/{ID}.png|jpg` قرار گرفته بود (`railway ssh … ls | wc -l` = 1888)، ولی سرو عکس فقط `public/assets/images/exercises/imported` و `data-source/` را می‌خواند؛ آن مسیر gitignored است، پس روی Railway همیشه `blank-white.svg` برمی‌گشت.
 - **RESOLUTION (Task 22):** `mediaDir`/`exerciseImagesDir` در `src/storage-paths.js` (با `YASNAFIT_MEDIA_DIR`؛ پیش‌فرض `<dataDir>/media` ⇒ روی Railway همان `/app/data/media`)؛ جست‌وجوی Volume در `/api/exercise-image/{id}` (پروب مستقیم `{id}.png|jpg|jpeg` + بر اساس `original_id`، اولویت با ریپو) و در مسیرهای استاتیک `/assets/images/exercises/*` و `/files/exercise/*` (فقط پسوندهای تصویری، با گارد `isSafePath`)؛ لاگ boot `[Media] تصاویر حرکات: N فایل (Volume: X | ریپو: Y)`. ویدیوها طبق تصمیم مالک repo-side می‌مانند (روی Railway ۴۰۴).
 - **FILES:** `src/storage-paths.js`, `server.js`, `tests/deployment-hardening-regression.js`, `DEPLOYMENT.md` (§۹.۱۰).
-- **NEXT ACTION (مالک):** merge PR + redeploy؛ سپس `railway logs | grep Media` باید `Volume: 1888` را نشان دهد و `curl /api/exercise-image/4` باید `image/png|jpeg` برگرداند.
+- **VERIFICATION (بسته‌شدن نهایی — 2026-09-08):**
+  1. **لاگ boot مالک از production:** `[Media] تصاویر حرکات: 1888 فایل (Volume: 1888 | ریپو: 0)` ⇒ کد Task 22 واقعاً از Volume می‌خواند و شمارش با `railway ssh … ls | wc -l` = 1888 یکی است.
+  2. **تست چشمی مالک:** بازکردن `/api/exercise-image/4` در مرورگر روی production ⇒ **عکس واقعی حرکت** نمایش داده شد (نه مربع سفید/placeholder). این همان موردی بود که ابزار Agent نمی‌توانست بررسی کند (fetch روی پاسخ تصویری خطای گمراه‌کننده می‌دهد).
+  3. **راستی‌آزمایی جانبی Agent (2026-09-08T14:54Z):** `GET /api/health` → `{"ok":true,"version":"0.9.1","uptime":418274}` ⇒ استارت پروسه ≈ 2026-09-03T18:43Z = auto-deploy بعد از merge PR #5؛ یعنی همان کدی که لاگ `[Media]` بالا را چاپ کرده هنوز زنده است.
+- **NEXT ACTION:** — (بسته شد). ⚠️ یادآوری دائمی: برای «حل مشکل دیپلوی» هرگز DB یا Volume ریست نشود (`DEPLOYMENT.md` §۹.۱۰). ویدیوها عمداً repo-side مانده‌اند ⇒ روی Railway ۴۰۴ بودن ویدیو **انتظار** است، نه باگ.
+
+## KI-016 | لاگ production می‌گوید «Exercises already imported: 2724 items» در حالی که دیتاست مرجع ۲٬۷۰۷ حرکت است
+- **SEVERITY:** Low (مشاهدهٔ ثبت‌شده؛ هیچ رفتار خرابی‌ای گزارش نشده) • **STATUS:** OPEN — `UNKNOWN / needs verification`
+- **DESCRIPTION (از لاگ مالک، همان نشست boot که لاگ `[Media]` را چاپ کرد):** DB روی production **۳۰ مایگریشن applied** و پیام «Exercises already imported: **2724** items» را نشان می‌دهد؛ دیتاست مرجع در git (`data-source/exercises_data.json`) **۲٬۷۰۷** حرکت است ⇒ اختلاف **۱۷** رکورد. علت از بیرون تأیید نشده است (احتمال‌ها فقط فرض‌اند: حرکات افزوده/ویرایش‌شدهٔ دستی از UI در DB production، رکوردهای legacy، یا تفاوت در معیار شمارش «items» در آن پیام لاگ).
+- **قاعدهٔ قطعی:** **هیچ حرکت/دادهٔ ساختگی ساخته نشود و هیچ رکوردی حدسی حذف نشود**؛ DB/Volume هرگز ریست نشود. این مدخل فقط برای این ثبت شده که عددِ دیده‌شده گم نشود.
+- **REPRODUCE (فقط خواندنی):** مقایسهٔ خروجی شمارش DB production (با ابزار خود مالک: `railway ssh` یا گزارش لاگ) با شمارش `data-source/exercises_data.json` در همان کامیت.
+- **NEXT ACTION:** فقط با تأیید مالک و **کاملاً خواندنی**: (۱) یافتن متن دقیق آن پیام در `server.js`/`src/database.js` تا معلوم شود «items» چه چیزی را می‌شمارد، (۲) گزارش تعداد رکوردهای `exercises` با تفکیک `deleted_at`/`status`/منبع، بدون هیچ نوشتاری روی DB. تا آن زمان هیچ نتیجه‌ای قطعی اعلام نشود.
+
 
 ---
 
