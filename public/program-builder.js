@@ -1036,7 +1036,18 @@
     }
     if(!panel.hidden){
       refreshQuickAddCategories();
-      document.getElementById('quickAddName')?.focus();
+      // Task 27 — the manual-add panel lives inside the scrollable #drawerTabAdd, so bring it
+      // into view there (focus alone would scroll the page, not the drawer).
+      const tabHost=document.getElementById('drawerTabAdd');
+      const revealPanel=()=>{
+        if(typeof panel.scrollIntoView==='function')panel.scrollIntoView({block:'start',inline:'nearest',behavior:'smooth'});
+        if(tabHost&&typeof tabHost.scrollTo==='function'){
+          const top=panel.offsetTop-(tabHost.offsetTop||0);
+          if(Number.isFinite(top))tabHost.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+        }
+      };
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(revealPanel);else revealPanel();
+      document.getElementById('quickAddName')?.focus({preventScroll:true});
     }
   }
   async function submitQuickAddExercise(){
@@ -1101,6 +1112,10 @@
     }
     title.textContent='بانک حرکات تمرینی';
     tab.style.display='flex';
+    // Task 27 — the whole «add» tab is one scroll container: start it from the top
+    // and stop the page behind the drawer from scrolling along with it.
+    tab.scrollTop=0;
+    document.body?.classList?.add('drawer-open');
     const done=drawer.querySelector('#drawerDone');
     if(done)done.hidden=false;
     resetDrawerBankFlow();drawer.classList.add('open');refreshDrawerContext();
@@ -1108,6 +1123,7 @@
   function closeDrawer(){
     const drawer=document.getElementById('exerciseDrawer');
     if(drawer)drawer.classList.remove('open');
+    document.body?.classList?.remove('drawer-open');
     const ctx=document.getElementById('drawerContext'),done=document.getElementById('drawerDone'),list=document.getElementById('drawerList');
     const presetBar=document.getElementById('drawerSetPreset');
     if(presetBar)presetBar.hidden=true;
