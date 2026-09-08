@@ -572,14 +572,14 @@
               <div class="drawer-filter-accordion drawer-subchips" id="drawerSubChips"></div>
               <div class="drawer-filter-accordion drawer-tools">
                 <div class="drawer-search"><input id="drawerSearch" placeholder="جستجوی حرکت…" autocomplete="off"></div>
-                <button class="btn btn-secondary btn-small" id="drawerManualToggle" type="button" title="افزودن حرکت دلخواه به بانک">＋ افزودن حرکت دستی</button>
+                <button class="btn btn-secondary drawer-manual-toggle" id="drawerManualToggle" type="button" title="افزودن حرکت دلخواه به بانک">＋ افزودن حرکت دستی</button>
               </div>
             </section>
           </div>
           <div class="drawer-quickadd" id="drawerQuickAdd" hidden>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <b style="font-size:11px;color:var(--accent-hover);">＋ افزودن حرکت دستی به بانک</b>
-              <button type="button" class="btn-icon" id="quickAddCloseX" style="width:24px;height:24px;font-size:14px;" title="بستن">×</button>
+            <div class="quickadd-head">
+              <b>＋ افزودن حرکت دستی به بانک</b>
+              <button type="button" class="btn-icon quickadd-close" id="quickAddCloseX" title="بستن">×</button>
             </div>
             <div class="quickadd-grid">
               <input id="quickAddName" placeholder="نام حرکت (فارسی) *" maxlength="120">
@@ -590,25 +590,20 @@
               </select>
               <select id="quickAddCategory"></select>
             </div>
-            <div class="quickadd-muscles-row" style="margin-top:4px;display:flex;flex-direction:column;gap:5px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-                <span style="font-size:10px;color:var(--text-secondary);font-weight:700;">عضله‌های هدف درگیر:</span>
-                <select id="quickAddMuscleSelect" style="min-height:30px;padding:3px 8px;font-size:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-3);color:var(--text);">
-                  <option value="">＋ انتخاب و افزودن عضله...</option>
-                  <optgroup label="عضلات جلو">
-                    ${muscleCatalog.filter(m=>m.side==='front').map(m=>`<option value="${m.id}">${m.label}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="عضلات پشت">
-                    ${muscleCatalog.filter(m=>m.side==='back').map(m=>`<option value="${m.id}">${m.label}</option>`).join('')}
-                  </optgroup>
-                </select>
-              </div>
-              <div class="quickadd-muscle-chips" id="quickAddMuscleChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px;"></div>
+            <div class="quickadd-actions">
+              <span class="quickadd-hint">حرکت ثبت‌شده هم به بانک اضافه می‌شود و هم با ست‌های انتخابیِ پایین، داخل برنامه می‌نشیند.</span>
+              <button class="btn btn-primary quickadd-submit" id="quickAddSubmit" type="button">ثبت حرکت</button>
             </div>
-            <div class="quickadd-actions" style="margin-top:2px;">
-              <span class="quickadd-hint">عضله‌های درگیر را با ＋ انتخاب کنید.</span>
-              <button class="btn btn-primary btn-small" id="quickAddSubmit" type="button" style="min-height:32px;padding:5px 14px;font-weight:800;">ثبت حرکت</button>
+          </div>
+          <div class="drawer-setpreset" id="drawerSetPreset" hidden>
+            <div class="drawer-setpreset-head">
+              <b>ست‌های حرکت</b>
+              <small>یک‌بار اینجا انتخاب کنید ⇒ روی هر حرکتی که از بانک (یا از افزودن دستی) اضافه می‌شود خودکار اعمال می‌شود؛ دیگر لازم نیست در کارت حرکت دوباره ست انتخاب کنید.</small>
             </div>
+            <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
+              <option value="">۱ × ۱۲ (پیش‌فرض)</option>
+              ${setPresets.map((p,i)=>`<option value="${i}">${esc(p.label)}</option>`).join('')}
+            </select>
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
@@ -1029,24 +1024,6 @@
       host.innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     }catch(error){}
   }
-  let quickAddSelectedMuscles = [];
-  function renderQuickAddMuscles(){
-    const host = document.getElementById('quickAddMuscleChips');
-    if(!host) return;
-    host.innerHTML = quickAddSelectedMuscles.map(id => {
-      const m = muscleCatalog.find(item => item.id === id);
-      if(!m) return '';
-      return `<span class="mv-muscle-chip" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border:1px solid var(--accent-border);border-radius:999px;background:var(--accent-surface);color:var(--accent-hover);font-size:8px;font-weight:750;">${esc(m.label)}<button type="button" data-del-qa-muscle="${m.id}" style="border:0;background:none;color:var(--text-muted);cursor:pointer;font-size:10px;padding:0;line-height:1;">×</button></span>`;
-    }).join('');
-    host.querySelectorAll('[data-del-qa-muscle]').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        quickAddSelectedMuscles = quickAddSelectedMuscles.filter(id => id !== btn.dataset.delQaMuscle);
-        renderQuickAddMuscles();
-      };
-    });
-  }
-
   function toggleQuickAddPanel(force){
     const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
     if(!panel)return;
@@ -1059,18 +1036,6 @@
     }
     if(!panel.hidden){
       refreshQuickAddCategories();
-      const qaSelect = document.getElementById('quickAddMuscleSelect');
-      if (qaSelect && !qaSelect._bound) {
-        qaSelect._bound = true;
-        qaSelect.onchange = () => {
-          if (!qaSelect.value) return;
-          if (!quickAddSelectedMuscles.includes(qaSelect.value)) {
-            quickAddSelectedMuscles.push(qaSelect.value);
-            renderQuickAddMuscles();
-          }
-          qaSelect.value = '';
-        };
-      }
       document.getElementById('quickAddName')?.focus();
     }
   }
@@ -1080,13 +1045,10 @@
     const category=document.getElementById('quickAddCategory')?.value;
     if(!name)return alert('نام حرکت الزامی است');
     if(!category)return alert('دسته‌بندی را انتخاب کنید');
-    const targetMuscles = [...quickAddSelectedMuscles];
     try{
-      const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,target_muscles:targetMuscles,priority:5})});
+      const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,target_muscles:[],priority:5})});
       alert('✅ حرکت «'+name+'» به بانک اضافه شد');
       document.getElementById('quickAddName').value='';
-      quickAddSelectedMuscles = [];
-      renderQuickAddMuscles();
       toggleQuickAddPanel(false);
       // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن
       if(selectedSystemForAdd){
@@ -1103,8 +1065,8 @@
             image_path:null,
             movementHash:genHash(),
             description:'',
-            target_muscles:targetMuscles,
-            sets:[{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}]
+            target_muscles:[],
+            sets:setsForNewMovement()
           });
           expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
           setDirty(true);renderDays();refreshDrawerContext();
@@ -1116,14 +1078,16 @@
   function refreshDrawerContext(){
     const ctx=document.getElementById('drawerContext'),list=document.getElementById('drawerList');
     if(!ctx)return;
-    if(!selectedSystemForAdd){ctx.hidden=true;if(list)list.classList.remove('full');return;}
+    const presetBar=document.getElementById('drawerSetPreset');
+    if(!selectedSystemForAdd){ctx.hidden=true;if(presetBar)presetBar.hidden=true;if(list)list.classList.remove('full');return;}
     const {dayIdx,sysIdx}=selectedSystemForAdd;
     const sys=currentProgram?.days?.[dayIdx]?.data?.[sysIdx];
-    if(!sys){ctx.hidden=true;return;}
+    if(!sys){ctx.hidden=true;if(presetBar)presetBar.hidden=true;return;}
     const meta=systemById(sys.exercise_system_id)||systemById(1);
     const selected=(sys.movement_list||[]).length;
     const full=selected>=meta.movements;
     ctx.hidden=false;
+    if(presetBar)presetBar.hidden=false;
     ctx.innerHTML=`<b>${meta.icon} ${esc(meta.label)}</b><span class="drawer-progress ${full?'done':''}">حرکات انتخاب شده: ${selected.toLocaleString('fa-IR')} از ${meta.movements.toLocaleString('fa-IR')}</span>${full?'<span class="drawer-full-note">تکمیل شد — حرکت بیشتری برای این سیستم قابل افزودن نیست</span>':`<span class="drawer-remaining">${(meta.movements-selected).toLocaleString('fa-IR')} حرکت باقی‌مانده</span>`}`;
     if(list)list.classList.toggle('full',full);
   }
@@ -1145,6 +1109,8 @@
     const drawer=document.getElementById('exerciseDrawer');
     if(drawer)drawer.classList.remove('open');
     const ctx=document.getElementById('drawerContext'),done=document.getElementById('drawerDone'),list=document.getElementById('drawerList');
+    const presetBar=document.getElementById('drawerSetPreset');
+    if(presetBar)presetBar.hidden=true;
     if(ctx)ctx.hidden=true;
     if(done)done.hidden=true;
     if(list)list.classList.remove('full');
@@ -1186,6 +1152,15 @@
     mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
     setDirty(true);renderDays();
   }
+  // ست‌های حرکت تازه‌اضافه‌شده: از انتخابگر «ست‌های حرکت» در بانک (زیر افزودن دستی) خوانده می‌شود
+  // تا مربی یک‌بار انتخاب کند و مجبور نباشد همان را در کارت حرکت تکرار کند.
+  function setsForNewMovement(){
+    const select=document.getElementById('drawerPresetSelect');
+    const idx=select&&select.value!==''?Number(select.value):-1;
+    const preset=setPresets[idx];
+    if(preset)return preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
+    return [{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}];
+  }
   function findMatchingPresetIndex(sets){
     if(!sets||!sets.length)return -1;
     return setPresets.findIndex(p=>{
@@ -1215,16 +1190,6 @@
     const matchedPresetIdx=findMatchingPresetIndex(sets);
     const activeMuscleIds=getAutoMusclesForMovement(mov);
     mov.target_muscles=activeMuscleIds;
-
-    const frontOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='front')).filter(Boolean);
-    const backOverlays=activeMuscleIds.map(id=>muscleCatalog.find(m=>m.id===id&&m.side==='back')).filter(Boolean);
-    const hasFront=frontOverlays.length>0;
-    const hasBack=backOverlays.length>0;
-    let showSides=[];
-    if(hasFront&&!hasBack) showSides=['front'];
-    else if(!hasFront&&hasBack) showSides=['back'];
-    else if(hasFront&&hasBack) showSides=['front','back'];
-    else showSides=['front'];
 
     document.getElementById('mvTitle').textContent=`ویرایش حرکت: ${mov.nameFa||mov.name||'حرکت'}`;
     const chip=document.getElementById('mvSystemChip');
@@ -1283,33 +1248,6 @@
       </section>
 
       <section class="mv-learn">
-        <div class="mv-anatomy">
-          <b>عضله هدف</b>
-          <div class="mv-figures ${showSides.length===1?'single-view':'dual-view'}">
-            ${showSides.includes('front') ? `
-            <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'165px':'125px'}; height: ${showSides.length===1?'230px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
-                <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/front/front_grey_body.webp" alt="نمای جلو" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
-                ${frontOverlays.map(m => `
-                  <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/front/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
-                `).join('')}
-              </div>
-              <figcaption>نمای جلو</figcaption>
-            </figure>` : ''}
-
-            ${showSides.includes('back') ? `
-            <figure class="mv-body-figure">
-              <div class="muscle-container mv-body-canvas-wrap" style="position: relative; width: 100%; max-width: ${showSides.length===1?'165px':'125px'}; height: ${showSides.length===1?'230px':'185px'}; margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: rgba(5, 5, 5, .95);">
-                <img class="base-body mv-base-body" src="https://admin-morabiha.ir/images/common/muscles/back/back_grey_body.webp" alt="نمای پشت" style="width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;" loading="lazy">
-                ${backOverlays.map(m => `
-                  <img class="muscle-overlay mv-muscle-overlay" src="https://admin-morabiha.ir/images/common/muscles/back/${m.file}" alt="${esc(m.label)}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 2; pointer-events: none;" loading="lazy">
-                `).join('')}
-              </div>
-              <figcaption>نمای پشت</figcaption>
-            </figure>` : ''}
-          </div>
-        </div>
-
         <div class="mv-video">
           <b>آموزش حرکت</b>
           <div class="mv-player ${videoSrc ? '' : 'no-video'}" id="mvPlayerWrap">
@@ -1497,7 +1435,7 @@
           image_path: imgPath,
           movementHash: genHash(),
           description: '',
-          sets: [{type:'REPEAT', count:12, restSeconds:60, setHash: genHash()}]
+          sets: setsForNewMovement()
         });
         expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
         setDirty(true);
