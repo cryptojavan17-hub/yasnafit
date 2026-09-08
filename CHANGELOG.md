@@ -72,3 +72,5 @@ Application versions follow Semantic Versioning. `package.json.version` is the c
 
 ## 0.1.0 — 2026-08-22
 - Initial local Yasnafit architecture, exercise management and Program Builder.
+
+- **DEPLOYED (۱۴۰۵/۰۶/۱۷ — merge PR #6 در 2026-09-08T16:36:57Z با تأیید صریح مالک ⇒ `main` = `22bfab6`):** auto-deploy منتشر کرد و راستی‌آزمایی از بیرون با دو شاهد انجام شد: ریست uptime (استارت پروسه ~16:37Z، دقیقاً بعد از merge) و **خواندن `/program-builder.css` سرو‌شده روی production** که قواعد جدید Task 26 را دارد و قواعد حذف‌شدهٔ آناتومی (`.mv-anatomy`/`.mv-figures`/`.muscle-container`/`.base-body`/`.muscle-overlay`/`.mv-muscle-select`) در آن نیست؛ `.mv-muscle-chip` عمداً باقی است و `.mv-learn` تک‌ستونه شده. `version` همان **0.9.1** است و DB/Volume دست‌نخورده ماند. تست چشمی مالک با `Ctrl+Shift+R` در انتظار است.
