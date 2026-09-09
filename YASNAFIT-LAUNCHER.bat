@@ -3,6 +3,15 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 set "PORT=3020"
 
+REM ==== 2FA OFF (local only) ==============================================
+REM This line skips the Google Authenticator 6-digit step on THIS computer.
+REM It sets YASNAFIT_ALLOW_2FA_SKIP=1 only for the server started by this
+REM launcher. Railway/production is NOT affected (it runs `node server.js`).
+REM The enrolled key stays untouched - to turn 2FA back on, just delete
+REM the "set" line below and restart the server.
+set "YASNAFIT_ALLOW_2FA_SKIP=1"
+REM ========================================================================
+
 :MENU
 cls
 echo ====================================================
@@ -27,6 +36,7 @@ goto MENU
 
 :STATUS
 powershell -NoProfile -Command "$l=Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue; if($l){Write-Host 'Server Status: RUNNING' -ForegroundColor Green}else{Write-Host 'Server Status: STOPPED' -ForegroundColor Red}; if(Test-Path 'data\yasnafit.db'){Write-Host 'Database Health: ONLINE' -ForegroundColor Green}else{Write-Host 'Database Health: NOT INITIALIZED' -ForegroundColor Yellow}; Write-Host 'Port: %PORT%'"
+if defined YASNAFIT_ALLOW_2FA_SKIP (echo 2FA 6-digit code: DISABLED on this PC - login is email + password only) else (echo 2FA 6-digit code: ENABLED - Google Authenticator required)
 exit /b
 
 :CHECKCODE
@@ -57,6 +67,10 @@ echo Yasnafit started at http://localhost:%PORT% - launcher stays open
 exit /b
 
 :SHOW_AUTHENTICATOR
+if defined YASNAFIT_ALLOW_2FA_SKIP (
+  echo Google Authenticator step is OFF on this PC - no key needed to log in.
+  exit /b
+)
 if exist data\coach-authenticator.txt (
   echo.
   echo ----------------------------------------------------
