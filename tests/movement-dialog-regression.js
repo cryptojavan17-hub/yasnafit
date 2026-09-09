@@ -100,8 +100,10 @@ const quickAddIdx = programBuilderSrc.indexOf('id="drawerQuickAdd"');
 const setsBarIdx = programBuilderSrc.indexOf('id="drawerSetPreset"');
 assert.ok(quickAddIdx > -1 && setsBarIdx > quickAddIdx, 'the sets bar must be rendered BELOW the manual-add panel');
 assert.ok(programBuilderSrc.includes('function setsForNewMovement'), 'the auto-apply helper must exist');
-assert.equal((programBuilderSrc.match(/setsForNewMovement\(\)/g) || []).length, 3, 'both add paths (manual add + bank pick) must take their sets from the picker');
-assert.ok(programBuilderSrc.includes('presetBar.hidden=false'), 'the sets bar must become visible while a system is being filled');
+assert.equal((programBuilderSrc.match(/setsForNewMovement\(\)/g) || []).length, 2, 'bank picks must take their sets from the picker (manual add goes through the mandatory sets accordion)');
+assert.doesNotMatch(programBuilderSrc, /presetBar\.hidden=false/, 'the sets bar must NOT auto-show while a system is being filled (accordion: reveals only after a manual add)');
+assert.ok(programBuilderSrc.includes('drawerSetPresetToggle'), 'the sets bar must be an accordion with a header toggle');
+assert.ok(programBuilderSrc.includes('function revealDrawerSets'), 'the sets accordion must reveal once a manual movement is registered');
 
 // 7. Manual-add panel must be readable and tappable (owner: "usually not visible, painful on mobile")
 assert.match(builderCss, /\.quickadd-submit \{[^}]*min-height: var\(--component-control-height\)/, 'the register button must use the shared control height');

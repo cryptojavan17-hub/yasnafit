@@ -230,19 +230,42 @@ input.jalali-bad { border-color: var(--danger); }
 .quickadd-hint { flex: 1 1 190px; color: var(--text-secondary); font-size: 11px; line-height: 1.8; }
 .quickadd-submit { min-height: var(--component-control-height); padding: 10px 22px; font-size: 13px; font-weight: 800; border-radius: var(--component-radius); white-space: nowrap; }
 .drawer-manual-toggle { min-height: var(--component-control-height); padding: 8px 16px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-/* انتخاب ست‌ها: زیر «افزودن حرکت دستی» — یک‌بار انتخاب، اعمال خودکار روی حرکت تازه */
-.drawer-setpreset { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; border-bottom: 1px solid var(--border); background: var(--surface-inset); flex-shrink: 0; }
+/* انتخاب ست‌ها: اکاردیون — تا یک حرکت دستی ثبت نشود دیده نمی‌شود؛ بعد از ثبت آشکار و اجباری می‌شود */
+.drawer-setpreset { margin: 10px; padding: 0; overflow: hidden; border: 1px solid var(--accent-border); border-radius: var(--component-radius); background: var(--surface-inset); flex-shrink: 0; animation: accordionIn .28s ease; }
 .drawer-setpreset[hidden] { display: none; }
-.drawer-setpreset-head { display: flex; flex-direction: column; gap: 3px; }
-.drawer-setpreset-head b { font-size: 13px; font-weight: 800; color: var(--text); }
-.drawer-setpreset-head small { color: var(--text-muted); font-size: 11px; line-height: 1.8; }
-.drawer-preset-select { min-height: var(--component-control-height); font-size: 13px; font-weight: 700; }
+@keyframes accordionIn { from { opacity: 0; transform: translateY(-6px); } }
+.drawer-setpreset-toggle { width: 100%; min-height: 46px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: right; cursor: pointer; }
+.drawer-setpreset-toggle b { font-size: 13px; font-weight: 800; }
+.drawer-setpreset-toggle small { flex: 1; overflow: hidden; color: var(--text-muted); font-size: 10px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-setpreset-chevron { color: var(--accent-hover); font-size: 13px; transition: transform .28s ease; }
+.drawer-setpreset.open .drawer-setpreset-chevron { transform: rotate(180deg); }
+.drawer-setpreset-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .3s ease, opacity .25s ease; }
+.drawer-setpreset.open .drawer-setpreset-body { grid-template-rows: 1fr; opacity: 1; }
+.drawer-setpreset-inner { overflow: hidden; min-height: 0; padding: 0 12px; }
+.drawer-setpreset.open .drawer-setpreset-inner { padding-bottom: 12px; }
+.drawer-setpreset-hint { display: block; color: var(--text-muted); font-size: 11px; line-height: 1.8; }
+.drawer-setpreset.flash { animation: setShake .4s ease; }
+@keyframes setShake { 25% { transform: translateX(4px); } 50% { transform: translateX(-4px); } 75% { transform: translateX(3px); } }
+/* مربع‌های کوچک ست‌ها: افزودن/حذف سریع در همان بخش */
+.drawer-set-chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 8px; }
+.drawer-set-chip { position: relative; width: 66px; min-height: 58px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--component-border); border-radius: 10px; background: var(--component-card); animation: chipIn .22s ease; }
+@keyframes chipIn { from { opacity: 0; transform: scale(.85); } }
+.drawer-set-chip b { font-size: 13px; color: var(--text); }
+.drawer-set-chip small { max-width: 100%; overflow: hidden; color: var(--text-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-set-chip-empty { border-style: dashed; opacity: .8; }
+.drawer-set-chip-del { position: absolute; top: -7px; left: -7px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 1px solid var(--danger-border); border-radius: 50%; background: var(--danger-surface); color: var(--danger); font-size: 11px; line-height: 1; cursor: pointer; }
+.drawer-set-chip-add { border-style: dashed; border-color: var(--accent-border); background: var(--accent-surface); color: var(--accent-hover); font-size: 20px; font-weight: 800; cursor: pointer; }
+.drawer-set-chip-add:hover { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.drawer-preset-note { display: block; margin-top: 9px; padding: 7px 9px; border-radius: 8px; color: var(--success); font-size: 11px; font-weight: 700; line-height: 1.8; }
+.drawer-preset-note.warn { border: 1px solid var(--danger-border); background: var(--danger-surface); color: var(--danger); animation: notePulse 1.6s ease infinite; }
+@keyframes notePulse { 50% { opacity: .72; } }
+@media (prefers-reduced-motion: reduce) { .drawer-setpreset, .drawer-set-chip { animation: none; } .drawer-setpreset-body { transition: none; } .drawer-preset-note.warn { animation: none; } }
 /* «＋ تکرار ست»: ست آخرِ انتخاب فعلی را دوباره اضافه می‌کند */
+.drawer-preset-select { min-height: var(--component-control-height); font-size: 13px; font-weight: 700; }
 .drawer-preset-row { display: flex; align-items: stretch; gap: 7px; }
 .drawer-preset-row .drawer-preset-select { flex: 1 1 auto; min-width: 0; }
 .drawer-preset-repeat { min-height: var(--component-control-height); padding: 8px 16px; border: 1px solid var(--accent-border); border-radius: var(--component-control-radius); background: var(--accent-surface); color: var(--accent-hover); font: inherit; font-size: 12px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .drawer-preset-repeat:hover { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.drawer-preset-note { color: var(--success); font-size: 11px; font-weight: 700; line-height: 1.8; }
 @media (max-width: 640px) {
   .quickadd-grid { grid-template-columns: 1fr; }
   .quickadd-actions { flex-direction: column; align-items: stretch; }
@@ -253,8 +276,8 @@ input.jalali-bad { border-color: var(--danger); }
   .drawer-preset-select { min-height: 46px; font-size: 14px; }
   .drawer-preset-row { flex-direction: column; }
   .drawer-preset-repeat { width: 100%; min-height: 46px; font-size: 13px; }
-  .drawer-setpreset-head b, .quickadd-head > b { font-size: 14px; }
-  .drawer-setpreset-head small { font-size: 12px; }
+  .drawer-setpreset-toggle b, .quickadd-head > b { font-size: 14px; }
+  .drawer-setpreset-toggle small { font-size: 11px; }
 }
 
 /* لیست گروهی انتخابگر سیستم + هدر روز تمیز */
