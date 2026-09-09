@@ -18,6 +18,18 @@ assert.ok(programBuilderSrc.includes('function revealQuickAddActions'), 'the rev
 assert.match(programBuilderSrc, /getElementById\('quickAddName'\)\?\.focus\(\{preventScroll:true\}\)/, 'focus must not yank scroll away from the register row');
 assert.match(programBuilderSrc, /resetDrawerBankFlow\(\);drawer\.classList\.add\('open'\);refreshDrawerContext\(\);\s*\n\s*\/\/ با «افزودن حرکت تمرینی»/, 'opening the bank must lead straight into the manual-add flow');
 assert.match(programBuilderSrc, /toggleQuickAddPanel\(true\);/, 'the manual-add panel must auto-open with the bank');
+// دکمهٔ افزودن دستی باید همیشه بالای بانک دیده شود و فعال باشد
+assert.ok(programBuilderSrc.includes('id="drawerManualToggleTop"'), 'a manual-add toggle must always sit at the drawer header (top, always visible)');
+assert.match(programBuilderSrc, /manualToggleTop\.onclick=\(\)=>toggleQuickAddPanel\(\)/, 'the top toggle must open the manual-add panel');
+assert.ok(programBuilderSrc.includes('quickAddDefaultHint'), 'the hint text must reset when the panel reopens');
+const submitFnKeep = programBuilderSrc.slice(
+  programBuilderSrc.indexOf('async function submitQuickAddExercise'),
+  programBuilderSrc.indexOf('function refreshDrawerContext')
+);
+assert.ok(submitFnKeep.includes('حرکت دیگر لازم دارد'), 'after each add the system must announce how many movements remain');
+assert.ok(submitFnKeep.includes('toggleQuickAddPanel(true)'), 'the panel must stay open while the multi-movement system still has empty slots');
+assert.ok(submitFnKeep.includes('کامل شد'), 'completing the group must be announced');
+assert.ok(submitFnKeep.includes('جای خالی ندارد'), 'over-adding into a full group must be declined with a clear message');
 
 // ─── 3. «ست‌های حرکت» اکاردیونی است: با باز شدن بانک پنهان، بعد از ثبت حرکت دستی آشکار ───
 assert.ok(programBuilderSrc.includes('id="drawerSetPresetToggle"'), 'the sets accordion must have a header toggle');
@@ -121,6 +133,8 @@ console.log(JSON.stringify({
   ok: true,
   bank_scrollable: true,
   manual_add_opens_with_bank: true,
+  manual_toggle_always_on_top: true,
+  remaining_count_checked_after_each_add: true,
   sets_accordion_hidden_until_manual_add: true,
   sets_selection_mandatory: true,
   set_chips_add_remove: true,

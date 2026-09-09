@@ -205,7 +205,8 @@
 .drawer-progress.done { border-color: var(--success); color: var(--success); background: transparent; }
 .drawer-remaining { color: var(--text-muted); font-size: 8px; }
 .drawer-full-note { color: var(--success); font-size: 8px; font-weight: 700; }
-.drawer-header-actions { display: flex; align-items: center; gap: 7px; }
+.drawer-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+#drawerManualToggleTop { white-space: nowrap; }
 .drawer-list.full .drawer-item { opacity: .45; cursor: not-allowed; }
 .drawer-list.full .drawer-item:hover { transform: none; border-color: var(--border); background: var(--glass); }
 @media (max-width: 800px) {

@@ -553,6 +553,7 @@
             <div class="drawer-context" id="drawerContext" hidden></div>
           </div>
           <div class="drawer-header-actions">
+            <button class="btn btn-secondary btn-small" id="drawerManualToggleTop" type="button" title="افزودن حرکت دلخواه به بانک — همیشه بالای صفحه">＋ افزودن دستی</button>
             <button class="btn btn-primary btn-small" id="drawerDone" type="button" hidden>اتمام و بستن</button>
             <button class="btn-icon" id="closeDrawer" title="بستن">×</button>
           </div>
@@ -1074,17 +1075,21 @@
     const delta=actionsRect.bottom-tabRect.bottom+12;
     if(delta>0)tab.scrollTo({top:tab.scrollTop+delta,behavior:'smooth'});
   }
+  const quickAddDefaultHint='حرکت ثبت‌شده هم به بانک اضافه می‌شود و هم با ست‌های انتخابیِ پایین، داخل برنامه می‌نشیند.';
   function toggleQuickAddPanel(force){
-    const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
+    const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle'),topButton=document.getElementById('drawerManualToggleTop');
     if(!panel)return;
     panel.hidden=force!==undefined?!force:!panel.hidden;
     if(button)button.textContent=panel.hidden?'＋ افزودن حرکت دستی':'× بستن افزودن دستی';
+    if(topButton)topButton.textContent=panel.hidden?'＋ افزودن دستی':'× بستن افزودن دستی';
     const closeX = document.getElementById('quickAddCloseX');
     if (closeX && !closeX._bound) {
       closeX._bound = true;
       closeX.onclick = () => toggleQuickAddPanel(false);
     }
     if(!panel.hidden){
+      const hint=panel.querySelector('.quickadd-hint');
+      if(hint)hint.textContent=quickAddDefaultHint;
       refreshQuickAddCategories();
       document.getElementById('quickAddName')?.focus({preventScroll:true});
       revealQuickAddActions();
@@ -1098,15 +1103,14 @@
     if(!category)return alert('دسته‌بندی را انتخاب کنید');
     try{
       const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,target_muscles:[],priority:5})});
-      alert('✅ حرکت «'+name+'» به بانک اضافه شد');
       document.getElementById('quickAddName').value='';
-      toggleQuickAddPanel(false);
-      // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن
+      // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن — و چک کن چند حرکت مانده
+      let added=false, remaining=0, sysMeta=null;
       if(selectedSystemForAdd){
         const {dayIdx,sysIdx}=selectedSystemForAdd;
         const sys=currentProgram.days[dayIdx].data[sysIdx];
-        const meta=systemById(sys.exercise_system_id)||systemById(1);
-        if((sys.movement_list||[]).length<meta.movements){
+        sysMeta=systemById(sys.exercise_system_id)||systemById(1);
+        if((sys.movement_list||[]).length<sysMeta.movements){
           sys.movement_list.push({
             exercise_id:created.id,
             exerciseId:created.id,
@@ -1124,7 +1128,26 @@
           setDirty(true);renderDays();refreshDrawerContext();
           // حرکت دستی ثبت شد ⇒ اکاردیون «ست‌های حرکت» ظاهر و باز می‌شود — انتخاب ست الزامی است
           revealDrawerSets(true);
+          remaining=sysMeta.movements-(sys.movement_list||[]).length;
+          added=true;
         }
+      }
+      if(added&&remaining>0){
+        // سیستم چندحرکته هنوز کامل نیست — پنل برای ثبت حرکت بعدی باز می‌ماند
+        alert(`✅ حرکت «${name}» ثبت شد — «${sysMeta.label}» ${remaining.toLocaleString('fa-IR')} حرکت دیگر لازم دارد`);
+        toggleQuickAddPanel(true);
+        const hint=document.querySelector('#drawerQuickAdd .quickadd-hint');
+        if(hint)hint.textContent=`«${sysMeta.label}»: ${remaining.toLocaleString('fa-IR')} حرکت دیگر از ${sysMeta.movements.toLocaleString('fa-IR')} لازم است — حرکت بعدی را همین‌جا ثبت کنید.`;
+        revealQuickAddActions();
+      }else if(added){
+        alert(`✅ حرکت «${name}» ثبت شد و گروه «${sysMeta.label}» کامل شد 🎉`);
+        toggleQuickAddPanel(false);
+      }else if(selectedSystemForAdd){
+        alert(`گروه «${(sysMeta||systemById(1)).label}» جای خالی ندارد — حرکت فقط به بانک اضافه شد`);
+        toggleQuickAddPanel(false);
+      }else{
+        alert('✅ حرکت «'+name+'» به بانک اضافه شد');
+        toggleQuickAddPanel(false);
       }
       loadDrawerExercises(null,null,document.getElementById('drawerSearch')?.value||'');
     }catch(error){alert('خطا در ثبت حرکت: '+error.message);}
@@ -2069,6 +2092,8 @@
     if(drawerDoneButton)drawerDoneButton.onclick=closeDrawer;
     const manualToggle=document.getElementById('drawerManualToggle');
     if(manualToggle)manualToggle.onclick=()=>toggleQuickAddPanel();
+    const manualToggleTop=document.getElementById('drawerManualToggleTop');
+    if(manualToggleTop)manualToggleTop.onclick=()=>toggleQuickAddPanel();
     const quickAddSubmitButton=document.getElementById('quickAddSubmit');
     if(quickAddSubmitButton)quickAddSubmitButton.onclick=submitQuickAddExercise;
     const presetRepeatButton=document.getElementById('drawerPresetRepeat');
