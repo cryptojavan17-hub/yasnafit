@@ -248,14 +248,17 @@ input.jalali-bad { border-color: var(--danger); }
 @keyframes setShake { 25% { transform: translateX(4px); } 50% { transform: translateX(-4px); } 75% { transform: translateX(3px); } }
 /* مربع‌های کوچک ست‌ها: افزودن/حذف سریع در همان بخش */
 .drawer-set-chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 8px; }
-.drawer-set-chip { position: relative; width: 66px; min-height: 58px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--component-border); border-radius: 10px; background: var(--component-card); animation: chipIn .22s ease; }
+.drawer-set-chip { position: relative; width: 92px; min-height: 66px; padding: 8px 6px 6px; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 3px; border: 1px solid var(--component-border); border-radius: 10px; background: var(--component-card); animation: chipIn .22s ease; }
 @keyframes chipIn { from { opacity: 0; transform: scale(.85); } }
-.drawer-set-chip b { font-size: 13px; color: var(--text); }
-.drawer-set-chip small { max-width: 100%; overflow: hidden; color: var(--text-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.drawer-set-chip-empty { border-style: dashed; opacity: .8; }
+.drawer-set-chip-count { width: 100%; min-height: 28px; margin: 0; padding: 2px 4px; text-align: center; font-size: 13px; font-weight: 800; }
+.drawer-set-chip-unit { width: 100%; min-height: 24px; margin: 0; padding: 0 2px; font-size: 9px; }
+.drawer-set-chip small { max-width: 100%; overflow: hidden; color: var(--text-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.drawer-set-chip-empty { border-style: dashed; opacity: .8; align-items: center; justify-content: center; }
 .drawer-set-chip-del { position: absolute; top: -7px; left: -7px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 1px solid var(--danger-border); border-radius: 50%; background: var(--danger-surface); color: var(--danger); font-size: 11px; line-height: 1; cursor: pointer; }
 .drawer-set-chip-add { border-style: dashed; border-color: var(--accent-border); background: var(--accent-surface); color: var(--accent-hover); font-size: 20px; font-weight: 800; cursor: pointer; }
 .drawer-set-chip-add:hover { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+/* ثبت نهایی: اعتبارسنجی ست‌ها و افزودن حرکت به لیست برنامه */
+.drawer-sets-commit { margin-top: 11px; width: 100%; min-height: 44px; font-size: 13px; font-weight: 800; border-radius: var(--component-radius); }
 .drawer-preset-note { display: block; margin-top: 9px; padding: 7px 9px; border-radius: 8px; color: var(--success); font-size: 11px; font-weight: 700; line-height: 1.8; }
 .drawer-preset-note.warn { border: 1px solid var(--danger-border); background: var(--danger-surface); color: var(--danger); animation: notePulse 1.6s ease infinite; }
 @keyframes notePulse { 50% { opacity: .72; } }

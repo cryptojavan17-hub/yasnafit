@@ -42,7 +42,7 @@ assert.ok(closeFn.includes('activeSystemHasEmptySets()'), 'closing the bank with
 assert.ok(closeFn.includes("classList.add('flash')"), 'the blocked close must shake the accordion for attention');
 assert.match(programBuilderSrc, /note\.classList\.toggle\('warn',count===0\)/, 'the note must switch to a warning while sets are missing');
 
-// ─── 5. مربع‌های کوچک ست: نمایش + افزودن/حذف راحت ───
+// ─── 5. مربع‌های کوچک ست: قابل‌ویرایش آزاد + افزودن/حذف راحت ───
 assert.ok(programBuilderSrc.includes('id="drawerSetChips"'), 'the set-chips host must exist in the accordion');
 assert.ok(programBuilderSrc.includes('function renderDrawerSetChips'), 'the chips renderer must exist');
 assert.ok(programBuilderSrc.includes('data-chip-del'), 'every set square must have a remove control');
@@ -51,6 +51,23 @@ assert.ok(programBuilderSrc.includes('function removeDrawerSetAtIndex'), 'removi
 assert.match(programBuilderSrc, /drawerSetChipsHost\.onclick=event=>/, 'the chips host must handle taps via delegation');
 assert.ok(programBuilderSrc.includes("closest('[data-chip-add]'))repeatDrawerSet()"), 'the add square must reuse the repeat-set logic');
 assert.ok(programBuilderSrc.includes('id="drawerSetPresetSummary"'), 'the accordion header must show a live sets summary');
+// ویرایش آزاد: تعداد و واحد هر ست داخل خود مربع، بدون محدودیت مقدار
+assert.ok(programBuilderSrc.includes('data-chip-count'), 'every set square must expose an editable count input');
+assert.ok(programBuilderSrc.includes('data-chip-unit'), 'every set square must expose a unit select');
+assert.ok(programBuilderSrc.includes('function applyChipEdit'), 'chip edits must write straight into the program model');
+const chipEditFn = slice('function applyChipEdit', 'function updateDrawerPresetNote');
+assert.ok(chipEditFn.includes("isNaN(Number(val))?val:Number(val)"), 'count edits must accept any value (numbers or free text like drop-set ladders)');
+assert.ok(chipEditFn.includes("if(value==='FAILURE')st.count=null"), 'switching a set to failure must clear its count');
+assert.match(programBuilderSrc, /inp\.oninput=\(\)=>applyChipEdit\(Number\(inp\.dataset\.chipCount\),'count',inp\.value\)/, 'count edits must apply live while typing');
+
+// ─── 5ب. دکمهٔ «ثبت و اضافه کردن به لیست» ───
+assert.ok(programBuilderSrc.includes('id="drawerSetsCommit"'), 'the commit button must exist in the sets accordion');
+assert.ok(programBuilderSrc.includes('ثبت و اضافه کردن به لیست'), 'the commit button must carry its Persian label');
+assert.match(programBuilderSrc, /setsCommitButton\.onclick=/, 'the commit button must be wired');
+const commitFn = slice('const setsCommitButton', 'button.onclick=()=>selectDrawerLocation');
+assert.ok(commitFn.includes('activeSystemHasEmptySets()'), 'committing with a setless movement must be blocked');
+assert.ok(commitFn.includes('closeDrawer()'), 'a valid commit must close the bank');
+assert.ok(commitFn.includes('به لیست برنامه اضافه شد'), 'a valid commit must confirm the addition');
 
 // ─── 6. دکمهٔ «＋ تکرار ست» کنار انتخابگر «ست‌های حرکت» ───
 assert.ok(programBuilderSrc.includes('id="drawerPresetRepeat"'), 'the repeat-set button must exist in the exercise-bank drawer');
@@ -80,8 +97,11 @@ assert.match(builderCss, /\.drawer-setpreset-body \{[^}]*transition: grid-templa
 assert.match(builderCss, /@keyframes accordionIn/, 'the accordion reveal must have an entrance animation');
 assert.match(builderCss, /@keyframes chipIn/, 'set squares must pop in');
 assert.match(builderCss, /@keyframes setShake/, 'the accordion must have a shake for the mandatory warning');
-assert.match(builderCss, /\.drawer-set-chip \{[^}]*min-height: 58px/, 'set squares must be real tap targets');
+assert.match(builderCss, /\.drawer-set-chip \{[^}]*min-height: 66px/, 'set squares must be real tap targets');
 assert.match(builderCss, /\.drawer-set-chip-del \{[^}]*width: 20px/, 'each square needs its own small remove button');
+assert.match(builderCss, /\.drawer-set-chip-count \{[^}]*text-align: center/, 'the count inside a square must be an editable centered input');
+assert.match(builderCss, /\.drawer-set-chip-unit \{[^}]*width: 100%/, 'the unit inside a square must be a full-width select');
+assert.match(builderCss, /\.drawer-sets-commit \{[^}]*width: 100%/, 'the commit button must span the accordion');
 assert.match(builderCss, /\.drawer-set-chip-add \{[^}]*cursor: pointer/, 'the add square must be clickable');
 assert.match(builderCss, /\.drawer-preset-note\.warn \{[^}]*color: var\(--danger\)/, 'the mandatory note must read as a warning');
 assert.match(builderCss, /@media \(prefers-reduced-motion: reduce\)/, 'animations must respect reduced motion');
@@ -104,6 +124,8 @@ console.log(JSON.stringify({
   sets_accordion_hidden_until_manual_add: true,
   sets_selection_mandatory: true,
   set_chips_add_remove: true,
+  set_chips_fully_editable: true,
+  commit_and_add_to_list_button: true,
   repeat_set_button: true,
   preset_applies_to_current_system: true,
   smooth_animations: true,

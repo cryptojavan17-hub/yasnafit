@@ -613,6 +613,7 @@
                 </div>
                 <div class="drawer-set-chips" id="drawerSetChips" aria-label="ست‌های فعلی"></div>
                 <small class="drawer-preset-note" id="drawerPresetNote" hidden></small>
+                <button type="button" class="btn btn-primary drawer-sets-commit" id="drawerSetsCommit">ثبت و اضافه کردن به لیست</button>
               </div>
             </div>
           </div>
@@ -1229,35 +1230,55 @@
     const list=(sys&&sys.movement_list)||[];
     return list.length?list[list.length-1]:null;
   }
-  const faDigits=v=>String(v).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
-  function setChipParts(st){
-    const type=(st&&st.type)||'REPEAT';
-    const unit=(setUnits.find(u=>u.id===type)||{}).label||'تکرار';
-    const short=({'تکرار':'تکرار','ثانیه':'ثانیه','دقیقه':'دقیقه','دراپ ست':'دراپ','ماکسیمم توان':'ماکس'})[unit]||unit;
-    let countText;
-    if(type==='FAILURE')countText='تا ناتوانی';
-    else{
-      const c=st?st.count:null;
-      countText=(c==null||c==='')?'—':(isNaN(Number(c))?faDigits(c):Number(c).toLocaleString('fa-IR'));
-    }
-    return {short,countText,full:`${countText} ${unit}`};
-  }
   function renderDrawerSetChips(){
     const host=document.getElementById('drawerSetChips');
     if(!host)return;
     const mov=drawerNewestMovement();
     const sets=(mov&&Array.isArray(mov.sets))?mov.sets:[];
     host.innerHTML=(sets.length?sets.map((st,i)=>{
-      const parts=setChipParts(st);
-      return `<div class="drawer-set-chip" data-chip="${i}" title="ست ${(i+1).toLocaleString('fa-IR')} — ${esc(parts.full)}"><button type="button" class="drawer-set-chip-del" data-chip-del="${i}" title="حذف این ست">×</button><b>${esc(parts.countText)}</b><small>${esc(parts.short)}</small></div>`;
-    }).join(''):'<div class="drawer-set-chip drawer-set-chip-empty" title="هنوز ستی تعیین نشده است"><b>۰</b><small>بدون ست</small></div>')+
+      const isFailure=st.type==='FAILURE';
+      const countValue=isFailure?'':esc(st.count??'');
+      const placeholder=isFailure?'—':(st.type==='TIME'?'۳۰':(st.type==='MINUTE'?'۱':'۱۲'));
+      const unitOptions=setUnits.map(u=>`<option value="${u.id}" ${st.type===u.id?'selected':''}>${esc(u.label)}</option>`).join('');
+      return `<div class="drawer-set-chip" data-chip="${i}">
+        <button type="button" class="drawer-set-chip-del" data-chip-del="${i}" title="حذف این ست">×</button>
+        <input type="text" class="drawer-set-chip-count" data-chip-count="${i}" value="${countValue}" placeholder="${placeholder}" ${isFailure?'disabled':''} inputmode="numeric" title="مقدار ست ${(i+1).toLocaleString('fa-IR')} — همان لحظه ویرایش می‌شود">
+        <select class="drawer-set-chip-unit" data-chip-unit="${i}" title="واحد ست ${(i+1).toLocaleString('fa-IR')}">${unitOptions}</select>
+      </div>`;
+    }).join(''):'<div class="drawer-set-chip drawer-set-chip-empty" title="هنوز ستی تعیین نشده است"><small>بدون ست</small></div>')+
       '<button type="button" class="drawer-set-chip drawer-set-chip-add" data-chip-add title="ست جدید — کپی ست آخر">＋</button>';
+    host.querySelectorAll('[data-chip-count]').forEach(inp=>{
+      inp.oninput=()=>applyChipEdit(Number(inp.dataset.chipCount),'count',inp.value);
+    });
+    host.querySelectorAll('[data-chip-unit]').forEach(sel=>{
+      sel.onchange=()=>{applyChipEdit(Number(sel.dataset.chipUnit),'type',sel.value);renderDrawerSetChips();};
+    });
     const summary=document.getElementById('drawerSetPresetSummary');
     if(summary){
       const sys=drawerActiveSystem();
       const movs=((sys&&sys.movement_list)||[]).length;
       summary.textContent=sets.length?`${sets.length.toLocaleString('fa-IR')} ست • ${movs.toLocaleString('fa-IR')} حرکت`:'ست‌ها هنوز انتخاب نشده‌اند';
     }
+  }
+  // ویرایش آزاد ست‌ها: تعداد و واحد هر مربع همان‌لحظه روی حرکات سیستم اعمال می‌شود — محدودیتی در مقدار نیست
+  function applyChipEdit(idx,field,value){
+    const sys=drawerActiveSystem();
+    if(!sys)return;
+    (sys.movement_list||[]).forEach(mov=>{
+      if(!Array.isArray(mov.sets)||mov.sets[idx]===undefined)return;
+      const st=mov.sets[idx];
+      if(field==='type'){
+        st.type=value;
+        if(value==='FAILURE')st.count=null;
+        else if(st.count==null||st.count===''){
+          st.count=value==='TIME'?30:value==='MINUTE'?1:value==='DROPSET'?'12-10-8':12;
+        }
+      }else{
+        const val=String(value??'').trim();
+        st.count=val===''?null:(isNaN(Number(val))?val:Number(val));
+      }
+    });
+    setDirty(true);
   }
   function updateDrawerPresetNote(mode){
     const note=document.getElementById('drawerPresetNote');
@@ -1935,6 +1956,23 @@
       const del=event.target.closest('[data-chip-del]');
       if(del){removeDrawerSetAtIndex(Number(del.dataset.chipDel));return;}
       if(event.target.closest('[data-chip-add]'))repeatDrawerSet();
+    };
+    const setsCommitButton=document.getElementById('drawerSetsCommit');
+    if(setsCommitButton)setsCommitButton.onclick=()=>{
+      if(!drawerSetsRevealed)return;
+      if(activeSystemHasEmptySets()){
+        const bar=document.getElementById('drawerSetPreset');
+        if(bar){bar.classList.remove('flash');void bar.offsetWidth;bar.classList.add('flash');}
+        updateDrawerPresetNote();
+        alert('برای هر حرکت حداقل یک ست الزامی است — تعداد ست‌ها را وارد کنید.');
+        return;
+      }
+      const mov=drawerNewestMovement();
+      const count=(mov&&Array.isArray(mov.sets))?mov.sets.length:0;
+      const name=(mov&&(mov.nameFa||mov.name))||'حرکت';
+      setDirty(true);renderDays();
+      closeDrawer();
+      alert('✅ «'+name+'» با '+count.toLocaleString('fa-IR')+' ست به لیست برنامه اضافه شد');
     };
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const globalSearch=document.getElementById('drawerGlobalSearch');
