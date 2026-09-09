@@ -600,10 +600,14 @@
               <b>ست‌های حرکت</b>
               <small>یک‌بار اینجا انتخاب کنید ⇒ روی هر حرکتی که از بانک (یا از افزودن دستی) اضافه می‌شود خودکار اعمال می‌شود؛ دیگر لازم نیست در کارت حرکت دوباره ست انتخاب کنید.</small>
             </div>
-            <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
-              <option value="">۱ × ۱۲ (پیش‌فرض)</option>
-              ${setPresets.map((p,i)=>`<option value="${i}">${esc(p.label)}</option>`).join('')}
-            </select>
+            <div class="drawer-preset-row">
+              <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
+                <option value="">۱ × ۱۲ (پیش‌فرض)</option>
+                ${setPresets.map((p,i)=>`<option value="${i}">${esc(p.label)}</option>`).join('')}
+              </select>
+              <button type="button" class="drawer-preset-repeat" id="drawerPresetRepeat" title="ست آخرِ انتخاب فعلی یک‌بار دیگر اضافه می‌شود">＋ تکرار ست</button>
+            </div>
+            <small class="drawer-preset-note" id="drawerPresetNote" hidden></small>
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
@@ -997,8 +1001,10 @@
 
   // Drawer
   let drawerSearchTimeout,drawerCategoryRequest=0,currentDrawerCat=null,currentDrawerSub=null,currentDrawerLocation=null;
+  let drawerPresetExtra=0; // تعداد «تکرار ست» اعمال‌شده روی انتخاب فعلی «ست‌های حرکت»
   function resetDrawerBankFlow(){
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
+    resetDrawerPresetExtra();
     document.querySelectorAll('[data-bank-location]').forEach(button=>{button.classList.remove('active');button.disabled=false;});
     const filter=document.getElementById('drawerFilterStep'),search=document.getElementById('drawerSearch'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
     if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';
@@ -1024,6 +1030,16 @@
       host.innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     }catch(error){}
   }
+  // با باز شدن «افزودن دستی»، ردیف دکمهٔ «ثبت حرکت» باید داخل دید بیاید — دیگر چیزی بریده نمی‌شود
+  function revealQuickAddActions(){
+    const tab=document.getElementById('drawerTabAdd'),panel=document.getElementById('drawerQuickAdd');
+    if(!tab||!panel||panel.hidden)return;
+    const actions=panel.querySelector('.quickadd-actions');
+    if(!actions)return;
+    const tabRect=tab.getBoundingClientRect(),actionsRect=actions.getBoundingClientRect();
+    const delta=actionsRect.bottom-tabRect.bottom+12;
+    if(delta>0)tab.scrollTo({top:tab.scrollTop+delta,behavior:'smooth'});
+  }
   function toggleQuickAddPanel(force){
     const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
     if(!panel)return;
@@ -1036,7 +1052,8 @@
     }
     if(!panel.hidden){
       refreshQuickAddCategories();
-      document.getElementById('quickAddName')?.focus();
+      document.getElementById('quickAddName')?.focus({preventScroll:true});
+      revealQuickAddActions();
     }
   }
   async function submitQuickAddExercise(){
@@ -1154,12 +1171,65 @@
   }
   // ست‌های حرکت تازه‌اضافه‌شده: از انتخابگر «ست‌های حرکت» در بانک (زیر افزودن دستی) خوانده می‌شود
   // تا مربی یک‌بار انتخاب کند و مجبور نباشد همان را در کارت حرکت تکرار کند.
-  function setsForNewMovement(){
+  // دکمهٔ «＋ تکرار ست» هم ستِ آخرِ همین انتخاب را یک‌بار دیگر به آن می‌افزاید (drawerPresetExtra).
+  function drawerBaseSpec(){
     const select=document.getElementById('drawerPresetSelect');
     const idx=select&&select.value!==''?Number(select.value):-1;
     const preset=setPresets[idx];
-    if(preset)return preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
-    return [{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}];
+    if(preset)return preset.spec.map(item=>({type:item.type,count:item.count}));
+    return [{type:'REPEAT',count:12}];
+  }
+  function setsForNewMovement(){
+    const spec=drawerBaseSpec();
+    for(let r=0;r<drawerPresetExtra;r+=1){
+      const last=spec[spec.length-1];
+      spec.push({type:last.type,count:last.count});
+    }
+    return spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
+  }
+  function drawerEffectiveSetCount(){
+    return drawerBaseSpec().length+drawerPresetExtra;
+  }
+  function updateDrawerPresetNote(applied){
+    const note=document.getElementById('drawerPresetNote');
+    if(!note)return;
+    if(drawerPresetExtra<=0){note.hidden=true;note.textContent='';return;}
+    const total=drawerEffectiveSetCount().toLocaleString('fa-IR');
+    note.hidden=false;
+    note.textContent=applied
+      ?`✓ ست تکرار شد — به حرکات همین سیستم هم یک ست اضافه شد (الان: ${total} ست)`
+      :`✓ ست تکرار شد — حرکت تازه با ${total} ست اضافه می‌شود`;
+  }
+  function resetDrawerPresetExtra(){
+    drawerPresetExtra=0;
+    const note=document.getElementById('drawerPresetNote');
+    if(note){note.hidden=true;note.textContent='';}
+  }
+  // «＋ تکرار ست»: علاوه بر پیش‌فرضِ حرکت‌های بعدی، به حرکت‌هایی که همین حالا در سیستم هستند
+  // هم یک کپی از ست آخرشان اضافه می‌کند (مثلاً ۴×۱۰ ⇒ ۵×۱۰).
+  function repeatDrawerSet(){
+    drawerPresetExtra+=1;
+    let applied=false;
+    if(selectedSystemForAdd){
+      const {dayIdx,sysIdx}=selectedSystemForAdd;
+      const sys=currentProgram?.days?.[dayIdx]?.data?.[sysIdx];
+      if(sys){
+        (sys.movement_list||[]).forEach(mov=>{
+          if(!Array.isArray(mov.sets))mov.sets=[];
+          const last=mov.sets[mov.sets.length-1];
+          mov.sets.push({
+            type:(last&&last.type)||'REPEAT',
+            count:last?(last.count==null?null:last.count):12,
+            restSeconds:(last&&last.restSeconds)||60,
+            setHash:genHash()
+          });
+        });
+        setDirty(true);
+        renderDays();
+        applied=true;
+      }
+    }
+    updateDrawerPresetNote(applied);
   }
   function findMatchingPresetIndex(sets){
     if(!sets||!sets.length)return -1;
@@ -1719,6 +1789,10 @@
     if(manualToggle)manualToggle.onclick=()=>toggleQuickAddPanel();
     const quickAddSubmitButton=document.getElementById('quickAddSubmit');
     if(quickAddSubmitButton)quickAddSubmitButton.onclick=submitQuickAddExercise;
+    const presetRepeatButton=document.getElementById('drawerPresetRepeat');
+    if(presetRepeatButton)presetRepeatButton.onclick=repeatDrawerSet;
+    const drawerPresetSelectEl=document.getElementById('drawerPresetSelect');
+    if(drawerPresetSelectEl)drawerPresetSelectEl.onchange=resetDrawerPresetExtra;
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const globalSearch=document.getElementById('drawerGlobalSearch');
     if(globalSearch){
