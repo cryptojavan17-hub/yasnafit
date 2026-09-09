@@ -400,6 +400,8 @@ input.jalali-bad { border-color: var(--danger); }
 .movement-head:hover { border-color: var(--border); background: var(--glass); }
 .mov-name-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .mov-name-title { font-size: 11px; color: var(--text-secondary); }
+.mov-desc-line { max-width: 260px; overflow: hidden; color: var(--text-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; direction: rtl; }
+@media (max-width: 800px) { .mov-desc-line { max-width: 100%; } }
 .mov-name-title b { color: var(--text); font-size: 12px; font-weight: 800; }
 .mov-system-group { display: flex; align-items: center; flex-shrink: 0; }
 .mov-system-pill { padding: 3px 9px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-surface); color: var(--accent-hover); font-size: 9px; font-weight: 800; white-space: nowrap; }

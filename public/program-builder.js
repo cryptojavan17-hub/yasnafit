@@ -704,6 +704,7 @@
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <div class="mov-name-group">
                           <span class="mov-name-title">نام حرکت: <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b></span>
+                          ${mov.description&&String(mov.description).trim()?`<small class="mov-desc-line" title="${esc(mov.description)}">📝 ${esc(mov.description)}</small>`:''}
                         </div>
                         <div class="mov-system-group">
                           <span class="mov-system-pill">${sysMeta.icon} ${esc(sysMeta.label)}</span>

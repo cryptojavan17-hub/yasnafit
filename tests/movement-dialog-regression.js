@@ -105,6 +105,12 @@ assert.doesNotMatch(programBuilderSrc, /presetBar\.hidden=false/, 'the sets bar 
 assert.ok(programBuilderSrc.includes('drawerSetPresetToggle'), 'the sets bar must be an accordion with a header toggle');
 assert.ok(programBuilderSrc.includes('function revealDrawerSets'), 'the sets accordion must reveal once a manual movement is registered');
 
+// 6ب. توضیحات مربی باید روی کارت حرکت هم نمایش داده شود — نه فقط داخل مودال
+assert.ok(programBuilderSrc.includes('class="mov-desc-line"'), 'the movement card must render a description line when the coach wrote one');
+assert.match(programBuilderSrc, /mov\.description&&String\(mov\.description\)\.trim\(\)\?`<small class="mov-desc-line"/, 'the description line must appear only when a non-empty description exists');
+assert.match(programBuilderSrc, /title="\$\{esc\(mov\.description\)\}"/, 'the full description must stay available via the tooltip');
+assert.match(builderCss, /\.mov-desc-line \{[^}]*text-overflow: ellipsis/, 'the card description line must truncate cleanly');
+
 // 7. Manual-add panel must be readable and tappable (owner: "usually not visible, painful on mobile")
 assert.match(builderCss, /\.quickadd-submit \{[^}]*min-height: var\(--component-control-height\)/, 'the register button must use the shared control height');
 assert.match(builderCss, /\.quickadd-grid input, \.quickadd-grid select \{[^}]*min-height: var\(--component-control-height\)[^}]*font-size: 13px/, 'manual-add inputs must be readable');
