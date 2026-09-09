@@ -110,6 +110,8 @@ assert.ok(programBuilderSrc.includes('class="mov-desc-line"'), 'the movement car
 assert.match(programBuilderSrc, /mov\.description&&String\(mov\.description\)\.trim\(\)\?`<small class="mov-desc-line"/, 'the description line must appear only when a non-empty description exists');
 assert.match(programBuilderSrc, /title="\$\{esc\(mov\.description\)\}"/, 'the full description must stay available via the tooltip');
 assert.match(builderCss, /\.mov-desc-line \{[^}]*text-overflow: ellipsis/, 'the card description line must truncate cleanly');
+assert.match(programBuilderSrc, /descEl\.oninput=\(\)=>\{mov\.description=descEl\.value;setDirty\(true\);renderDays\(\);\}/, 'typing a description must live-update the day card behind the modal');
+assert.match(programBuilderSrc, /function closeMovementModal\(\)\{ const m=document\.getElementById\('movementModal'\); if\(m\)m\.hidden=true; mvCtx=null; renderDays\(\); \}/, 'closing the modal must re-render so saved descriptions appear on the card');
 
 // 7. Manual-add panel must be readable and tappable (owner: "usually not visible, painful on mobile")
 assert.match(builderCss, /\.quickadd-submit \{[^}]*min-height: var\(--component-control-height\)/, 'the register button must use the shared control height');

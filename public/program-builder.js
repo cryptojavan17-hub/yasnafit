@@ -1359,7 +1359,7 @@
   // ===== مودال ویرایش حرکت =====
   let mvCtx=null;
   function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
-  function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; }
+  function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; renderDays(); }
   function applyPreset(mov,preset){
     mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
     setDirty(true);renderDays();
@@ -1645,7 +1645,7 @@
       renderDays();
     };
     const descEl=document.getElementById('mvDesc');
-    if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
+    if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);renderDays();};
 
     const presetSelect=document.getElementById('mvPresetSelect');
     if(presetSelect){
