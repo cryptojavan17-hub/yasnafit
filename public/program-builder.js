@@ -649,6 +649,7 @@
 
     const dayIdx=activeDayIdx, day=days[dayIdx];
     const isRest = day.isRestDay;
+    const dayIncomplete=(day.data||[]).some(s2=>{const m=systemById(s2.exercise_system_id)||systemById(1);return (s2.movement_list||[]).length<m.movements;});
     const vol = {movs:0, sets:0};
     (day.data||[]).forEach(sys=>{ vol.movs += (sys.movement_list||[]).length; (sys.movement_list||[]).forEach(m=> vol.sets += (m.sets||[]).length); });
 
@@ -687,7 +688,7 @@
               const full=remaining<=0;
               return `
               <div class="system-card ${sysMeta.movements>1?'grouped':''} ${convertedFlash===`${dayIdx}-${sysIdx}`?'sys-flash':''}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
-                ${sysMeta.movements>1?`<div class="sys-group-badge">${sysMeta.icon} ${esc(sysMeta.label)} • گروه ${sysMovs.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')} حرکت</div>`:''}
+                ${sysMeta.movements>1?`<div class="sys-group-badge">${sysMeta.icon} ${esc(sysMeta.label)}</div>`:''}
                 <div class="movements-list">
                   ${sysMovs===0 ? `<div class="empty-system">این سیستم به ${sysMeta.movements.toLocaleString('fa-IR')} حرکت نیاز دارد — «افزودن حرکات تمرینی» را بزنید.</div>` : ''}
                   ${(sys.movement_list||[]).map((mov, movIdx) => {
@@ -745,7 +746,7 @@
                 </div>
               </div>
               `;}).join('')}
-            <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی</button>
+            <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}" ${dayIncomplete?`disabled title="ابتدا سیستم جاری را تکمیل کنید، بعد سیستم جدید اضافه کنید"`:''}>＋ افزودن سیستم تمرینی</button>
             ${renderConvertBar(dayIdx)}
           </div>
         </div>

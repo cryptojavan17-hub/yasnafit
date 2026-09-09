@@ -44,6 +44,12 @@ assert.ok(splitFn.includes("{exercise_system_id:1,system_type:'normal',movement_
 // ─── 4. اتصال بصری گروه (براکت) + بج گروه + انیمیشن ───
 assert.ok(programBuilderSrc.includes("'grouped':''"), 'multi-movement systems must render with the grouped class');
 assert.ok(programBuilderSrc.includes('sys-group-badge'), 'a group badge must show the system label on the group');
+assert.ok(programBuilderSrc.includes('`<div class="sys-group-badge">${sysMeta.icon} ${esc(sysMeta.label)}</div>`'), 'the group badge must carry ONLY the system label (no movement-count tail)');
+assert.doesNotMatch(programBuilderSrc, /• گروه \$\{sysMovs/, 'the badge must NOT show the «گروه n از N حرکت» tail anymore');
+// ترتیب اجباری: تا سیستم جاری کامل نشود، افزودن سیستم بعدی ممنوع است
+assert.ok(programBuilderSrc.includes('dayIncomplete'), 'the per-day incomplete-system check must exist');
+assert.ok(programBuilderSrc.includes('disabled title="ابتدا سیستم جاری را تکمیل کنید، بعد سیستم جدید اضافه کنید"'), 'the next-system button must be forbidden while the current system is incomplete');
+assert.ok(programBuilderSrc.includes('data-add-mov="${dayIdx}-${sysIdx}">＋ افزودن حرکات تمرینی</button>'), 'movement-add inside a chosen (even empty) system card must stay enabled');
 assert.ok(programBuilderSrc.includes('sys-flash'), 'converted systems must get a soft flash animation');
 assert.match(builderCss, /\.system-card\.grouped::before \{[^}]*border: 2px solid var\(--accent\)/, 'the group connector bracket must be drawn with the accent color');
 assert.match(builderCss, /\.system-card\.grouped::before \{[^}]*border-radius: 10px 0 0 10px/, 'the bracket must have rounded caps like the reference design');
@@ -76,5 +82,7 @@ console.log(JSON.stringify({
   exact_count_merge_and_split: true,
   group_bracket_and_badge: true,
   partial_multi_system_blocked: true,
+  badge_label_only: true,
+  system_first_flow_enforced: true,
   responsive_bracket: true
 }));
