@@ -12,7 +12,7 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 70% -15%, rgba(255,255,255,.055), transparent 34%),
+    radial-gradient(circle at 70% -15%, var(--bg-glow), transparent 34%),
     linear-gradient(180deg, var(--bg-raised) 0, var(--bg) 34%, var(--bg-raised) 100%);
   color: var(--text-primary);
   font-family: "Vazirmatn", "IRANSansX", Tahoma, Arial, sans-serif;
@@ -43,7 +43,7 @@ select option { background: var(--surface-2); color: var(--text); }
 input:focus, select:focus, textarea:focus {
   border-color: var(--border-focus);
   background: var(--surface-3);
-  box-shadow: 0 0 0 3px rgba(59,130,246,.16);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 input:disabled, select:disabled, textarea:disabled { color: var(--text-disabled); opacity: .62; cursor: not-allowed; }
 input[type="checkbox"], input[type="radio"] { width: 17px; min-height: 17px; accent-color: var(--accent); }
@@ -87,9 +87,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   width: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  background: rgba(11,11,11,.9);
+  background: var(--sidebar-bg);
   border-left: 1px solid var(--border);
-  box-shadow: -18px 0 60px rgba(0,0,0,.22);
+  box-shadow: var(--sidebar-shadow);
   backdrop-filter: blur(20px) saturate(110%);
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 22px 20px; border-bottom: 1px solid var(--border); }
@@ -117,7 +117,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   transition: color var(--transition), background var(--transition), border-color var(--transition), transform var(--transition);
 }
 .menu-link:hover { color: var(--text); background: var(--glass); border-color: var(--border); transform: translateX(-1px); }
-.menu-link.active { color: var(--text); background: var(--glass-hover); border-color: var(--border-strong); box-shadow: inset 0 1px rgba(255,255,255,.035); }
+.menu-link.active { color: var(--text); background: var(--glass-hover); border-color: var(--border-strong); box-shadow: inset 0 1px var(--tint); }
 .menu-icon { width: 19px; color: currentColor; text-align: center; opacity: .82; }
 .menu-link i { margin-right: auto; color: var(--text-disabled); font-style: normal; transition: transform var(--transition); }
 .expanded > .parent { color: var(--text); background: var(--glass); border-color: var(--border); }
@@ -133,13 +133,23 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   height: 70px; padding: 0 clamp(18px, 3vw, 42px);
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid var(--border);
-  background: rgba(8,8,8,.78);
+  background: var(--topbar-bg);
   backdrop-filter: blur(20px) saturate(110%);
 }
 .breadcrumb { color: var(--text-muted); font-size: 12px; }
 .breadcrumb b { margin: 0 9px; color: var(--text-disabled); }
 .breadcrumb strong { color: var(--text-secondary); font-weight: 600; }
 .top-actions { display: flex; align-items: center; gap: 9px; }
+/* دکمهٔ تغییر تم (دارک/روشن) — کنار اعلان‌ها */
+.theme-toggle { width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: 11px; background: var(--glass); color: var(--text-secondary); cursor: pointer; transition: background var(--transition), border-color var(--transition), color var(--transition), transform var(--transition); }
+.theme-toggle:hover { border-color: var(--accent-border); background: var(--accent-surface); color: var(--text); }
+.theme-toggle:active { transform: scale(.94); }
+.theme-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .icon-moon { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+@media (max-width: 680px) { .theme-toggle { width: 40px; height: 40px; } .theme-toggle svg { width: 20px; height: 20px; } }
+@media (max-width: 560px) { .theme-toggle { width: 42px; height: 42px; } }
 .icon-button, .avatar, .mobile-menu {
   display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: 10px;
@@ -183,7 +193,7 @@ thead { background: var(--surface-3); }
 th { color: var(--text-secondary); background: var(--surface-3); font-weight: 600; text-align: right; }
 th, td { padding: 12px 11px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 tbody tr { background: var(--surface-inset); transition: background var(--transition); }
-tbody tr:nth-child(even) { background: rgba(255,255,255,.022); }
+tbody tr:nth-child(even) { background: var(--tint-soft); }
 tbody tr:hover { background: var(--glass-hover); }
 tbody tr:last-child td { border-bottom: 0; }
 .badge, .status-badge {
@@ -213,7 +223,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .btn-icon { width: 34px; height: 34px; min-height: 34px; padding: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 9px; background: var(--glass); color: var(--text-secondary); cursor: pointer; }
 
 /* Modal and forms */
-.modal-backdrop, .student-modal-backdrop { background: rgba(0,0,0,.72); backdrop-filter: blur(10px); animation: fadeIn 180ms ease; }
+.modal-backdrop, .student-modal-backdrop { background: var(--backdrop); backdrop-filter: blur(10px); animation: fadeIn 180ms ease; }
 .modal {
   width: min(560px,100%); padding: 20px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
@@ -246,7 +256,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .content { padding-inline: 24px; }
 }
 @media (max-width: 850px) {
-  .sidebar { width: 286px; transform: translateX(102%); box-shadow: -20px 0 70px rgba(0,0,0,.75); transition: transform 220ms ease; }
+  .sidebar { width: 286px; transform: translateX(102%); box-shadow: var(--sidebar-shadow-mobile); transition: transform 220ms ease; }
   .sidebar.open { transform: none; }
   .main { width: 100%; margin: 0; }
   .mobile-menu { display: grid; }
