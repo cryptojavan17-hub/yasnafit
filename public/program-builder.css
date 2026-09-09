@@ -283,6 +283,20 @@ input.jalali-bad { border-color: var(--danger); }
   .drawer-setpreset-toggle small { font-size: 11px; }
 }
 
+/* مربع انتخاب حرکت + تبدیل گروهی به سیستم تمرینی */
+.mov-pick { display: grid; place-items: center; padding: 2px; cursor: pointer; }
+.mov-pick input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.convert-bar { position: sticky; bottom: 10px; z-index: 15; margin-top: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--accent-border); border-radius: var(--component-radius); background: rgba(16,16,16,.94); box-shadow: 0 -10px 40px rgba(0,0,0,.5); animation: accordionIn .25s ease; }
+.convert-bar[hidden] { display: none; }
+.convert-bar > b { color: var(--accent-hover); font-size: 12px; }
+/* براکت اتصال گروه‌های چندحرکته (مثل طرح مرجع) + بج گروه */
+.system-card.grouped { position: relative; margin-right: 14px; }
+.system-card.grouped::before { content: ''; position: absolute; top: 10px; bottom: 10px; right: -14px; width: 12px; border: 2px solid var(--accent); border-left: 0; border-radius: 10px 0 0 10px; pointer-events: none; }
+.sys-group-badge { margin-bottom: 9px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-surface); color: var(--accent-hover); font-size: 10px; font-weight: 800; }
+.sys-flash { animation: sysFlash .9s ease; }
+@keyframes sysFlash { 0%, 100% { box-shadow: none; } 35% { box-shadow: 0 0 0 3px var(--accent-border); } }
+@media (max-width: 800px) { .system-card.grouped { margin-right: 10px; } .system-card.grouped::before { right: -10px; width: 8px; } }
+
 /* لیست گروهی انتخابگر سیستم + هدر روز تمیز */
 .day-name { font-size: 14px; }
 .system-picker-grid { display: flex; flex-direction: column; gap: 4px; }

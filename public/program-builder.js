@@ -685,7 +685,8 @@
               const remaining=sysMeta.movements-sysMovs;
               const full=remaining<=0;
               return `
-              <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
+              <div class="system-card ${sysMeta.movements>1?'grouped':''} ${convertedFlash===`${dayIdx}-${sysIdx}`?'sys-flash':''}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
+                ${sysMeta.movements>1?`<div class="sys-group-badge">${sysMeta.icon} ${esc(sysMeta.label)} • گروه ${sysMovs.toLocaleString('fa-IR')} از ${sysMeta.movements.toLocaleString('fa-IR')} حرکت</div>`:''}
                 <div class="movements-list">
                   ${sysMovs===0 ? `<div class="empty-system">این سیستم به ${sysMeta.movements.toLocaleString('fa-IR')} حرکت نیاز دارد — «افزودن حرکات تمرینی» را بزنید.</div>` : ''}
                   ${(sys.movement_list||[]).map((mov, movIdx) => {
@@ -694,6 +695,7 @@
                     return `
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-summary-row">
+                      <label class="mov-pick" title="انتخاب برای تبدیل گروهی به سیستم تمرینی"><input type="checkbox" data-pick-mov="${movKey}" ${selectedMovements.has(movKey)?'checked':''}></label>
                       <div class="movement-image">
                         <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/blank-white.svg'))}" alt="" data-fallback="/blank-white.svg" loading="lazy">
                       </div>
@@ -743,6 +745,7 @@
               </div>
               `;}).join('')}
             <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی</button>
+            ${renderConvertBar(dayIdx)}
           </div>
         </div>
         `}
@@ -752,6 +755,7 @@
     bindDayEvents();
     updateVolume();
     updateTopbar();
+    convertedFlash=null;
   }
 
   function updateVolume(){
@@ -899,6 +903,18 @@
         alert('💡 پیشنهاد جایگزین: بر اساس عضله هدف، حرکات مشابه پیشنهاد می‌شود (در نسخه کامل با AI)');
       };
     });
+    document.querySelectorAll('[data-pick-mov]').forEach(cb=>{
+      cb.onchange=()=>{
+        const key=cb.dataset.pickMov;
+        if(cb.checked)selectedMovements.add(key);else selectedMovements.delete(key);
+        updateConvertBar(activeDayIdx);
+      };
+    });
+    document.querySelectorAll('[data-convert-to]').forEach(b=>{
+      b.onclick=()=>convertSelection(activeDayIdx,Number(b.dataset.convertTo));
+    });
+    const splitNormalButton=document.querySelector('[data-split-normal]');
+    if(splitNormalButton)splitNormalButton.onclick=()=>splitSelectionToNormal(activeDayIdx);
     document.querySelectorAll('[data-del-mov]').forEach(b=>{
       b.onclick=()=>{
         const [dayIdx, sysIdx, movIdx]=b.dataset.delMov.split('-').map(Number);
@@ -1011,6 +1027,8 @@
   let drawerSearchTimeout,drawerCategoryRequest=0,currentDrawerCat=null,currentDrawerSub=null,currentDrawerLocation=null;
   let drawerPresetExtra=0; // تعداد «تکرار ست» اعمال‌شده روی انتخاب فعلی «ست‌های حرکت»
   let drawerSetsRevealed=false; // اکاردیون ست‌ها تا وقتی یک حرکتِ دستی ثبت نشود پنهان می‌ماند
+  const selectedMovements=new Set(); // کلیدهای «روز-سیستم-حرکت» تیک‌خورده برای تبدیل گروهی
+  let convertedFlash=null; // کلید سیستم تازه‌تبدیل‌شده برای انیمیشن نرم
   function resetDrawerBankFlow(){
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
     resetDrawerPresetExtra();
@@ -1144,6 +1162,120 @@
     // با «افزودن حرکت تمرینی»، مربی باید مستقیم سیستم «افزودن حرکت دستی» را ببیند
     toggleQuickAddPanel(true);
   }
+  // ===== تبدیل گروهی: تیک حرکات ⇒ ادغام در سیستم تمرینی یا تفکیک به حرکات معمولی =====
+  function daySelectedKeys(dayIdx){
+    return [...selectedMovements].filter(k=>k.startsWith(dayIdx+'-'));
+  }
+  function selectionGroups(dayIdx){
+    const day=currentProgram.days[dayIdx];
+    if(!day)return [];
+    const map=new Map();
+    daySelectedKeys(dayIdx).forEach(k=>{
+      const [,s,m]=k.split('-').map(Number);
+      const arr=map.get(s)||[];
+      arr.push(m);
+      map.set(s,arr);
+    });
+    return [...map.entries()].map(([s,ms])=>{
+      ms.sort((a,b)=>a-b);
+      return {s,ms,len:(day.data[s]?.movement_list||[]).length};
+    });
+  }
+  function selectionComplete(dayIdx){
+    const gs=selectionGroups(dayIdx);
+    return gs.length>0&&gs.every(g=>g.ms.length===g.len&&g.ms.every((v,i)=>v===i));
+  }
+  function splitAllowed(dayIdx){
+    return selectionGroups(dayIdx).every(g=>g.len>1&&g.ms.length===g.len);
+  }
+  function renderConvertBar(dayIdx){
+    const k=daySelectedKeys(dayIdx).length;
+    return `<div class="convert-bar" id="convertBar" ${k?'':'hidden'}>
+      <b id="convertCount">${k.toLocaleString('fa-IR')} حرکت انتخاب شده</b>
+      <div class="builder-menu-wrap">
+        <button class="btn btn-primary btn-small" type="button" data-menu title="تبدیل انتخاب‌ها به سیستم تمرینی">🔁 تبدیل به سیستم تمرینی ▾</button>
+        <div class="builder-menu" hidden>
+          ${systemTypes.map(t=>`<button type="button" data-convert-to="${t.id}" ${t.movements===k?'':'disabled'} title="${t.movements===k?'آمادهٔ تبدیل':`${t.movements.toLocaleString('fa-IR')} حرکت لازم دارد`}">${t.icon} ${esc(t.label)} — ${t.movements.toLocaleString('fa-IR')} حرکت</button>`).join('')}
+          <div class="menu-sep"></div>
+          <button type="button" data-split-normal ${splitAllowed(dayIdx)?'':'disabled'}>↩️ تفکیک به حرکات معمولی</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  function updateConvertBar(dayIdx){
+    // کلیدهای ته‌افتاده (بعد از تغییر ساختار) پاک می‌شوند
+    const valid=new Set();
+    document.querySelectorAll('[data-pick-mov]').forEach(cb=>valid.add(cb.dataset.pickMov));
+    [...selectedMovements].forEach(k=>{if(!valid.has(k))selectedMovements.delete(k);});
+    const bar=document.getElementById('convertBar');
+    if(!bar)return;
+    const k=daySelectedKeys(dayIdx).length;
+    bar.hidden=k===0;
+    const count=document.getElementById('convertCount');
+    if(count)count.textContent=`${k.toLocaleString('fa-IR')} حرکت انتخاب شده`;
+    bar.querySelectorAll('[data-convert-to]').forEach(b=>{
+      const t=systemById(Number(b.dataset.convertTo));
+      b.disabled=!t||t.movements!==k;
+    });
+    const split=bar.querySelector('[data-split-normal]');
+    if(split)split.disabled=!splitAllowed(dayIdx);
+  }
+  function convertSelection(dayIdx,targetId){
+    const target=systemById(targetId);
+    if(!target)return;
+    const day=currentProgram.days[dayIdx];
+    if(!day)return;
+    const groups=selectionGroups(dayIdx);
+    if(!groups.length)return;
+    if(!selectionComplete(dayIdx)){
+      alert('برای تبدیل، همهٔ حرکات هر سیستمِ انتخاب‌شده را کامل تیک بزنید (یک گروه ناقص است).');
+      return;
+    }
+    const total=groups.reduce((n,g)=>n+g.ms.length,0);
+    if(target.movements!==total){
+      alert(`«${target.label}» دقیقاً ${target.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ ${total.toLocaleString('fa-IR')} حرکت انتخاب شده است.`);
+      return;
+    }
+    const merged=[];
+    groups.forEach(g=>merged.push(...(day.data[g.s].movement_list||[])));
+    const first=groups[0].s;
+    day.data.splice(first,groups.length,{exercise_system_id:target.id,system_type:target.type,movement_list:merged});
+    selectedMovements.clear();
+    convertedFlash=`${dayIdx}-${first}`;
+    setDirty(true);
+    renderDays();
+  }
+  function splitSelectionToNormal(dayIdx){
+    const day=currentProgram.days[dayIdx];
+    if(!day)return;
+    const groups=selectionGroups(dayIdx);
+    if(!groups.length)return;
+    if(!selectionComplete(dayIdx)){
+      alert('برای تفکیک، همهٔ حرکات هر سیستمِ انتخاب‌شده را کامل تیک بزنید.');
+      return;
+    }
+    if(!splitAllowed(dayIdx)){
+      alert('تفکیک فقط برای گروه‌های چندحرکته (سوپرست، تری‌ست و…) کار می‌کند.');
+      return;
+    }
+    const replacement=[];
+    groups.forEach(g=>{
+      (day.data[g.s].movement_list||[]).forEach(mov=>replacement.push({exercise_system_id:1,system_type:'normal',movement_list:[mov]}));
+    });
+    day.data.splice(groups[0].s,groups.length,...replacement);
+    selectedMovements.clear();
+    convertedFlash=`${dayIdx}-${groups[0].s}`;
+    setDirty(true);
+    renderDays();
+  }
+  function activeSystemIncomplete(){
+    const sys=drawerActiveSystem();
+    if(!sys)return false;
+    const meta=systemById(sys.exercise_system_id)||systemById(1);
+    if(meta.movements<=1)return false;
+    const n=(sys.movement_list||[]).length;
+    return n>0&&n<meta.movements; // سیستم چندحرکتهٔ ناقص
+  }
   function closeDrawer(){
     // انتخاب ست‌ها اجباری است: با حرکتِ بدون ست، بانک بسته نمی‌شود
     if(selectedSystemForAdd&&drawerSetsRevealed&&activeSystemHasEmptySets()){
@@ -1151,6 +1283,14 @@
       const bar=document.getElementById('drawerSetPreset');
       if(bar){bar.classList.remove('flash');void bar.offsetWidth;bar.classList.add('flash');}
       alert('برای هر حرکت حداقل یک ست الزامی است — بخش «ست‌های حرکت» را تکمیل کنید.');
+      return;
+    }
+    // سیستم چندحرکته نباید ناقص بماند: دقیقاً همان تعداد حرکت باید ثبت شود
+    if(selectedSystemForAdd&&activeSystemIncomplete()){
+      const sys=drawerActiveSystem();
+      const meta=systemById(sys.exercise_system_id)||systemById(1);
+      const n=(sys.movement_list||[]).length;
+      alert(`سیستم «${meta.label}» دقیقاً ${meta.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ فعلاً ${n.toLocaleString('fa-IR')} حرکت ثبت شده — باقیمانده را از بانک اضافه کنید.`);
       return;
     }
     const drawer=document.getElementById('exerciseDrawer');
@@ -1965,6 +2105,13 @@
         if(bar){bar.classList.remove('flash');void bar.offsetWidth;bar.classList.add('flash');}
         updateDrawerPresetNote();
         alert('برای هر حرکت حداقل یک ست الزامی است — تعداد ست‌ها را وارد کنید.');
+        return;
+      }
+      if(activeSystemIncomplete()){
+        const sys=drawerActiveSystem();
+        const meta=systemById(sys.exercise_system_id)||systemById(1);
+        const n=(sys.movement_list||[]).length;
+        alert(`سیستم «${meta.label}» دقیقاً ${meta.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ فعلاً ${n.toLocaleString('fa-IR')} حرکت ثبت شده — ابتدا باقیمانده را از بانک اضافه کنید.`);
         return;
       }
       const mov=drawerNewestMovement();
