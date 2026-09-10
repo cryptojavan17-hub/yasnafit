@@ -25,6 +25,9 @@ const TYPES = {
   TELEGRAM_DISCONNECTED: { category: 'system' },
   PROGRAM_ENDING_REMINDER: { category: 'reminders' },
   ASSESSMENT_READY:      { category: 'system' },
+  ASSESSMENT_APPROVED:   { category: 'system' },
+  ASSESSMENT_REJECTED:   { category: 'system' },
+  ASSESSMENT_CHANGES_REQUESTED: { category: 'system' },
   REMINDER:              { category: 'reminders' },
   SYSTEM_NOTIFICATION:   { category: 'system' },
   // نقطه‌های توسعهٔ آینده (فعلاً وصل نیستند — رفتاری ساختگی ندارند):
@@ -52,6 +55,9 @@ function defaultCopy(type){
     TELEGRAM_DISCONNECTED: { title: '🔓 اتصال تلگرام قطع شد', body: 'اتصال حساب شما به تلگرام قطع شد. برای دریافت دوبارهٔ اعلان‌ها از پنل، دوباره متصل شوید.', portal: null },
     PROGRAM_ENDING_REMINDER: { title: '⏰ پایان برنامه نزدیک است', body: 'تا پایان برنامه تمرینی شما کم مانده است.', portal: '/student/login' },
     ASSESSMENT_READY:      { title: '📋 ارزیابی جدید آماده بررسی است', body: 'یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.', portal: null },
+    ASSESSMENT_APPROVED:   { title: '✅ پرونده شما تأیید شد', body: 'مربی پرونده شما را تأیید کرد.', portal: '/student/login' },
+    ASSESSMENT_REJECTED:   { title: '❌ پرونده رد شد', body: '', portal: '/student/login' },
+    ASSESSMENT_CHANGES_REQUESTED: { title: '✏️ اصلاح پرونده درخواست شد', body: '', portal: '/student/login' },
     REMINDER:              { title: '⏰ یادآور', body: '', portal: null },
     SYSTEM_NOTIFICATION:   { title: '🛡 اعلان سیستم', body: '', portal: null },
   };
@@ -96,6 +102,35 @@ function emit(db, { type, studentId, audience = 'student', title = null, body = 
   }
   setImmediate(() => { attemptDelivery(db, deliveryId).catch(() => {}); });
   return { queued: true, deliveryId, dedupKey: key, category: meta.category };
+}
+
+/**
+ * mirrorInAppNotification — آینهٔ اعلان درون‌برنامه‌ای شاگرد به تلگرام
+ * هر notify با audienceType:'student' یک‌بار از اینجا عبور می‌کند (از engagement-service.notify).
+ * فقط نوع‌های شناخته‌شدهٔ واقعی آینه می‌شوند؛ عنوان/متن همان اعلان درون‌برنامه‌ای استفاده می‌شود.
+ */
+const MIRROR_MAP = {
+  program_activate:                { type: 'PROGRAM_ASSIGNED' },
+  program_complete:                { type: 'PROGRAM_UPDATED', unique: true },
+  program_archive:                 { type: 'PROGRAM_UPDATED', unique: true },
+  diet_program_assigned:           { type: 'NUTRITION_PLAN_READY' },
+  supplement_program_assigned:     { type: 'SUPPLEMENT_PLAN_READY' },
+  coach_message:                   { type: 'COACH_MESSAGE' },
+  program_ending:                  { type: 'PROGRAM_ENDING_REMINDER' },
+  assessment_approved:             { type: 'ASSESSMENT_APPROVED' },
+  assessment_rejected:             { type: 'ASSESSMENT_REJECTED' },
+  assessment_changes_requested:    { type: 'ASSESSMENT_CHANGES_REQUESTED' },
+};
+function mirrorInAppNotification(db, { type, studentId, title, body = '', entityType = null, entityId = null }){
+  const mapped = MIRROR_MAP[type];
+  if(!mapped || !studentId) return { skipped: 'unmapped' };
+  const dedupKey = mapped.unique
+    ? `${mapped.type.toLowerCase()}:${entityType || 'x'}:${entityId ?? 'x'}:student:${studentId}:${Date.now()}`
+    : undefined; // کلید پایدار پیش‌فرض emit کافی است
+  return emit(db, {
+    type: mapped.type, studentId, title: title || undefined, body: body || undefined,
+    entityType, entityId, dedupKey,
+  });
 }
 
 function isPermanentFailure(result){
@@ -227,6 +262,6 @@ function integrationStatus(db){
 }
 
 module.exports = {
-  TYPES, CATEGORY_LABELS, emit, attemptDelivery, processDue,
+  TYPES, CATEGORY_LABELS, emit, attemptDelivery, processDue, mirrorInAppNotification, MIRROR_MAP,
   startRetryLoop, stopRetryLoop, listForStudent, integrationStatus, statusFa,
 };

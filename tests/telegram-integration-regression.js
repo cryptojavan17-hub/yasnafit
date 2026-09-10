@@ -8,6 +8,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { runMigrations } = require('../src/migrations');
 const telegramService = require('../src/telegram-service');
 const notificationService = require('../src/notification-service');
+const engagement = require('../src/engagement-service');
 
 async function main(){
 // ─── محیط تست: دیتابیس موقت + پیکربندی ماک تلگرام (هیچ درخواست واقعی تلگرام زده نمی‌شود) ───
@@ -67,8 +68,8 @@ assert.ok(sent.some(m => /منقضی/.test(m.payload.text)), 'bot must explain t
 // ─── ۴. توکن استفاده‌شده دوباره (single-use) ───
 sent = [];
 const reusedRes = await telegramService.handleUpdate(db, { update_id: 4, message: { message_id: 4, chat: { id: 555001 }, text: `/start ${link.link_code}` } });
-assert.equal(reusedRes.link_failed, true, 'reused token must fail (single-use)');
-assert.ok(sent.some(m => /قبلاً استفاده شده/.test(m.payload.text)), 'bot must explain reuse in Persian');
+assert.equal(reusedRes.already_linked, true, 'a reused code from the same chat is not an error — confirm the existing link');
+assert.ok(sent.some(m => /قبلاً به یسنا فیت متصل شده/.test(m.payload.text)), 'bot must confirm the existing connection in Persian');
 
 // ─── ۵. قطع اتصال + اتصال مجدد + مالکیت چت ───
 let status = telegramService.statusForStudent(db, studentId);
@@ -178,10 +179,11 @@ assert.equal(Number(telegramService.preferences(db, studentId).nutrition), befor
 
 // ─── ۱۵. تریگر واقعی PROGRAM_ASSIGNED در سرور (بررسی سیم‌کشی) ───
 const serverSrc = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
-assert.match(serverSrc, /notificationService\.emit\(db,\{type:'PROGRAM_ASSIGNED'[\s\S]{0,400}dedupKey:`program_assigned:\$\{id\}`/, 'program activate must emit PROGRAM_ASSIGNED');
+assert.doesNotMatch(serverSrc, /emit\(db,\{type:'PROGRAM_ASSIGNED'/, 'manual per-event emits are replaced by the single in-app mirror');
 assert.match(serverSrc, /p==='\/api\/telegram\/webhook'/, 'the webhook endpoint must be mounted');
 assert.match(serverSrc, /verifyWebhookSecret\(req\.headers\['x-telegram-bot-api-secret-token'\]\)/, 'the webhook must verify the Telegram secret header');
 assert.match(serverSrc, /\/api\/student\/telegram\/link/, 'the student link endpoint must exist');
+assert.match(serverSrc, /setImmediate\(\(\) => \{ telegramService\.handleUpdate/, 'webhook must answer 200 immediately and process async (no telegram redeliveries)');
 
 // ─── تنظیمات پنل مربی (ذخیره در جدول settings؛ env اولویت دارد) ───
 delete process.env.TELEGRAM_BOT_TOKEN;
@@ -215,7 +217,8 @@ telegramService.reloadConfig(); telegramService.applyDbSettings(db);
 const serverSrc2 = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 assert.match(serverSrc2, /p==='\/api\/coach\/telegram\/settings'/, 'coach settings endpoints must exist');
 assert.match(serverSrc2, /telegramService\.applyDbSettings\(db\)/, 'startup must apply panel settings');
-assert.match(serverSrc2, /telegramService\.testConnection\(\)/, 'connection test endpoint must exist');
+assert.match(serverSrc2, /api\/coach\/telegram\/test-message/, 'the real test-message endpoint must exist');
+assert.doesNotMatch(serverSrc2, /api\/coach\/telegram\/test'/, 'the redundant getMe test route must be gone');
 const appSrc = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
 assert.match(appSrc, /'\/settings\/telegram'/, 'the coach menu must contain the telegram settings route');
 const tgSettingsSrc = fs.readFileSync(path.join(__dirname, '../public/telegram-settings.js'), 'utf8');
@@ -300,6 +303,63 @@ const tgSettingsSrc3 = fs.readFileSync(path.join(__dirname, '../public/telegram-
 assert.match(tgSettingsSrc3, /اتصال تلگرام مربی/, 'the coach connection card must exist in the settings page');
 assert.match(tgSettingsSrc3, /api\/coach\/telegram\/link/, 'the page must fetch coach link codes');
 
+// ─── آینهٔ اعلان‌های درون‌برنامه‌ای شاگرد → تلگرام (engagement.notify → mirror) ───
+telegramService.setTransport(async (method, payload) => { sent.push({ method, payload }); return { ok: true, result: { message_id: 1 } }; });
+telegramService.setPreference(db, studentId, 'nutrition', 1); // (تست تاگل قبلی خاموشش کرده بود)
+sent = [];
+engagement.notify(db,{audienceType:'student',studentId,type:'diet_program_assigned',title:'برنامه غذایی شما به‌روزرسانی شد',body:'برنامه غذایی «برنامه تست» توسط مربی به‌روزرسانی شد.',entityType:'diet_program',entityId:77});
+await new Promise(r => setTimeout(r, 120));
+const mirrorRow = db.prepare("SELECT * FROM notification_deliveries WHERE type='NUTRITION_PLAN_READY' AND entity_id=77").get();
+if(!mirrorRow) console.log('DBG deliveries:', JSON.stringify(db.prepare("SELECT type,status,audience,last_error FROM notification_deliveries ORDER BY id DESC LIMIT 4").all()), 'NOTIF:', JSON.stringify(db.prepare("SELECT type,audience_type FROM notifications ORDER BY id DESC LIMIT 3").all()));
+assert.ok(mirrorRow, 'a student in-app notification must be mirrored to telegram');
+assert.equal(mirrorRow.status, 'sent', 'the mirrored notification must be delivered');
+assert.ok(sent.some(m => /برنامه غذایی شما به‌روزرسانی شد/.test(m.payload.text || '')), 'the mirrored message must keep the in-app title');
+
+// تصمیم ارزیابی (approved) هم آینه می‌شود
+sent = [];
+engagement.notify(db,{audienceType:'student',studentId,type:'assessment_approved',title:'پرونده شما تأیید شد',body:'مربی پرونده شما را تأیید کرد.',entityType:'assessment',entityId:55});
+await new Promise(r => setTimeout(r, 120));
+assert.ok(db.prepare("SELECT 1 FROM notification_deliveries WHERE type='ASSESSMENT_APPROVED' AND entity_id=55").get(), 'assessment decision must reach telegram');
+
+// اعلان مربی (audienceType coach) آینه نمی‌شود
+sent = [];
+const coachNotifyId = engagement.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'x',body:'y',entityType:'assessment',entityId:56});
+assert.ok(coachNotifyId, 'in-app coach notification still works');
+await new Promise(r => setTimeout(r, 120));
+assert.equal(sent.length, 0, 'coach-audience in-app notifications must not mirror (ASSESSMENT_READY is emitted explicitly)');
+
+// نوع ناشناخته: درون‌برنامه‌ای می‌ماند، تلگرام رد می‌شود
+sent = [];
+engagement.notify(db,{audienceType:'student',studentId,type:'some_unknown_type',title:'t',body:'b',entityType:'x',entityId:57});
+await new Promise(r => setTimeout(r, 100));
+assert.equal(sent.length, 0, 'unknown types must not invent telegram messages');
+assert.ok(db.prepare("SELECT 1 FROM notifications WHERE type='some_unknown_type'").get(), 'the in-app notification itself must still be created');
+
+// ترجیح خاموش شاگرد، آینه را هم ساکت می‌کند (ویژگی، نه باگ)
+telegramService.setPreference(db, studentId, 'messages', 0);
+sent = [];
+engagement.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:'بی‌صدا',entityType:'conversation',entityId:'muted-1'});
+await new Promise(r => setTimeout(r, 100));
+assert.equal(sent.length, 0, 'a muted category must not reach telegram via the mirror');
+telegramService.setPreference(db, studentId, 'messages', 1);
+
+// آینه‌ی دوباره همان رویداد = dedup
+sent = [];
+engagement.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:'سلام',entityType:'conversation',entityId:'stable-1'});
+await new Promise(r => setTimeout(r, 100));
+assert.equal(sent.length, 1);
+engagement.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:'سلام',entityType:'conversation',entityId:'stable-1'});
+await new Promise(r => setTimeout(r, 100));
+assert.equal(sent.length, 1, 'mirroring the same event twice must not double-send');
+
+// ─── پیام آزمایشی مربی: endpoint و منطق ───
+sent = [];
+const testMsgAccount = telegramService.coachActiveAccount(db);
+assert.ok(testMsgAccount, 'coach must still be connected from earlier steps');
+const serverSrcTm = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+assert.match(serverSrcTm, /api\/coach\/telegram\/test-message/, 'the real test-message endpoint must exist');
+assert.doesNotMatch(serverSrcTm, /api\/coach\/telegram\/test'/, 'the redundant getMe test route must be gone');
+
 // ─── ردیف «تلگرام» در پرونده شاگرد پنل مربی (رندر + وایرینگ) ───
 const studentsSrc = fs.readFileSync(path.join(__dirname, '../public/students.js'), 'utf8');
 assert.match(studentsSrc, /<div><span>تلگرام<\/span><b id="tgCoachStatusLine">/, 'the coach student-profile template must contain the telegram status row');
@@ -342,6 +402,7 @@ console.log(JSON.stringify({
   graceful_without_config: true,
   coach_panel_settings: true,
   assessment_ready_to_coach_telegram: true,
+  in_app_mirror_to_telegram: true,
 }));
 }
 

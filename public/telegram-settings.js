@@ -111,7 +111,7 @@
             <header class="ai-card-head">
               <div>
                 <h2>👤 اتصال تلگرام مربی</h2>
-                <p>گیرندهٔ اعلان‌های مدیریتی — مثل «📋 ارزیابی جدید آماده بررسی». با کد یک‌بارمصرف، تلگرام خودتان را متصل کنید.</p>
+                <p>گیرندهٔ اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی»). پیام آزمایشی، تحویل واقعی را همان‌جا در تلگرام نشان می‌دهد.</p>
               </div>
               <span class="ai-badge ${connection.connected ? 'ai-badge-ok' : 'ai-badge-warn'}" id="tgCoachConnBadge">
                 ${connection.connected ? `✅ متصل${connection.telegram_username ? ` (@${esc(connection.telegram_username)})` : ''}` : '⚪ متصل نیست'}
@@ -119,39 +119,34 @@
             </header>
             <div id="tgCoachConnBody">
               ${connection.connected
-                ? `<div class="tg-stats"><div><span>چت</span><b dir="ltr">${esc(connection.chat_id_masked || '—')}</b></div><div><span>از تاریخ</span><b>${esc(connection.linked_at || '—')}</b></div></div>
-                   <div class="ai-form-group" style="margin-top:12px;"><button type="button" class="btn btn-secondary" id="tgCoachUnlink" style="min-height:38px;">قطع اتصال مربی</button></div>`
+                ? `<div class="tg-stats"><div><span>چت</span><b dir="ltr">${esc(connection.chat_id_masked || '—')}</b></div></div>
+                   <div class="ai-form-group" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                     <button type="button" class="btn btn-primary" id="tgCoachTestMsg" style="min-height:38px;">📨 ارسال پیام آزمایشی</button>
+                     <button type="button" class="btn btn-secondary" id="tgCoachUnlink" style="min-height:38px;">قطع اتصال</button>
+                   </div>
+                   <div id="tgTestMsgResult" class="tg-result"></div>`
                 : `<div class="ai-form-group"><button type="button" class="btn btn-primary" id="tgCoachLink" style="min-height:40px;" ${settings.configured ? '' : 'disabled title="اول ربات را ذخیره کنید"'}>🎯 گرفتن کد اتصال مربی</button></div>
                    <div id="tgCoachLinkBox"></div>`}
             </div>
           </section>
 
-          <!-- اتصال و وب‌هوک -->
+          <!-- وب‌هوک -->
           <section class="ai-card">
             <header class="ai-card-head">
               <div>
-                <h2>🔌 اتصال و وب‌هوک</h2>
-                <p>پس از ذخیره، اتصال را بیازمایید و وب‌هوک را روی دامنهٔ عمومی ثبت کنید.</p>
+                <h2>📡 دریافت پیام‌ها (وب‌هوک)</h2>
+                <p>روی Railway/سرور عمومی لازم است. برای توسعهٔ محلی همان گزینهٔ polling بالا کافی است.</p>
               </div>
             </header>
-            <div class="ai-form-group">
-              <button type="button" class="btn btn-secondary" id="tgTest" style="min-height:40px;">🔍 آزمون اتصال به تلگرام</button>
-              <div id="tgTestResult" class="tg-result"></div>
-            </div>
             <div class="ai-form-group">
               <div class="ai-label-row">
                 <label class="ai-label" for="tgWebhookUrl">آدرس وب‌هوک</label>
               </div>
               <input type="url" id="tgWebhookUrl" dir="ltr" placeholder="https://…/api/telegram/webhook" value="${settings.public_url ? esc(settings.public_url + '/api/telegram/webhook') : ''}">
-              <small class="ai-help-text">تلگرام فقط HTTPS می‌پذیرد؛ برای توسعهٔ محلی از تونل (مثلاً cloudflared) یا گزینهٔ polling بالا استفاده کنید.</small>
             </div>
             <div class="ai-form-group">
               <button type="button" class="btn btn-primary" id="tgRegisterWebhook" style="min-height:40px;">📤 ثبت وب‌هوک در تلگرام</button>
               <div id="tgWebhookResult" class="tg-result"></div>
-            </div>
-            <div class="tg-stats">
-              <div><span>شاگردان متصل</span><b>${Number(status.connected_accounts || 0)}</b></div>
-              <div><span>${esc(deliveryLine)}</span></div>
             </div>
           </section>
         </div>
@@ -159,11 +154,9 @@
         <section class="ai-card tg-guide">
           <header class="ai-card-head"><div><h2>📘 راهنمای سریع</h2></div></header>
           <ol class="tg-steps">
-            <li>در تلگرام به <b dir="ltr">@BotFather</b> پیام دهید و با ‎/newbot‎ یک ربات بسازید؛ توکن را کپی کنید.</li>
-            <li>توکن و یوزرنیم ربات را بالا وارد و «ذخیره تنظیمات» را بزنید — ربات فوراً فعال می‌شود (بدون ری‌استارت).</li>
-            <li>«آزمون اتصال» را بزنید؛ باید نام ربات را برگرداند.</li>
-            <li>روی Railway: «آدرس عمومی سایت» را بدهید، ذخیره کنید، سپس «ثبت وب‌هوک در تلگرام» را بزنید.</li>
-            <li>حالا شاگردان از «پروفایل من ← اتصال تلگرام» حسابشان را متصل می‌کنند و اعلان‌ها می‌رسد.</li>
+            <li>از <b dir="ltr">@BotFather</b> توکن بگیرید، بالا وارد کنید و «ذخیره» بزنید — ربات فوراً فعال می‌شود.</li>
+            <li>روی Railway «آدرس عمومی» را ذخیره و «ثبت وب‌هوک» را بزنید (محلی: گزینهٔ polling).</li>
+            <li>تلگرام خودتان را از کارت «اتصال تلگرام مربی» وصل کنید و با «پیام آزمایشی» سلام‌وبالیک بگیرید.</li>
           </ol>
         </section>
       </div>`;
@@ -203,17 +196,18 @@
 
     content.querySelector('#tgGenSecret').onclick = () => { content.querySelector('#tgSecret').value = strongSecret(); };
 
-    // ── آزمون اتصال ──
-    content.querySelector('#tgTest').onclick = async () => {
-      const box = content.querySelector('#tgTestResult');
-      box.textContent = '⏳ در حال آزمون…'; box.className = 'tg-result';
+    // ── پیام آزمایشی واقعی به تلگرام مربی ──
+    const testMsg = content.querySelector('#tgCoachTestMsg');
+    if (testMsg) testMsg.onclick = async () => {
+      const box = content.querySelector('#tgTestMsgResult');
+      testMsg.disabled = true; box.textContent = '⏳ در حال ارسال…'; box.className = 'tg-result';
       try {
-        const result = await api('/api/coach/telegram/test', { method: 'POST' });
-        box.innerHTML = `✅ اتصال برقرار است — ربات: <b dir="ltr">@${esc(result.bot.username)}</b> (${esc(result.bot.first_name || '')})`;
+        await api('/api/coach/telegram/test-message', { method: 'POST' });
+        box.innerHTML = '✅ پیام آزمایشی ارسال شد — همین حالا تلگرام خود را ببینید.';
         box.classList.add('ok');
       } catch (error) {
-        box.textContent = '❌ اتصال برقرار نشد: ' + error.message; box.classList.add('bad');
-      }
+        box.textContent = '❌ ' + error.message; box.classList.add('bad');
+      } finally { testMsg.disabled = false; }
     };
 
     // ── ثبت وب‌هوک ──

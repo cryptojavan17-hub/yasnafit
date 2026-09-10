@@ -257,6 +257,13 @@ async function handleMessage(db, message){
         `سلام مربی 👋\n✅ تلگرام شما با موفقیت به پنل یسنا فیت متصل شد.\n\nاز این پس اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی») همین‌جا دریافت می‌شود.`);
       return { handled: true, linked_coach: linked.coach_id };
     }catch(coachError){
+      // کد تکراری از همان چتی که قبلاً وصل شده ⇒ خطا نیست؛ وضعیت را تأیید کن
+      const alreadyStudent = accountByChatId(db, chat.chat_id);
+      const alreadyCoach = db.prepare("SELECT 1 FROM telegram_coach_accounts WHERE chat_id=? AND unlinked_at IS NULL").get(chat.chat_id);
+      if((studentError && /قبلاً استفاده/.test(studentError.message) && alreadyStudent) || alreadyCoach){
+        await sendMessage(db, chat.chat_id, '✅ این چت قبلاً به یسنا فیت متصل شده است؛ نیازی به اتصال دوباره نیست.');
+        return { handled: true, already_linked: true };
+      }
       // دقیق‌ترین توضیح: اگر کد مربی شناخته شد ولی رد شد (مصرف/انقضا/بطلان)، همان را بگو
       const reason = coachError && coachError.message && /قبلاً استفاده|باطل|منقضی/.test(coachError.message) ? coachError.message : studentError.message;
       await sendMessage(db, chat.chat_id, `⚠️ ${reason}\n\nشاگردان: پورتال یسنا فیت → پروفایل من → «اتصال تلگرام». مربیان: پنل مدیریت → سیستم → تنظیمات تلگرام.`);
@@ -386,6 +393,7 @@ let pollingState = { running: false, offset: 0, timer: null };
 async function startPolling(db){
   if(!isConfigured()){ console.log('[Telegram] POLLING خواسته شد ولی TELEGRAM_BOT_TOKEN تنظیم نیست؛ صرف‌نظر شد.'); return false; }
   if(pollingState.running) return true;
+  try{ await callApi('deleteWebhook', { drop_pending_updates: false }); }catch(e){}
   pollingState.running = true;
   console.log('[Telegram] Long-polling فعال شد (حالت توسعه).');
   const loop = async () => {

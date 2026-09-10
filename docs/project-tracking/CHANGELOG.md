@@ -8,6 +8,17 @@
 
 ## 2026-09-10
 
+### Task 18 — آینهٔ کامل اعلان‌های شاگرد به تلگرام + پیام آزمایشی مربی + پایدارسازی اتصال
+
+- **FILES:** `src/engagement-service.js` (فن‌اوت تک‌نقطه‌ای)، `src/notification-service.js` (MIRROR_MAP + ۳ نوع تصمیم ارزیابی)، `src/telegram-service.js`، `server.js`، `public/telegram-settings.js`، `tests/telegram-integration-regression.js`
+- **WHAT (درخواست مالک):**
+  1. **هر اعلان/پیام پنل شاگرد حالا به تلگرام شاگرد هم می‌رود:** `engagementService.notify` برای مخاطب شاگرد، همان لحظه اعلان را به `notificationService.mirrorInAppNotification` می‌دهد (نگاشت نوع‌های درون‌برنامه‌ای → تلگرام: program_activate/diet/supplement/coach_message/program_ending/assessment_approved|rejected|changes_requested). عنوان/متن همان اعلان درون‌برنامه‌ای است؛ ترجیحات شاگرد و dedup رعایت می‌شود؛ اعلان‌های مربی آینه نمی‌شوند.
+  2. **حذف emitهای تکراری:** ۷ emit دستی قبلی در server.js (برنامه/رژیم/مکمل/پیام) حذف شد — یک مسیر واحد، بدون دوباره‌سازی.
+  3. **پیام آزمایشی واقعی:** دکمهٔ «📨 ارسال پیام آزمایشی» در کارت اتصال مربی → `POST /api/coach/telegram/test-message` → پیام واقعی در تلگرام مربی (جایگزین getMeٔ صرف؛ آن مسیر حذف شد).
+  4. **پایدارسازی اتصال («به سختی وصل می‌شد»):** وب‌هوک حالا فوراً ۲۰۰ برمی‌گرداند و آپدیت را async پردازش می‌کند (تلگرام دیگر آپدیت را دوباره نمی‌فرستد و پیام خطای کدِ مصرف‌شده بعد از اتصال موفق دیده نمی‌شود)؛ کد تکراری از همان چتِ متصل ⇒ پیام «✅ قبلاً متصل شده‌اید» به‌جای خطا؛ startPolling اول deleteWebhook می‌زند (بدون تداخل ۴۰۹).
+  5. **ساده‌سازی صفحه:** ادغام کارت‌ها (پیکربندی + اتصال مربی + وب‌هوک)، حذف راهنمای بلند.
+- **TESTS:** گروه `in_app_mirror_to_telegram` (آینهٔ رژیم/تصمیم ارزیابی، عدم آینهٔ مربی، نوع ناشناخته، ترجیح خاموش، dedup پیام، endpoint پیام آزمایشی) ✅ — **۱۹/۱۹ گروه** • `npm test` ۲۱/۲۱ ✅ • e2e زنده: پیام مربی به شاگرد ⇒ ردیف COACH_MESSAGE در صف تلگرام شاگرد ✅؛ پیام آزمایشی با توکن دمو ⇒ خطای شبکهٔ صادقانه (با توکن واقعی تحویل می‌شود) ✅
+
 ### Task 17 — اعلان تلگرامی «ارزیابی جدید آماده بررسی» برای مربی (ASSESSMENT_READY)
 
 - **FILES:** `src/migrations.js` (مایگریشن 032)، `src/notification-service.js` (نوع + مخاطب مربی)، `src/telegram-service.js` (اتصال حساب مربی)، `server.js` (هوک رویداد + ۳ مسیر)، `public/telegram-settings.js` (کارت اتصال مربی)، `tests/telegram-integration-regression.js`
