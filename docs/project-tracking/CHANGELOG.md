@@ -8,6 +8,13 @@
 
 ## 2026-09-10
 
+### Task 17 — اعلان تلگرامی «ارزیابی جدید آماده بررسی» برای مربی (ASSESSMENT_READY)
+
+- **FILES:** `src/migrations.js` (مایگریشن 032)، `src/notification-service.js` (نوع + مخاطب مربی)، `src/telegram-service.js` (اتصال حساب مربی)، `server.js` (هوک رویداد + ۳ مسیر)، `public/telegram-settings.js` (کارت اتصال مربی)، `tests/telegram-integration-regression.js`
+- **WHAT:** رویداد واقعیِ «ارسال ارزیابی توسط شاگرد» (`POST /api/student/assessment/submit` ← `studentService.submitAssessment`) که همان‌جا اعلان درون‌برنامه‌ای «ارزیابی #N آماده بررسی است» را می‌سازد، حالا موازی‌اش `ASSESSMENT_READY` را برای تلگرام صف می‌کند. گیرنده = مربیِ مسئول همان شاگرد از `coach_students` (چند-مربی‌پذیر؛ بدون chat id ثابت) → حساب فعال در جدول جدید `telegram_coach_accounts`. مربی از پنل (تنظیمات تلگرام ← کارت «اتصال تلگرام مربی») با کد یک‌بارمصرف از طریق `/start` متصل می‌شود. پیام: «📋 ارزیابی جدید آماده بررسی است — 👤 شاگرد: [نام واقعی] — 📝 ارزیابی: #[شماره واقعی]» + دکمهٔ «🔎 مشاهده ارزیابی» به مسیر موجود `/assessments/:id` (با نشست مربی؛ بدون توکن در URL). dedup پایدار `assessment_ready:<id>`؛ مربیِ بدون تلگرام ⇒ لغو امن؛ خطای تلگرام ⇒ صف retry معمول و ارسال ارزیابی هرگز نمی‌شکند.
+- **ARCH:** تلگرام کانالِ additional همان رویداد است؛ اعلان درون‌برنامه‌ای دست نخورد. مایگریشن 032: `telegram_coach_accounts`، `telegram_coach_link_tokens` + ستون‌های `audience/entity_type/entity_id` در `notification_deliveries` (فقط افزوده شد).
+- **TESTS:** گروه `assessment_ready_to_coach_telegram` (۱۴ ادعا: اتصال مربی، یک‌بارمصرف بودن کد، تحویل به چت مربی و نه شاگرد، نام/شمارهٔ واقعی در پیام، URL دکمه، dedup، مربی بدون تلگرام، خطای تلگرام، سیم‌کشی سرور) ✅ • `npm test` کامل ۲۱/۲۱ ✅ • `migration-regression` با ۳۲ مایگریشن ✅ • e2e زنده: ارسال ارزیابی شاگرد → اعلان درون‌برنامه‌ای + صف تلگرام مربی ✅
+
 ### Task 16 — فعال‌سازی تلگرام از پنل مربی (صفحهٔ «تنظیمات تلگرام»)
 
 - **FILES:** `src/telegram-service.js` (لایه تنظیمات DB)، `server.js` (۳ مسیر جدید + startup)، `public/telegram-settings.js` (جدید)، `public/telegram-settings.css` (جدید)، `public/index.html`، `public/app.js` (منو + روتر)، `public/student-app.js` (پیام راهنما)، `tests/telegram-integration-regression.js`، `.env.example`

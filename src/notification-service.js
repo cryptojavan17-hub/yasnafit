@@ -24,6 +24,7 @@ const TYPES = {
   TELEGRAM_CONNECTED:    { category: 'system' },
   TELEGRAM_DISCONNECTED: { category: 'system' },
   PROGRAM_ENDING_REMINDER: { category: 'reminders' },
+  ASSESSMENT_READY:      { category: 'system' },
   REMINDER:              { category: 'reminders' },
   SYSTEM_NOTIFICATION:   { category: 'system' },
   // نقطه‌های توسعهٔ آینده (فعلاً وصل نیستند — رفتاری ساختگی ندارند):
@@ -34,10 +35,10 @@ const CATEGORY_LABELS = { workout: 'تمرینی', nutrition: 'تغذیه', mess
 
 function telegramService(){ return require('./telegram-service'); }
 
-function portalButton(portalPath){
+function portalButton(portalPath, label = '🌐 باز کردن یسنا فیت'){
   const svc = telegramService();
   const url = svc.config().publicUrl ? `${svc.config().publicUrl}${portalPath}` : null;
-  return url ? [[{ text: '🌐 باز کردن یسنا فیت', url }]] : null;
+  return url ? [[{ text: label, url }]] : null;
 }
 
 function defaultCopy(type){
@@ -50,6 +51,7 @@ function defaultCopy(type){
     TELEGRAM_CONNECTED:    { title: '🔗 اتصال تلگرام انجام شد', body: 'حساب یسنا فیت شما با موفقیت به تلگرام متصل شد.', portal: null },
     TELEGRAM_DISCONNECTED: { title: '🔓 اتصال تلگرام قطع شد', body: 'اتصال حساب شما به تلگرام قطع شد. برای دریافت دوبارهٔ اعلان‌ها از پنل، دوباره متصل شوید.', portal: null },
     PROGRAM_ENDING_REMINDER: { title: '⏰ پایان برنامه نزدیک است', body: 'تا پایان برنامه تمرینی شما کم مانده است.', portal: '/student/login' },
+    ASSESSMENT_READY:      { title: '📋 ارزیابی جدید آماده بررسی است', body: 'یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.', portal: null },
     REMINDER:              { title: '⏰ یادآور', body: '', portal: null },
     SYSTEM_NOTIFICATION:   { title: '🛡 اعلان سیستم', body: '', portal: null },
   };
@@ -66,27 +68,28 @@ function statusFa(status){
  * گزینه‌ها: {type, studentId, title?, body?, entityType?, entityId?, dedupKey}
  * dedupKey مثلاً `program_assigned:<programId>` — پردازش دوبارهٔ همان رویداد بی‌اثر می‌شود.
  */
-function emit(db, { type, studentId, title = null, body = null, entityType = null, entityId = null, dedupKey = null }){
+function emit(db, { type, studentId, audience = 'student', title = null, body = null, entityType = null, entityId = null, dedupKey = null }){
   const meta = TYPES[type];
   if(!meta) throw new Error(`نوع اعلان تعریف نشده است: ${type}`);
   if(!studentId) return { skipped: 'no_student' };
+  if(!['student','coach'].includes(audience)) throw new Error('Invalid notification audience');
   const tg = telegramService();
   const defaults = defaultCopy(type);
 
-  // ترجیحات شاگرد — دستهٔ خاموش ارسال نمی‌شود (ولی رویداد ثبت می‌ماند؟ نه: اصلاً صف نمی‌شود)
-  if(!tg.categoryEnabled(db, studentId, meta.category)){
+  // ترجیحات شاگرد — دستهٔ خاموش ارسال نمی‌شود (اعلان‌های مربی مشمول ترجیح شاگرد نیستند)
+  if(audience === 'student' && !tg.categoryEnabled(db, studentId, meta.category)){
     return { skipped: 'preference_disabled', category: meta.category };
   }
 
-  const key = dedupKey || `${String(type).toLowerCase()}:${entityType || 'x'}:${entityId ?? 'x'}:student:${studentId}`;
+  const key = dedupKey || `${String(type).toLowerCase()}:${entityType || 'x'}:${entityId ?? 'x'}:${audience}:student:${studentId}`;
   const finalTitle = String(title || defaults.title).slice(0, 400);
   const finalBody = String(body ?? defaults.body ?? '').slice(0, 3000);
 
-  const insert = db.prepare(`INSERT INTO notification_deliveries(stable_id,student_id,channel,type,category,title,body,dedup_key,status,max_attempts,next_attempt_at)
-    VALUES(?,?,'telegram',?,?,?,?,?,'pending',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))`);
+  const insert = db.prepare(`INSERT INTO notification_deliveries(stable_id,student_id,audience,channel,type,category,title,body,entity_type,entity_id,dedup_key,status,max_attempts,next_attempt_at)
+    VALUES(?,?,?, 'telegram',?,?,?,?,?,?,?, 'pending',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))`);
   let deliveryId;
   try{
-    deliveryId = insert.run(uuid(), studentId, String(type), meta.category, finalTitle, finalBody, key, tg.LIMITS.MAX_DELIVERY_ATTEMPTS).lastInsertRowid;
+    deliveryId = insert.run(uuid(), studentId, audience, String(type), meta.category, finalTitle, finalBody, entityType, entityId, key, tg.LIMITS.MAX_DELIVERY_ATTEMPTS).lastInsertRowid;
   }catch(error){
     if(/UNIQUE/.test(String(error.message))) return { deduplicated: true, dedupKey: key };
     throw error;
@@ -110,9 +113,13 @@ async function attemptDelivery(db, deliveryId){
   let result = { ok: false, description: 'telegram_not_configured' };
   try{
     if(tg.isConfigured()){
-      const account = tg.activeAccount(db, row.student_id);
+      // گیرنده بر اساس مخاطب: شاگرد خودش، مربیِ مسئول همان شاگرد (coach_students → telegram_coach_accounts)
+      const audience = row.audience || 'student';
+      const account = audience === 'coach'
+        ? tg.coachActiveAccount(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(row.student_id) || { coach_id: 1 }).coach_id)
+        : tg.activeAccount(db, row.student_id);
       if(!account){
-        // شاگرد اصلاً تلگرام ندارد: تلاش بی‌معناست — لغو (وقتی متصل شود، رویدادهای بعدی می‌رسند)
+        // گیرنده تلگرام ندارد: تلاش بی‌معناست — لغو (اعلان درون‌برنامه‌ای به قوت خودش باقی است)
         db.prepare("UPDATE notification_deliveries SET status='cancelled',last_error='no_active_telegram_account',next_attempt_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','retrying')").run(row.id);
         return db.prepare("SELECT * FROM notification_deliveries WHERE id=?").get(row.id);
       }else{
@@ -158,6 +165,10 @@ async function attemptDelivery(db, deliveryId){
 
 function portalButtonFor(row){
   const defaults = defaultCopy(row.type);
+  if(row.type === 'ASSESSMENT_READY' && row.entity_id){
+    // مسیر بررسی ارزیابی — همان مسیر فعلی پنل مربی (/assessments/:id) با نشست مربی؛ توکن در URL نیست
+    return portalButton(`/assessments/${row.entity_id}`, '🔎 مشاهده ارزیابی');
+  }
   return defaults.portal ? portalButton(defaults.portal) : null;
 }
 
@@ -171,7 +182,9 @@ async function processDue(db, { limit = 15, pauseMs = 400 } = {}){
     // قبل از ارسال دوباره بررسی کن اتصال هنوز فعال است (شاگرد لینک را قطع کرده؟)
     const row = db.prepare("SELECT * FROM notification_deliveries WHERE id=?").get(item.id);
     if(!row) continue;
-    const account = tg.activeAccount(db, row.student_id);
+    const account = (row.audience || 'student') === 'coach'
+      ? tg.coachActiveAccount(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(row.student_id) || { coach_id: 1 }).coach_id)
+      : tg.activeAccount(db, row.student_id);
     if(!account){
       db.prepare("UPDATE notification_deliveries SET status='cancelled',last_error='no_active_telegram_account',updated_at=CURRENT_TIMESTAMP WHERE id=?").run(row.id);
       processed += 1;

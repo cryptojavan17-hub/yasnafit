@@ -1914,6 +1914,13 @@ async function handleStudentSessionApi(req,res,url){
     try{
       const submitted=studentService.submitAssessment(db,assessment.id);
       engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
+      try{
+        const tgStudent=one('SELECT full_name FROM students WHERE id=?',studentId);
+        notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
+📝 ارزیابی: #${submitted.assessment_number}
+
+یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
+      }catch(e){ console.log('[Telegram] emit ASSESSMENT_READY failed:',e.message); }
       auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
       return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});
     }catch(error){return sendCaughtError(res,error);}
@@ -2549,6 +2556,28 @@ async function handleCoachEngagement(req,res,url){
     }catch(e){
       return sendCaughtError(res,e);
     }
+  }
+  if(p==='/api/coach/telegram/connection' && req.method==='GET'){
+    return send(res,200,telegramService.coachStatus(db));
+  }
+  if(p==='/api/coach/telegram/link' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      if(!telegramService.isConfigured()) return sendError(res,503,'تلگرام پیکربندی نشده است');
+      const link=telegramService.createCoachLinkToken(db);
+      auditService.record(db,{actorType:'coach',action:'telegram.coach_link_token_created',entityType:'telegram_account'});
+      return send(res,201,link);
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+  if(p==='/api/coach/telegram/unlink' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const account=telegramService.coachActiveAccount(db);
+    if(!account) return sendError(res,404,'اتصال تلگرامی برای مربی پیدا نشد');
+    telegramService.coachUnlinkAccount(db,account);
+    auditService.record(db,{actorType:'coach',action:'telegram.coach_unlinked',entityType:'telegram_account',entityStableId:account.stable_id});
+    return send(res,200,{success:true,telegram:telegramService.coachStatus(db)});
   }
   if(p==='/api/coach/telegram/test' && req.method==='POST'){
     try{

@@ -33,8 +33,10 @@
 
     let settings = { configured: false, source: 'none', bot_username: null, token_masked: null, has_webhook_secret: false, public_url: null, polling: false };
     let status = { configured: false, deliveries: {}, connected_accounts: 0 };
+    let connection = { connected: false, status: 'never_linked' };
     try { settings = await api('/api/coach/telegram/settings'); } catch (e) {}
     try { status = await api('/api/coach/telegram'); } catch (e) {}
+    try { connection = await api('/api/coach/telegram/connection'); } catch (e) {}
 
     const sourceLabel = settings.source === 'env' ? 'متغیر محیطی (اولویت دارد)' : settings.source === 'database' ? 'ذخیره‌شده در همین صفحه' : 'تنظیم نشده';
     const d = status.deliveries || {};
@@ -102,6 +104,26 @@
               </div>
               <small class="ai-help-text">منبع پیکربندی فعلی: <b>${esc(sourceLabel)}</b></small>
             </form>
+          </section>
+
+          <!-- اتصال تلگرام مربی -->
+          <section class="ai-card" id="tgCoachConnectCard">
+            <header class="ai-card-head">
+              <div>
+                <h2>👤 اتصال تلگرام مربی</h2>
+                <p>گیرندهٔ اعلان‌های مدیریتی — مثل «📋 ارزیابی جدید آماده بررسی». با کد یک‌بارمصرف، تلگرام خودتان را متصل کنید.</p>
+              </div>
+              <span class="ai-badge ${connection.connected ? 'ai-badge-ok' : 'ai-badge-warn'}" id="tgCoachConnBadge">
+                ${connection.connected ? `✅ متصل${connection.telegram_username ? ` (@${esc(connection.telegram_username)})` : ''}` : '⚪ متصل نیست'}
+              </span>
+            </header>
+            <div id="tgCoachConnBody">
+              ${connection.connected
+                ? `<div class="tg-stats"><div><span>چت</span><b dir="ltr">${esc(connection.chat_id_masked || '—')}</b></div><div><span>از تاریخ</span><b>${esc(connection.linked_at || '—')}</b></div></div>
+                   <div class="ai-form-group" style="margin-top:12px;"><button type="button" class="btn btn-secondary" id="tgCoachUnlink" style="min-height:38px;">قطع اتصال مربی</button></div>`
+                : `<div class="ai-form-group"><button type="button" class="btn btn-primary" id="tgCoachLink" style="min-height:40px;" ${settings.configured ? '' : 'disabled title="اول ربات را ذخیره کنید"'}>🎯 گرفتن کد اتصال مربی</button></div>
+                   <div id="tgCoachLinkBox"></div>`}
+            </div>
           </section>
 
           <!-- اتصال و وب‌هوک -->
@@ -195,6 +217,25 @@
     };
 
     // ── ثبت وب‌هوک ──
+    // ── اتصال تلگرام مربی ──
+    const coachLink = content.querySelector('#tgCoachLink');
+    if (coachLink) coachLink.onclick = async () => {
+      const box = content.querySelector('#tgCoachLinkBox');
+      coachLink.disabled = true;
+      try {
+        const link = await api('/api/coach/telegram/link', { method: 'POST' });
+        box.innerHTML = `<p style="margin-top:8px;font-size:11px;color:var(--text-secondary)">۱. روی دکمه بزنید و در تلگرام «Start» کنید:<br><a class="btn btn-primary" style="display:inline-block;margin-top:6px;min-height:38px;line-height:38px;padding:0 14px;" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px;font-size:11px;color:var(--text-secondary)">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code dir="ltr" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;user-select:all">${esc(link.link_code)}</code></p><p style="font-size:10px;color:var(--text-muted);margin-top:6px">پس از /start در تلگرام، این صفحه را دوباره باز کنید.</p>`;
+      } catch (error) {
+        box.textContent = 'خطا: ' + error.message;
+      } finally { coachLink.disabled = false; }
+    };
+    const coachUnlink = content.querySelector('#tgCoachUnlink');
+    if (coachUnlink) coachUnlink.onclick = async () => {
+      if (!window.confirm('اتصال تلگرام مربی قطع شود؟ اعلان‌های مدیریتی دیگر دریافت نمی‌شوند.')) return;
+      try { await api('/api/coach/telegram/unlink', { method: 'POST' }); window.renderTelegramSettings(label, route); }
+      catch (error) { window.alert(error.message); }
+    };
+
     content.querySelector('#tgRegisterWebhook').onclick = async () => {
       const box = content.querySelector('#tgWebhookResult');
       const url = content.querySelector('#tgWebhookUrl').value.trim();

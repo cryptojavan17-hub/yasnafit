@@ -222,6 +222,84 @@ const tgSettingsSrc = fs.readFileSync(path.join(__dirname, '../public/telegram-s
 assert.match(tgSettingsSrc, /renderTelegramSettings/, 'the coach settings page renderer must exist');
 assert.match(tgSettingsSrc, /api\/coach\/telegram\/webhook/, 'the page must be able to register the webhook');
 
+// ─── جریان واقعی ارزیابی: ASSESSMENT_READY برای مربیِ متصل ───
+// اتصال مربی با کد اختصاصی (فلوط واقعی /start)
+db.prepare("UPDATE students SET full_name='آرش محمدی' WHERE stable_id='tg-student-1'").run();
+const coachLink = telegramService.createCoachLinkToken(db);
+assert.match(coachLink.link_code, /^[A-Za-z0-9_-]{20,}$/);
+assert.ok(coachLink.deep_link.includes(`t.me/${coachLink.bot_username}?start=`), 'coach deep link must use the configured bot username');
+const coachStart = await telegramService.handleUpdate(db, { update_id: 30, message: { message_id: 30, chat: { id: 888001 }, from: { id: 7001, username: 'coach_tg' }, text: `/start ${coachLink.link_code}` } });
+assert.equal(coachStart.linked_coach, 1, 'coach link code must connect the coach telegram');
+assert.ok(telegramService.coachActiveAccount(db).chat_id === '888001', 'coach account must be active');
+assert.ok(sent.some(m => m.method === 'sendMessage' && /پنل یسنا فیت متصل شد/.test(m.payload.text)), 'bot must confirm the coach linking in Persian');
+// کد مربی یک‌بارمصرف است
+sent = [];
+const reusedCoach = await telegramService.handleUpdate(db, { update_id: 31, message: { message_id: 31, chat: { id: 888001 }, from: { id: 7001 }, text: `/start ${coachLink.link_code}` } });
+assert.equal(reusedCoach.link_failed, true, 'a reused coach code must fail (single-use)');
+assert.ok(sent.some(m => /قبلاً استفاده شده/.test(m.payload.text)), 'bot must explain reuse in Persian');
+
+// رویداد واقعی: همان پارامترهایی که server.js کنار اعلان درون‌برنامه‌ای می‌فرستد
+sent = [];
+const assessmentEmit = notificationService.emit(db, {
+  type: 'ASSESSMENT_READY', studentId, audience: 'coach',
+  title: '📋 ارزیابی جدید آماده بررسی است',
+  body: '👤 شاگرد: آرش محمدی\n📝 ارزیابی: #1\n\nیک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.',
+  entityType: 'assessment', entityId: 501, dedupKey: 'assessment_ready:501',
+});
+assert.equal(assessmentEmit.queued, true, 'assessment-ready event must queue a telegram delivery');
+await new Promise(r => setTimeout(r, 80));
+const assessmentRow = db.prepare("SELECT * FROM notification_deliveries WHERE dedup_key='assessment_ready:501'").get();
+assert.equal(assessmentRow.status, 'sent', 'coach delivery must succeed with a healthy transport');
+assert.equal(assessmentRow.audience, 'coach');
+const assessmentMsgs = sent.filter(m => m.method === 'sendMessage' && /آماده بررسی/.test(m.payload.text || ''));
+assert.ok(assessmentMsgs.length >= 1, 'a telegram message about the assessment must be sent');
+assert.ok(assessmentMsgs.every(m => m.payload.chat_id === '888001'), 'the assessment notification must go to the coach chat — never to the student chat (555001)');
+assert.match(assessmentMsgs[0].payload.text, /آرش محمدی/, 'the message must contain the real student name');
+assert.match(assessmentMsgs[0].payload.text, /#1/, 'the message must contain the real assessment number');
+const tgButton = assessmentMsgs[0].payload.reply_markup && assessmentMsgs[0].payload.reply_markup.inline_keyboard;
+assert.ok(tgButton && JSON.stringify(tgButton).includes(`${'https://demo.example.com'}/assessments/501`), 'the مشاهده ارزیابی button must open the existing coach route');
+assert.ok(/مشاهده ارزیابی/.test(JSON.stringify(tgButton)), 'the button label must be مشاهده ارزیابی');
+
+// رویداد تکراری همان ارزیابی = یک پیام (dedup پایدار)
+const dup = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 501, dedupKey: 'assessment_ready:501' });
+assert.equal(dup.deduplicated, true, 'a duplicate assessment event must be deduplicated');
+
+// مربیِ بدون تلگرام: شاگرد دوم (مربی پیش‌فرض 1 اما اتصال مربی را می‌بُریم)
+telegramService.coachUnlinkAccount(db, telegramService.coachActiveAccount(db));
+const noCoach = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId: student2, audience: 'coach', entityType: 'assessment', entityId: 502, dedupKey: 'assessment_ready:502' });
+assert.equal(noCoach.queued, true);
+await new Promise(r => setTimeout(r, 80));
+const noCoachRow = db.prepare("SELECT * FROM notification_deliveries WHERE dedup_key='assessment_ready:502'").get();
+assert.equal(noCoachRow.status, 'cancelled', 'coach without telegram must cancel gracefully (no crash, no retry storm)');
+assert.match(noCoachRow.last_error, /no_active_telegram_account/);
+
+// خطای تلگرام نباید ارسال ارزیابی را بشکند (emit هرگز throw نمی‌کند)
+telegramService.setTransport(async () => ({ ok: false, description: 'network_error: ECONNRESET' }));
+telegramService.createCoachLinkToken; // (فقط مرجع)
+db.prepare("DELETE FROM telegram_coach_accounts").run();
+const relinkCoach = telegramService.createCoachLinkToken(db);
+await telegramService.handleUpdate(db, { update_id: 32, message: { message_id: 32, chat: { id: 888001 }, from: { id: 7001 }, text: `/start ${relinkCoach.link_code}` } });
+const failing = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 503, dedupKey: 'assessment_ready:503' });
+assert.equal(failing.queued, true, 'telegram failure must never break the assessment flow');
+await new Promise(r => setTimeout(r, 80));
+assert.match(db.prepare("SELECT status FROM notification_deliveries WHERE dedup_key='assessment_ready:503'").get().status, /retrying/, 'telegram failure must land in the normal retry queue');
+
+// اعلان درون‌برنامه‌ای همچنان توسط همان رویداد ساخته می‌شود (سیم‌کشی سرور)
+const serverSrc3 = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+assert.match(serverSrc3, /engagementService\.notify\(db,\{audienceType:'coach',studentId,type:'assessment_submitted'/, 'the existing in-app coach notification must stay untouched');
+const hookIdx = serverSrc3.indexOf("type:'assessment_submitted'");
+const hookChunk = serverSrc3.slice(hookIdx, hookIdx + 900);
+assert.match(hookChunk, /ASSESSMENT_READY/, 'ASSESSMENT_READY must be emitted by the same event as the in-app notification');
+assert.match(hookChunk, /dedupKey:`assessment_ready:\$\{submitted\.id\}`/, 'dedup key must be stable per assessment');
+assert.match(serverSrc3, /api\/coach\/telegram\/connection/, 'coach connection endpoint must exist');
+assert.match(serverSrc3, /api\/coach\/telegram\/link/, 'coach link endpoint must exist');
+const nsSrc = fs.readFileSync(path.join(__dirname, '../src/notification-service.js'), 'utf8');
+assert.match(nsSrc, /ASSESSMENT_READY:\s*\{ category: 'system' \}/, 'ASSESSMENT_READY must be a typed event in the existing notification catalog');
+assert.match(nsSrc, /audience === 'coach'\n\s*\? tg\.coachActiveAccount/, 'recipient resolution must use coach_students → telegram_coach_accounts');
+const tgSettingsSrc3 = fs.readFileSync(path.join(__dirname, '../public/telegram-settings.js'), 'utf8');
+assert.match(tgSettingsSrc3, /اتصال تلگرام مربی/, 'the coach connection card must exist in the settings page');
+assert.match(tgSettingsSrc3, /api\/coach\/telegram\/link/, 'the page must fetch coach link codes');
+
 // ─── ردیف «تلگرام» در پرونده شاگرد پنل مربی (رندر + وایرینگ) ───
 const studentsSrc = fs.readFileSync(path.join(__dirname, '../public/students.js'), 'utf8');
 assert.match(studentsSrc, /<div><span>تلگرام<\/span><b id="tgCoachStatusLine">/, 'the coach student-profile template must contain the telegram status row');
@@ -263,6 +341,7 @@ console.log(JSON.stringify({
   real_program_trigger_wired: true,
   graceful_without_config: true,
   coach_panel_settings: true,
+  assessment_ready_to_coach_telegram: true,
 }));
 }
 

@@ -240,7 +240,8 @@ async function handleMessage(db, message){
   const startPayload = command === '/start' ? rest.join(' ').trim() : '';
 
   if(command === '/start' && startPayload){
-    // اتصال حساب با توکن یک‌بارمصرف از پنل شاگرد
+    // اتصال حساب با توکن یک‌بارمصرف — اول توکن شاگرد، بعد توکن مربی/مدیر
+    let studentError = null;
     try{
       const { student_id } = linkByToken(db, startPayload, chat);
       const student = db.prepare('SELECT full_name FROM students WHERE id=?').get(student_id);
@@ -249,8 +250,16 @@ async function handleMessage(db, message){
         mainKeyboard(db, student_id));
       try{ getServices().notificationService.emit(db, { type: 'TELEGRAM_CONNECTED', studentId: student_id, dedupKey: `telegram_connected:${chat.chat_id}` }); }catch(e){ console.log('[Telegram] TELEGRAM_CONNECTED emit failed:', e.message); }
       return { handled: true, linked: student_id };
-    }catch(error){
-      await sendMessage(db, chat.chat_id, `⚠️ ${error.message}\n\nاز پورتال یسنا فیت → پروفایل من → «اتصال تلگرام» کد تازه بگیرید.`);
+    }catch(error){ studentError = error; }
+    try{
+      const linked = linkCoachByToken(db, startPayload, chat);
+      await sendMessage(db, chat.chat_id,
+        `سلام مربی 👋\n✅ تلگرام شما با موفقیت به پنل یسنا فیت متصل شد.\n\nاز این پس اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی») همین‌جا دریافت می‌شود.`);
+      return { handled: true, linked_coach: linked.coach_id };
+    }catch(coachError){
+      // دقیق‌ترین توضیح: اگر کد مربی شناخته شد ولی رد شد (مصرف/انقضا/بطلان)، همان را بگو
+      const reason = coachError && coachError.message && /قبلاً استفاده|باطل|منقضی/.test(coachError.message) ? coachError.message : studentError.message;
+      await sendMessage(db, chat.chat_id, `⚠️ ${reason}\n\nشاگردان: پورتال یسنا فیت → پروفایل من → «اتصال تلگرام». مربیان: پنل مدیریت → سیستم → تنظیمات تلگرام.`);
       return { handled: true, link_failed: true };
     }
   }
@@ -466,6 +475,62 @@ function saveCoachSettings(db, input = {}){
   applyDbSettings(db);
   return settingsView(db);
 }
+// ── حساب تلگرام مربی/مدیر (گیرندهٔ اعلان‌های مدیریتی مثل «ارزیابی جدید آماده بررسی») ──
+function coachActiveAccount(db, coachId = 1){
+  return db.prepare("SELECT * FROM telegram_coach_accounts WHERE coach_id=? AND unlinked_at IS NULL AND status='active' ORDER BY id DESC LIMIT 1").get(Number(coachId) || 1) || null;
+}
+function coachStatus(db, coachId = 1){
+  const account = coachActiveAccount(db, coachId);
+  if(!account) return { connected: false, status: 'never_linked', telegram_username: null, chat_id_masked: null, linked_at: null };
+  return {
+    connected: true,
+    status: account.status,
+    telegram_username: account.telegram_username,
+    chat_id_masked: maskChatId(account.chat_id),
+    linked_at: account.linked_at,
+  };
+}
+function createCoachLinkToken(db, coachId = 1){
+  // توکن‌های باز قبلیِ همین مربی باطل می‌شوند (فقط آخرین کد معتبر است)
+  db.prepare("UPDATE telegram_coach_link_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE coach_id=? AND consumed_at IS NULL AND revoked_at IS NULL").run(Number(coachId) || 1);
+  const raw = crypto.randomBytes(24).toString('base64url');
+  db.prepare("INSERT INTO telegram_coach_link_tokens(stable_id,coach_id,token_hash,token_hint,expires_at) VALUES(?,?,?,?,datetime('now',?))")
+    .run(uuid(), Number(coachId) || 1, sha256(raw), raw.slice(-4), `+${LINK_TOKEN_TTL_MINUTES} minutes`);
+  const username = config.username;
+  if(!username) throw new Error('یوزرنیم ربات تنظیم نشده است');
+  return {
+    link_code: raw,
+    expires_at: db.prepare("SELECT expires_at FROM telegram_coach_link_tokens WHERE token_hash=?").get(sha256(raw)).expires_at,
+    bot_username: username,
+    deep_link: `https://t.me/${username}?start=${raw}`,
+    ttl_minutes: LINK_TOKEN_TTL_MINUTES,
+  };
+}
+function findCoachLinkToken(db, rawCode){
+  const cleanCode = String(rawCode || '').trim();
+  if(!cleanCode) return null;
+  const row = db.prepare("SELECT * FROM telegram_coach_link_tokens WHERE token_hash=?").get(sha256(cleanCode));
+  if(!row) return null;
+  if(row.consumed_at) return { error: 'این کد قبلاً استفاده شده است. کد تازه بگیرید.' };
+  if(row.revoked_at) return { error: 'این کد باطل شده است. کد تازه بگیرید.' };
+  if(new Date(row.expires_at + 'Z').getTime() < Date.now()) return { error: 'این کد منقضی شده است. کد تازه بگیرید.' };
+  return row;
+}
+function linkCoachByToken(db, rawCode, chat){
+  const row = findCoachLinkToken(db, rawCode);
+  if(!row || row.error) throw new Error(row && row.error ? row.error : 'کد اتصال نامعتبر است');
+  // هر چت فقط به یک مربی؛ هر مربی فقط یک چت فعال
+  db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE chat_id=? AND unlinked_at IS NULL").run(chat.chat_id);
+  db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE coach_id=? AND unlinked_at IS NULL").run(row.coach_id);
+  db.prepare("INSERT INTO telegram_coach_accounts(stable_id,coach_id,chat_id,telegram_user_id,telegram_username) VALUES(?,?,?,?,?)")
+    .run(uuid(), row.coach_id, String(chat.chat_id), chat.telegram_user_id || null, chat.telegram_username || null);
+  db.prepare("UPDATE telegram_coach_link_tokens SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").run(row.id);
+  return { coach_id: row.coach_id };
+}
+function coachUnlinkAccount(db, account){
+  db.prepare("UPDATE telegram_coach_accounts SET status='unlinked',unlinked_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").run(account.id);
+}
+
 // آزمون واقعی اتصال با پیکربندی فعلی (getMe) — توکن هرگز در پاسخ/لاگ نمی‌آید
 async function testConnection(){
   if(!config.token) return { ok: false, description: 'telegram_not_configured' };
@@ -485,5 +550,6 @@ module.exports = {
   startPolling, stopPolling,
   setServices,
   applyDbSettings, settingsView, settingsSource, saveCoachSettings, testConnection, SETTING_KEYS,
+  coachActiveAccount, coachStatus, createCoachLinkToken, linkCoachByToken, coachUnlinkAccount,
   LIMITS: { MAX_DELIVERY_ATTEMPTS, RETRY_DELAYS_MINUTES, LINK_TOKEN_TTL_MINUTES },
 };

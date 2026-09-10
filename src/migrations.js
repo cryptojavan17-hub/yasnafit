@@ -1406,6 +1406,52 @@ const migrations = [
           ON notification_deliveries(student_id, created_at);
       `);
     }
+  },
+  {
+    id: '032_coach_telegram_accounts',
+    description: 'Coach Telegram account linking and coach-audience notification deliveries (ASSESSMENT_READY)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_coach_accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL DEFAULT 1,
+          chat_id TEXT NOT NULL,
+          telegram_user_id TEXT,
+          telegram_username TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          linked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          unlinked_at TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_coach_accounts_coach
+          ON telegram_coach_accounts(coach_id, unlinked_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_coach_accounts_active_chat
+          ON telegram_coach_accounts(chat_id) WHERE unlinked_at IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_coach_accounts_active_coach
+          ON telegram_coach_accounts(coach_id) WHERE unlinked_at IS NULL;
+        CREATE TABLE IF NOT EXISTS telegram_coach_link_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL DEFAULT 1,
+          token_hash TEXT NOT NULL UNIQUE,
+          token_hint TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          consumed_at TEXT,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_coach_link_tokens_coach
+          ON telegram_coach_link_tokens(coach_id, created_at);
+        ALTER TABLE notification_deliveries ADD COLUMN audience TEXT NOT NULL DEFAULT 'student';
+        ALTER TABLE notification_deliveries ADD COLUMN entity_type TEXT;
+        ALTER TABLE notification_deliveries ADD COLUMN entity_id INTEGER;
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_audience
+          ON notification_deliveries(audience, status);
+      `);
+    }
   }
 ];
 
