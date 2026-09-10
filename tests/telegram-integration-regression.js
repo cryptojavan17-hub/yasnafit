@@ -183,6 +183,45 @@ assert.match(serverSrc, /p==='\/api\/telegram\/webhook'/, 'the webhook endpoint 
 assert.match(serverSrc, /verifyWebhookSecret\(req\.headers\['x-telegram-bot-api-secret-token'\]\)/, 'the webhook must verify the Telegram secret header');
 assert.match(serverSrc, /\/api\/student\/telegram\/link/, 'the student link endpoint must exist');
 
+// ─── تنظیمات پنل مربی (ذخیره در جدول settings؛ env اولویت دارد) ───
+delete process.env.TELEGRAM_BOT_TOKEN;
+delete process.env.TELEGRAM_BOT_USERNAME;
+telegramService.reloadConfig();
+telegramService.setTransport(async (method, payload) => { sent.push({ method, payload }); return { ok: true, result: { id: 1, username: 'stub_bot', first_name: 'ربات آزمایشی' } }; });
+assert.equal(telegramService.isConfigured(), false, 'without env and DB settings the bot must be off');
+const savedView = telegramService.saveCoachSettings(db, { bot_token: '  12345:db-secret-token  ', bot_username: '@db_bot', webhook_secret: 'db-webhook-secret', public_url: 'https://demo.example.com/', polling: true });
+assert.equal(savedView.configured, true, 'saving a token from the coach panel must activate the bot');
+assert.equal(savedView.source, 'database');
+assert.equal(savedView.bot_username, 'db_bot', '@ must be normalized');
+assert.equal(savedView.public_url, 'https://demo.example.com', 'trailing slash must be normalized');
+assert.match(savedView.token_masked, /••••/, 'token must only ever be exposed masked');
+assert.equal(savedView.has_webhook_secret, true);
+assert.ok(!JSON.stringify(savedView).includes('db-secret-token'), 'the full token must never leak in the settings view');
+assert.equal(telegramService.config().username, 'db_bot', 'saving from the panel must take effect immediately (no restart)');
+const testResult = await telegramService.testConnection();
+assert.equal(testResult.ok, true, 'connection test must use the active transport');
+assert.equal(testResult.bot.username, 'stub_bot');
+telegramService.reloadConfig();
+assert.equal(telegramService.isConfigured(), false, 'env-only reload must not see DB token');
+telegramService.applyDbSettings(db);
+assert.equal(telegramService.isConfigured(), true, 'DB settings must survive a config reload (like a server restart)');
+process.env.TELEGRAM_BOT_TOKEN = 'test:token';
+telegramService.reloadConfig(); telegramService.applyDbSettings(db);
+assert.equal(telegramService.settingsSource(db), 'env', 'environment variables must take precedence over panel settings');
+delete process.env.TELEGRAM_BOT_TOKEN;
+telegramService.reloadConfig(); telegramService.applyDbSettings(db);
+
+// سیم‌کشی سرور: مسیرهای تنظیمات پنل مربی + صفحهٔ تنظیمات
+const serverSrc2 = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+assert.match(serverSrc2, /p==='\/api\/coach\/telegram\/settings'/, 'coach settings endpoints must exist');
+assert.match(serverSrc2, /telegramService\.applyDbSettings\(db\)/, 'startup must apply panel settings');
+assert.match(serverSrc2, /telegramService\.testConnection\(\)/, 'connection test endpoint must exist');
+const appSrc = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+assert.match(appSrc, /'\/settings\/telegram'/, 'the coach menu must contain the telegram settings route');
+const tgSettingsSrc = fs.readFileSync(path.join(__dirname, '../public/telegram-settings.js'), 'utf8');
+assert.match(tgSettingsSrc, /renderTelegramSettings/, 'the coach settings page renderer must exist');
+assert.match(tgSettingsSrc, /api\/coach\/telegram\/webhook/, 'the page must be able to register the webhook');
+
 // ─── ردیف «تلگرام» در پرونده شاگرد پنل مربی (رندر + وایرینگ) ───
 const studentsSrc = fs.readFileSync(path.join(__dirname, '../public/students.js'), 'utf8');
 assert.match(studentsSrc, /<div><span>تلگرام<\/span><b id="tgCoachStatusLine">/, 'the coach student-profile template must contain the telegram status row');
@@ -195,8 +234,10 @@ assert.match(studentsSrc, /🚫 ربات بلاک شده/, 'blocked status must 
 assert.ok(!sent.some(m => JSON.stringify(m).includes('test:token')), 'bot token must never leak into payloads');
 
 // ─── بدون پیکربندی: صف می‌ماند و برنامه کرش نمی‌کند ───
+db.prepare("DELETE FROM settings WHERE key IN ('telegram_bot_token','telegram_bot_username','telegram_webhook_secret','yasnafit_public_url','telegram_polling')").run();
 delete process.env.TELEGRAM_BOT_TOKEN;
 telegramService.reloadConfig();
+telegramService.applyDbSettings(db);
 assert.equal(telegramService.isConfigured(), false);
 notificationService.emit(db, { type: 'SYSTEM_NOTIFICATION', studentId, dedupKey: 'sys:no-config' });
 await new Promise(r => setTimeout(r, 80));
@@ -221,6 +262,7 @@ console.log(JSON.stringify({
   preference_inline_toggle: true,
   real_program_trigger_wired: true,
   graceful_without_config: true,
+  coach_panel_settings: true,
 }));
 }
 

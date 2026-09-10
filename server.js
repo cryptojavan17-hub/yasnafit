@@ -76,12 +76,14 @@ try{
 }
 
 // --- Telegram (اختیاری و ایمن: بدون پیکربندی، برنامه عادی کار می‌کند) ---
+// پیکربندی: متغیرهای محیطی اولویت دارند؛ در غیر این صورت تنظیمات ذخیره‌شدهٔ پنل مربی (جدول settings)
+telegramService.applyDbSettings(db);
 if(telegramService.isConfigured()){
-  console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ TELEGRAM_WEBHOOK_SECRET تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
+  console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — منبع: ${telegramService.settingsView(db).source === 'env' ? 'متغیر محیطی' : 'تنظیمات پنل مربی'} | webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ رمز وب‌هوک تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
   if(telegramService.config().polling) telegramService.startPolling(db);
   notificationService.startRetryLoop(db);
 }else{
-  console.log('[Telegram] غیرفعال — TELEGRAM_BOT_TOKEN تنظیم نشده (اختیاری).');
+  console.log('[Telegram] غیرفعال — برای فعال‌سازی: پنل مربی ← سیستم ← تنظیمات تلگرام (یا متغیرهای محیطی TELEGRAM_BOT_TOKEN/USERNAME).');
 }
 
 // --- MIME Types ---
@@ -2532,6 +2534,31 @@ async function handleCoachEngagement(req,res,url){
   const notificationRead=p.match(/^\/api\/coach\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(notificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,notificationRead[1],'coach'))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   const telegramMatch=p.match(/^\/api\/students\/(\d+)\/telegram$/);if(telegramMatch&&req.method==='GET'){const studentId=studentIdByReference(telegramMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{telegram:telegramService.statusForStudent(db,studentId),recent:notificationService.listForStudent(db,studentId,10)});}
   if(p==='/api/coach/telegram' && req.method==='GET'){return send(res,200,notificationService.integrationStatus(db));}
+  if(p==='/api/coach/telegram/settings' && req.method==='GET'){
+    return send(res,200,telegramService.settingsView(db));
+  }
+  if(p==='/api/coach/telegram/settings' && req.method==='PUT'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      const body=await readBody(req);
+      const view=telegramService.saveCoachSettings(db,{bot_token:body.bot_token,bot_username:body.bot_username,webhook_secret:body.webhook_secret,public_url:body.public_url,polling:body.polling});
+      if(view.configured && view.polling) telegramService.startPolling(db);
+      auditService.record(db,{actorType:'coach',action:'telegram.settings_updated',entityType:'telegram_account',metadata:{source:view.source,configured:view.configured}});
+      log('تنظیمات تلگرام به‌روزرسانی شد',`منبع: ${view.source}${view.configured?'':' (ناقص — توکن تنظیم نشده)'}`);
+      return send(res,200,view);
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+  if(p==='/api/coach/telegram/test' && req.method==='POST'){
+    try{
+      const result=await telegramService.testConnection();
+      return send(res,result.ok?200:502,result);
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+
   const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
   const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'}); try{ notificationService.emit(db,{type:'COACH_MESSAGE',studentId,entityType:'conversation',entityId:message.stable_id,dedupKey:`coach_message:${message.stable_id}`}); }catch(e){ console.log('[Telegram] emit COACH_MESSAGE failed:',e.message); }auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}}
   const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}

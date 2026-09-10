@@ -402,6 +402,78 @@ function stopPolling(){
   pollingState.timer = null;
 }
 
+// ── تنظیمات از رابط مربی (جدول settings) — متغیرهای محیطی اولویت دارند ──
+const SETTING_KEYS = {
+  token: 'telegram_bot_token',
+  username: 'telegram_bot_username',
+  webhookSecret: 'telegram_webhook_secret',
+  publicUrl: 'yasnafit_public_url',
+  polling: 'telegram_polling',
+};
+function dbSettings(db){
+  const rows = db.prepare("SELECT key,value FROM settings WHERE key IN (?,?,?,?,?)").all(SETTING_KEYS.token, SETTING_KEYS.username, SETTING_KEYS.webhookSecret, SETTING_KEYS.publicUrl, SETTING_KEYS.polling);
+  const map = {};
+  for(const row of rows) map[row.key] = row.value;
+  return map;
+}
+function effectiveConfig(db){
+  const stored = dbSettings(db);
+  const env = loadConfig();
+  const pick = (envValue, key, normalize) => {
+    let value = envValue !== null && envValue !== undefined ? envValue : String(stored[key] || '').trim();
+    if(value === '' || value === null || value === undefined) return null;
+    return normalize ? normalize(value) : value;
+  };
+  return {
+    token: pick(env.token, SETTING_KEYS.token),
+    username: pick(env.username, SETTING_KEYS.username, v => String(v).replace(/^@/, '')),
+    webhookSecret: pick(env.webhookSecret, SETTING_KEYS.webhookSecret),
+    publicUrl: pick(env.publicUrl, SETTING_KEYS.publicUrl, v => String(v).replace(/\/+$/, '')),
+    polling: env.polling || stored[SETTING_KEYS.polling] === '1',
+  };
+}
+function applyDbSettings(db){ config = effectiveConfig(db); return config; }
+function settingsSource(db){
+  const stored = dbSettings(db);
+  if(loadConfig().token) return 'env';
+  if(stored[SETTING_KEYS.token]) return 'database';
+  return 'none';
+}
+function maskSecret(value){
+  if(!value) return null;
+  const clean = String(value);
+  return clean.length <= 8 ? '••••' : `••••${clean.slice(-4)}`;
+}
+function settingsView(db){
+  return {
+    configured: Boolean(config.token),
+    source: settingsSource(db),
+    bot_username: config.username,
+    token_masked: maskSecret(config.token),
+    has_webhook_secret: Boolean(config.webhookSecret),
+    public_url: config.publicUrl,
+    polling: Boolean(config.polling),
+  };
+}
+function saveCoachSettings(db, input = {}){
+  const upsert = db.prepare("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+  // توکن/رمز فقط وقتی مقدار غیرخالی بدهند جایگزین می‌شوند (خالی = حفظ مقدار فعلی)
+  if(input.bot_token !== undefined && String(input.bot_token).trim() !== '') upsert.run(SETTING_KEYS.token, String(input.bot_token).trim());
+  if(input.bot_username !== undefined) upsert.run(SETTING_KEYS.username, String(input.bot_username).trim().replace(/^@/, ''));
+  if(input.webhook_secret !== undefined && String(input.webhook_secret).trim() !== '') upsert.run(SETTING_KEYS.webhookSecret, String(input.webhook_secret).trim());
+  if(input.public_url !== undefined) upsert.run(SETTING_KEYS.publicUrl, String(input.public_url).trim());
+  if(input.polling !== undefined) upsert.run(SETTING_KEYS.polling, input.polling ? '1' : '0');
+  applyDbSettings(db);
+  return settingsView(db);
+}
+// آزمون واقعی اتصال با پیکربندی فعلی (getMe) — توکن هرگز در پاسخ/لاگ نمی‌آید
+async function testConnection(){
+  if(!config.token) return { ok: false, description: 'telegram_not_configured' };
+  const result = await callApi('getMe', {});
+  if(result.ok && result.result) return { ok: true, bot: { username: result.result.username, first_name: result.result.first_name } };
+  return { ok: false, description: result.description || 'unknown_error' };
+}
+
 module.exports = {
   loadConfig, reloadConfig, isConfigured, config: () => config,
   setTransport, callApi,
@@ -412,5 +484,6 @@ module.exports = {
   sendMessage, handleUpdate, verifyWebhookSecret,
   startPolling, stopPolling,
   setServices,
+  applyDbSettings, settingsView, settingsSource, saveCoachSettings, testConnection, SETTING_KEYS,
   LIMITS: { MAX_DELIVERY_ATTEMPTS, RETRY_DELAYS_MINUTES, LINK_TOKEN_TTL_MINUTES },
 };

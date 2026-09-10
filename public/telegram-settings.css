@@ -1,0 +1,14 @@
+/* تنظیمات تلگرام — پنل مربی (کلاس‌های پایه از ai-settings.css) */
+.tg-settings-page .ai-settings-grid{grid-template-columns:1.15fr .85fr}
+.tg-check{display:flex;align-items:center;gap:8px;min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-inset);color:var(--text-secondary);font-size:11px;cursor:pointer}
+.tg-check input{width:17px;min-height:17px;flex:0 0 17px;accent-color:var(--accent)}
+.tg-actions{display:flex;align-items:center;gap:12px;margin:6px 0 8px;flex-wrap:wrap}
+.tg-result{margin-top:8px;font-size:11px;color:var(--text-secondary);min-height:16px}
+.tg-result.ok{color:var(--success,var(--accent))}
+.tg-result.bad{color:var(--danger)}
+.tg-stats{margin-top:14px;padding:10px 12px;display:grid;gap:6px;border:1px dashed var(--border-strong);border-radius:10px;background:var(--surface-inset);font-size:10px;color:var(--text-secondary)}
+.tg-stats div{display:flex;justify-content:space-between;gap:10px}
+.tg-stats b{font-size:13px;color:var(--text)}
+.tg-guide{margin-top:16px}
+.tg-steps{margin:10px 18px 4px 0;padding:0;display:grid;gap:8px;font-size:11px;color:var(--text-secondary);line-height:1.9}
+@media(max-width:900px){.tg-settings-page .ai-settings-grid{grid-template-columns:1fr}}

@@ -8,6 +8,13 @@
 
 ## 2026-09-10
 
+### Task 16 — فعال‌سازی تلگرام از پنل مربی (صفحهٔ «تنظیمات تلگرام»)
+
+- **FILES:** `src/telegram-service.js` (لایه تنظیمات DB)، `server.js` (۳ مسیر جدید + startup)، `public/telegram-settings.js` (جدید)، `public/telegram-settings.css` (جدید)، `public/index.html`، `public/app.js` (منو + روتر)، `public/student-app.js` (پیام راهنما)، `tests/telegram-integration-regression.js`، `.env.example`
+- **WHAT:** درخواست مالک: «تنظیمات کامل داخل صفحه مربی بذار». صفحهٔ جدید «سیستم ← تنظیمات تلگرام» (`/settings/telegram`): توکن/یوزرنیم ربات، تولید رمز وب‌هوک، آدرس عمومی سایت، کلید polling، **آزمون اتصال** (getMe واقعی) و **ثبت وب‌هوک در تلگرام** — همه بدون ری‌استارت. ذخیره در جدول `settings` (همان الگوی AI)؛ متغیرهای محیطی در صورت بودن اولویت دارند؛ مقادیر مخفی فقط ماسک‌شده برمی‌گردند و audit ثبت می‌شود. کارت شاگرد وقتی غیرفعال است حالا راهنمای مسیر پنل می‌دهد.
+- **TESTS:** گروه جدید `coach_panel_settings` در `test:telegram` (ذخیره/ماسک/بدون‌لوختن توکن/اثر فوری/بقای پس از reload/اولویت env/سیم‌کشی سرور و منو) ✅ • `npm test` کامل ✅ • راستی‌آزمایی زنده: سرور بدون env ← پنل فعال شد ← کارت شاگرد «متصل» شد ✅
+- **NOTE:** توکن ربات برای فراخوانی Bot API باید جایی ذخیره شود (این‌جا جدول settings، مثل کلید AI)؛ هرگز در پاسخ API/لاگ کامل نمی‌آید.
+
 ### Task 15 — یکپارچه‌سازی کامل تلگرام (ربات + موتور اعلان + تحویل با تلاش مجدد)
 
 - **FILES:** `src/telegram-service.js` (جدید)، `src/notification-service.js` (جدید)، `src/migrations.js` (مایگریشن 031)، `server.js` (وب‌هوک + مسیرهای API شاگرد/مربی + ۸ رویداد واقعی)، `public/student-app.js` (کارت «اتصال تلگرام» در پروفایل)، `public/students.js` (وضعیت تلگرام در پروندهٔ شاگرد)، `public/student-app.css`، `tests/telegram-integration-regression.js` (جدید)، `package.json` (`test:telegram`)، `.env.example` (جدید)، `.gitignore` (`.env`)

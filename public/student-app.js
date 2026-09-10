@@ -898,7 +898,7 @@
     let data;
     try{ data=await api('/api/student/telegram/status'); }
     catch(error){ host.innerHTML=`<p>وضعیت تلگرام دریافت نشد.</p>`; return; }
-    if(!data.configured){ host.innerHTML=`<p>اتصال تلگرام روی این سرور فعال نشده است.</p>`; return; }
+    if(!data.configured){ host.innerHTML=`<p>اتصال تلگرام هنوز فعال نشده است؛ مربی می‌تواند از پنل مدیریتی، بخش «سیستم ← تنظیمات تلگرام» آن را فعال کند.</p>`; return; }
     const t=data.telegram;
     const prefLabels={workout:'🏋️ اعلان‌های تمرینی',nutrition:'🥗 اعلان‌های تغذیه',messages:'💬 پیام‌های مربی',reminders:'⏰ یادآورها',system:'🛡 اعلان‌های سیستم'};
     const prefRows=data.preferences?Object.keys(prefLabels).map(key=>`<label class="tg-pref"><input type="checkbox" data-tg-pref="${key}" ${Number(data.preferences[key])===1?'checked':''} ${t.connected?'':'disabled'}> ${prefLabels[key]}</label>`).join(''):'';
