@@ -246,7 +246,7 @@ sent = [];
 const assessmentEmit = notificationService.emit(db, {
   type: 'ASSESSMENT_READY', studentId, audience: 'coach',
   title: '📋 ارزیابی جدید آماده بررسی است',
-  body: '👤 شاگرد: آرش محمدی\n📝 ارزیابی: #1\n\nیک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.',
+  body: '👤 شاگرد: آرش محمدی\n📝 ارزیابی: #1\n\nیک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.\n\n🔗 لینک بررسی: https://demo.example.com/assessments/501',
   entityType: 'assessment', entityId: 501, dedupKey: 'assessment_ready:501',
 });
 assert.equal(assessmentEmit.queued, true, 'assessment-ready event must queue a telegram delivery');
@@ -264,6 +264,7 @@ assert.ok(tgButton && JSON.stringify(tgButton).includes(`${'https://demo.example
 assert.ok(/مشاهده ارزیابی/.test(JSON.stringify(tgButton)), 'the button label must be مشاهده ارزیابی');
 
 // رویداد تکراری همان ارزیابی = یک پیام (dedup پایدار)
+assert.match(assessmentMsgs[0].payload.text, /🔗 لینک بررسی: https:\/\/demo\.example\.com\/assessments\/501/, 'the review page link must appear as a text line under the message body');
 const dup = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 501, dedupKey: 'assessment_ready:501' });
 assert.equal(dup.deduplicated, true, 'a duplicate assessment event must be deduplicated');
 
@@ -291,11 +292,13 @@ assert.match(db.prepare("SELECT status FROM notification_deliveries WHERE dedup_
 const serverSrc3 = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 assert.match(serverSrc3, /engagementService\.notify\(db,\{audienceType:'coach',studentId,type:'assessment_submitted'/, 'the existing in-app coach notification must stay untouched');
 const hookIdx = serverSrc3.indexOf("type:'assessment_submitted'");
-const hookChunk = serverSrc3.slice(hookIdx, hookIdx + 900);
+const hookChunk = serverSrc3.slice(hookIdx, hookIdx + 1400);
 assert.match(hookChunk, /ASSESSMENT_READY/, 'ASSESSMENT_READY must be emitted by the same event as the in-app notification');
 assert.match(hookChunk, /dedupKey:`assessment_ready:\$\{submitted\.id\}`/, 'dedup key must be stable per assessment');
 assert.match(serverSrc3, /api\/coach\/telegram\/connection/, 'coach connection endpoint must exist');
 assert.match(serverSrc3, /api\/coach\/telegram\/link/, 'coach link endpoint must exist');
+assert.match(hookChunk, /portalLink\(`\/assessments\/\$\{submitted\.id\}`\)/, 'the assessment telegram body must embed the review page link via portalLink');
+assert.match(hookChunk, /لینک بررسی/, 'the link line must be labeled لینک بررسی for the coach');
 const nsSrc = fs.readFileSync(path.join(__dirname, '../src/notification-service.js'), 'utf8');
 assert.match(nsSrc, /ASSESSMENT_READY:\s*\{ category: 'system' \}/, 'ASSESSMENT_READY must be a typed event in the existing notification catalog');
 assert.match(nsSrc, /audience === 'coach'\n\s*\? tg\.coachActiveAccount/, 'recipient resolution must use coach_students → telegram_coach_accounts');

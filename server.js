@@ -1910,10 +1910,11 @@ engagementService.notify(db,{audienceType:'coach',studentId,type:'student_messag
       engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
       try{
         const tgStudent=one('SELECT full_name FROM students WHERE id=?',studentId);
+        const reviewLink=notificationService.portalLink(`/assessments/${submitted.id}`);
         notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
 📝 ارزیابی: #${submitted.assessment_number}
 
-یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
+یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.${reviewLink?'\n\n🔗 لینک بررسی: '+reviewLink:''}`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
       }catch(e){ console.log('[Telegram] emit ASSESSMENT_READY failed:',e.message); }
       auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
       return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});

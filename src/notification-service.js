@@ -39,9 +39,13 @@ const CATEGORY_LABELS = { workout: 'تمرینی', nutrition: 'تغذیه', mess
 
 function telegramService(){ return require('./telegram-service'); }
 
-function portalButton(portalPath, label = '🌐 باز کردن یسنا فیت'){
+function portalLink(portalPath){
   const svc = telegramService();
-  const url = svc.config().publicUrl ? `${svc.config().publicUrl}${portalPath}` : null;
+  return svc.config().publicUrl ? `${svc.config().publicUrl}${portalPath}` : null;
+}
+
+function portalButton(portalPath, label = '🌐 باز کردن یسنا فیت'){
+  const url = portalLink(portalPath);
   return url ? [[{ text: label, url }]] : null;
 }
 
@@ -268,5 +272,5 @@ function integrationStatus(db){
 
 module.exports = {
   TYPES, CATEGORY_LABELS, emit, attemptDelivery, processDue, mirrorInAppNotification, MIRROR_MAP,
-  startRetryLoop, stopRetryLoop, listForStudent, integrationStatus, statusFa,
+  startRetryLoop, stopRetryLoop, listForStudent, integrationStatus, statusFa, portalLink,
 };
