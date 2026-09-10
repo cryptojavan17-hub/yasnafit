@@ -352,6 +352,19 @@ engagement.notify(db,{audienceType:'student',studentId,type:'coach_message',titl
 await new Promise(r => setTimeout(r, 100));
 assert.equal(sent.length, 1, 'mirroring the same event twice must not double-send');
 
+// پیام شاگرد در پنل → تلگرام مربیِ مسئول (STUDENT_MESSAGE)
+sent = [];
+const smLink = telegramService.createCoachLinkToken(db);
+await telegramService.handleUpdate(db, { update_id: 40, message: { message_id: 40, chat: { id: 888001 }, from: { id: 7001 }, text: `/start ${smLink.link_code}` } });
+sent = [];
+engagement.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید شاگرد',body:'سلام مربی، از پنل شاگرد',entityType:'conversation',entityId:'sm-1'});
+await new Promise(r => setTimeout(r, 120));
+const smRow = db.prepare("SELECT * FROM notification_deliveries WHERE type='STUDENT_MESSAGE' AND entity_id='sm-1'").get();
+assert.ok(smRow, 'a student message from the panel must queue a telegram delivery');
+assert.equal(smRow.audience, 'coach', 'the student-message telegram recipient must be the coach');
+assert.ok(sent.some(m => m.method === 'sendMessage' && m.payload.chat_id === '888001' && /پیام جدید شاگرد/.test(m.payload.text || '')), 'the coach chat must receive the student-message notification');
+assert.ok(!sent.some(m => m.payload.chat_id === '555001'), 'the student chat must NOT receive the student-message notification');
+
 // ─── پیام آزمایشی مربی: endpoint و منطق ───
 sent = [];
 const testMsgAccount = telegramService.coachActiveAccount(db);

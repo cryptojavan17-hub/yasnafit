@@ -28,6 +28,7 @@ const TYPES = {
   ASSESSMENT_APPROVED:   { category: 'system' },
   ASSESSMENT_REJECTED:   { category: 'system' },
   ASSESSMENT_CHANGES_REQUESTED: { category: 'system' },
+  STUDENT_MESSAGE:      { category: 'system' },
   REMINDER:              { category: 'reminders' },
   SYSTEM_NOTIFICATION:   { category: 'system' },
   // نقطه‌های توسعهٔ آینده (فعلاً وصل نیستند — رفتاری ساختگی ندارند):
@@ -58,6 +59,7 @@ function defaultCopy(type){
     ASSESSMENT_APPROVED:   { title: '✅ پرونده شما تأیید شد', body: 'مربی پرونده شما را تأیید کرد.', portal: '/student/login' },
     ASSESSMENT_REJECTED:   { title: '❌ پرونده رد شد', body: '', portal: '/student/login' },
     ASSESSMENT_CHANGES_REQUESTED: { title: '✏️ اصلاح پرونده درخواست شد', body: '', portal: '/student/login' },
+    STUDENT_MESSAGE:       { title: '💬 پیام جدید شاگرد', body: '', portal: null },
     REMINDER:              { title: '⏰ یادآور', body: '', portal: null },
     SYSTEM_NOTIFICATION:   { title: '🛡 اعلان سیستم', body: '', portal: null },
   };
@@ -116,19 +118,22 @@ const MIRROR_MAP = {
   diet_program_assigned:           { type: 'NUTRITION_PLAN_READY' },
   supplement_program_assigned:     { type: 'SUPPLEMENT_PLAN_READY' },
   coach_message:                   { type: 'COACH_MESSAGE' },
+  student_message:                 { type: 'STUDENT_MESSAGE', audience: 'coach' },
   program_ending:                  { type: 'PROGRAM_ENDING_REMINDER' },
   assessment_approved:             { type: 'ASSESSMENT_APPROVED' },
   assessment_rejected:             { type: 'ASSESSMENT_REJECTED' },
   assessment_changes_requested:    { type: 'ASSESSMENT_CHANGES_REQUESTED' },
 };
-function mirrorInAppNotification(db, { type, studentId, title, body = '', entityType = null, entityId = null }){
+function mirrorInAppNotification(db, { type, studentId, title, body = '', entityType = null, entityId = null, audience = null }){
   const mapped = MIRROR_MAP[type];
   if(!mapped || !studentId) return { skipped: 'unmapped' };
+  // کسی که اعلان را ساخته تعیین‌کنندهٔ مخاطب تلگرام است (شاگرد→خودش، پیام شاگرد→مربی مسئول)
   const dedupKey = mapped.unique
     ? `${mapped.type.toLowerCase()}:${entityType || 'x'}:${entityId ?? 'x'}:student:${studentId}:${Date.now()}`
     : undefined; // کلید پایدار پیش‌فرض emit کافی است
   return emit(db, {
-    type: mapped.type, studentId, title: title || undefined, body: body || undefined,
+    type: mapped.type, studentId, audience: audience || mapped.audience || 'student',
+    title: title || undefined, body: body || undefined,
     entityType, entityId, dedupKey,
   });
 }
