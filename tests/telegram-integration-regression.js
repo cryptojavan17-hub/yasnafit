@@ -251,7 +251,7 @@ const assessmentEmit = notificationService.emit(db, {
 });
 assert.equal(assessmentEmit.queued, true, 'assessment-ready event must queue a telegram delivery');
 await new Promise(r => setTimeout(r, 80));
-const assessmentRow = db.prepare("SELECT * FROM notification_deliveries WHERE dedup_key='assessment_ready:501'").get();
+const assessmentRow = db.prepare("SELECT * FROM notification_deliveries WHERE dedup_key LIKE 'assessment_ready:501%'").get();
 assert.equal(assessmentRow.status, 'sent', 'coach delivery must succeed with a healthy transport');
 assert.equal(assessmentRow.audience, 'coach');
 const assessmentMsgs = sent.filter(m => m.method === 'sendMessage' && /آماده بررسی/.test(m.payload.text || ''));
@@ -277,6 +277,44 @@ const noCoachRow = db.prepare("SELECT * FROM notification_deliveries WHERE dedup
 assert.equal(noCoachRow.status, 'cancelled', 'coach without telegram must cancel gracefully (no crash, no retry storm)');
 assert.match(noCoachRow.last_error, /no_active_telegram_account/);
 
+// ─── چند اکانت مربی: فن‌اوت همزمان به همهٔ چت‌های فعال ───
+sent = [];
+// (مربی در بخش قبل عمداً قطع شده بود) — هر دو چت را پشت‌سرهم لینک می‌کنیم؛ هیچ‌کدام جای دیگری را نمی‌گیرد
+const coachLink1b = telegramService.createCoachLinkToken(db);
+await telegramService.handleUpdate(db, { update_id: 34, message: { message_id: 34, chat: { id: 888001 }, from: { id: 7001 }, text: `/start ${coachLink1b.link_code}` } });
+const coachLink2 = telegramService.createCoachLinkToken(db);
+await telegramService.handleUpdate(db, { update_id: 33, message: { message_id: 33, chat: { id: 888002 }, from: { id: 7002, username: 'coach_tg_2' }, text: `/start ${coachLink2.link_code}` } });
+const multiAccounts = telegramService.coachActiveAccounts(db);
+assert.equal(multiAccounts.length, 2, 'a second linked chat must stay active beside the first (no replacement)');
+const multiEmit = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 510, dedupKey: 'assessment_ready:510' });
+assert.equal(multiEmit.queued, true);
+assert.equal(multiEmit.recipients, 2, 'coach emit must fan out to every active account');
+await new Promise(r => setTimeout(r, 120));
+const multiRows = db.prepare("SELECT * FROM notification_deliveries WHERE dedup_key LIKE 'assessment_ready:510%' ORDER BY id").all();
+assert.equal(multiRows.length, 2, 'one delivery row per active account');
+assert.deepEqual(multiRows.map(r => r.chat_id).sort(), ['888001', '888002'], 'rows must be pinned to each linked chat');
+assert.ok(multiRows.every(r => r.status === 'sent'), 'both pinned deliveries must send with the healthy transport');
+assert.ok(sent.some(m => m.method === 'sendMessage' && m.payload.chat_id === '888002'), 'the second coach chat must actually receive the message');
+// قطع یک حساب ⇒ اعلان بعدی فقط به حساب فعال باقی‌مانده می‌رود
+telegramService.coachUnlinkAccount(db, multiAccounts.find(a => a.chat_id === '888002'));
+sent = [];
+const afterUnlink = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 511, dedupKey: 'assessment_ready:511' });
+assert.equal(afterUnlink.recipients, 1, 'after unlinking one account the fan-out must shrink to the rest');
+await new Promise(r => setTimeout(r, 120));
+assert.ok(sent.every(m => !(m.payload && m.payload.chat_id === '888002')), 'the unlinked chat must not receive further notifications');
+// سقف حساب‌ها (۳): حساب سوم و چهارم
+for (const chatId of [888003, 888004]) {
+  const tk = telegramService.createCoachLinkToken(db);
+  await telegramService.handleUpdate(db, { update_id: 40 + (chatId - 888003), message: { message_id: 40 + (chatId - 888003), chat: { id: chatId }, from: { id: chatId - 888000 }, text: `/start ${tk.link_code}` } });
+}
+assert.equal(telegramService.coachActiveAccounts(db).length, 3, 'three linked chats must all be active');
+sent = [];
+const tk4 = telegramService.createCoachLinkToken(db);
+const capped = await telegramService.handleUpdate(db, { update_id: 43, message: { message_id: 43, chat: { id: 888005 }, from: { id: 7005 }, text: `/start ${tk4.link_code}` } });
+assert.equal(capped.link_failed, true, 'linking a fourth account must fail');
+assert.equal(capped.reason, 'coach_account_limit');
+assert.ok(sent.some(m => /حداکثر/.test(m.payload.text || '')), 'the bot must explain the account cap in Persian');
+
 // خطای تلگرام نباید ارسال ارزیابی را بشکند (emit هرگز throw نمی‌کند)
 telegramService.setTransport(async () => ({ ok: false, description: 'network_error: ECONNRESET' }));
 telegramService.createCoachLinkToken; // (فقط مرجع)
@@ -286,7 +324,7 @@ await telegramService.handleUpdate(db, { update_id: 32, message: { message_id: 3
 const failing = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 503, dedupKey: 'assessment_ready:503' });
 assert.equal(failing.queued, true, 'telegram failure must never break the assessment flow');
 await new Promise(r => setTimeout(r, 80));
-assert.match(db.prepare("SELECT status FROM notification_deliveries WHERE dedup_key='assessment_ready:503'").get().status, /retrying/, 'telegram failure must land in the normal retry queue');
+assert.match(db.prepare("SELECT status FROM notification_deliveries WHERE dedup_key LIKE 'assessment_ready:503%'").get().status, /retrying/, 'telegram failure must land in the normal retry queue');
 
 // اعلان درون‌برنامه‌ای همچنان توسط همان رویداد ساخته می‌شود (سیم‌کشی سرور)
 const serverSrc3 = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
@@ -297,11 +335,15 @@ assert.match(hookChunk, /ASSESSMENT_READY/, 'ASSESSMENT_READY must be emitted by
 assert.match(hookChunk, /dedupKey:`assessment_ready:\$\{submitted\.id\}`/, 'dedup key must be stable per assessment');
 assert.match(serverSrc3, /api\/coach\/telegram\/connection/, 'coach connection endpoint must exist');
 assert.match(serverSrc3, /api\/coach\/telegram\/link/, 'coach link endpoint must exist');
+assert.ok((serverSrc3.match(/telegramService\.coachActiveAccounts\(db\)/g) || []).length >= 2, 'unlink/test-message endpoints must operate on the full active-account list');
 assert.match(hookChunk, /portalLink\(`\/assessments\/\$\{submitted\.id\}`\)/, 'the assessment telegram body must embed the review page link via portalLink');
 assert.match(hookChunk, /لینک بررسی/, 'the link line must be labeled لینک بررسی for the coach');
 const nsSrc = fs.readFileSync(path.join(__dirname, '../src/notification-service.js'), 'utf8');
 assert.match(nsSrc, /ASSESSMENT_READY:\s*\{ category: 'system' \}/, 'ASSESSMENT_READY must be a typed event in the existing notification catalog');
-assert.match(nsSrc, /audience === 'coach'\n\s*\? tg\.coachActiveAccount/, 'recipient resolution must use coach_students → telegram_coach_accounts');
+assert.match(nsSrc, /audience === 'coach'\n\s*\? coachRecipientFor/, 'coach recipient must resolve via coachRecipientFor (chat-pinned fan-out rows)');
+assert.match(nsSrc, /function coachRecipientFor/, 'the coach recipient resolver must exist');
+assert.match(nsSrc, /coachActiveAccounts\(db,/, 'emit must fan out to all active coach accounts');
+assert.match(nsSrc, /:acc\$\{target\.id\}/, 'fan-out rows must suffix the dedup key with the account id');
 const tgSettingsSrc3 = fs.readFileSync(path.join(__dirname, '../public/telegram-settings.js'), 'utf8');
 assert.match(tgSettingsSrc3, /اتصال تلگرام مربی/, 'the coach connection card must exist in the settings page');
 assert.match(tgSettingsSrc3, /api\/coach\/telegram\/link/, 'the page must fetch coach link codes');
@@ -417,6 +459,7 @@ console.log(JSON.stringify({
   real_program_trigger_wired: true,
   graceful_without_config: true,
   coach_panel_settings: true,
+  coach_multi_account_fanout: true,
   assessment_ready_to_coach_telegram: true,
   in_app_mirror_to_telegram: true,
 }));

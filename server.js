@@ -2568,21 +2568,30 @@ async function handleCoachEngagement(req,res,url){
   }
   if(p==='/api/coach/telegram/unlink' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
-    const account=telegramService.coachActiveAccount(db);
-    if(!account) return sendError(res,404,'اتصال تلگرامی برای مربی پیدا نشد');
+    let body={}; try{ body=await readBody(req); }catch(error){}
+    const accounts=telegramService.coachActiveAccounts(db);
+    if(!accounts.length) return sendError(res,404,'اتصال تلگرامی برای مربی پیدا نشد');
+    const account=body.account_id?accounts.find(a=>Number(a.id)===Number(body.account_id)):(body.chat_id?accounts.find(a=>String(a.chat_id)===String(body.chat_id)):accounts[0]);
+    if(!account) return sendError(res,404,'این حساب تلگرام فعال نیست');
     telegramService.coachUnlinkAccount(db,account);
-    auditService.record(db,{actorType:'coach',action:'telegram.coach_unlinked',entityType:'telegram_account',entityStableId:account.stable_id});
+    auditService.record(db,{actorType:'coach',action:'telegram.coach_unlinked',entityType:'telegram_account',entityStableId:account.stable_id,metadata:{chat_id_masked:telegramService.maskChatId(account.chat_id)}});
     return send(res,200,{success:true,telegram:telegramService.coachStatus(db)});
   }
   if(p==='/api/coach/telegram/test-message' && req.method==='POST'){
     try{
       if(!telegramService.isConfigured()) return sendError(res,503,'تلگرام پیکربندی نشده است');
-      const account=telegramService.coachActiveAccount(db);
-      if(!account) return sendError(res,409,'اول تلگرام خود را از همین صفحه متصل کنید، بعد پیام آزمایشی بفرستید');
-      const result=await telegramService.sendMessage(db,account.chat_id,`🔔 این یک پیام آزمایشی از یسنا فیت است.\n✅ اتصال و تحویل اعلان‌ها سالم است.\n🕒 ${new Date().toLocaleString('fa-IR')}`);
-      if(!result.ok) return sendError(res,502,'ارسال ناموفق بود: '+(result.description||'خطای نامشخص'));
-      auditService.record(db,{actorType:'coach',action:'telegram.test_message_sent',entityType:'telegram_account'});
-      return send(res,200,{ok:true,sent:true});
+      const accounts=telegramService.coachActiveAccounts(db);
+      if(!accounts.length) return sendError(res,409,'اول تلگرام خود را از همین صفحه متصل کنید، بعد پیام آزمایشی بفرستید');
+      const text=`🔔 این یک پیام آزمایشی از یسنا فیت است.\n✅ اتصال و تحویل اعلان‌ها سالم است.\n🕒 ${new Date().toLocaleString('fa-IR')}`;
+      const results=[];
+      for(const account of accounts){
+        const result=await telegramService.sendMessage(db,account.chat_id,text);
+        results.push({ chat_id_masked:telegramService.maskChatId(account.chat_id), ok:Boolean(result.ok), description:result.description||null });
+      }
+      const sentTo=results.filter(r=>r.ok).length;
+      if(!sentTo) return sendError(res,502,'ارسال ناموفق بود: '+(results[0].description||'خطای نامشخص'));
+      auditService.record(db,{actorType:'coach',action:'telegram.test_message_sent',entityType:'telegram_account',metadata:{sent_to:sentTo,total:accounts.length}});
+      return send(res,200,{ok:true,sent:true,sent_to:sentTo,total:accounts.length,results});
     }catch(e){
       return sendCaughtError(res,e);
     }

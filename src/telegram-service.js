@@ -257,6 +257,10 @@ async function handleMessage(db, message){
         `سلام مربی 👋\n✅ تلگرام شما با موفقیت به پنل یسنا فیت متصل شد.\n\nاز این پس اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی») همین‌جا دریافت می‌شود.`);
       return { handled: true, linked_coach: linked.coach_id };
     }catch(coachError){
+      if(coachError && /^حداکثر \d+ حساب/.test(String(coachError.message||''))){
+        await sendMessage(db, chat.chat_id, `⚠️ ${coachError.message}`);
+        return { handled: true, link_failed: true, reason: 'coach_account_limit' };
+      }
       // کد تکراری از همان چتی که قبلاً وصل شده ⇒ خطا نیست؛ وضعیت را تأیید کن
       const alreadyStudent = accountByChatId(db, chat.chat_id);
       const alreadyCoach = db.prepare("SELECT 1 FROM telegram_coach_accounts WHERE chat_id=? AND unlinked_at IS NULL").get(chat.chat_id);
@@ -484,18 +488,23 @@ function saveCoachSettings(db, input = {}){
   return settingsView(db);
 }
 // ── حساب تلگرام مربی/مدیر (گیرندهٔ اعلان‌های مدیریتی مثل «ارزیابی جدید آماده بررسی») ──
-function coachActiveAccount(db, coachId = 1){
-  return db.prepare("SELECT * FROM telegram_coach_accounts WHERE coach_id=? AND unlinked_at IS NULL AND status='active' ORDER BY id DESC LIMIT 1").get(Number(coachId) || 1) || null;
+const COACH_ACCOUNT_LIMIT = 3;
+function coachActiveAccounts(db, coachId = 1){
+  return db.prepare("SELECT * FROM telegram_coach_accounts WHERE coach_id=? AND unlinked_at IS NULL AND status='active' ORDER BY id ASC").all(Number(coachId) || 1) || [];
 }
+function coachActiveAccount(db, coachId = 1){ return coachActiveAccounts(db, coachId)[0] || null; }
 function coachStatus(db, coachId = 1){
-  const account = coachActiveAccount(db, coachId);
-  if(!account) return { connected: false, status: 'never_linked', telegram_username: null, chat_id_masked: null, linked_at: null };
+  const accounts = coachActiveAccounts(db, coachId);
+  const account = accounts[0] || null;
+  if(!account) return { connected: false, status: 'never_linked', telegram_username: null, chat_id_masked: null, linked_at: null, account_limit: COACH_ACCOUNT_LIMIT, accounts: [] };
   return {
     connected: true,
     status: account.status,
     telegram_username: account.telegram_username,
     chat_id_masked: maskChatId(account.chat_id),
     linked_at: account.linked_at,
+    account_limit: COACH_ACCOUNT_LIMIT,
+    accounts: accounts.map(a => ({ id: a.id, chat_id_masked: maskChatId(a.chat_id), telegram_username: a.telegram_username, linked_at: a.linked_at })),
   };
 }
 function createCoachLinkToken(db, coachId = 1){
@@ -527,9 +536,9 @@ function findCoachLinkToken(db, rawCode){
 function linkCoachByToken(db, rawCode, chat){
   const row = findCoachLinkToken(db, rawCode);
   if(!row || row.error) throw new Error(row && row.error ? row.error : 'کد اتصال نامعتبر است');
-  // هر چت فقط به یک مربی؛ هر مربی فقط یک چت فعال
+  // هر چت فقط یک‌بار فعال؛ یک مربی می‌تواند چند چت فعال داشته باشد (سقف ۳) — اعلان‌ها به همه می‌رود
   db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE chat_id=? AND unlinked_at IS NULL").run(chat.chat_id);
-  db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE coach_id=? AND unlinked_at IS NULL").run(row.coach_id);
+  if(coachActiveAccounts(db, row.coach_id).length >= COACH_ACCOUNT_LIMIT) throw new Error(`حداکثر ${COACH_ACCOUNT_LIMIT} حساب تلگرام می‌توانید به پنل متصل کنید؛ ابتدا یکی را قطع کنید`);
   db.prepare("INSERT INTO telegram_coach_accounts(stable_id,coach_id,chat_id,telegram_user_id,telegram_username) VALUES(?,?,?,?,?)")
     .run(uuid(), row.coach_id, String(chat.chat_id), chat.telegram_user_id || null, chat.telegram_username || null);
   db.prepare("UPDATE telegram_coach_link_tokens SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").run(row.id);
@@ -551,7 +560,7 @@ module.exports = {
   loadConfig, reloadConfig, isConfigured, config: () => config,
   setTransport, callApi,
   createLinkToken, findLinkToken, linkTokenError, linkByToken, linkChat,
-  activeAccount, accountByChatId, unlinkAccount, maskChatId,
+  activeAccount, accountByChatId, unlinkAccount, maskChatId, coachActiveAccounts, COACH_ACCOUNT_LIMIT,
   preferences, setPreference, categoryEnabled, PREFERENCE_KEYS, ensurePreferences,
   statusForStudent,
   sendMessage, handleUpdate, verifyWebhookSecret,

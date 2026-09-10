@@ -119,11 +119,16 @@
             </header>
             <div id="tgCoachConnBody">
               ${connection.connected
-                ? `<div class="tg-stats"><div><span>چت</span><b dir="ltr">${esc(connection.chat_id_masked || '—')}</b></div></div>
-                   <div class="ai-form-group" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                     <button type="button" class="btn btn-primary" id="tgCoachTestMsg" style="min-height:38px;">📨 ارسال پیام آزمایشی</button>
-                     <button type="button" class="btn btn-secondary" id="tgCoachUnlink" style="min-height:38px;">قطع اتصال</button>
+                ? `<div class="tg-stats"><div><span>حساب‌های متصل</span><b>${(connection.accounts || []).length}${connection.account_limit ? ` / ${connection.account_limit}` : ''}</b></div></div>
+                   <div style="margin-top:8px;display:grid;gap:6px;">
+                     ${(connection.accounts || []).map(a => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-inset);"><span style="font-size:11px;color:var(--text-secondary)">${a.telegram_username ? `@${esc(a.telegram_username)} · ` : ''}<b dir="ltr">${esc(a.chat_id_masked || '—')}</b></span><button type="button" class="btn btn-secondary" data-tg-unlink="${esc(String(a.id))}" style="min-height:30px;padding:0 10px;font-size:10px;">قطع</button></div>`).join('')}
                    </div>
+                   <p style="font-size:10px;color:var(--text-muted);margin-top:6px">اعلان‌های مدیریتی به همهٔ حساب‌های فعال ارسال می‌شود. برای افزودن حساب دوم (مثلاً گوشی دیگر یا دستیار) از دکمهٔ زیر استفاده کنید.</p>
+                   <div class="ai-form-group" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                     <button type="button" class="btn btn-primary" id="tgCoachTestMsg" style="min-height:38px;">📨 پیام آزمایشی به همه</button>
+                     <button type="button" class="btn btn-secondary" id="tgCoachLink" style="min-height:38px;" ${settings.configured ? '' : 'disabled title="اول ربات را ذخیره کنید"'} ${(connection.accounts || []).length >= (connection.account_limit || 3) ? 'disabled title="سقف حساب‌ها پر است"' : ''}>➕ افزودن حساب تلگرام</button>
+                   </div>
+                   <div id="tgCoachLinkBox"></div>
                    <div id="tgTestMsgResult" class="tg-result"></div>`
                 : `<div class="ai-form-group"><button type="button" class="btn btn-primary" id="tgCoachLink" style="min-height:40px;" ${settings.configured ? '' : 'disabled title="اول ربات را ذخیره کنید"'}>🎯 گرفتن کد اتصال مربی</button></div>
                    <div id="tgCoachLinkBox"></div>`}
@@ -202,8 +207,8 @@
       const box = content.querySelector('#tgTestMsgResult');
       testMsg.disabled = true; box.textContent = '⏳ در حال ارسال…'; box.className = 'tg-result';
       try {
-        await api('/api/coach/telegram/test-message', { method: 'POST' });
-        box.innerHTML = '✅ پیام آزمایشی ارسال شد — همین حالا تلگرام خود را ببینید.';
+        const result = await api('/api/coach/telegram/test-message', { method: 'POST' });
+        box.innerHTML = `✅ پیام آزمایشی ارسال شد (${result.sent_to}/${result.total} حساب) — همین حالا تلگرام خود را ببینید.`;
         box.classList.add('ok');
       } catch (error) {
         box.textContent = '❌ ' + error.message; box.classList.add('bad');
@@ -223,12 +228,11 @@
         box.textContent = 'خطا: ' + error.message;
       } finally { coachLink.disabled = false; }
     };
-    const coachUnlink = content.querySelector('#tgCoachUnlink');
-    if (coachUnlink) coachUnlink.onclick = async () => {
-      if (!window.confirm('اتصال تلگرام مربی قطع شود؟ اعلان‌های مدیریتی دیگر دریافت نمی‌شوند.')) return;
-      try { await api('/api/coach/telegram/unlink', { method: 'POST' }); window.renderTelegramSettings(label, route); }
+    content.querySelectorAll('[data-tg-unlink]').forEach(btn => { btn.onclick = async () => {
+      if (!window.confirm('این حساب تلگرام قطع شود؟ اعلان‌ها دیگر به آن ارسال نمی‌شود.')) return;
+      try { await api('/api/coach/telegram/unlink', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: Number(btn.getAttribute('data-tg-unlink')) }) }); window.renderTelegramSettings(label, route); }
       catch (error) { window.alert(error.message); }
-    };
+    }; });
 
     content.querySelector('#tgRegisterWebhook').onclick = async () => {
       const box = content.querySelector('#tgWebhookResult');

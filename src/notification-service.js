@@ -97,17 +97,29 @@ function emit(db, { type, studentId, audience = 'student', title = null, body = 
   const finalTitle = String(title || defaults.title).slice(0, 400);
   const finalBody = String(body ?? defaults.body ?? '').slice(0, 3000);
 
-  const insert = db.prepare(`INSERT INTO notification_deliveries(stable_id,student_id,audience,channel,type,category,title,body,entity_type,entity_id,dedup_key,status,max_attempts,next_attempt_at)
-    VALUES(?,?,?, 'telegram',?,?,?,?,?,?,?, 'pending',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'))`);
-  let deliveryId;
-  try{
-    deliveryId = insert.run(uuid(), studentId, audience, String(type), meta.category, finalTitle, finalBody, entityType, entityId, key, tg.LIMITS.MAX_DELIVERY_ATTEMPTS).lastInsertRowid;
-  }catch(error){
-    if(/UNIQUE/.test(String(error.message))) return { deduplicated: true, dedupKey: key };
-    throw error;
+  const insert = db.prepare(`INSERT INTO notification_deliveries(stable_id,student_id,audience,channel,type,category,title,body,entity_type,entity_id,dedup_key,status,max_attempts,next_attempt_at,chat_id)
+    VALUES(?,?,?, 'telegram',?,?,?,?,?,?,?, 'pending',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?)`);
+  // فن‌اوت مربی: هر اعلان به همهٔ حساب‌های فعالِ مربی می‌رود — هر حساب یک ردیف تحویل با پین چت
+  const targets = audience === 'coach'
+    ? (tg.coachActiveAccounts(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(studentId) || { coach_id: 1 }).coach_id).length
+        ? tg.coachActiveAccounts(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(studentId) || { coach_id: 1 }).coach_id)
+        : [null])
+    : [null];
+  const inserted = [];
+  for(const target of targets){
+    const rowKey = target ? `${key}:acc${target.id}` : key;
+    let deliveryId;
+    try{
+      deliveryId = insert.run(uuid(), studentId, audience, String(type), meta.category, finalTitle, finalBody, entityType, entityId, rowKey, tg.LIMITS.MAX_DELIVERY_ATTEMPTS, target ? String(target.chat_id) : null).lastInsertRowid;
+    }catch(error){
+      if(/UNIQUE/.test(String(error.message))) continue; // همان رویداد برای همین حساب قبلاً صف شده
+      throw error;
+    }
+    inserted.push(deliveryId);
   }
-  setImmediate(() => { attemptDelivery(db, deliveryId).catch(() => {}); });
-  return { queued: true, deliveryId, dedupKey: key, category: meta.category };
+  if(!inserted.length) return { deduplicated: true, dedupKey: key };
+  inserted.forEach(id => setImmediate(() => { attemptDelivery(db, id).catch(() => {}); }));
+  return { queued: true, deliveryId: inserted[0], deliveryIds: inserted, dedupKey: key, category: meta.category, recipients: inserted.length };
 }
 
 /**
@@ -142,6 +154,16 @@ function mirrorInAppNotification(db, { type, studentId, title, body = '', entity
   });
 }
 
+/** گیرندهٔ مربی برای یک ردیف تحویل: ردیف‌های فن‌اوت چتِ پین‌شده دارند؛ ردیف‌های قدیمی اولین اکانت فعال */
+function coachRecipientFor(db, row){
+  const tg = telegramService();
+  const coachId = (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(row.student_id) || { coach_id: 1 }).coach_id;
+  const accounts = tg.coachActiveAccounts(db, coachId);
+  if(!accounts.length) return null;
+  if(row.chat_id) return accounts.find(a => String(a.chat_id) === String(row.chat_id)) || null;
+  return accounts[0];
+}
+
 function isPermanentFailure(result){
   const description = String(result && result.description || '');
   if(result && result.error_code === 403) return true;                 // ربات بلاک شده / چت ممنوع
@@ -160,7 +182,7 @@ async function attemptDelivery(db, deliveryId){
       // گیرنده بر اساس مخاطب: شاگرد خودش، مربیِ مسئول همان شاگرد (coach_students → telegram_coach_accounts)
       const audience = row.audience || 'student';
       const account = audience === 'coach'
-        ? tg.coachActiveAccount(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(row.student_id) || { coach_id: 1 }).coach_id)
+        ? coachRecipientFor(db, row)
         : tg.activeAccount(db, row.student_id);
       if(!account){
         // گیرنده تلگرام ندارد: تلاش بی‌معناست — لغو (اعلان درون‌برنامه‌ای به قوت خودش باقی است)
@@ -185,10 +207,11 @@ async function attemptDelivery(db, deliveryId){
   if(isPermanentFailure(result)){
     // بلاک/چت نامعتبر: اتصال علامت‌خورده و تلاش بیشتر بی‌فایده است
     if(result.error_code === 403 || (result.error_code === 400 && /chat not found/i.test(description))){
-      const account = tg.activeAccount(db, row.student_id);
+      const account = (row.audience || 'student') === 'coach' ? coachRecipientFor(db, row) : tg.activeAccount(db, row.student_id);
       if(account){
         const newStatus = result.error_code === 403 ? 'blocked' : 'invalid';
-        db.prepare("UPDATE telegram_accounts SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").run(newStatus, account.id);
+        const table = (row.audience || 'student') === 'coach' ? 'telegram_coach_accounts' : 'telegram_accounts';
+        db.prepare(`UPDATE ${table} SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(newStatus, account.id);
       }
     }
     db.prepare("UPDATE notification_deliveries SET status='cancelled',attempts=attempts+1,last_error=?,account_status=?,next_attempt_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?")
@@ -227,7 +250,7 @@ async function processDue(db, { limit = 15, pauseMs = 400 } = {}){
     const row = db.prepare("SELECT * FROM notification_deliveries WHERE id=?").get(item.id);
     if(!row) continue;
     const account = (row.audience || 'student') === 'coach'
-      ? tg.coachActiveAccount(db, (db.prepare('SELECT coach_id FROM coach_students WHERE student_id=?').get(row.student_id) || { coach_id: 1 }).coach_id)
+      ? coachRecipientFor(db, row)
       : tg.activeAccount(db, row.student_id);
     if(!account){
       db.prepare("UPDATE notification_deliveries SET status='cancelled',last_error='no_active_telegram_account',updated_at=CURRENT_TIMESTAMP WHERE id=?").run(row.id);

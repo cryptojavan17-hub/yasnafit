@@ -1452,6 +1452,18 @@ const migrations = [
           ON notification_deliveries(audience, status);
       `);
     }
+  },
+  {
+    id: '033_coach_multi_telegram',
+    description: 'Coach multi-account telegram: several active coach chats allowed; delivery rows pin their target chat',
+    up(db) {
+      db.exec(`
+        DROP INDEX IF EXISTS idx_telegram_coach_accounts_active_coach;
+        ALTER TABLE notification_deliveries ADD COLUMN chat_id TEXT;
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_chat
+          ON notification_deliveries(chat_id);
+      `);
+    }
   }
 ];
 
