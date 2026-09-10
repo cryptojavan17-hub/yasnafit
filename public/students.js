@@ -558,6 +558,7 @@
     content.innerHTML='<div class="students-loading">در حال دریافت پرونده شاگرد...</div>';
     try{
       const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);
+      const telegramStatusPromise=api(`/api/students/${studentId}/telegram`).catch(()=>null);
       const student=data.student,summary=data.summary,internalStudentId=student.id,caseNumber=student.case_number;
       document.querySelector('#breadcrumb').textContent='پرونده شاگرد';
 
@@ -617,6 +618,7 @@
                 <div><span>شماره پرونده</span><b class="case-number-value">${esc(student.case_number)}</b></div>
                 <div><span>نام</span><b>${esc(student.full_name)}</b></div>
                 <div><span>موبایل</span><b dir="ltr">${esc(student.mobile||'—')}</b></div>
+                <div><span>تلگرام</span><b id="tgCoachStatusLine">در حال بررسی…</b></div>
                 <div><span>هدف</span><b>${esc(student.goal||'—')}</b></div>
                 <div><span>قد</span><b>${student.height ? student.height + ' cm' : '—'}</b></div>
                 <div><span>وزن</span><b>${student.weight ? student.weight + ' kg' : '—'}</b></div>
@@ -764,6 +766,15 @@
         const tempPass=student.temporary_password||(student.mobile?student.mobile.slice(-4):'—');
         const shareMsg=`لینک ورود:\n${location.origin}/student/login\n\nرمز موقت:\n${tempPass}`;
         await copyText(shareMsg);button.textContent='کپی شد ✓';
+      });
+      // وضعیت تلگرام شاگرد — بعد از رندر پرونده
+      telegramStatusPromise.then(tg=>{
+        if(!tg)return;
+        const line=content.querySelector('#tgCoachStatusLine');if(!line)return;
+        const t=tg&&tg.telegram?tg.telegram:{connected:false,status:'never_linked'};
+        const faMap={active:'✅ متصل',blocked:'🚫 ربات بلاک شده',invalid:'⚠ شناسهٔ چت نامعتبر',unlinked:'قطع شده',never_linked:'—'};
+        const last=t.last_success?`آخرین اعلان موفق: ${t.last_success.type}`:(t.last_failure?`آخرین خطا: ${t.last_failure.type}`:'اعلانی ارسال نشده');
+        line.textContent=`${faMap[t.status]||t.status}${t.telegram_username?` (@${t.telegram_username})`:''} — ${last}`;
       });
       content.querySelector('[data-back-students]').onclick=()=>{location.href='/users-list';};
       content.querySelectorAll('[data-new-invite]').forEach(button=>button.onclick=async()=>{try{await generateInvitation(internalStudentId);setTimeout(()=>loadStudentDetail(caseNumber),300);}catch(error){alert(error.message);}});

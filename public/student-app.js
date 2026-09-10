@@ -888,8 +888,44 @@
   }
   async function renderProfile(){
     loading();if(!await loadMe())return;const {student}=await api('/api/student/profile');
-    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="text" name="date_of_birth" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form><section class="student-card" style="margin-top:10px"><h2>امنیت حساب</h2><p>رمز شخصی خود را در هر زمان می‌توانید تغییر دهید.</p><div class="student-actions"><a class="secondary" href="/student/change-password">تغییر رمز عبور</a></div></section>`);
+    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="text" name="date_of_birth" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form><section class="student-card" style="margin-top:10px"><h2>امنیت حساب</h2><p>رمز شخصی خود را در هر زمان می‌توانید تغییر دهید.</p><div class="student-actions"><a class="secondary" href="/student/change-password">تغییر رمز عبور</a></div></section><section class="student-card" id="telegramCard" style="margin-top:10px"><h2>🔔 اتصال تلگرام</h2><div id="telegramBody"><p>در حال دریافت وضعیت…</p></div></section>`);
     document.querySelector('#profileForm').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await api('/api/student/profile',{method:'PUT',body:jsonBody(Object.fromEntries(new FormData(event.currentTarget)))});toast('پروفایل ذخیره شد.');}catch(error){toast(error.message,'error');}finally{button.disabled=false;}};
+    renderTelegramCard();
+  }
+
+  async function renderTelegramCard(){
+    const host=document.querySelector('#telegramBody');if(!host)return;
+    let data;
+    try{ data=await api('/api/student/telegram/status'); }
+    catch(error){ host.innerHTML=`<p>وضعیت تلگرام دریافت نشد.</p>`; return; }
+    if(!data.configured){ host.innerHTML=`<p>اتصال تلگرام روی این سرور فعال نشده است.</p>`; return; }
+    const t=data.telegram;
+    const prefLabels={workout:'🏋️ اعلان‌های تمرینی',nutrition:'🥗 اعلان‌های تغذیه',messages:'💬 پیام‌های مربی',reminders:'⏰ یادآورها',system:'🛡 اعلان‌های سیستم'};
+    const prefRows=data.preferences?Object.keys(prefLabels).map(key=>`<label class="tg-pref"><input type="checkbox" data-tg-pref="${key}" ${Number(data.preferences[key])===1?'checked':''} ${t.connected?'':'disabled'}> ${prefLabels[key]}</label>`).join(''):'';
+    if(t.connected){
+      host.innerHTML=`<p>وضعیت: <b style="color:var(--success)">✅ متصل</b>${t.telegram_username?` — @${esc(t.telegram_username)}`:''}<br><small>از تاریخ: ${esc(t.linked_at||'—')}</small></p>${prefRows?`<div class="tg-prefs">${prefRows}</div>`:''}<div class="student-actions"><button class="secondary" id="tgUnlink">قطع اتصال تلگرام</button></div>`;
+      document.querySelector('#tgUnlink').onclick=async()=>{
+        if(!confirm('اتصال تلگرام قطع شود؟ تا اتصال مجدد، اعلان‌ها دریافت نمی‌شوند.'))return;
+        try{ await api('/api/student/telegram/unlink',{method:'POST'});toast('اتصال تلگرام قطع شد.');renderTelegramCard(); }
+        catch(error){ toast(error.message,'error'); }
+      };
+    }else{
+      host.innerHTML=`<p>برای دریافت اعلان‌های برنامه و پیام مربی در تلگرام، حساب خود را متصل کنید.</p><div class="student-actions"><button class="primary" id="tgLink">🎯 گرفتن کد اتصال</button></div><div id="tgLinkBox"></div>`;
+      document.querySelector('#tgLink').onclick=async()=>{
+        const box=document.querySelector('#tgLinkBox');const button=document.querySelector('#tgLink');button.disabled=true;
+        try{
+          const link=await api('/api/student/telegram/link',{method:'POST'});
+          box.innerHTML=`<p style="margin-top:8px">۱. روی دکمهٔ زیر بزنید و در تلگرام «Start» کنید:<br><a class="primary" style="display:inline-block;margin-top:6px" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code id="tgCode" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;direction:ltr;user-select:all">${esc(link.link_code)}</code></p><p><small>پس از /start در تلگرام، همین صفحه را دوباره باز کنید.</small></p>`;
+        }catch(error){ toast(error.message,'error'); }
+        finally{ button.disabled=false; }
+      };
+    }
+    host.querySelectorAll('[data-tg-pref]').forEach(input=>{
+      input.onchange=async()=>{
+        try{ await api('/api/student/telegram/preferences',{method:'PUT',body:jsonBody({key:input.dataset.tgPref,enabled:input.checked})});toast('تنظیم اعلان ذخیره شد.'); }
+        catch(error){ toast(error.message,'error');input.checked=!input.checked; }
+      };
+    });
   }
 
   async function renderWorkouts(){

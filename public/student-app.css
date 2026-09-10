@@ -900,3 +900,10 @@
   .lux-auth .lux-form-panel{padding:22px 16px;}
   .lux-form-title{font-size:21px;}
 }
+
+/* اتصال تلگرام — پروفایل شاگرد */
+.tg-prefs{margin-top:10px;display:grid;gap:6px}
+.tg-pref{min-height:42px;padding:8px 10px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;background:var(--surface-inset);color:var(--text-secondary);font-size:11px;cursor:pointer}
+.tg-pref input{width:17px;min-height:17px;flex:0 0 17px;accent-color:var(--accent)}
+.tg-pref:hover{border-color:var(--border-strong)}
+#tgCode{font-family:monospace;font-size:13px;letter-spacing:.5px}
