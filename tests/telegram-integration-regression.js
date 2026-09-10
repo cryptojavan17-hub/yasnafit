@@ -183,6 +183,14 @@ assert.match(serverSrc, /p==='\/api\/telegram\/webhook'/, 'the webhook endpoint 
 assert.match(serverSrc, /verifyWebhookSecret\(req\.headers\['x-telegram-bot-api-secret-token'\]\)/, 'the webhook must verify the Telegram secret header');
 assert.match(serverSrc, /\/api\/student\/telegram\/link/, 'the student link endpoint must exist');
 
+// ─── ردیف «تلگرام» در پرونده شاگرد پنل مربی (رندر + وایرینگ) ───
+const studentsSrc = fs.readFileSync(path.join(__dirname, '../public/students.js'), 'utf8');
+assert.match(studentsSrc, /<div><span>تلگرام<\/span><b id="tgCoachStatusLine">/, 'the coach student-profile template must contain the telegram status row');
+assert.match(studentsSrc, /api\(`\/api\/students\/\$\{studentId\}\/telegram`\)/, 'the detail view must fetch the student telegram status');
+assert.match(studentsSrc, /telegramStatusPromise\.then\(tg=>\{/, 'the fetched status must be applied to the rendered row');
+assert.match(studentsSrc, /✅ متصل/, 'connected status must render in Persian');
+assert.match(studentsSrc, /🚫 ربات بلاک شده/, 'blocked status must render in Persian');
+
 // ─── امنیت: توکن هرگز در پیام‌ها لوخ نمی‌رود ───
 assert.ok(!sent.some(m => JSON.stringify(m).includes('test:token')), 'bot token must never leak into payloads');
 

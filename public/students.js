@@ -769,8 +769,8 @@
       });
       // وضعیت تلگرام شاگرد — بعد از رندر پرونده
       telegramStatusPromise.then(tg=>{
-        if(!tg)return;
         const line=content.querySelector('#tgCoachStatusLine');if(!line)return;
+        if(!tg){ line.textContent='—'; return; }
         const t=tg&&tg.telegram?tg.telegram:{connected:false,status:'never_linked'};
         const faMap={active:'✅ متصل',blocked:'🚫 ربات بلاک شده',invalid:'⚠ شناسهٔ چت نامعتبر',unlinked:'قطع شده',never_linked:'—'};
         const last=t.last_success?`آخرین اعلان موفق: ${t.last_success.type}`:(t.last_failure?`آخرین خطا: ${t.last_failure.type}`:'اعلانی ارسال نشده');
