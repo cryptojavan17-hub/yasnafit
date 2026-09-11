@@ -306,11 +306,93 @@
 
   let activeDayIdx=0;
   const expandedMovements={};
-  function setDirty(value){ dirty=value; refreshDirtyUI(); }
-  function refreshDirtyUI(){
+  /* ─── ذخیرهٔ خودکار: لوکال‌استوریج (فوری) + پیش‌نویس سرور (بی‌صدا) ─── */
+  let autosaveTimer=null, serverDraftTimer=null, autosaveInterval=null, lastSaveState='idle', saveStateResetTimer=null;
+  // کلید پیش‌نویس یک بار از URL محاسبه می‌شود و در طول عمر صفحه ثابت است —
+  // وگرنه بعد از اولین سینک سرور (رسیدن id) پیش‌نویس سینک‌شده به کلید دیگری می‌رود.
+  let draftKey='yasnafit_program_draft_new';
+  function computeDraftKey(){
+    const params=new URLSearchParams(location.search);
+    const id=params.get('id');
+    const sid=Number(params.get('student_id'))||null;
+    const aid=Number(params.get('assessment_id'))||null;
+    draftKey='yasnafit_program_draft_'+(id?('id'+id):(sid?('s'+sid+(aid?('a'+aid):'')):'new'));
+    return draftKey;
+  }
+  function stashKey(){return draftKey;}
+  function stashPayload(synced){
+    return JSON.stringify({program:currentProgram,meta:{saved_at:new Date().toISOString(),synced:!!synced}});
+  }
+  function readStash(key){
+    try{
+      const raw=localStorage.getItem(key);
+      if(!raw)return null;
+      const parsed=JSON.parse(raw);
+      return (parsed&&parsed.program)?parsed:null;
+    }catch(e){return null;}
+  }
+  function setSaveState(state,message=''){
+    lastSaveState=state;
+    const copy={
+      saving:{text:'⏳ در حال ذخیره…',tone:'saving'},
+      saved:{text:'✓ ذخیره شد',tone:'saved'},
+      local:{text:'✓ ذخیره موقت (بدون اتصال)',tone:'local'},
+      restored:{text:'↩ پیش‌نویس بازیابی شد',tone:'restored'},
+      error:{text:'⚠ ذخیره نشد — دوباره تلاش کنید',tone:'error'},
+    }[state]||null;
     const badge=document.getElementById('dirtyBadge'),inline=document.getElementById('dirtyInline');
-    if(badge)badge.hidden=!dirty;
-    if(inline)inline.hidden=!dirty;
+    for(const el of [badge,inline]){
+      if(!el)continue;
+      if(!copy){el.hidden=true;el.dataset.state='idle';continue;}
+      el.hidden=false;
+      el.dataset.state=copy.tone;
+      el.textContent=copy.text+(message&&state==='error'?(' — '+message):'');
+    }
+    clearTimeout(saveStateResetTimer);
+    if(state==='saved'||state==='restored'){
+      saveStateResetTimer=setTimeout(()=>{for(const el of [document.getElementById('dirtyBadge'),document.getElementById('dirtyInline')]){if(el){el.hidden=true;el.dataset.state='idle';}}},3200);
+    }
+  }
+  function scheduleAutosave(){
+    setSaveState('saving');
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(runAutosave,500);
+  }
+  function runAutosave(){
+    autosaveTimer=null;
+    if(!currentProgram)return;
+    syncFormToProgram();
+    try{localStorage.setItem(stashKey(),stashPayload(false));}catch(e){setSaveState('error','حافظهٔ مرورگر');return;}
+    clearTimeout(serverDraftTimer);
+    serverDraftTimer=setTimeout(autoServerDraft,1200);
+  }
+  async function autoServerDraft(){
+    serverDraftTimer=null;
+    if(!currentProgram)return;
+    syncFormToProgram();
+    const title=(currentProgram.title||'').trim();
+    if(!title){setSaveState('saved');setDirtyValue(false);return;}
+    try{
+      const body={title,coach_note:currentProgram.coach_note||'',status:'DRAFT',start_date:currentProgram.start_date,end_date:currentProgram.end_date,student_id:currentProgram.student_id||null,assessment_id:currentProgram.assessment_id||null,program_data:currentProgram};
+      let res;
+      if(currentProgram.id)res=await api('/api/training-programs/'+currentProgram.id,{method:'PUT',body:JSON.stringify(body)});
+      else{res=await api('/api/training-programs',{method:'POST',body:JSON.stringify(body)});currentProgram.id=res.id;}
+      try{localStorage.setItem(stashKey(),stashPayload(true));}catch(e){}
+      setDirtyValue(false);
+      setSaveState('saved');
+    }catch(e){
+      setSaveState('local');
+    }
+  }
+  function cancelAutosaveTimers(){
+    clearTimeout(autosaveTimer);clearTimeout(serverDraftTimer);clearTimeout(saveStateResetTimer);
+    autosaveTimer=null;serverDraftTimer=null;saveStateResetTimer=null;
+  }
+  function setDirtyValue(value){ dirty=value; }
+  function setDirty(value){
+    dirty=value;
+    if(value)scheduleAutosave();
+    else if(lastSaveState==='saving'||lastSaveState==='error')setSaveState('saved');
   }
   function closeAllMenus(){
     document.querySelectorAll('.builder-menu').forEach(menu=>{
@@ -413,7 +495,7 @@
           <h2 class="topbar-title" id="topbarTitle">${esc(currentProgram?.title||'برنامه جدید')}</h2>
           <small class="topbar-sub" id="topbarSub">${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</small>
         </div>
-        <span class="dirty-badge" id="dirtyBadge" hidden>⚠️ تغییرات ذخیره نشده</span>
+        <span class="save-state-badge" id="dirtyBadge" data-state="idle" hidden></span>
         <div class="topbar-actions">
           <button class="btn btn-primary btn-small" id="btnAiGenerateDraft" type="button" style="font-weight:800;display:inline-flex;align-items:center;gap:5px;" title="ساخت خودکار پیش‌نویس برنامه تمرینی با هوش مصنوعی بر اساس ارزیابی شاگرد">
             🤖 تولید پیش‌نویس هوشمند
@@ -492,7 +574,7 @@
       </section>
 
       <div class="bottom-toolbar">
-        <span class="dirty-inline" id="dirtyInline" hidden>⚠️ ذخیره نشده</span>
+        <span class="dirty-inline" id="dirtyInline" data-state="idle" hidden></span>
         <span class="volume-badge" id="volBadge">${vol.totalSets} ست • ${vol.totalMovs} حرکت • ${vol.totalDays} روز</span>
         <div class="spacer"></div>
         <button class="btn btn-secondary" id="btnExportPDF" type="button" title="پیش‌نمایش و چاپ نسخه PDF">📄 خروجی PDF</button>
@@ -1904,7 +1986,7 @@
     assessmentContext=data;
     const details=data.assessment_details||{},sports=details.sports||{},medical=details.medical||{},goals=details.goals||[];
     currentProgram.student_id=data.student.id;currentProgram.assessment_id=data.assessment.id;
-    if(!currentProgram.id){currentProgram.title=`برنامه ۳۰ روزه ${data.student.full_name} - پرونده ${data.student.case_number}`;currentProgram.days=makeAssessmentDays(sports.sessions_per_week);}
+    if(!currentProgram.id&&(!String(currentProgram.title||'').trim()||currentProgram.title==='برنامه تمرینی جدید'||/^برنامه ماهانه - ارزیابی \d+$/.test(currentProgram.title||''))){currentProgram.title=`برنامه ۳۰ روزه ${data.student.full_name} - پرونده ${data.student.case_number}`;currentProgram.days=makeAssessmentDays(sports.sessions_per_week);}
     document.getElementById('progLevel').value=sports.practice_history?'Professional':'Beginner';
     document.getElementById('progLocation').value=(sports.practice_place||data.student.preferred_location)==='home'?'Home':'Gym';
     if(goals[0])document.getElementById('progTarget').value=goals[0];
@@ -2187,22 +2269,23 @@
     document.getElementById('mvBackdrop').onclick=closeMovementModal;
 
 
-    // Dirty state warning
-    window.addEventListener('beforeunload', (e)=>{
-      if(dirty){
-        e.preventDefault();
-        e.returnValue = 'تغییرات ذخیره نشده دارید. آیا مطمئنید؟';
-      }
-    });
+    // هشدار پیش از خروج/رفرش + فلاش همزمان در حافظهٔ مرورگر (هیچ کلیدی از دست نمی‌رود)
+    if(!window.__yasnaProgUnloadBound){
+      window.__yasnaProgUnloadBound=true;
+      window.addEventListener('beforeunload', (e)=>{
+        if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{syncFormToProgram();localStorage.setItem(stashKey(),stashPayload(false));}catch(err){}}
+        if(dirty){
+          e.preventDefault();
+          e.returnValue = 'تغییرات ذخیره نشده دارید. آیا مطمئنید؟';
+        }
+      });
+    }
 
-    // Autosave every 30 seconds
-    setInterval(()=>{
-      if(dirty && currentProgram && currentProgram.title){
-        console.log('Autosave triggered...');
-        // In real app, save to stash (localStorage)
-        localStorage.setItem('yasnafit_program_stash', JSON.stringify(currentProgram));
-      }
-    }, 30000);
+    // تور ایمنی: هر ۱۵ ثانیه اگر چیزی ذخیرهٔ معلق داشت، ذخیره شود
+    if(autosaveInterval)clearInterval(autosaveInterval);
+    autosaveInterval=setInterval(()=>{
+      if(dirty&&!autosaveTimer)runAutosave();
+    }, 15000);
   }
 
   function syncFormToProgram(){
@@ -2247,8 +2330,10 @@
         res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
         currentProgram.id=res.id;
       }
-      setDirty(false);
-      localStorage.removeItem('yasnafit_program_stash');
+      cancelAutosaveTimers();
+      setDirtyValue(false);
+      try{localStorage.removeItem(stashKey());}catch(e){}
+      setSaveState('saved');
       if(!silent) alert(programStatus==='ACTIVE' ? '✅ برنامه با موفقیت ذخیره و به‌روزرسانی شد' : '✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
       if(returnAfter) location.href='/templates/exercise/list';
       return true;
@@ -2263,6 +2348,7 @@
     const id=params.get('id');
     const sourceStudentId=Number(params.get('student_id'))||null;
     const sourceAssessmentId=Number(params.get('assessment_id'))||null;
+    const lookupKey=draftKey||computeDraftKey();
     if(id){
       try {
         const prog=await api(`/api/training-programs/${id}/full`);
@@ -2281,32 +2367,46 @@
         if(currentProgram.days.length===0){
           currentProgram.days = createEmptyProgram().days;
         }
+        // پیش‌نویس محلیِ سینک‌نشدهٔ هم‌زمینه تازه‌تر از سرور است — همان برمی‌گردد
+        const local=readStash(lookupKey);
+        if(local&&!local.meta.synced){
+          currentProgram=local.program;
+          currentProgram.id=prog.id;
+          if(prog.status==='ACTIVE')currentProgram.status='ACTIVE';
+          setSaveState('restored');
+        } else if(local&&local.meta.synced){
+          try{localStorage.removeItem(lookupKey);}catch(e){}
+        }
       } catch(e){
         console.error('Failed to load program', e);
-        // Try stash
-        const stash = localStorage.getItem('yasnafit_program_stash');
-        if(stash){
-          if(confirm('یک نسخه ذخیره موقت (stash) پیدا شد. بارگزاری شود؟')){
-            currentProgram = JSON.parse(stash);
-          } else {
-            currentProgram = createEmptyProgram();
-          }
+        const local=readStash(lookupKey);
+        if(local){
+          currentProgram=local.program;
+          setSaveState('restored');
         } else {
-          currentProgram = createEmptyProgram();
+          currentProgram=createEmptyProgram();
         }
       }
     } else if(sourceStudentId && sourceAssessmentId) {
-      // Starting from an approved assessment must never restore an unrelated stash.
-      currentProgram=createEmptyProgram();
-      currentProgram.student_id=sourceStudentId;
-      currentProgram.assessment_id=sourceAssessmentId;
-      currentProgram.title=`برنامه ماهانه - ارزیابی ${sourceAssessmentId}`;
+      // شروع از ارزیابی تاییدشده: فقط پیش‌نویس «همین شاگرد + همین ارزیابی» بازیابی می‌شود
+      const local=readStash(lookupKey);
+      if(local){
+        currentProgram=local.program;
+        currentProgram.student_id=sourceStudentId;
+        currentProgram.assessment_id=sourceAssessmentId;
+        setSaveState('restored');
+      } else {
+        currentProgram=createEmptyProgram();
+        currentProgram.student_id=sourceStudentId;
+        currentProgram.assessment_id=sourceAssessmentId;
+        currentProgram.title=`برنامه ماهانه - ارزیابی ${sourceAssessmentId}`;
+      }
     } else {
-      const stash = localStorage.getItem('yasnafit_program_stash');
-      if(stash){
-        if(confirm('یک برنامه ذخیره نشده از قبل وجود دارد (autosave). ادامه می‌دهید؟')) currentProgram = JSON.parse(stash);
-        else currentProgram = createEmptyProgram();
-      } else currentProgram = createEmptyProgram();
+      const local=readStash(lookupKey);
+      if(local){
+        currentProgram=local.program;
+        setSaveState('restored');
+      } else currentProgram=createEmptyProgram();
     }
 
     if(currentProgram.assessment_id)await loadAssessmentContext(currentProgram.assessment_id,currentProgram.student_id);
@@ -2319,7 +2419,7 @@
   }
 
   window.renderProgramBuilder = async (label, route) => {
-    window.current=route;currentProgram=null;assessmentContext=null;setDirty(false);activeDayIdx=0;Object.keys(expandedMovements).forEach(key=>delete expandedMovements[key]);
+    window.current=route;computeDraftKey();cancelAutosaveTimers();if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}currentProgram=null;assessmentContext=null;setDirty(false);activeDayIdx=0;Object.keys(expandedMovements).forEach(key=>delete expandedMovements[key]);
     document.querySelector('#breadcrumb').textContent=label;
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
     const previousDrawer=document.querySelector('body > #exerciseDrawer');

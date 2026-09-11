@@ -418,3 +418,14 @@ input.jalali-bad { border-color: var(--danger); }
 .day-header { border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; }
 .movement-card { position: relative; }
 .builder-menu { z-index: 85; }
+
+/* ─── نشانگر وضعیت ذخیرهٔ خودکار (ذخیره در حافظهٔ مرورگر + پیش‌نویس سرور) ─── */
+.save-state-badge,.dirty-inline{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.6;white-space:nowrap;transition:background 180ms ease,color 180ms ease,border-color 180ms ease}
+.save-state-badge[data-state="saving"],.dirty-inline[data-state="saving"]{border:1px solid var(--warning-border);background:var(--warning-surface);color:var(--warning)}
+.save-state-badge[data-state="saved"],.dirty-inline[data-state="saved"]{border:1px solid var(--success-border);background:var(--success-surface);color:var(--success)}
+.save-state-badge[data-state="local"],.dirty-inline[data-state="local"]{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-secondary)}
+.save-state-badge[data-state="restored"],.dirty-inline[data-state="restored"]{border:1px solid var(--accent-border);background:var(--accent-surface);color:var(--accent-hover)}
+.save-state-badge[data-state="error"],.dirty-inline[data-state="error"]{border:1px solid var(--danger-border);background:var(--danger-surface);color:var(--danger)}
+.save-state-badge[data-state="saving"]::before,.dirty-inline[data-state="saving"]::before{content:"";width:9px;height:9px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:saveSpin .8s linear infinite}
+@keyframes saveSpin{to{transform:rotate(360deg)}}
+@media(max-width:680px){.save-state-badge{align-self:flex-start}}
