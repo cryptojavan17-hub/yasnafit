@@ -124,7 +124,7 @@ assert.match(studentsSource,/`لینک ورود:\\n\$\{absolute\}\\n\\nرمز م
 assert.doesNotMatch(studentsSource,/لینک ورود Yasnafit:|شماره پرونده: \$\{result\.case_number\}/,'shared login text still contains removed labels');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
-assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
+assert.match(reviewSource,/rvw-card/,'organized assessment summary is missing (rvw cards)');
 assert.match(reviewSource,/action==='approve'[^\n]+programs\/exercise\/form\?student_id=\$\{student\.id\}&assessment_id=\$\{id\}/,'approval does not continue to Program Builder');
 const builderSource=fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8');
 assert.match(builderSource,/loadAssessmentContext/,'Program Builder does not load its approved assessment context');

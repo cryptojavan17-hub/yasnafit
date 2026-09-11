@@ -11,6 +11,8 @@
     return d;
   }
 
+  const faNum2 = v => String(v ?? '').replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+
   const detailLabels = {
     height: 'قد', weight: 'وزن', around_the_arm: 'دور بازو', around_the_chest: 'دور سینه',
     around_the_belly: 'دور شکم', around_the_hips: 'دور باسن', around_the_leg: 'دور ساق',
@@ -51,6 +53,23 @@
     weight_loss: 'کاهش وزن', weight_gain: 'افزایش وزن', fitness: 'فیتنس و سلامتی',
     maintenance: 'تثبیت وزن', muscle_gain: 'عضله‌سازی و هایپرتروفی',
     fat_loss: 'چربی‌سوزی', competition: 'آمادگی مسابقه'
+  };
+
+  Object.assign(detailLabels, {
+    practice_duration: 'مدت سابقه تمرین', sport_discipline: 'رشته ورزشی',
+    home_equipment: 'تجهیزات اختصاصی منزل',
+    weight_changes: 'روند تغییرات وزن', corrective_notes: 'ناهنجاری‌های وضعیتی',
+    last_blood_test_notes: 'یادداشت آزمایش خون',
+    date_of_birth: 'تاریخ تولد', province: 'استان', city: 'شهر', address: 'نشانی',
+    preferred_location: 'محل تمرین ترجیحی'
+  });
+
+  const photoLabels = { front_flex: 'روبه‌رو (با انقباض)', back_flex: 'از پشت (با انقباض)', side: 'از پهلو' };
+  const documentLabels = { blood_test: 'آزمایش خون', body_analysis: 'آنالیز بدنی', additional_image: 'تصویر تکمیلی' };
+  const itemKindLabels = { injury: 'آسیب', surgery: 'جراحی', disease: 'بیماری', corrective: 'ناهنجاری' };
+  const lifecycleLabels = {
+    SUBMITTED: 'ارسال‌شده', PENDING_REVIEW: 'در انتظار بررسی', UNDER_REVIEW: 'در حال بررسی',
+    APPROVED: 'تأییدشده', REJECTED: 'ردشده', CHANGES_REQUESTED: 'نیازمند اصلاح'
   };
 
   function measurementComparison(current, previous) {
@@ -111,8 +130,8 @@
       }
       host.innerHTML = list.map(item => `
         <div class="program-card">
-          <h3>${esc(item.full_name)} <span class="case-chip">پرونده ${esc(item.case_number || '------')}</span> <small style="color:var(--text-muted)">ارزیابی #${item.assessment_number}</small></h3>
-          <p>وزن: ${item.weight || '—'} kg • قد: ${item.height || '—'} cm • ${esc(goalLabels[item.goal] || item.goal || 'فیتنس')}</p>
+          <h3>${esc(item.full_name)} <span class="case-chip">پرونده ${esc(item.case_number || '------')}</span> <small style="color:var(--text-muted)">ارزیابی شماره ${faNum2(item.assessment_number)}</small></h3>
+          <p>وزن: ${item.weight ? faNum2(item.weight) + ' کیلوگرم' : '—'} • قد: ${item.height ? faNum2(item.height) + ' سانتی‌متر' : '—'} • ${esc(goalLabels[item.goal] || item.goal || 'فیتنس')}</p>
           <div class="program-meta">
             <span>📅 ${new Date(item.submitted_at || item.created_at).toLocaleDateString('fa-IR')}</span>
             <span>${item.body_photos_preference === 'declined' ? '— عدم تمایل به تصاویر' : `📸 ${item.photo_count || 0} عکس`}</span>
@@ -143,437 +162,269 @@
 
   window.renderAssessmentReview = async (label, route) => {
     const match=route.match(/^\/assessments\/(\d+)$/),id=match?Number(match[1]):null;
-    const content = document.querySelector('#content');
-    document.querySelector('#breadcrumb').textContent = 'بررسی ارزیابی بدنی';
-    document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
-    if (!id) {
-      content.innerHTML = '<section class="coach-review-error">شناسه ارزیابی معتبر نیست.</section>';
-      return;
-    }
-    content.innerHTML = '<div class="coach-review-loading"><span></span><p>در حال دریافت اطلاعات ارزیابی شاگرد…</p></div>';
+    const content=document.querySelector('#content');
+    document.querySelector('#breadcrumb').textContent='بررسی ارزیابی بدنی';
+    document.querySelectorAll('.menu-link').forEach(item=>item.classList.remove('active'));
+    if(!id){content.innerHTML='<section class="coach-review-error">شناسه ارزیابی معتبر نیست.</section>';return;}
+    content.innerHTML='<div class="coach-review-loading"><span></span><p>در حال دریافت اطلاعات ارزیابی شاگرد…</p></div>';
 
-    try {
-      const data = await api(`/api/assessments/${id}`);
-      const ass = data.assessment;
-      const student = data.student;
-      const details = data.assessment_details || {};
-      const lifecycle = ass.lifecycle_status || ass.status;
+    try{
+      const data=await api(`/api/assessments/${id}`);
+      const ass=data.assessment, student=data.student, details=data.assessment_details||{};
+      const lifecycle=ass.lifecycle_status||ass.status;
+      const reviewable=['SUBMITTED','PENDING_REVIEW','UNDER_REVIEW'].includes(lifecycle);
+      const photos=ass.photos||[], documents=ass.documents||[];
+      const faDigits='۰۱۲۳۴۵۶۷۸۹';
+      const faNum=v=>String(v??'').replace(/\d/g,d=>faDigits[+d]);
+      const faDate=ts=>{if(!ts)return '—';const d=new Date(ts);return isNaN(d)?faNum(ts):d.toLocaleDateString('fa-IR');};
+      const qty=v=>v===null||v===undefined||v===''?null:faNum(v);
+      const boolOn=v=>Number(v)===1||v===true;
+      const pill=(txt,kind='')=>`<span class="rvw-pill ${kind}">${txt}</span>`;
+      const yesNo=(v,okTxt='بله')=>boolOn(v)?pill(okTxt,'ok'):pill('خیر','dim');
+      const riskNo=v=>boolOn(v)?pill('دارد ⚠','bad'):pill('ندارد','ok');
+      const emptyBox=(txt='اطلاعاتی ثبت نشده')=>`<div class="rvw-empty">— ${txt} —</div>`;
 
-      const lifecycleLabels = {
-        SUBMITTED: 'ارسال‌شده', PENDING_REVIEW: 'در انتظار بررسی',
-        UNDER_REVIEW: 'در حال بررسی', APPROVED: 'تأییدشده',
-        REJECTED: 'ردشده', CHANGES_REQUESTED: 'نیازمند اصلاح'
+      // ── هدف دوره ──
+      const rawGoals=(details.goals||[]).length?details.goals:String(ass.goal||student.goal||'').split(',').filter(Boolean);
+      const goalTags=rawGoals.map(g=>`<span class="rvw-goal">🎯 ${esc(goalLabels[g]||g)}</span>`).join('');
+
+      // ── اندازه‌ها و شاخص بدنی ──
+      const m=details.measurements?{...details.measurements}:{};
+      if(ass.body_fat!=null)m.body_fat=ass.body_fat;
+      if(ass.muscle_mass!=null)m.muscle_mass=ass.muscle_mass;
+      const wNum=parseFloat(m.weight??ass.weight??student.weight), hNum=parseFloat(m.height??ass.height??student.height);
+      let bmi=null,bmiTxt='نامشخص',bmiKind='dim';
+      if(wNum>0&&hNum>0){
+        bmi=+(wNum/((hNum/100)**2)).toFixed(1);
+        if(bmi<18.5){bmiTxt='کمبود وزن';bmiKind='warn';}
+        else if(bmi<25){bmiTxt='وزن نرمال';bmiKind='ok';}
+        else if(bmi<30){bmiTxt='اضافه‌وزن';bmiKind='warn';}
+        else{bmiTxt='چاقی';bmiKind='bad';}
+      }
+      const measRows=[
+        ['قد (سانتی‌متر)',qty(m.height),true],
+        ['وزن (کیلوگرم)',qty(m.weight),true],
+        ['دور سینه',qty(m.around_the_chest),false],
+        ['دور شکم',qty(m.around_the_belly),false],
+        ['دور باسن',qty(m.around_the_hips),false],
+        ['دور بازو',qty(m.around_the_arm),false],
+        ['دور ران',qty(m.around_the_thigh),false],
+        ['دور ساق پا',qty(m.around_the_leg),false],
+        ['دور مچ',qty(m.around_the_wrist),false],
+        ['درصد چربی بدن',m.body_fat!=null?qty(m.body_fat):null,false],
+        ['توده عضلانی',m.muscle_mass!=null?qty(m.muscle_mass):null,false]
+      ].filter(r=>r[1]!==null).map(r=>[r[0],`<b>${r[1]}</b>${r[2]?' <span class="rvw-key">کلیدی</span>':''}`]);
+
+      // ── جدول عمومی ──
+      const table=(rows,emptyTxt)=>{
+        const body=rows.filter(r=>r[1]!==null&&r[1]!==undefined&&r[1]!=='');
+        if(!body.length)return emptyBox(emptyTxt);
+        return `<table class="rvw-table"><thead><tr><th class="c-lbl">مشخصه</th><th class="c-val">وضعیت ثبت‌شده</th><th class="c-note">توضیح شاگرد</th></tr></thead><tbody>${body.map(r=>`<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td class="cell-note">${r[2]?esc(r[2]):'—'}</td></tr>`).join('')}</tbody></table>`;
       };
+      const card=(icon,title,inner,tag='')=>`
+        <section class="rvw-card">
+          <header><span class="rvw-ico">${icon}</span><h2>${title}</h2>${tag?`<span class="rvw-tag">${tag}</span>`:''}</header>
+          <div class="rvw-pad">${inner}</div>
+        </section>`;
 
-      const rawGoals = (details.goals || []).length
-        ? details.goals
-        : String(ass.goal || student.goal || '').split(',').filter(Boolean);
-      const goals = rawGoals.map(g => goalLabels[g] || g);
+      // ۲) اطلاعات فردی
+      const tg=student.telegram_id?`<a class="rvw-linkchip" href="https://t.me/${esc(String(student.telegram_id).replace(/^@+/,''))}" target="_blank" rel="noopener">${esc(String(student.telegram_id))}</a>`:null;
+      const ig=student.instagram_id?`<a class="rvw-linkchip" href="https://instagram.com/${esc(String(student.instagram_id).replace(/^@+/,''))}" target="_blank" rel="noopener">${esc(String(student.instagram_id))}</a>`:null;
+      const personalRows=[
+        ['جنسیت',student.gender==='female'?pill('خانم'):student.gender==='male'?pill('آقا'):pill('نامشخص','dim')],
+        ['موبایل',student.mobile?`<a href="tel:${esc(student.mobile)}" class="rvw-tel" dir="ltr">${esc(faNum(student.mobile))}</a>`:null],
+        ['تاریخ تولد',student.date_of_birth?faDate(student.date_of_birth):null],
+        ['استان',student.province?esc(student.province):null],
+        ['شهر',student.city?esc(student.city):null],
+        ['نشانی',student.address?esc(student.address):null],
+        ['محل تمرین ترجیحی',student.preferred_location==='gym'?pill('باشگاه'):student.preferred_location==='home'?pill('منزل'):null],
+        ['تلگرام',tg],
+        ['اینستاگرام',ig]
+      ];
 
-      // Measurements & BMI
-      const mData = details.measurements ? { ...details.measurements } : {
-        height: ass.height, weight: ass.weight,
-        around_the_chest: ass.chest, around_the_belly: ass.waist, around_the_hips: ass.hips
-      };
-      if (ass.body_fat != null) mData.body_fat = ass.body_fat;
-      if (ass.muscle_mass != null) mData.muscle_mass = ass.muscle_mass;
+      // ۴) پزشکی
+      const med=details.medical||{}, items=details.medical_items||[];
+      const riskItems=items.map(x=>`<span class="rvw-pill bad">${esc(itemKindLabels[x.kind]||x.kind)}: ${esc(x.name)}${x.category?` (${esc(x.category)})`:''}</span>`).join('');
+      const hasRisk=boolOn(med.has_disease)||boolOn(med.has_medication)||boolOn(med.has_injury)||boolOn(med.has_surgery)||items.length>0;
+      const medicalInner=`
+        ${hasRisk?`<div class="rvw-alert">⚠️ <b>جمع‌بندی سلامت:</b> این شاگرد سابقه پزشکی ثبت‌شده دارد؛ پیش از طراحی برنامه بندهای زیر را بخوانید.</div>`:''}
+        ${riskItems?`<div class="rvw-chips">${riskItems}</div>`:''}
+        ${table([
+          ['بیماری',riskNo(med.has_disease),med.disease_details],
+          ['مصرف دارو',riskNo(med.has_medication),med.medication_details],
+          ['آسیب‌دیدگی',riskNo(med.has_injury),med.injury_details],
+          ['جراحی',riskNo(med.has_surgery),med.surgery_details],
+          ['آزمایش خون',med.last_blood_test_notes?pill('ثبت‌شده','ok'):null,med.last_blood_test_notes],
+          ['ناهنجاری وضعیتی',med.corrective_notes?pill('ثبت‌شده','warn'):null,med.corrective_notes]
+        ],'سابقه پزشکی ثبت نشده — هیچ بیماری، آسیب یا جراحی‌ای اعلام نشده است')}`;
 
-      const weightNum = parseFloat(mData.weight || ass.weight || student.weight);
-      const heightNum = parseFloat(mData.height || ass.height || student.height);
-      let bmi = null;
-      let bmiCategory = 'نرمال';
-      if (weightNum > 0 && heightNum > 0) {
-        bmi = +(weightNum / ((heightNum / 100) ** 2)).toFixed(1);
-        if (bmi < 18.5) bmiCategory = 'کمبود وزن';
-        else if (bmi < 25) bmiCategory = 'وزن نرمال';
-        else if (bmi < 30) bmiCategory = 'اضافه‌وزن';
-        else bmiCategory = 'چاقی';
+      // ۵) ورزشی
+      const sp=details.sports||{};
+      const sportsRows=[
+        ['فعالیت روزانه',sp.average_daily_activity?pill({low:'کم',medium:'متوسط',high:'زیاد'}[sp.average_daily_activity]||sp.average_daily_activity,sp.average_daily_activity==='high'?'ok':sp.average_daily_activity==='low'?'warn':''):null],
+        ['سابقه تمرین',sp.practice_history!==undefined?yesNo(sp.practice_history):null,sp.practice_history_details],
+        ['رشته ورزشی',sp.sport_discipline?esc(sp.sport_discipline):null],
+        ['مدت سابقه تمرین',sp.practice_duration?esc(sp.practice_duration):null],
+        ['تمرین در حال حاضر',sp.practice_now!==undefined?yesNo(sp.practice_now):null,sp.current_practice_details],
+        ['محل تمرین',sp.practice_place==='gym'?pill('باشگاه'):sp.practice_place==='home'?pill('منزل'):null],
+        ['جلسات تمرین در هفته',sp.sessions_per_week!=null?`<b class="rvw-strong">${faNum(sp.sessions_per_week)} جلسه</b>`:null],
+        ['تجهیزات منزل',sp.home_equipment?esc(sp.home_equipment):null],
+        ['سابقه مصرف مکمل',sp.supplement_history!==undefined?yesNo(sp.supplement_history):null,sp.supplement_details],
+        ['سابقه دوپینگ',sp.doping_history?pill('ثبت‌شده ⚠','bad'):null,sp.doping_history]
+      ];
+
+      // ۶) تغذیه
+      const nu=details.nutrition||{};
+      const nutritionRows=[
+        ['نوع رژیم / محدودیت',nu.diet_type?pill(enumLabels[nu.diet_type]||nu.diet_type,(nu.diet_type==='none'||nu.diet_type==='no_restriction')?'dim':'ok'):null],
+        ['سابقه رژیم قبلی',nu.previous_diet!==undefined?yesNo(nu.previous_diet):null,[nu.previous_diet_type,nu.previous_diet_duration,nu.previous_diet_notes].filter(Boolean).join(' — ')||undefined],
+        ['حساسیت غذایی',nu.food_allergies?pill('ثبت‌شده ⚠','warn'):null,nu.food_allergies],
+        ['روند تغییرات وزن',nu.weight_changes?esc(nu.weight_changes):null],
+        ['وضعیت اشتها',nu.appetite_status?pill(enumLabels[nu.appetite_status]||nu.appetite_status,(['low_eating','overeating','grazing','emotional_overeating','anorexia'].includes(nu.appetite_status))?'warn':'ok'):null,nu.appetite_notes],
+        ['وضعیت دفع',nu.defecation_problem?pill(enumLabels[nu.defecation_problem]||nu.defecation_problem,nu.defecation_problem==='none'?'ok':'warn'):null],
+        ['صبحانه',nu.breakfast?esc(nu.breakfast):null],
+        ['ناهار',nu.lunch?esc(nu.lunch):null],
+        ['شام',nu.dinner?esc(nu.dinner):null]
+      ];
+
+      // ۷) عادات
+      const hb=details.habits||{};
+      const habitRows=[
+        ['مصرف دخانیات',hb.smoking!==undefined?yesNo(hb.smoking):null,hb.smoking_details],
+        ['مصرف الکل',hb.alcohol!==undefined?yesNo(hb.alcohol):null,hb.alcohol_details]
+      ];
+
+      // ۸) بارداری (فقط خانم‌ها)
+      const pr=details.pregnancy||{};
+      const pregRows=student.gender==='female'?[
+        ['سابقه زایمان',pr.childbirth_history!==undefined?yesNo(pr.childbirth_history):null,pr.childbirth_count?`${faNum(pr.childbirth_count)} بار`:(pr.childbirth_notes||undefined)],
+        ['نوع زایمان',pr.childbirth_type?pill(enumLabels[pr.childbirth_type]||pr.childbirth_type):null,pr.childbirth_notes||undefined],
+        ['شیردهی',pr.breastfeeding!==undefined?yesNo(pr.breastfeeding):null,[pr.breastfeeding_notes,pr.child_age_months!=null?`سن کودک: ${faNum(pr.child_age_months)} ماه`:null].filter(Boolean).join(' — ')||undefined],
+        ['شیر خشک',pr.formula_use!==undefined?yesNo(pr.formula_use):null,[pr.formula_type,pr.formula_amount,pr.formula_frequency].filter(Boolean).join(' — ')||undefined],
+        ['حساسیت غذایی کودک',pr.child_food_allergy!==undefined?yesNo(pr.child_food_allergy,'ثبت‌شده'):null,pr.child_food_allergy_notes]
+      ]:null;
+
+      const studentNote=ass.student_note?`<div class="rvw-note"><b>توضیح شاگرد:</b> ${esc(ass.student_note)}</div>`:'';
+
+      // مقایسه با ارزیابی قبلی
+      const prevDet=data.previous_assessment_details;
+      let compareCard='';
+      if(data.previous_assessment&&prevDet&&prevDet.measurements){
+        const prev=prevDet.measurements;
+        const rowsC=['height','weight','around_the_arm','around_the_chest','around_the_belly','around_the_hips','around_the_thigh','around_the_leg','around_the_wrist']
+          .filter(k=>m[k]!=null||prev[k]!=null)
+          .map(k=>{
+            const p=prev[k]??'—',c=m[k]??'—';
+            const d=Number.isFinite(Number(p))&&Number.isFinite(Number(c))?+(c-p).toFixed(1):null;
+            const dTxt=d===null?'':d>0?pill(`+${faNum(d)}`,'warn'):d<0?pill(faNum(d),'ok'):pill('بی‌تغییر','dim');
+            return `<tr><th scope="row">${esc(detailLabels[k]||k)}</th><td>${faNum(p)}</td><td><b>${faNum(c)}</b></td><td>${dTxt||'—'}</td></tr>`;
+          }).join('');
+        if(rowsC)compareCard=`
+          <section class="rvw-card">
+            <header><span class="rvw-ico">📈</span><h2>مقایسه با ارزیابی شماره ${faNum(data.previous_assessment.assessment_number)}</h2></header>
+            <div class="rvw-pad"><table class="rvw-table rvw-table-4"><thead><tr><th class="c-lbl">مشخصه</th><th>ارزیابی قبلی</th><th>ارزیابی فعلی</th><th>تغییر</th></tr></thead><tbody>${rowsC}</tbody></table></div>
+          </section>`;
       }
 
-      const reviewable = ['SUBMITTED', 'PENDING_REVIEW', 'UNDER_REVIEW'].includes(lifecycle);
-      const photos = ass.photos || [];
-      const documents = ass.documents || [];
+      const photosCard=photos.length?card('📸','تصاویر ارزیابی',`
+        <div class="rvw-photos">${photos.map(p=>`<a href="/api/student-photos/${p.id}" target="_blank" rel="noopener"><img src="/api/student-photos/${p.id}" alt="${esc(photoLabels[p.photo_type]||'تصویر ارزیابی')}"><span>${esc(photoLabels[p.photo_type]||p.photo_type)}</span></a>`).join('')}</div>`,`${faNum(photos.length)} تصویر خصوصی`):'';
+      const docsCard=documents.length?card('📁','مدارک پزشکی',`
+        <div class="rvw-docs">${documents.map(d=>`<a href="/api/student-documents/${d.id}" target="_blank" rel="noopener"><span class="rvw-doc-ico">📄</span><span class="rvw-doc-name">${esc(documentLabels[d.document_type]||d.document_type)}<small>${esc(d.original_filename)} · ${faNum(Math.ceil(d.size_bytes/1024))} کیلوبایت</small></span><span class="rvw-pill">مشاهده</span></a>`).join('')}</div>`):'';
 
-      // Helper for clean rendering of key-values
-      const booleanKeys = new Set(['has_disease', 'has_medication', 'has_injury', 'has_surgery', 'practice_history', 'practice_now', 'supplement_history', 'previous_diet', 'smoking', 'alcohol', 'childbirth_history', 'breastfeeding', 'formula_use', 'child_food_allergy']);
-      const hiddenKeys = new Set(['id', 'stable_id', 'assessment_id', 'student_id', 'created_at', 'updated_at', 'deleted_at', 'version']);
-
-      const formatVal = (key, val) => {
-        if (booleanKeys.has(key)) {
-          const isTrue = Number(val) === 1 || val === true || val === 'yes';
-          if (key === 'has_injury' || key === 'has_disease' || key === 'has_surgery') {
-            return isTrue ? '<span class="status-pill danger">⚠️ دارد</span>' : '<span class="status-pill success">✓ ندارد</span>';
-          }
-          return isTrue ? '<span class="status-pill active">✓ بله</span>' : '<span class="status-pill muted">خیر</span>';
-        }
-        if (key === 'diet_type') {
-          if (val === 'none' || val === 'no_restriction') return '<span class="status-pill default">بدون محدودیت</span>';
-          return `<span class="status-pill active">🥗 ${esc(enumLabels[val] || val)}</span>`;
-        }
-        if (key === 'defecation_problem') {
-          return val === 'none' ? '<span class="status-pill success">✓ بدون مشکل</span>' : `<span class="status-pill warning">⚠️ ${esc(enumLabels[val] || val)}</span>`;
-        }
-        if (enumLabels[val]) {
-          if (val === 'gym') return '<span class="status-pill active">🏋️ باشگاه</span>';
-          if (val === 'home') return '<span class="status-pill active">🏠 منزل</span>';
-          if (val === 'normal' || val === 'normal_eating') return '<span class="status-pill success">🍽️ معمولی و طبیعی</span>';
-          if (val === 'low_eating' || val === 'overeating' || val === 'grazing') return `<span class="status-pill warning">⚠️ ${enumLabels[val]}</span>`;
-          return `<span class="status-pill default">${esc(enumLabels[val])}</span>`;
-        }
-        if (key === 'telegram_id' && val) return `<a href="https://t.me/${esc(String(val).replace(/^@+/, ''))}" target="_blank" class="social-chip telegram">✈️ @${esc(String(val).replace(/^@+/, ''))}</a>`;
-        if (key === 'instagram_id' && val) return `<a href="https://instagram.com/${esc(String(val).replace(/^@+/, ''))}" target="_blank" class="social-chip instagram">📷 @${esc(String(val).replace(/^@+/, ''))}</a>`;
-        if (key === 'mobile' && val) return `<a href="tel:${esc(val)}" class="tel-link" dir="ltr">📞 ${esc(val)}</a>`;
-        return esc(String(val));
-      };
-
-      const renderGroupCard = (title, iconClass, itemsObj, allowedKeys = null) => {
-        if (!itemsObj) return '';
-        const entries = Object.entries(itemsObj).filter(([k, v]) => !hiddenKeys.has(k) && (!allowedKeys || allowedKeys.includes(k)) && v !== null && v !== undefined && v !== '');
-        if (!entries.length) return '';
-
-        return `
-          <section class="coach-review-group coach-review-card">
-            <header class="coach-review-card-head">
-              <span class="card-icon-badge ${iconClass}">${iconClass === 'icon-user' ? '👤' : (iconClass === 'icon-target' ? '🎯' : (iconClass === 'icon-med' ? '🛡️' : (iconClass === 'icon-sport' ? '🏋️' : (iconClass === 'icon-food' ? '🥗' : (iconClass === 'icon-habit' ? '⏱️' : (iconClass === 'icon-mom' ? '🤱' : '📝'))))))}</span>
-              <h2>${esc(title)}</h2>
-            </header>
-            <div class="coach-review-card-body">
-              <dl class="review-dl">
-                ${entries.map(([k, v]) => `
-                  <div class="review-dl-row">
-                    <dt>${esc(detailLabels[k] || k)}</dt>
-                    <dd>${formatVal(k, v)}</dd>
-                  </div>
-                `).join('')}
-              </dl>
+      // ── ۹) بررسی و پاسخ مربی ──
+      const statusPill=lifecycleLabels[lifecycle]?pill(lifecycleLabels[lifecycle],{SUBMITTED:'accent',PENDING_REVIEW:'accent',UNDER_REVIEW:'accent',APPROVED:'ok',REJECTED:'bad',CHANGES_REQUESTED:'warn'}[lifecycle]||''):pill(lifecycle);
+      const decideCard=`
+        <section class="rvw-card rvw-decide">
+          <header><span class="rvw-ico">🧭</span><h2>بررسی و پاسخ مربی</h2>${statusPill}</header>
+          <div class="rvw-pad">
+            <button type="button" class="btn btn-secondary rvw-ai" id="btnAiAnalyze">🤖 تحلیل ارزیابی و پیشنهاد یادداشت با هوش مصنوعی</button>
+            <label class="rvw-note-label"><span>یادداشت و بازخورد برای شاگرد:</span>
+              <textarea id="coachNote" maxlength="50000" placeholder="متن بازخورد یا توضیحات اختصاصی برای شاگرد…">${esc(ass.coach_note||'')}</textarea>
+            </label>
+            <div class="rvw-actions">
+              <button class="rvw-act ok" id="btnApprove" ${reviewable?'':'disabled'}>✓ تأیید ارزیابی</button>
+              <button class="rvw-act warn" id="btnRequestChanges" ${reviewable?'':'disabled'}>↻ درخواست اصلاح</button>
+              <button class="rvw-act bad" id="btnReject" ${reviewable?'':'disabled'}>✕ رد ارزیابی</button>
+              <button class="rvw-act bad" id="btnDeleteAssessment" type="button">🗑 حذف ارزیابی</button>
+              <a class="rvw-act" href="/users-list/${esc(student.case_number||student.id)}">✉ پیام به شاگرد</a>
             </div>
-          </section>
-        `;
-      };
-
-      // 1. Personal profile card
-      const profileCard = renderGroupCard('اطلاعات فردی و ارتباطی', 'icon-user', student, ['mobile', 'telegram_id', 'instagram_id', 'date_of_birth', 'gender', 'preferred_location']);
-
-      // 2. Goal card
-      const goalsCard = `
-        <section class="coach-review-group coach-review-card">
-          <header class="coach-review-card-head">
-            <span class="card-icon-badge icon-target">🎯</span>
-            <h2>هدف اصلی و اولویت‌های دوره</h2>
-          </header>
-          <div class="coach-review-card-body">
-            <div class="goals-badges-wrap">
-              ${goals.map(g => `<span class="goal-tag">🎯 ${esc(g)}</span>`).join('') || '<span class="muted">هدفی تعیین نشده است</span>'}
-            </div>
+            <p class="rvw-feedback" id="reviewActionFeedback" role="alert"></p>
+            ${lifecycle==='APPROVED'?`
+            <div class="rvw-program-row">
+              <button type="button" class="btn btn-primary" id="btnAiBuildProgram">🤖 ساخت برنامه با هوش مصنوعی</button>
+              <a class="btn btn-secondary" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}">ساخت برنامه ۳۰ روزه (دستی)</a>
+            </div>`:''}
           </div>
-        </section>
-      `;
+        </section>`;
 
-      // 3. Measurements Grid Card
-      const measCards = [
-        { label: 'قد', val: mData.height, unit: 'cm', icon: '📏' },
-        { label: 'وزن', val: mData.weight, unit: 'kg', icon: '⚖️' },
-        { label: 'دور سینه', val: mData.around_the_chest, unit: 'cm', icon: '👕' },
-        { label: 'دور شکم', val: mData.around_the_belly, unit: 'cm', icon: '⭕' },
-        { label: 'دور باسن', val: mData.around_the_hips, unit: 'cm', icon: '📐' },
-        { label: 'دور بازو', val: mData.around_the_arm, unit: 'cm', icon: '💪' },
-        { label: 'دور ران', val: mData.around_the_thigh, unit: 'cm', icon: '🦵' },
-        { label: 'دور ساق', val: mData.around_the_leg, unit: 'cm', icon: '🦶' },
-        { label: 'دور مچ', val: mData.around_the_wrist, unit: 'cm', icon: '⏱️' }
-      ].filter(m => m.val != null && m.val !== '');
-
-      const measurementsCard = `
-        <section class="coach-review-group coach-review-card meas-card-wrap">
-          <header class="coach-review-card-head">
-            <span class="card-icon-badge icon-meas">📊</span>
-            <h2>اندازه‌های بدنی و آنتروپومتریک</h2>
-            ${bmi ? `<span class="bmi-header-pill">BMI: <b>${bmi}</b> (${esc(bmiCategory)})</span>` : ''}
-          </header>
-          <div class="coach-review-card-body">
-            <div class="meas-grid">
-              ${measCards.map(m => `
-                <div class="meas-stat-box">
-                  <div class="meas-stat-head">
-                    <span>${m.icon} ${esc(m.label)}</span>
-                  </div>
-                  <div class="meas-stat-val">
-                    <b>${esc(String(m.val))}</b>
-                    <small>${m.unit}</small>
-                  </div>
-                </div>
-              `).join('')}
-              ${mData.body_fat ? `
-                <div class="meas-stat-box highlight">
-                  <div class="meas-stat-head"><span>💧 درصد چربی</span></div>
-                  <div class="meas-stat-val"><b>${esc(String(mData.body_fat))}</b><small>%</small></div>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        </section>
-      `;
-
-      // 4. Medical / Injuries Card
-      const medicalDetails = details.medical || {};
-      const injuryText = student.injuries || medicalDetails.injury_details || (details.medical_items || []).filter(i => i.kind === 'injury').map(i => i.name).join('، ');
-      const hasAnyInjury = Boolean(injuryText && injuryText !== 'بدون آسیب' && injuryText !== 'ندارد');
-
-      const medicalCard = `
-        <section class="coach-review-group coach-review-card ${hasAnyInjury ? 'card-has-injury' : ''}">
-          <header class="coach-review-card-head">
-            <span class="card-icon-badge icon-med">🛡️</span>
-            <h2>سوابق پزشکی، آسیب‌ها و سلامت مفاصل</h2>
-          </header>
-          <div class="coach-review-card-body">
-            ${hasAnyInjury ? `
-              <div class="injury-alert-box">
-                <div class="injury-alert-head">
-                  <b>⚠️ شرح آسیب‌دیدگی ثبت‌شده:</b>
-                </div>
-                <p>${esc(injuryText)}</p>
-              </div>
-            ` : ''}
-            <dl class="review-dl">
-              ${Object.entries(medicalDetails).filter(([k, v]) => !hiddenKeys.has(k) && v !== null && v !== '' && !k.startsWith('has_')).map(([k, v]) => `
-                <div class="review-dl-row">
-                  <dt>${esc(detailLabels[k] || k)}</dt>
-                  <dd>${formatVal(k, v)}</dd>
-                </div>
-              `).join('')}
-              ${(details.medical_items || []).length ? `
-                <div class="review-dl-row">
-                  <dt>ناهنجاری و بیماری انتخابی</dt>
-                  <dd><span class="status-pill warning">${esc(details.medical_items.map(i => i.name).join('، '))}</span></dd>
-                </div>
-              ` : ''}
-              ${!hasAnyInjury && !Object.keys(medicalDetails).length ? `
-                <div class="review-dl-row"><dt>وضعیت سلامت</dt><dd><span class="status-pill success">✓ بدون آسیب یا بیماری گزارش‌شده</span></dd></div>
-              ` : ''}
-            </dl>
-          </div>
-        </section>
-      `;
-
-      // 5. Sports History Card
-      const sportsCard = renderGroupCard('سابقه ورزشی و تمرینی', 'icon-sport', details.sports);
-
-      // 6. Nutrition & Lifestyle Card
-      const nutritionCard = renderGroupCard('تغذیه و الگوی غذایی', 'icon-food', details.nutrition);
-
-      // 7. Habits Card
-      const habitsCard = renderGroupCard('عادت‌های روزمره', 'icon-habit', details.habits);
-
-      // 8. Pregnancy Card (if female)
-      const pregnancyCard = student.gender === 'female' ? renderGroupCard('بارداری و زایمان', 'icon-mom', details.pregnancy) : '';
-
-      // 9. Notes & Limitations Card
-      const noteRows = [];
-      if (ass.student_note) noteRows.push(['یادداشت شاگرد', ass.student_note]);
-      if (ass.limitations || student.limitations) noteRows.push(['محدودیت‌های حرکتی', ass.limitations || student.limitations]);
-
-      const notesCard = noteRows.length ? `
-        <section class="coach-review-group coach-review-card">
-          <header class="coach-review-card-head">
-            <span class="card-icon-badge icon-notes">📝</span>
-            <h2>توضیحات و یادداشت شاگرد</h2>
-          </header>
-          <div class="coach-review-card-body">
-            <dl class="review-dl">
-              ${noteRows.map(([k, v]) => `
-                <div class="review-dl-row">
-                  <dt>${esc(k)}</dt>
-                  <dd style="color:var(--text);font-weight:750;">${esc(v)}</dd>
-                </div>
-              `).join('')}
-            </dl>
-          </div>
-        </section>
-      ` : '';
-
-      content.innerHTML = `
-        <div class="coach-review-page">
-          <!-- Hero Header -->
-          <header class="coach-review-hero">
-            <div class="coach-review-heading">
-              <a href="/students/submissions" class="review-back" aria-label="بازگشت به ارزیابی‌ها">→</a>
-              <div>
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                  <p class="eyebrow" style="margin:0;">بررسی ارزیابی #${ass.assessment_number}</p>
-                  <span class="review-status ${esc(lifecycle.toLowerCase())}">${esc(lifecycleLabels[lifecycle] || fa(lifecycle))}</span>
-                </div>
-                <h1>${esc(student.full_name)}</h1>
-                <div class="review-meta">
-                  <span class="case-chip">شماره پرونده: <b>${esc(student.case_number || '------')}</b></span>
-                  <span>📅 تاریخ ثبت: ${ass.submitted_at ? new Date(ass.submitted_at).toLocaleString('fa-IR') : 'ثبت‌نشده'}</span>
-                  <span>🎯 هدف: <b>${esc(goals.join('، ') || 'فیتنس')}</b></span>
+      content.innerHTML=`
+        <div class="rvw">
+          <header class="rvw-head">
+            <div class="rvw-head-main">
+              <a href="/students/submissions" class="rvw-back" aria-label="بازگشت به فهرست ارزیابی‌ها">→</a>
+              <div class="rvw-id">
+                <div class="rvw-title-row"><h1>${esc(student.full_name)}</h1>${statusPill}</div>
+                <div class="rvw-chips">
+                  <span class="rvw-chip">پرونده <b>${esc(student.case_number||'------')}</b></span>
+                  <span class="rvw-chip">ارزیابی شماره <b>${faNum(ass.assessment_number)}</b></span>
+                  <span class="rvw-chip">تاریخ ثبت <b>${faDate(ass.submitted_at||ass.created_at)}</b></span>
+                  <span class="rvw-chip rvw-chip-goal">🎯 هدف: <b>${esc(rawGoals.map(g=>goalLabels[g]||g).join('، ')||'ثبت نشده')}</b></span>
+                  ${bmi!==null?`<span class="rvw-chip">شاخص بدنی <b>${faNum(bmi)} — ${bmiTxt}</b></span>`:''}
                 </div>
               </div>
             </div>
-            <div class="review-header-links">
-              <a class="btn btn-secondary btn-small" href="/students/${student.case_number || student.id}/timeline">📜 تاریخچه شاگرد</a>
-              <a class="btn btn-secondary btn-small" href="/users-list/${student.case_number || student.id}">👤 پروفایل شاگرد</a>
+            <div class="rvw-head-links">
+              <a class="rvw-link" href="/students/${esc(student.case_number||student.id)}/timeline">📜 تاریخچه</a>
+              <a class="rvw-link" href="/users-list/${esc(student.case_number||student.id)}">👤 پروفایل</a>
             </div>
           </header>
 
-          <div class="coach-review-layout">
-            <!-- Main Content Area: High-contrast 2-column cards grid -->
-            <main class="coach-review-main">
-              ${goalsCard}
-              ${profileCard}
-              ${measurementsCard}
-              ${medicalCard}
-              ${sportsCard}
-              ${nutritionCard}
-              ${habitsCard}
-              ${pregnancyCard}
-              ${notesCard}
+          ${card('🎯','هدف اصلی و اولویت‌های دوره',`<div class="rvw-goals">${goalTags||emptyBox('هدفی ثبت نشده')}</div>${studentNote}`)}
+          ${card('👤','اطلاعات فردی و ارتباطی',table(personalRows,'اطلاعات فردی ثبت نشده'))}
+          ${card('📊','اندازه‌های بدنی و آنتروپومتریک',`
+            ${bmi!==null?`<div class="rvw-bmi ${bmiKind}"><span class="rvw-bmi-val">شاخص توده بدنی: <b>${faNum(bmi)}</b></span>${pill(bmiTxt,bmiKind)}<small>بر پایه قد ${faNum(hNum)} سانتی‌متر و وزن ${faNum(wNum)} کیلوگرم</small></div>`:''}
+            ${table(measRows,'اندازه‌ای ثبت نشده')}`)}
+          ${card('🛡️','سوابق پزشکی، آسیب‌ها و سلامت مفاصل',medicalInner,hasRisk?'نیازمند توجه ⚠':'')}
+          ${card('🏋️','سابقه ورزشی و تمرینی',table(sportsRows,'سابقه ورزشی ثبت نشده'))}
+          ${card('🥗','تغذیه و الگوی غذایی',table(nutritionRows,'اطلاعات تغذیه ثبت نشده'))}
+          ${card('⏱️','عادت‌های روزمره',table(habitRows,'عادتی ثبت نشده'))}
+          ${student.gender==='female'?card('🤱','بارداری و زایمان',table(pregRows,'اطلاعات بارداری و زایمان ثبت نشده')):''}
+          ${photosCard}
+          ${docsCard}
+          ${compareCard}
+          ${decideCard}
+        </div>`;
 
-              ${photos.length ? `
-                <section class="coach-review-group coach-review-card coach-review-photos">
-                  <header class="coach-review-card-head">
-                    <span class="card-icon-badge icon-photo">📸</span>
-                    <h2>تصاویر ارزیابی بدنی شاگرد</h2>
-                    <b style="color:var(--accent-hover);">${photos.length} تصویر خصوصی</b>
-                  </header>
-                  <div class="review-photo-grid">
-                    ${photos.map(p => `
-                      <a href="/api/student-photos/${p.id}" target="_blank" rel="noopener" class="photo-card-item">
-                        <img src="/api/student-photos/${p.id}" alt="تصویر ${esc(p.photo_type)}">
-                        <span class="photo-type-pill">${esc(p.photo_type)}</span>
-                      </a>
-                    `).join('')}
-                  </div>
-                </section>
-              ` : ''}
-
-              ${documents.length ? `
-                <section class="coach-review-group coach-review-card">
-                  <header class="coach-review-card-head">
-                    <span class="card-icon-badge icon-doc">📁</span>
-                    <h2>مدارک و آزمایش‌های پزشکی شاگرد</h2>
-                  </header>
-                  <div class="review-document-list">
-                    ${documents.map(d => `
-                      <a href="/api/student-documents/${d.id}" target="_blank" rel="noopener">
-                        <div>
-                          <b>${esc(d.original_filename)}</b>
-                          <small>${esc(d.document_type)} • ${Math.ceil(d.size_bytes / 1024)} KB</small>
-                        </div>
-                        <span class="btn btn-secondary btn-small">👁 مشاهده مدرک</span>
-                      </a>
-                    `).join('')}
-                  </div>
-                </section>
-              ` : ''}
-
-              ${data.previous_assessment && details.measurements && data.previous_assessment_details?.measurements ? `
-                <section class="coach-review-group coach-review-card" style="grid-column:1/-1;">
-                  <header class="coach-review-card-head">
-                    <span class="card-icon-badge icon-compare">📊</span>
-                    <h2>مقایسه تغییرات با ارزیابی شماره #${data.previous_assessment.assessment_number}</h2>
-                  </header>
-                  <div class="coach-review-card-body">
-                    ${measurementComparison(details.measurements, data.previous_assessment_details.measurements)}
-                  </div>
-                </section>
-              ` : ''}
-            </main>
-
-            <!-- Sidebar: Decision & Actions Card -->
-            <aside class="coach-review-sidebar">
-              <section class="review-decision-card">
-                <header class="decision-card-head">
-                  <p class="eyebrow">ثبت تصمیم مربی</p>
-                  <h2>${reviewable ? 'بررسی و پاسخ به ارزیابی' : esc(lifecycleLabels[lifecycle] || fa(lifecycle))}</h2>
-                </header>
-
-                <button type="button" class="btn btn-primary btn-ai-sparkle" id="btnAiAnalyze" style="width:100%;margin-bottom:12px;font-weight:850;display:flex;align-items:center;justify-content:center;gap:8px;">
-                  🤖 تحلیل ارزیابی و پیشنهاد یادداشت با AI
-                </button>
-
-                <label class="coach-note-label">
-                  <span>یادداشت و بازخورد مربی برای شاگرد:</span>
-                  <textarea id="coachNote" maxlength="50000" placeholder="متن بازخورد، تحلیل ارزیابی یا توضیحات اختصاصی برای شاگرد…">${esc(ass.coach_note || '')}</textarea>
-                </label>
-
-                <div class="review-actions">
-                  <button class="review-action approve" id="btnApprove" ${reviewable ? '' : 'disabled'}>✓ <span>تأیید ارزیابی</span></button>
-                  <button class="review-action revise" id="btnRequestChanges" ${reviewable ? '' : 'disabled'}>↻ <span>درخواست اصلاح</span></button>
-                  <button class="review-action reject" id="btnReject" ${reviewable ? '' : 'disabled'}>× <span>رد ارزیابی</span></button>
-                  <button class="review-action reject" id="btnDeleteAssessment" type="button">🗑 <span>حذف ارزیابی</span></button>
-                  <a class="review-action message" href="/users-list/${student.case_number || student.id}">✉ <span>پیام به شاگرد</span></a>
-                </div>
-
-                <p class="review-action-feedback" id="reviewActionFeedback" role="alert"></p>
-
-                ${lifecycle === 'APPROVED' ? `
-                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
-                    <button type="button" class="btn btn-primary review-program-link" id="btnAiBuildProgram" style="width:100%;font-weight:900;display:flex;align-items:center;justify-content:center;gap:6px;">
-                      🤖 ساخت برنامه با AI
-                    </button>
-                    <a class="btn btn-secondary review-program-link" href="/programs/exercise/form?student_id=${student.id}&assessment_id=${id}" style="text-align:center;font-weight:750;">
-                      ساخت برنامه ۳۰ روزه (دستی)
-                    </a>
-                  </div>
-                ` : ''}
-              </section>
-            </aside>
-          </div>
-        </div>
-      `;
-
-      async function decide(action, requiresNote) {
-        const feedback = document.querySelector('#reviewActionFeedback');
-        const note = document.querySelector('#coachNote').value.trim();
-        if (requiresNote && !note) {
-          feedback.textContent = 'برای این تصمیم، نوشتن یادداشت الزامی است.';
-          return;
-        }
-        document.querySelectorAll('.review-action button, button.review-action').forEach(b => b.disabled = true);
-        feedback.textContent = 'در حال ثبت تصمیم مربی…';
-
-        try {
+      async function decide(action,requiresNote){
+        const feedback=document.querySelector('#reviewActionFeedback');
+        const note=document.querySelector('#coachNote').value.trim();
+        if(requiresNote&&!note){feedback.textContent='برای این تصمیم، نوشتن یادداشت الزامی است.';feedback.classList.add('bad');return;}
+        document.querySelectorAll('button.rvw-act').forEach(b=>b.disabled=true);
+        feedback.textContent='در حال ثبت تصمیم…';
+        try{
           if(lifecycle==='SUBMITTED')await api(`/api/assessments/${id}/under-review`,{method:'POST'});
           await api(`/api/assessments/${id}/${action}`,{method:'POST',body:JSON.stringify({coach_note:note})});
           if(action==='approve')location.href=`/programs/exercise/form?student_id=${student.id}&assessment_id=${id}`;
           else location.reload();
-        } catch (error) {
-          feedback.textContent = error.message;
-          document.querySelectorAll('button.review-action').forEach(b => b.disabled = false);
+        }catch(error){
+          feedback.textContent=error.message;feedback.classList.add('bad');
+          document.querySelectorAll('button.rvw-act').forEach(b=>{b.disabled=false;});
         }
       }
-
-      document.querySelector('#btnApprove')?.addEventListener('click', () => decide('approve', false));
-      document.querySelector('#btnRequestChanges')?.addEventListener('click', () => decide('request-changes', true));
-      document.querySelector('#btnReject')?.addEventListener('click', () => decide('reject', true));
-      document.querySelector('#btnDeleteAssessment')?.addEventListener('click', async () => {
-        if(!confirm(`ارزیابی #${ass.assessment_number} شاگرد «${student.full_name}» با عکس‌ها و مدارک آن برای همیشه حذف شود؟`)) return;
-        const feedback = document.querySelector('#reviewActionFeedback');
-        const button = document.querySelector('#btnDeleteAssessment');
-        if(button) button.disabled = true;
-        if(feedback) feedback.textContent = 'در حال حذف ارزیابی…';
-        try{
-          await api(`/api/assessments/${id}`, {method:'DELETE'});
-          location.href = '/students/submissions';
-        }catch(error){
-          if(feedback) feedback.textContent = error.message;
-          if(button) button.disabled = false;
-        }
+      document.querySelector('#btnApprove')?.addEventListener('click',()=>decide('approve',false));
+      document.querySelector('#btnRequestChanges')?.addEventListener('click',()=>decide('request-changes',true));
+      document.querySelector('#btnReject')?.addEventListener('click',()=>decide('reject',true));
+      document.querySelector('#btnDeleteAssessment')?.addEventListener('click',async()=>{
+        if(!confirm(`ارزیابی شماره ${ass.assessment_number} شاگرد «${student.full_name}» همراه با عکس‌ها و مدارکش برای همیشه حذف شود؟`))return;
+        const feedback=document.querySelector('#reviewActionFeedback'),button=document.querySelector('#btnDeleteAssessment');
+        button.disabled=true;feedback.textContent='در حال حذف…';
+        try{await api(`/api/assessments/${id}`,{method:'DELETE'});location.href='/students/submissions';}
+        catch(error){feedback.textContent=error.message;button.disabled=false;}
       });
-
-      document.querySelector('#btnAiBuildProgram')?.addEventListener('click', () => {
-        if (window.openAICopilot) {
-          window.openAICopilot({ studentId: student.id, assessmentId: id });
-        }
-      });
-
-      document.querySelector('#btnAiAnalyze')?.addEventListener('click', () => {
-        if (window.openAIAssessmentModal) {
-          window.openAIAssessmentModal({ student, assessment: ass, assessmentDetails: details, assessmentId: id });
-        }
-      });
-    } catch (error) {
-      content.innerHTML = `<section class="coach-review-error"><b>ارزیابی باز نشد</b><p>${esc(error.message)}</p><a class="btn btn-secondary" href="/students/submissions">بازگشت به فهرست</a></section>`;
+      document.querySelector('#btnAiBuildProgram')?.addEventListener('click',()=>{if(window.openAICopilot)window.openAICopilot({studentId:student.id,assessmentId:id});});
+      document.querySelector('#btnAiAnalyze')?.addEventListener('click',()=>{if(window.openAIAssessmentModal)window.openAIAssessmentModal({student,assessment:ass,assessmentDetails:details,assessmentId:id});});
+    }catch(error){
+      content.innerHTML=`<section class="coach-review-error"><b>ارزیابی باز نشد</b><p>${esc(error.message)}</p><a class="btn btn-secondary" href="/students/submissions">بازگشت به فهرست</a></section>`;
     }
   };
 

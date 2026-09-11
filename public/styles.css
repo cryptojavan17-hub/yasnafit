@@ -367,3 +367,112 @@ tbody tr:last-child td { border-bottom: 0; }
 @media (max-width: 1100px) { .db-bottom { grid-template-columns: 1fr 1fr; } .db-timeline { grid-column: 1 / -1; } }
 @media (max-width: 860px) { .db-mid { grid-template-columns: 1fr; } .db-bottom { grid-template-columns: 1fr; } .db-student { flex-wrap: wrap; } .db-student-program, .db-student-activity { min-width: 45%; } }
 @media (max-width: 560px) { .db-hero { padding: 16px; } .db-hero h1 { font-size: 18px; } .db-stats { grid-template-columns: 1fr 1fr; } .db-quick-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ═══════════ ۲۱. صفحهٔ بررسی ارزیابی (بازطراحی کامل — فشرده، جدولی، موبایل‌اول) ═══════════ */
+.rvw { display: flex; flex-direction: column; gap: 10px; max-width: 1120px; margin: 0 auto; overflow-x: hidden; }
+.rvw-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--glass); }
+.rvw-head-main { display: flex; gap: 10px; align-items: flex-start; min-width: 0; flex: 1; }
+.rvw-back { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-inset); color: var(--text-secondary); font-size: 16px; text-decoration: none; }
+.rvw-back:hover { color: var(--text); border-color: var(--border-strong); }
+.rvw-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rvw-title-row h1 { margin: 0; font-size: clamp(17px, 2vw, 21px); }
+.rvw-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.rvw-chip { font-size: 10.5px; color: var(--text-secondary); background: var(--surface-inset); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; }
+.rvw-chip b { color: var(--text); font-weight: 700; }
+.rvw-chip-goal { border-color: var(--accent-border); background: var(--accent-surface); color: var(--text); }
+.rvw-head-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.rvw-link { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-inset); color: var(--text-secondary); font-size: 11px; text-decoration: none; }
+.rvw-link:hover { color: var(--text); border-color: var(--accent-border); background: var(--accent-surface); }
+.rvw-cards, .rvw { min-width: 0; }
+.rvw-card { border: 1px solid var(--border); border-radius: 14px; background: var(--glass); overflow: hidden; min-width: 0; }
+.rvw-card > header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-inset); }
+.rvw-card > header h2 { margin: 0; font-size: 12.5px; flex: 1; min-width: 0; }
+.rvw-ico { flex: 0 0 26px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--accent-surface); border: 1px solid var(--accent-border); font-size: 13px; }
+.rvw-tag { font-size: 10px; font-weight: 700; color: var(--warning); background: rgba(251, 191, 36, .12); border: 1px solid rgba(251, 191, 36, .35); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.rvw-pad { padding: 9px 12px; }
+/* جدول‌ها — دسکتاپ */
+.rvw-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.rvw-table thead th { font-size: 9.5px; font-weight: 700; color: var(--text-muted); text-align: right; padding: 0 8px 5px; border-bottom: 1px solid var(--border-strong); }
+.rvw-table tbody th, .rvw-table tbody td { padding: 5.5px 8px; border-bottom: 1px solid var(--border); text-align: right; vertical-align: top; }
+.rvw-table tbody tr:last-child th, .rvw-table tbody tr:last-child td { border-bottom: 0; }
+.rvw-table tbody th { width: 30%; color: var(--text-secondary); font-weight: 600; }
+.rvw-table td { color: var(--text); }
+.rvw-table .cell-note { color: var(--text-muted); font-size: 10.5px; width: 34%; }
+.rvw-table-4 tbody th { width: 28%; } .rvw-table-4 td { width: 24%; }
+.rvw-strong { color: var(--accent-hover); font-size: 12.5px; }
+.rvw-key { font-size: 8.5px; font-weight: 800; color: var(--accent-hover); background: var(--accent-surface); border: 1px solid var(--accent-border); border-radius: 999px; padding: 1px 6px; vertical-align: 1px; }
+/* قرص‌ها */
+.rvw-pill { display: inline-block; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--border); background: var(--surface-inset); color: var(--text-secondary); }
+.rvw-pill.ok { color: var(--success); background: var(--success-surface); border-color: var(--success-border); }
+.rvw-pill.warn { color: var(--warning); background: rgba(251, 191, 36, .1); border-color: rgba(251, 191, 36, .35); }
+.rvw-pill.bad { color: var(--danger); background: rgba(248, 113, 113, .1); border-color: rgba(248, 113, 113, .35); }
+.rvw-pill.dim { color: var(--text-muted); }
+.rvw-pill.accent { color: var(--accent-hover); background: var(--accent-surface); border-color: var(--accent-border); }
+/* بلوک‌های ویژه */
+.rvw-empty { padding: 8px; text-align: center; font-size: 10.5px; color: var(--text-muted); background: var(--surface-inset); border: 1px dashed var(--border-strong); border-radius: 9px; }
+.rvw-bmi { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 8px 11px; margin-bottom: 8px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-inset); }
+.rvw-bmi small { color: var(--text-muted); font-size: 9.5px; }
+.rvw-bmi-val { font-size: 12px; }
+.rvw-bmi.ok { border-color: var(--success-border); background: var(--success-surface); }
+.rvw-bmi.warn { border-color: rgba(251, 191, 36, .4); background: rgba(251, 191, 36, .08); }
+.rvw-bmi.bad { border-color: rgba(248, 113, 113, .4); background: rgba(248, 113, 113, .08); }
+.rvw-alert { display: block; padding: 8px 11px; margin-bottom: 8px; border-radius: 10px; border: 1px solid rgba(248, 113, 113, .4); background: rgba(248, 113, 113, .08); color: var(--danger); font-size: 11px; }
+.rvw-alert b { color: var(--danger); }
+.rvw-goals { display: flex; flex-wrap: wrap; gap: 6px; }
+.rvw-goal { font-size: 11px; font-weight: 700; color: var(--accent-hover); background: var(--accent-surface); border: 1px solid var(--accent-border); border-radius: 999px; padding: 4px 12px; }
+.rvw-note { margin-top: 8px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-inset); font-size: 11px; color: var(--text-secondary); }
+.rvw-note b { color: var(--text); }
+.rvw-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.rvw-tel { color: var(--text); text-decoration: none; font-weight: 700; }
+.rvw-tel:hover { color: var(--accent-hover); }
+.rvw-linkchip { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--accent-surface); color: var(--accent-hover); font-size: 10.5px; text-decoration: none; }
+/* عکس و مدرک */
+.rvw-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.rvw-photos a { position: relative; display: block; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); aspect-ratio: 3/4; }
+.rvw-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rvw-photos span { position: absolute; inset-inline: 6px; bottom: 6px; text-align: center; font-size: 9.5px; color: var(--text); background: rgba(0, 0, 0, .55); border-radius: 7px; padding: 3px 5px; }
+.rvw-docs { display: flex; flex-direction: column; gap: 6px; }
+.rvw-docs a { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-inset); text-decoration: none; }
+.rvw-docs a:hover { border-color: var(--accent-border); }
+.rvw-doc-ico { font-size: 15px; }
+.rvw-doc-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 11px; color: var(--text); }
+.rvw-doc-name small { color: var(--text-muted); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* بخش تصمیم مربی */
+.rvw-ai { width: 100%; margin-bottom: 9px; font-weight: 700; }
+.rvw-note-label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.rvw-note-label span { font-size: 10.5px; color: var(--text-secondary); }
+.rvw-note-label textarea { width: 100%; min-height: 96px; resize: vertical; padding: 9px 11px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-inset); color: var(--text); font: inherit; font-size: 12px; }
+.rvw-note-label textarea:focus { outline: none; border-color: var(--border-focus); }
+.rvw-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.rvw-act { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-inset); color: var(--text); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.rvw-act:hover { border-color: var(--accent-border); background: var(--accent-surface); }
+.rvw-act.ok { border-color: var(--success-border); background: var(--success-surface); color: var(--success); }
+.rvw-act.ok:hover { background: var(--success-surface); border-color: var(--success); }
+.rvw-act.warn { border-color: rgba(251, 191, 36, .4); background: rgba(251, 191, 36, .08); color: var(--warning); }
+.rvw-act.bad { border-color: rgba(248, 113, 113, .4); background: rgba(248, 113, 113, .08); color: var(--danger); }
+.rvw-act.bad:hover { border-color: var(--danger); }
+.rvw-act:disabled { opacity: .45; cursor: not-allowed; }
+.rvw-feedback { min-height: 16px; margin: 8px 0 0; font-size: 10.5px; color: var(--text-muted); }
+.rvw-feedback.bad { color: var(--danger); }
+.rvw-program-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.rvw-program-row .btn { justify-content: center; display: flex; align-items: center; min-height: 40px; font-size: 11.5px; }
+/* ── موبایل: جدول‌ها به ردیف‌های عمودی، اکشن‌ها تمام‌عرض ── */
+@media (max-width: 680px) {
+  .rvw { gap: 8px; }
+  .rvw-head { padding: 10px 11px; }
+  .rvw-pad { padding: 8px 10px; }
+  .rvw-table thead { display: none; }
+  .rvw-table, .rvw-table tbody { display: block; width: 100%; }
+  .rvw-table tbody tr { display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-inset); padding: 6px 9px; margin-bottom: 6px; }
+  .rvw-table tbody tr:last-child { margin-bottom: 0; }
+  .rvw-table tbody th, .rvw-table tbody td { display: block; width: 100%; border: 0; padding: 1px 0; }
+  .rvw-table tbody th { font-size: 9px; color: var(--text-muted); font-weight: 700; }
+  .rvw-table tbody td { font-size: 12px; padding-bottom: 3px; }
+  .rvw-table .cell-note { font-size: 10px; padding-bottom: 0; }
+  .rvw-table-4 tbody td { display: inline-block; width: auto; margin-inline-end: 10px; }
+  .rvw-actions { grid-template-columns: 1fr 1fr; }
+  .rvw-actions .rvw-act { min-height: 44px; }
+  .rvw-photos { grid-template-columns: repeat(2, 1fr); }
+  .rvw-program-row { grid-template-columns: 1fr; }
+  .rvw-head-links { width: 100%; }
+}
