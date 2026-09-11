@@ -3,15 +3,6 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 set "PORT=3020"
 
-REM ==== 2FA OFF (local only) ==============================================
-REM This line skips the Google Authenticator 6-digit step on THIS computer.
-REM It sets YASNAFIT_ALLOW_2FA_SKIP=1 only for the server started by this
-REM launcher. Railway/production is NOT affected (it runs `node server.js`).
-REM The enrolled key stays untouched - to turn 2FA back on, just delete
-REM the "set" line below and restart the server.
-set "YASNAFIT_ALLOW_2FA_SKIP=1"
-REM ========================================================================
-
 :MENU
 cls
 echo ====================================================
@@ -36,7 +27,7 @@ goto MENU
 
 :STATUS
 powershell -NoProfile -Command "$l=Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue; if($l){Write-Host 'Server Status: RUNNING' -ForegroundColor Green}else{Write-Host 'Server Status: STOPPED' -ForegroundColor Red}; if(Test-Path 'data\yasnafit.db'){Write-Host 'Database Health: ONLINE' -ForegroundColor Green}else{Write-Host 'Database Health: NOT INITIALIZED' -ForegroundColor Yellow}; Write-Host 'Port: %PORT%'"
-if defined YASNAFIT_ALLOW_2FA_SKIP (echo 2FA 6-digit code: DISABLED on this PC - login is email + password only) else (echo 2FA 6-digit code: ENABLED - Google Authenticator required)
+echo Login: email + password (no 2FA code needed)
 exit /b
 
 :CHECKCODE
@@ -55,33 +46,14 @@ exit /b
 where node >nul 2>&1
 if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then reopen this launcher.& exit /b 1)
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
-if not errorlevel 1 (echo Server is already running on port %PORT%. If you just pulled new code, choose 2 to restart it.& call :CHECKCODE& call :SHOW_AUTHENTICATOR& call :OPEN_DASHBOARD& exit /b)
+if not errorlevel 1 (echo Server is already running on port %PORT%. If you just pulled new code, choose 2 to restart it.& call :CHECKCODE& call :OPEN_DASHBOARD& exit /b)
 if not exist logs mkdir logs
 echo Starting Yasnafit server in background (no extra window)...
 REM Run node in background without new window (/B) - keeps launcher visible
 start "" /B node server.js > logs\server.log 2>&1
 timeout /t 2 /nobreak >nul
-call :SHOW_AUTHENTICATOR
 call :OPEN_DASHBOARD
 echo Yasnafit started at http://localhost:%PORT% - launcher stays open
-exit /b
-
-:SHOW_AUTHENTICATOR
-if defined YASNAFIT_ALLOW_2FA_SKIP (
-  echo Google Authenticator step is OFF on this PC - no key needed to log in.
-  exit /b
-)
-if exist data\coach-authenticator.txt (
-  echo.
-  echo ----------------------------------------------------
-  echo لینک و کلید Google Authenticator:
-  type data\coach-authenticator.txt
-  echo ----------------------------------------------------
-  echo Notepad this file if you have not added Authenticator yet.
-  start "" notepad "data\coach-authenticator.txt"
-  echo.
-  pause
-)
 exit /b
 
 :OPEN_DASHBOARD

@@ -115,29 +115,24 @@ sudo ufw allow 80,443/tcp && sudo ufw deny 3020/tcp   # پورت برنامه ب
 ```
 
 مسیرهای `data/` و `backups/` هنگام بالا آمدن سرور با مجوز `700` ساخته می‌شوند و
-`data/smtp.json` (شامل App Password جیمیل) و `data/coach-authenticator.txt` با مجوز `600`
+`data/smtp.json` (شامل App Password جیمیل) با مجوز `600`
 نوشته می‌شوند. اگر از نسخه‌های قبلی ارتقا می‌دهید، یک‌بار دستی محکمشان کنید:
 
 ```bash
 sudo chmod 700 data backups
-sudo chmod 600 data/smtp.json data/coach-authenticator.txt 2>/dev/null || true
+sudo chmod 600 data/smtp.json 2>/dev/null || true
 ```
 
-## ۵. حساب مربی و Google Authenticator (بدون رابط گرافیکی)
-
-> **مهم:** ساخت حساب مربی (`/coach/setup`) فقط از روی خودِ سرور (آدرس لوپ‌بک) مجاز است؛ تا
-> وقتی حسابی ساخته نشده، هر کس دیگری که زودتر به آدرس عمومی سرور برسد می‌توانست حساب را
+## ۵. حساب مربی
 > تصاحب کند. برای اجرای از راه دور یا `YASNAFIT_ALLOW_REMOTE_SETUP=1` بگذارید یا از تونل
 > SSH (`ssh -L 3020:127.0.0.1:3020 server`) استفاده کنید. بعد از اولین ساخت، این مسیر برای
 > همه ۴۰۴ می‌شود.
 
 ```bash
-# یک‌بار: ساخت حساب مربی + چاپ کلید TOTP (کلید در data/coach-authenticator.txt هم ذخیره می‌شود)
-sudo -u yasnafit YASNAFIT_COACH_PASSWORD='یک-رمز-قوی' node scripts/provision-coach-totp.js
-
-# در صورت نشتی/گم‌شدن گوشی:
-sudo -u yasnafit node scripts/provision-coach-totp.js --rotate
+# یک‌بار: از روی خودِ سرور به /coach/setup بروید و ایمیل + رمز مربی را بسازید.
+# ورود مربی تک‌مرحله‌ای است: ایمیل + رمز (مرحلهٔ کد ۶ رقمی حذف شده است).
 ```
+
 
 ایمیل ورود مربی ثابت است: `crypto.javan17@gmail.com`. برای بازیابی رمز، از
 `/coach/mail` (یا تنظیمات مربی) یک **App Password** جیمیل وارد کنید تا لینک ریست واقعی
@@ -189,7 +184,6 @@ npm test && sudo systemctl restart yasnafit
 - [ ] `curl https://domain/api/health` → فقط `{ok,status,version,uptime}` (بدون تعداد شاگرد/پورت)
 - [ ] `curl https://domain/api/build` → ۴۰۱ برای کاربر ناشناس
 - [ ] `data/` و `backups/` با مجوز ۷۰۰، `smtp.json` با ۶۰۰
-- [ ] کلید TOTP مربی در گوشی ذخیره و یک بکاپ تست‌شده در جای دیگر گرفته شده
 
 ---
 
@@ -200,7 +194,7 @@ npm test && sudo systemctl restart yasnafit
 ### ۹.۱ مراحل (حدود ۵ دقیقه)
 
 1. **New Project → Deploy from GitHub repo** → `cryptojavan17-hub/yasnafit` → **Branch: `main`**. از ۲۰۲۶-۰۹-۰۲ (`50aaa53`، merge PR #2) کل برنامه روی `main` است و `railway.json` + `package-lock.json` هم همان‌جا commit شده‌اند؛ اگر سرویس شما روی `arena/…` تنظیم شده، همان هم معتبر است (محتوا یکسان است) ولی برای deploy طولانی‌مدت `main` را انتخاب کنید.
-2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json`، `coach-authenticator.txt` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
+2. روی سرویس: **Right click → Attach Volume** و Mount Path را `/app/data` (یا `/data`) بگذارید. برنامه خودش `RAILWAY_VOLUME_MOUNT_PATH` را که Railway به‌صورت خودکار inject می‌کند دنبال می‌کند (`src/storage-paths.js`)، پس هر دو مسیر کار می‌کند؛ با این کار دیتابیس، آپلودهای خصوصی شاگرد (`assessments/`, `assessment-documents/`)، `smtp.json` و **بکاپ‌ها** روی دیسک دائمی می‌نشینند. ⚠️ بعد از اینکه داده‌ای روی Volume نوشته شد، **mount path را عوض نکنید** — مسیر فایل‌های خصوصی در DB به‌صورت absolute ذخیره می‌شود.
 3. در **Variables** این نام‌ها را ست کنید (مقادیر محرمانه را فقط در همان داشبورد بگذارید؛ هیچ رمزی در این فایل نمی‌آید):
 
 | متغیر | مقدار | چرا |
@@ -211,8 +205,6 @@ npm test && sudo systemctl restart yasnafit
 | `YASNAFIT_COOKIE_SECURE` | `1` | کوکی نشست‌ها حتماً `Secure` بخورد |
 | `YASNAFIT_BACKUP_DIR` | لازم نیست | وقتی Volume وصل باشد بکاپ به‌صورت خودکار داخل آن می‌نشیند؛ فقط اگر خواستید جای دیگری برود ستش کنید |
 | `YASNAFIT_ALLOW_REMOTE_SETUP` | `1` **فقط موقتاً** | برای اولین ورود — بند ۹.۳ را ببینید |
-| `YASNAFIT_REVEAL_AUTHENTICATOR_KEY` | `1` **فقط موقتاً و در صورت گم‌شدن کلید 2FA** | کلید فعلی را یک‌بار در لاگ چاپ می‌کند (§۹.۸) — بعد از استفاده حتماً پاک شود |
-| `YASNAFIT_ALLOW_2FA_SKIP` | `1` **فقط موقتاً، فقط برای تست** | مرحلهٔ کد ۶ رقمی مربی را رد می‌کند (§۹.۹) — بعد از تست حتماً پاک شود |
 
    اگر build نسخهٔ Node قدیمی گرفت: `NIXPACKS_NODE_VERSION=22`؛ اگر روی Volume خطای `EACCES` دیدید: `RAILWAY_RUN_UID=0`.
 4. **Settings → Networking → Generate Domain** ⇒ `https://<name>.up.railway.app`.
@@ -226,8 +218,7 @@ npm test && sudo systemctl restart yasnafit
 
 1. موقتاً `YASNAFIT_ALLOW_REMOTE_SETUP=1` بگذارید و redeploy کنید،
 2. به `https://<domain>/coach/setup` بروید و اکانت را بسازید (ایمیل مربی در کد قفل است)،
-3. `data/coach-authenticator.txt` روی Volume نوشته می‌شود ⇒ کلید TOTP را در Google Authenticator وارد کنید. ⚠️ این کلید **در لاگ سرویس چاپ نمی‌شود** (عمداً)؛ تنها راه خواندنش از راه دور، فایل روی Volume یا بند §۹.۸ است،
-4. **متغیر را پاک کنید** و دوباره redeploy کنید.
+3. **متغیر را پاک کنید** و دوباره redeploy کنید. ورود مربی تک‌مرحله‌ای است (ایمیل + رمز) و نیازی به Google Authenticator نیست.
 
 برای ایمیل بازیابی هم بعد از ورود به `/coach/mail` بروید و App Password جیمیل را وارد کنید (در `data/smtp.json` روی Volume ذخیره می‌شود؛ نیاز به متغیر محیطی ندارد).
 
@@ -277,73 +268,10 @@ railway logs --limit 80              # باید «Imported 2707 exercises…» �
 
 **نکتهٔ ترتیب کار:** هیچ لاگ build را با «برنامه خراب است» اشتباه نگیرید — تا وقتی درخت build شامل `server.js` نباشد، کد اصلاً اجرا نشده. بعد از هر deploy هم اول `GET /api/health` را چک کنید (§۹.۵).
 
-### ۹.۸ اگر کد Google Authenticator کار نکرد (کلید سرور با گوشی فرق دارد)
+### ۹.۸ تأیید دو مرحله‌ای مربی حذف شده است (۲۰۲۶-۰۹-۱۱)
 
-**علت رایج و طبیعی:** کلید TOTP در **دیتابیس همان سرور** زندگی می‌کند (`coaches.totp_secret`)، نه در گوشی شما. دیتابیس Railway تازه است ⇒ `POST /api/coach/auth/setup` عمداً `totp_secret` را `NULL` می‌گذارد و در اولین restart، `ensureCoachAuthenticator()` یک **کلید تازه می‌سازد، 2FA را تأییدشده علامت می‌زند و کلید را در `<mount>/coach-authenticator.txt` می‌نویسد**. بنابراین کدِ کلیدِ نسخهٔ لوکال روی Railway هیچ‌وقت درست نمی‌شود؛ باید کلیدِ همان سرور را در اپ بگذارید.
-
-**قدم ۱ — کلید درست را بردارید (هر کدام از این دو):**
-```bash
-railway ssh -s <service> -- cat /app/data/coach-authenticator.txt   # یا مسیر mount خودتان
-railway volume browse                                              # فایل را دانلود/باز کنید
-```
-سپس در Google Authenticator: روی ورودی قدیمی **Yasnafit** بزنید → حذف → **Add account → Enter a setup key** → `کلید Secret` را بدون فاصله و با حرف بزرگ وارد کنید، Type: **Time based** (الگوریتم SHA‑1، ۶ رقم) → کد ۶ رقمی را در `/coach/2fa` بزنید.
-
-**قدم ۲ — اگر فایل را ندارید، کلید را بچرخانید:**
-```bash
-railway ssh -s <service> -- node scripts/provision-coach-totp.js --rotate
-```
-اسکریپت کلید تازه می‌سازد، همان را در `<mount>/coach-authenticator.txt` می‌نویسد و **همهٔ نشست‌های مربی را باطل می‌کند** (لازم است دوباره وارد شوید). در محیط کانتینر کلید عمداً در stdout چاپ نمی‌شود؛ چون لاگ سرویس ممکن است ذخیره شود. مسیر دیتابیس را همین اسکریپت هم از `src/storage-paths.js` می‌خواند و اگر فایل دیتابیس پیدا نشود، **کار را متوقف می‌کند** تا کلید بی‌فایده نسازد.
-
-**قدم ۳ — هیچ CLI ندارید؟** موقتاً متغیر `YASNAFIT_REVEAL_AUTHENTICATOR_KEY=1` را در Variables بگذارید و redeploy کنید؛ در لاگ سرویس یک‌بار `Email` و `Secret` چاپ می‌شود. بعد از واردشدن، **متغیر را پاک کنید و دوباره redeploy کنید** (نگه‌داشتنش یعنی هر نفری که به لاگ Railway دسترسی دارد کلید 2FA شما را می‌بیند).
-
-**چیزهایی که واقعاً باعث fail شدن کد می‌شوند (به ترتیب شیوع):**
-1. کلید گوشی با کلید این سرور فرق دارد (مهم‌ترین؛ توضیح بالا).
-2. **قفلشدن:** ۳ کد غلط روی یک چلنج ⇒ `AUTH_LOCKED` برای **۱۵ دقیقه**. بعدش دوباره امتحان کنید، نه بیشتر.
-3. **کد یک‌بارمصرف است:** شمارندهٔ کدهای مصرف‌شده در DB نگه داشته می‌شود ⇒ همان کد دوباره رد می‌شود. کدِ جاری را بزنید.
-4. **چلنج ۵ دقیقه** عمر دارد (`/coach/2fa` را رفرش کنید و از `/coach/login` دوباره ادامه دهید).
-5. **ساعت گوشی:** تلورانس ±۳۰ ثانیه است (یک پنجره ۳۰ ثانیه‌ای). اگر گوشی روی ساعت دستی است، آن را خودکار کنید.
-6. چند ورودی هم‌نام در Authenticator ⇒ آن که تازه اضافه کرده‌اید را انتخاب کنید.
-
-**سه نکتهٔ مهم:** (الف) تا وقتی یک بار موفق وارد نشده‌اید، هر restart همان فایل کلید را از روی DB دوباره می‌نویسد، پس عجله ندارید — ولی اگر Volume وصل نکرده باشید، هر restart **کل دیتابیس** را هم پاک می‌کند و کلید هم عوض می‌شود. (ب) بعد از **اولین ورود موفق**، فایل `coach-authenticator.txt` برای امنیت پاک می‌شود ⇒ قبلش از کلید در password manager یا `otpauth://` کپی نگه دارید. (ج) ایمیل بازیابی روی Railway هنوز تنظیم نیست (`GET /api/coach/auth/status` → `mail_configured: false`)؛ تا `/coach/mail` را پر نکرده‌اید، «رمزم را یادم رفته» فقط در فایل `coach-reset-dev.txt` روی Volume نوشته می‌شود.
-
-### ۹.۹ خاموش‌کردن **موقت** تأیید دو مرحله‌ای مربی (برای تست)
-
-وقتی فقط می‌خواهید پنل را سریع تست کنید و کلید 2FA آن سرور هنوز در گوشی شما نیست، متغیر `YASNAFIT_ALLOW_2FA_SKIP=1` مرحلهٔ کد ۶ رقمی را رد می‌کند:
-
-```bash
-railway variables --set "YASNAFIT_ALLOW_2FA_SKIP=1"
-railway redeploy
-```
-
-**دقیقاً چه کار می‌کند و چه کار نمی‌کند:**
-
-| رفتار | وضعیت |
-|---|---|
-| رمز عبور مربی | **همچنان الزامی** — با رمز غلط همان `INVALID_CREDENTIALS` را می‌گیرید؛ این متغیر فقط عامل دوم را رد می‌کند |
-| پس از «ادامه» در `/coach/login` | به‌جای `/coach/2fa` مستقیم به `/coach/dashboard` می‌روید (پاسخ API: `two_factor_skipped: true`) |
-| کلید Google Authenticator | **دست‌نخورده** — `totp_secret` در DB می‌ماند، چیزی ریست یا rotate نمی‌شود؛ بعد از پاک‌کردن متغیر همان کلید دوباره لازم می‌شود |
-| ورود شاگردها / رمز ۴ رقمی / کوکی‌ها / rate limit | بدون تغییر (پرچم فقط در مسیر `POST /api/coach/auth/login` مربی مصرف می‌شود) |
-| لاگ سرویس | در هر استارت هشدار قرمز می‌چاپد: «تأیید دو مرحله‌ای مربی موقتاً رد می‌شود» |
-| رویدادهای احراز هویت | هر ورود با `detail=two_factor_skipped` ثبت می‌شود، پس بعداً قابل پیگیری است |
-| ردپای بیرونی | `GET /api/health?detailed=1` (با نشست مربی) فیلد `two_factor_skipped: true` نشان می‌دهد |
-
-**خاموش‌کردن بعد از تست (باید انجام شود):** متغیر را از **داشبورد → Variables** پاک کنید و redeploy بزنید. اگر با CLI کار می‌کنید، مقدار تهی هم کافی است (برنامه فقط `1|true|yes|on` را روشن می‌شمارد):
-```bash
-railway variables --set "YASNAFIT_ALLOW_2FA_SKIP="
-railway redeploy
-```
-و در هر دو حالت دوباره `curl -s https://<domain>/api/health` را چک کنید؛ بعد از روشن‌شدن 2FA، ورود باید دوباره به `/coach/2fa` برود.
-
-**روی لوکال/ویندوز (برای تست شخصی):** قبل از بالا آوردن سرور در همان پنجرهٔ cmd:
-```bat
-set YASNAFIT_ALLOW_2FA_SKIP=1
-node server.js
-```
-(سری‌تر از لانچر است ولی همان اثر را دارد؛ برای بازگرداندن، همان پنجره را ببندید و با لانچر عادی اجرا کنید.)
-
-**تنظیم دائمی روی ویندوز از طریق لانچر:** از این به بعد `YASNAFIT-LAUNCHER.bat` همین متغیر را خودش ست می‌کند — یعنی روی **همان یک کامپیوتر** ورود مربی فقط با ایمیل + رمز است و صفحهٔ `/coach/2fa` نشان داده نمی‌شود؛ پنجرهٔ Notepad کلید Authenticator هم دیگر باز نمی‌شود. این تنظیم فقط محلی است: Railway/پروداکشن از این فایل استفاده نمی‌کند و 2FA آن سر جایش می‌ماند. برای برگرداندن 2FA روی لوکال، خط `set "YASNAFIT_ALLOW_2FA_SKIP=1"` را از ابتدای لانچر حذف کنید و سرور را ری‌استارت کنید — کلید enrolled همان قبلی است و بدون enroll دوباره کار می‌کند.
-
-⚠️ **خطر:** تا وقتی این متغیر روی سرویس عمومی روشن است، هرکس رمز عبور مربی را دارد **بدون دومین عامل** وارد پنل تمام شاگردها می‌شود. آن را برای «همیشه» روشن نگذارید؛ اگر مشکلتان فقط گم‌شدن کلید است، §۹.۸ راه امن‌تری است (کلید را برمی‌دارید و 2FA سر جایش می‌ماند).
+مرحلهٔ کد ۶ رقمی Google Authenticator از جریان ورود مربی **حذف شده است**؛ ورود تک‌مرحله‌ای است: ایمیل + رمز ⇒ نشست ۱۲ ساعته.
+صفحهٔ `/coach/2fa`، endpointهای `challenge/verify`، متغیرهای `YASNAFIT_ALLOW_2FA_SKIP`/`YASNAFIT_REVEAL_AUTHENTICATOR_KEY` و اسکریپت `scripts/provision-coach-totp.js` دیگر وجود ندارند. اگر ورودی «Yasnafit» را از قبل در Google Authenticator گوشی دارید، می‌توانید آن را حذف کنید. زیرساخت TOTP در دیتابیس (ستون‌های `totp_*` و جدول چالش‌ها) دست‌نخورده مانده تا برگشت به عقب ساده بماند، ولی هیچ مسیر فعلی از آن استفاده نمی‌کند.
 
 ### ۹.۱۰ عکس‌های حرکات روی Volume (از ۲۰۲۶-۰۹-۰۳ / Task 22)
 

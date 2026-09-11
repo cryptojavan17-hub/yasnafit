@@ -54,7 +54,7 @@ assert.match(styles, /:root\[data-theme="light"\] \.theme-toggle \.icon-moon \{ 
 assert.match(styles, /@media \(max-width: 680px\) \{ \.theme-toggle \{ width: 40px/, 'the toggle must grow on phones for comfortable touch');
 
 // ─── 6. صفحه‌های ورود مربی: بوت‌استرپ + دکمهٔ شناور ───
-for (const file of ['coach-login.html', 'coach-2fa.html', 'coach-forgot.html', 'coach-mail.html', 'coach-reset.html', 'coach-setup.html']) {
+for (const file of ['coach-login.html', 'coach-forgot.html', 'coach-mail.html', 'coach-reset.html', 'coach-setup.html']) {
   const src = read(file);
   assert.ok(src.includes('theme-toggle-float'), `${file} must carry the floating theme toggle`);
   assert.ok(src.includes('<script src="/theme-toggle.js"></script>'), `${file} must load theme-toggle.js`);

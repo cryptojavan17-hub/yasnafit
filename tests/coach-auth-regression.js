@@ -266,8 +266,7 @@ try{
     const publicDir=path.join(__dirname,'..','public');
     const scriptSource=fs.readFileSync(path.join(publicDir,'coach-login.js'),'utf8');
     const pages={
-      '/coach/login':['coach-login.html','coachPasswordForm','coachPasswordSubmit','/api/coach/auth/login','/coach/2fa'],
-      '/coach/2fa':['coach-2fa.html','coachTotpForm','coachTotpSubmit','/api/coach/auth/verify','/coach/dashboard'],
+      '/coach/login':['coach-login.html','coachPasswordForm','coachPasswordSubmit','/api/coach/auth/login','/coach/dashboard'],
       '/coach/forgot':['coach-forgot.html','coachForgotForm','coachForgotSubmit','/api/coach/auth/forgot',null],
       '/coach/reset':['coach-reset.html','coachResetForm','coachResetSubmit','/api/coach/auth/reset','/coach/login'],
       '/coach/setup':['coach-setup.html','coachSetupForm','coachSetupSubmit','/api/coach/auth/setup','/coach/login'],
@@ -305,7 +304,7 @@ try{
       fetch:async(url,init)=>{
         calls.push(['fetch',url,init&&init.method,init&&init.body]);
         if(url==='/api/coach/auth/status')return{ok:true,json:async()=>({setup_required:false})};
-        return {ok:true,json:async()=>({ok:true,next:'/coach/2fa'})};
+        return {ok:true,json:async()=>({ok:true,next:'/coach/dashboard'})};
       }
     };
     vm.createContext(sandbox);
@@ -319,7 +318,7 @@ try{
     assert.ok(post,'clicking «ادامه» never posts the credentials');
     assert.equal(post[2],'POST');
     assert.deepEqual(JSON.parse(post[3]),{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'});
-    assert.deepEqual(calls.find(call=>call[0]==='navigate'),['navigate','/coach/2fa'],'a successful login does not continue to the second step');
+    assert.deepEqual(calls.find(call=>call[0]==='navigate'),['navigate','/coach/dashboard'],'a successful login must land on the dashboard in a single step');
   }
 
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');

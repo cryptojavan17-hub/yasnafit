@@ -17,7 +17,7 @@ const listenHost = String(process.env.YASNAFIT_HOST || process.env.HOST || '0.0.
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-// Coach access is email + password + Google Authenticator TOTP. No shared bearer token.
+// Coach access is email + password (the Google Authenticator step was removed). No shared bearer token.
 // --- Database & Services ---
 const { db, dbPath, backup, backupDir, log } = require('./src/database');
 const { runMigrations } = require('./src/migrations');
@@ -42,28 +42,9 @@ const notificationService = require('./src/notification-service');
 telegramService.setServices({ notificationService });
 const buildInfo = require('./src/build-info');
 const storagePaths = require('./src/storage-paths');
-if(requestSecurity.ALLOW_2FA_SKIP){
-  console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
-}
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
-}else{
-  const authenticator=coachAuthService.ensureCoachAuthenticator(db,path.dirname(dbPath));
-  if(authenticator.wrote_file){
-    console.log('[Coach Auth] Authenticator key written to data/coach-authenticator.txt');
-  }
-  if(requestSecurity.REVEAL_AUTHENTICATOR_KEY){
-    const enrollment=coachAuthService.currentAuthenticatorEnrollment(db);
-    if(enrollment?.secret){
-      console.log('[Coach Auth] ⚠ YASNAFIT_REVEAL_AUTHENTICATOR_KEY فعال است — کلید Google Authenticator این سرور:');
-      console.log(`[Coach Auth] Email: ${enrollment.email}`);
-      console.log(`[Coach Auth] Secret: ${enrollment.secret}`);
-      console.log('[Coach Auth] ⚠ همین الان متغیر را پاک کنید تا کلید دوباره در لاگ نماند.');
-    }else{
-      console.log('[Coach Auth] YASNAFIT_REVEAL_AUTHENTICATOR_KEY ست است ولی کلیدی ساخته نشده (ابتدا حساب مربی را بسازید).');
-    }
-  }
 }
 
 
@@ -272,34 +253,12 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:requestSecurity.ALLOW_2FA_SKIP});
+    // ورود تک‌مرحله‌ای: ایمیل + رمز ⇒ نشست (مرحلهٔ کد ۶ رقمی حذف شده است)
+    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:true});
     if(result.error) return coachAuthError(res,result.error,result.message);
-    if(result.two_factor_skipped){
-      log('ورود مربی (۲FA موقتاً خاموش)', result.coach?.email||'');
-      return send(res,200,{ok:true,next:'/coach/dashboard',two_factor_skipped:true,coach:result.coach,expires_at:result.expires_at},{
-        'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
-      });
-    }
-    return send(res,200,{ok:true,next:'/coach/2fa',expires_at:result.expires_at},{
-      'Set-Cookie':coachAuthService.challengeCookie(req,result.challenge_id)
-    });
-  }
-  if(p==='/api/coach/auth/challenge' && req.method==='GET'){
-    if(!rateLimit(req,res,'coach-challenge',40,15*60*1000)) return true;
-    return send(res,200,coachAuthService.pendingChallenge(db,req));
-  }
-  if(p==='/api/coach/auth/verify' && req.method==='POST'){
-    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
-    if(!rateLimit(req,res,'coach-otp-verify',30,15*60*1000)) return true;
-    const body=await readBody(req);
-    const result=coachAuthService.verifyOtp(db,{code:body.code,req,dataDir:path.dirname(dbPath)});
-    if(result.error) return coachAuthError(res,result.error);
     log('ورود مربی', result.coach?.email||'');
-    return send(res,200,{success:true,coach:result.coach,expires_at:result.expires_at},{
-      'Set-Cookie':[
-        coachAuthService.sessionCookie(req,result.raw_session),
-        coachAuthService.clearChallengeCookie(req)
-      ]
+    return send(res,200,{ok:true,next:'/coach/dashboard',coach:result.coach,expires_at:result.expires_at},{
+      'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
     });
   }
   if(p==='/api/coach/auth/forgot' && req.method==='POST'){
@@ -500,7 +459,6 @@ async function handleHealth(req,res,{detailed=false}={}){
     students: totalStudents,
     programs: totalPrograms,
     schema_version: schemaVersion,
-    two_factor_skipped: requestSecurity.ALLOW_2FA_SKIP,
     uptime: Math.round(process.uptime())
   });
 }
@@ -2797,9 +2755,9 @@ const server=http.createServer(async(req,res)=>{
 
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
+    if(url.pathname==='/coach/2fa') return redirectCoachLogin(res); // صفحهٔ کد ۶ رقمی حذف شده است
     const coachAuthPages={
       '/coach/login':'coach-login.html',
-      '/coach/2fa':'coach-2fa.html',
       '/coach/forgot':'coach-forgot.html',
       '/coach/reset':'coach-reset.html',
       '/coach/mail':'coach-mail.html'
