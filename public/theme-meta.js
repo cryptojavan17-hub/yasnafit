@@ -1,5 +1,5 @@
 // Yasnafit — student shell only: keeps the mobile browser chrome color in sync
-// with the active theme (dark is the default; the white theme flips it to #eef1f6).
+// with the active theme (light is the default; the dark theme flips it to #050505).
 // External file because the client CSP forbids inline scripts (script-src 'self').
 (function () {
   'use strict';

@@ -145,9 +145,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .theme-toggle:hover { border-color: var(--accent-border); background: var(--accent-surface); color: var(--text); }
 .theme-toggle:active { transform: scale(.94); }
 .theme-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.theme-toggle .icon-moon { display: none; }
-:root[data-theme="light"] .theme-toggle .icon-sun { display: none; }
-:root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
 @media (max-width: 680px) { .theme-toggle { width: 40px; height: 40px; } .theme-toggle svg { width: 20px; height: 20px; } }
 @media (max-width: 560px) { .theme-toggle { width: 42px; height: 42px; } }
 .icon-button, .avatar, .mobile-menu {

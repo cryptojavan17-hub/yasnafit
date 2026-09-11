@@ -50,7 +50,8 @@ assert.ok(toggleJs.includes("closest('[data-theme-toggle]')"), 'any element with
 assert.ok(toggleJs.includes("setAttribute('data-theme'"), 'the switcher must set html[data-theme]');
 assert.ok(styles.includes('.theme-toggle'), 'the toggle button must be styled');
 assert.match(styles, /\.theme-toggle \{ width: 38px/, 'the toggle must be a real tap target');
-assert.match(styles, /:root\[data-theme="light"\] \.theme-toggle \.icon-moon \{ display: block; \}/, 'the moon icon must show in light mode');
+assert.match(styles, /:root\[data-theme="light"\] \.theme-toggle \.icon-sun \{ display: block; \}/, 'the sun icon must show in light mode (user contract)');
+assert.match(styles, /:root\[data-theme="light"\] \.theme-toggle \.icon-moon \{ display: none; \}/, 'the moon icon must hide in light mode');
 assert.match(styles, /@media \(max-width: 680px\) \{ \.theme-toggle \{ width: 40px/, 'the toggle must grow on phones for comfortable touch');
 
 // ─── 6. صفحه‌های ورود مربی: بوت‌استرپ + دکمهٔ شناور ───
@@ -65,6 +66,32 @@ for (const file of ['coach-login.html', 'coach-forgot.html', 'coach-mail.html', 
 // ─── 7. موبایل: دکمهٔ اعلان‌ها و تم در عرض کم هم دیده شوند ───
 assert.match(styles, /@media\(max-width:680px\)\{\.coach-review-bell\{width:38px/, 'the bell keeps its compact mobile rule');
 assert.doesNotMatch(styles, /\.top-actions\s*\{[^}]*display:\s*none/, 'the top actions (theme + bell) must never be hidden on mobile');
+
+// ─── 8. صفحات شاگرد: پیش‌فرض روشن + سوییچر روی همهٔ صحنه‌های اولیه و پنل ───
+const studentHtml = read('student.html');
+assert.ok(studentHtml.includes('<meta name="theme-color" content="#eef1f6">'), 'student shell default browser chrome must be LIGHT');
+assert.ok(studentHtml.indexOf('<script src="/theme-toggle.js"></script>') < studentHtml.indexOf('/theme.css'), 'student shell must apply the theme before the stylesheets');
+assert.ok(studentHtml.includes('/student-app.css') && studentHtml.includes('/luxury-login.css'), 'student shell stylesheet contract changed');
+
+const studentApp = read('student-app.js');
+assert.match(studentApp, /function themeFloatButton\(\)/, 'student-app must build the floating theme toggle');
+const floatUses = (studentApp.match(/\$\{themeFloatButton\(\)\}/g) || []).length;
+assert.ok(floatUses >= 4, `floating toggle must appear on login/register/error/success scenes (found ${floatUses})`);
+assert.ok(studentApp.includes('id="studentThemeToggle"'), 'the logged-in shell must keep its inline header toggle');
+
+const wizard = read('assessment-wizard.js');
+assert.ok(wizard.includes('const THEME_TOGGLE_BTN='), 'the assessment wizard must carry the theme toggle');
+assert.ok(wizard.includes('${THEME_TOGGLE_BTN}'), 'the toggle must sit in the wizard header');
+
+const studentCss = read('student-app.css');
+for (const banned of ['rgba(7,7,7', 'rgba(10,10,12', 'rgba(14,14,16', 'rgba(22,22,25', 'rgba(11,11,13', 'rgba(5, 5, 5']) {
+  assert.ok(!studentCss.includes(banned), `student-app.css still hardcodes a dark surface: ${banned}`);
+}
+
+const luxury = read('luxury-login.css');
+assert.doesNotMatch(luxury, /--text-primary:\s*#f5f5f5/, 'the auth scene must NOT pin dark tokens anymore (default is light)');
+assert.match(luxury, /\.luxury-input-wrap \{[^}]*var\(--surface-inset\)/, 'register inputs must follow the theme tokens');
+assert.match(luxury, /\.hero-login-stage\{[^}]*background:var\(--bg\)/, 'the login stage background must follow the theme');
 
 console.log(JSON.stringify({
   ok: true,

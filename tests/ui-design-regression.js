@@ -83,6 +83,27 @@ assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewp
 assert.match(css['student-app.css'],/@media\(max-width:800px\)/,'student portal misses tablet/mobile layout');
 assert.match(css['student-app.css'],/@media\(max-width:560px\)/,'student onboarding misses narrow mobile layout');
 assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboarding misses persistent validation feedback');
+/* ── تم روشن پیش‌فرض + سوییچر در همهٔ صفحات شاگرد (قرارداد کاربر) ── */
+assert.match(studentHtml,/theme-color" content="#eef1f6"/,'student shell default browser chrome must be LIGHT');
+assert.ok(studentHtml.indexOf('<script src="/theme-toggle.js"></script>')<studentHtml.indexOf('/theme.css'),'student shell must apply the theme before stylesheets');
+assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboarding-card\\{'),'student onboarding card rule moved');
+{
+  const studentApp=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+  assert.match(studentApp,/function themeFloatButton\(\)/,'student-app must build the floating theme toggle');
+  assert.ok((studentApp.match(/\$\{themeFloatButton\(\)\}/g)||[]).length>=4,'floating toggle must cover login/register/error/success scenes');
+  assert.ok(studentApp.includes('id="studentThemeToggle"'),'logged-in shell keeps its inline header toggle');
+  const wizardSrc=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
+  assert.ok(wizardSrc.includes('const THEME_TOGGLE_BTN=')&&wizardSrc.includes('${THEME_TOGGLE_BTN}'),'assessment wizard must carry the theme toggle in its header');
+  const studentCss=fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8');
+  for(const banned of ['rgba(7,7,7','rgba(10,10,12','rgba(14,14,16','rgba(22,22,25','rgba(11,11,13','rgba(5, 5, 5']){
+    assert.ok(!studentCss.includes(banned),'student-app.css still hardcodes a dark surface: '+banned);
+  }
+  const luxury=fs.readFileSync(path.join(publicDir,'luxury-login.css'),'utf8');
+  assert.doesNotMatch(luxury,/--text-primary:\s*#f5f5f5/,'auth scene must not pin dark tokens (light is the default)');
+  assert.match(luxury,/\.luxury-input-wrap \{[^}]*background:\s*var\(--surface-inset\)/,'register inputs must follow theme tokens');
+  assert.match(fs.readFileSync(path.join(publicDir,'theme.css'),'utf8'),/data-theme="light"\]\s*\{[^}]*--bg:\s*#eef1f6/,'light theme token block must define the light background');
+}
+
 const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
 const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
 const coreSource=fs.readFileSync(path.join(publicDir,'core.js'),'utf8');

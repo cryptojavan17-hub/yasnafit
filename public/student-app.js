@@ -53,8 +53,10 @@
     document.querySelector('.student-toast')?.remove();const el=document.createElement('div');el.className=`student-toast ${type==='error'?'error':''}`;el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),3600);
   }
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
+  const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
+  function themeFloatButton(){const light=window.YasnafitTheme?window.YasnafitTheme.current()==='light':true;return `<button class="theme-toggle theme-toggle-float" type="button" data-theme-toggle title="${light?'رفتن به تم تاریک':'رفتن به تم روشن'}" aria-label="تغییر تم روشن/تاریک" aria-pressed="${light?'true':'false'}">${THEME_TOGGLE_ICONS}</button>`;}
   function errorPage(title,message,icon='!'){
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-error-icon">${icon}</div><span class="join-brand">YASNAFIT</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="student-error-actions"><button class="secondary" data-retry-reload>تلاش دوباره</button></div><small class="join-meta">برای دریافت لینک جدید با مربی خود تماس بگیرید.</small></div></section>`;
+    root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-error-icon">${icon}</div><span class="join-brand">YASNAFIT</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="student-error-actions"><button class="secondary" data-retry-reload>تلاش دوباره</button></div><small class="join-meta">برای دریافت لینک جدید با مربی خود تماس بگیرید.</small></div></section>`;
     root.querySelector('[data-retry-reload]').onclick=()=>location.reload();
   }
   function nav(path){
@@ -137,7 +139,7 @@
     const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
 
     root.innerHTML = `
-      <section class="hero-login-stage" dir="rtl">
+      <section class="hero-login-stage" dir="rtl">${themeFloatButton()}
         <div id="authLoginPanel" class="hero-login-frame" style="${activeTab==='login'?'':'display:none;'}">
           <img src="/login-hero.png" alt="" class="hero-login-art" draggable="false">
           <form class="hero-login-hotspots" id="studentLoginForm" autocomplete="on" novalidate>
@@ -947,10 +949,10 @@
     shell('/student/profile',`<div class="student-page-head"><h1>تغییر رمز عبور</h1><p>این کار اختیاری است و هر زمان بخواهید می‌توانید انجام دهید.</p></div><section class="student-card password-change-card">${form}</section>`);
     document.querySelector('#passwordChangeForm').onsubmit=async event=>{event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),button=event.currentTarget.querySelector('button');button.disabled=true;try{const result=await api('/api/student/auth/change-password',{method:'POST',body:jsonBody(body)});toast('رمز شخصی با موفقیت ثبت شد.');location.replace(result.next_route);}catch(error){toast(error.message,'error');button.disabled=false;}};
   }
-  function renderSuccess(){root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><span class="join-brand">YASNAFIT</span><h1>اطلاعات شما با موفقیت ارسال شد</h1><p>متشکریم. اطلاعات و تصاویر شما برای مربی ارسال شد.</p><p>پس از بررسی مربی، برنامه تمرینی شما در پنل شخصی‌تان قرار خواهد گرفت.</p><a class="primary" href="/student/dashboard">ورود به پنل شخصی</a></div></section>`;}
+  function renderSuccess(){root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-success-icon">✓</div><span class="join-brand">YASNAFIT</span><h1>اطلاعات شما با موفقیت ارسال شد</h1><p>متشکریم. اطلاعات و تصاویر شما برای مربی ارسال شد.</p><p>پس از بررسی مربی، برنامه تمرینی شما در پنل شخصی‌تان قرار خواهد گرفت.</p><a class="primary" href="/student/dashboard">ورود به پنل شخصی</a></div></section>`;}
   async function renderLogout(){
     try{await api('/api/student/logout',{method:'POST'});}catch(error){}
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره از شماره همراه و رمز شخصی استفاده کنید.</p><a class="primary" href="/student/login">ورود دوباره</a></div></section>`;
+    root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره از شماره همراه و رمز شخصی استفاده کنید.</p><a class="primary" href="/student/login">ورود دوباره</a></div></section>`;
   }
   async function start(){
     const path=location.pathname;

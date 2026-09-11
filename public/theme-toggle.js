@@ -1,4 +1,4 @@
-// Yasnafit theme switcher — dark (default) / light, persisted in localStorage.
+// Yasnafit theme switcher — light (default) / dark, persisted in localStorage.
 // Any element with [data-theme-toggle] flips the theme; state survives refresh.
 (function () {
   'use strict';
@@ -21,8 +21,8 @@
     try { localStorage.setItem(KEY, next); } catch (e) {}
     window.setTimeout(function () { html.classList.remove('theme-switching'); }, 320);
   }
-  var stored = 'dark';
-  try { stored = localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'; } catch (e) {}
+  var stored = 'light';
+  try { stored = localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'; } catch (e) {}
   apply(stored);
   document.addEventListener('click', function (event) {
     if (event.target.closest('[data-theme-toggle]')) switchTheme();

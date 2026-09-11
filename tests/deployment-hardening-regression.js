@@ -62,8 +62,8 @@ assert.match(read('public/student-app.js'),/\/login-hero\.png/,'the student logi
 assert.match(read('public/luxury-login.css'),/login-hero\.png/,'the login stylesheet lost the hero image');
 // The luxury login/register scene is a hardcoded dark artwork; its tokens must stay pinned dark
 // (stored 'light' theme must not invert text color — typed input became invisible once).
-assert.match(read('public/luxury-login.css'),/\.hero-login-stage,\n\.hero-register-stage,\n\.student-auth-page \{/, 'the auth scene token-pin block is missing');
-assert.match(read('public/luxury-login.css'),/--text-primary:\s*#f5f5f5/, 'the auth scene must pin dark text tokens (light theme must not invert the hardcoded dark stage)');
+assert.doesNotMatch(read('public/luxury-login.css'),/--surface:\s*#101010/, 'the auth scene must not pin dark surface tokens anymore');
+assert.doesNotMatch(read('public/luxury-login.css'),/--text-primary:\s*#f5f5f5/, 'the auth scene must follow the global theme tokens (dark pin removed — light is the default)');
 
 // --- 2. no inline scripts anywhere in the client shell ------------------------------
 for(const file of fs.readdirSync(path.join(root,'public')).filter(name=>name.endsWith('.html'))){

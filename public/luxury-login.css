@@ -3,48 +3,11 @@
 /* این صحنه، آرت ثابت تاریک برند است (hero mockup). توکن‌ها روی مقادیر تاریک پین می‌شوند تا
    تم روشنِ پنل (data-theme="light" از localStorage) رنگ متن/فیلدهای همین صفحه را وارونه نکند —
    وگرنه متنِ تایپ‌شدهٔ کاربر روی کارت تاریک نامرئی می‌شود. مقادیر = همان بلوک :root در theme.css */
-.hero-login-stage,
-.hero-register-stage,
-.student-auth-page {
-  color-scheme: dark;
-  color: #f5f5f5;
-  --bg: #050505;
-  --bg-raised: #080808;
-  --surface: #101010;
-  --surface-2: #151515;
-  --surface-3: #1b1b1b;
-  --surface-inset: #0d0d0d;
-  --surface-overlay: rgba(15, 15, 15, .94);
-  --card: rgba(18, 18, 22, .78);
-  --accent: #3b82f6;
-  --accent-strong: #2563eb;
-  --accent-hover: #60a5fa;
-  --accent-surface: rgba(59, 130, 246, .14);
-  --accent-border: rgba(96, 165, 250, .42);
-  --accent-shadow: 0 12px 34px rgba(59, 130, 246, .24);
-  --success: #34d399;
-  --danger: #f87171;
-  --warning: #fbbf24;
-  --glass: rgba(255, 255, 255, .045);
-  --glass-hover: rgba(255, 255, 255, .075);
-  --glass-strong: rgba(255, 255, 255, .1);
-  --border: rgba(255, 255, 255, .085);
-  --border-strong: rgba(255, 255, 255, .15);
-  --border-focus: rgba(96, 165, 250, .8);
-  --text: #fff;
-  --text-primary: #f5f5f5;
-  --text-secondary: #d0d0d0;
-  --text-muted: #a3a3a3;
-  --text-placeholder: #8b8b8b;
-  --text-disabled: #7a7a7a;
-  --on-accent: #fff;
-}
+/* Login page = exact login-hero.png mockup with hotspot controls only */
+
+/* صحنه‌های ورود/ثبت‌نام توکن‌های سراسری تم را پیروی می‌کنند (پیش‌فرض روشن؛ دارک با سوییچر).
+   آرت hero یک پوستر تاریک برند است و در هر دو تم تاریک می‌ماند — فقط قاب/پس‌زمینه تم‌آگاه است. */
 /* حاشیهٔ بیرونی صحنه هم تاریک بماند (بدنه پشت stage با padding 12px دیده می‌شود) */
-body.student-body:has(.hero-login-stage),
-body.student-body:has(.hero-register-stage),
-body.student-body:has(.student-auth-page) {
-  background: #05070a;
-}
 .hero-login-stage{
   min-height:100vh;
   width:100%;
@@ -52,7 +15,7 @@ body.student-body:has(.student-auth-page) {
   padding:12px;
   display:grid;
   place-items:center;
-  background:#05070a;
+  background:var(--bg);
   box-sizing:border-box;
 }
 .hero-login-frame{
@@ -60,6 +23,10 @@ body.student-body:has(.student-auth-page) {
   width:min(1448px, calc(100vw - 24px), calc((100vh - 24px) * 1448 / 1086));
   aspect-ratio:1448 / 1086;
   max-height:calc(100vh - 24px);
+  border-radius:22px;
+  overflow:hidden;
+  border:1px solid var(--border-strong);
+  box-shadow:var(--shadow-deep);
 }
 .hero-login-art{
   width:100%;
@@ -198,7 +165,8 @@ body.student-body:has(.student-auth-page) {
   max-height:92vh;
   overflow:auto;
   border-radius:24px;
-  border:1px solid rgba(255,255,255,0.08);
+  border:1px solid var(--border-strong);
+  box-shadow:var(--shadow-deep);
 }
 
 /* Yasnafit Luxury Dark Fitness Login - Matching reference design */
@@ -288,7 +256,7 @@ body.student-body:has(.student-auth-page) {
 
 /* Right Form Side */
 .luxury-form-panel {
-  background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
+  background: var(--component-card);
   padding: 28px 36px 22px;
   display: flex;
   flex-direction: column;
@@ -369,15 +337,15 @@ body.student-body:has(.student-auth-page) {
 .luxury-field label {
   font-size: 12.5px;
   font-weight: 700;
-  color: rgba(255,255,255,0.85);
+  color: var(--text-secondary);
 }
 
 .luxury-input-wrap {
   position: relative;
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   height: 48px;
   transition: all 0.2s ease;
@@ -395,10 +363,10 @@ body.student-body:has(.student-auth-page) {
   height: 100%;
   display: grid;
   place-items: center;
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
   font-size: 16px;
   flex-shrink: 0;
-  border-left: 1px solid rgba(255,255,255,0.06);
+  border-left: 1px solid var(--border);
 }
 
 .luxury-input-wrap input {
@@ -407,7 +375,7 @@ body.student-body:has(.student-auth-page) {
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text);
   font-size: 14px;
   padding: 0 14px;
   direction: ltr;
@@ -416,7 +384,7 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-input-wrap input::placeholder {
-  color: rgba(255,255,255,0.25);
+  color: var(--text-placeholder);
   font-size: 13px;
 }
 
@@ -425,7 +393,7 @@ body.student-body:has(.student-auth-page) {
   height: 100%;
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.4);
+  color: var(--text-muted);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -434,7 +402,7 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-input-wrap .toggle-pass:hover {
-  color: rgba(255,255,255,0.8);
+  color: var(--text);
 }
 
 .luxury-forgot {
@@ -455,7 +423,7 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-forgot button:hover {
-  color: #fff;
+  color: var(--text);
   text-decoration: underline;
 }
 
@@ -495,7 +463,7 @@ body.student-body:has(.student-auth-page) {
   align-items: center;
   gap: 14px;
   margin: 4px 0;
-  color: rgba(255,255,255,0.25);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -504,16 +472,16 @@ body.student-body:has(.student-auth-page) {
   content: "";
   flex: 1;
   height: 1px;
-  background: rgba(255,255,255,0.08);
+  background: var(--border);
 }
 
 .luxury-secondary {
   width: 100%;
   height: 48px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.75);
+  background: var(--glass);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -525,9 +493,9 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-secondary:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.18);
-  color: #fff;
+  background: var(--glass-hover);
+  border-color: var(--border-hover);
+  color: var(--text);
 }
 
 .luxury-secondary b {
@@ -613,15 +581,15 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-banner.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background: var(--danger-surface);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
 }
 
 .luxury-banner.success {
-  background: rgba(45, 212, 191, 0.1);
-  border: 1px solid rgba(45, 212, 191, 0.2);
-  color: #5eead4;
+  background: var(--success-surface);
+  border: 1px solid var(--success-border);
+  color: var(--success);
 }
 
 /* Register specific */
@@ -638,10 +606,10 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-textarea {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
-  color: #fff;
+  color: var(--text);
   padding: 12px 14px;
   font-size: 13px;
   min-height: 64px;
@@ -657,11 +625,11 @@ body.student-body:has(.student-auth-page) {
 }
 
 .luxury-select {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   height: 48px;
-  color: #fff;
+  color: var(--text);
   padding: 0 14px;
   font-size: 13px;
   outline: none;
@@ -678,7 +646,7 @@ body.student-body:has(.student-auth-page) {
   gap: 8px;
   align-items: flex-start;
   font-size: 11.5px;
-  color: rgba(255,255,255,0.6);
+  color: var(--text-secondary);
   line-height: 1.7;
   cursor: pointer;
 }
@@ -722,6 +690,21 @@ body.student-body:has(.student-auth-page) {
   .luxury-feature .f-icon {
     width: 32px;
     height: 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .luxury-form-panel {
+    padding: 22px 16px 14px;
+  }
+  .luxury-titles h1 {
+    font-size: 24px;
+  }
+  .luxury-form {
+    gap: 13px;
+  }
+  .luxury-grid-2 {
+    gap: 10px;
   }
 }
 

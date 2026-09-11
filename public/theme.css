@@ -193,4 +193,4 @@ html.theme-switching body,
 html.theme-switching body * { transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease, box-shadow 240ms ease; }
 
 /* دکمهٔ شناور تم برای صفحه‌های بدون نوار بالا */
-.theme-toggle-float { position: fixed; z-index: 60; top: 14px; left: 14px; width: 42px; height: 42px; }
+.theme-toggle-float { position: fixed; z-index: 60; top: 14px; left: 14px; width: 42px; height: 42px; background: var(--surface-overlay); border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
