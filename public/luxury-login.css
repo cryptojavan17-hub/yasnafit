@@ -1,4 +1,50 @@
 /* Login page = exact login-hero.png mockup with hotspot controls only */
+
+/* این صحنه، آرت ثابت تاریک برند است (hero mockup). توکن‌ها روی مقادیر تاریک پین می‌شوند تا
+   تم روشنِ پنل (data-theme="light" از localStorage) رنگ متن/فیلدهای همین صفحه را وارونه نکند —
+   وگرنه متنِ تایپ‌شدهٔ کاربر روی کارت تاریک نامرئی می‌شود. مقادیر = همان بلوک :root در theme.css */
+.hero-login-stage,
+.hero-register-stage,
+.student-auth-page {
+  color-scheme: dark;
+  color: #f5f5f5;
+  --bg: #050505;
+  --bg-raised: #080808;
+  --surface: #101010;
+  --surface-2: #151515;
+  --surface-3: #1b1b1b;
+  --surface-inset: #0d0d0d;
+  --surface-overlay: rgba(15, 15, 15, .94);
+  --card: rgba(18, 18, 22, .78);
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  --accent-hover: #60a5fa;
+  --accent-surface: rgba(59, 130, 246, .14);
+  --accent-border: rgba(96, 165, 250, .42);
+  --accent-shadow: 0 12px 34px rgba(59, 130, 246, .24);
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --glass: rgba(255, 255, 255, .045);
+  --glass-hover: rgba(255, 255, 255, .075);
+  --glass-strong: rgba(255, 255, 255, .1);
+  --border: rgba(255, 255, 255, .085);
+  --border-strong: rgba(255, 255, 255, .15);
+  --border-focus: rgba(96, 165, 250, .8);
+  --text: #fff;
+  --text-primary: #f5f5f5;
+  --text-secondary: #d0d0d0;
+  --text-muted: #a3a3a3;
+  --text-placeholder: #8b8b8b;
+  --text-disabled: #7a7a7a;
+  --on-accent: #fff;
+}
+/* حاشیهٔ بیرونی صحنه هم تاریک بماند (بدنه پشت stage با padding 12px دیده می‌شود) */
+body.student-body:has(.hero-login-stage),
+body.student-body:has(.hero-register-stage),
+body.student-body:has(.student-auth-page) {
+  background: #05070a;
+}
 .hero-login-stage{
   min-height:100vh;
   width:100%;
