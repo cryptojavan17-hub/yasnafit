@@ -915,7 +915,7 @@
 @media(max-width:560px){.entry-coach-link{padding:9px 20px;font-size:12px}}
 
 /* ریل تماس صفحهٔ اصلی — زیر عکس، سمت چپ پایین */
-.entry-contact-rail{position:absolute;z-index:30;bottom:18px;left:20px;display:flex;align-items:center;gap:9px}
+.entry-contact-rail{position:absolute;z-index:30;bottom:22px;left:26px;display:flex;align-items:center;gap:9px}
 .contact-ico{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--border);border-radius:13px;background:var(--surface-overlay);color:var(--text-muted);box-shadow:var(--shadow-sm);transition:transform 160ms ease,color 160ms ease,border-color 160ms ease,background 160ms ease}
 .contact-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .contact-ico svg .dot{fill:currentColor;stroke:none}
@@ -925,8 +925,9 @@
 .contact-telegram:hover{color:rgb(34,158,217);border-color:rgba(34,158,217,.45);background:rgba(34,158,217,.1)}
 .contact-email:hover{color:var(--accent-hover);border-color:var(--accent-border);background:var(--accent-surface)}
 .contact-phone:hover{color:var(--success);border-color:var(--success-border);background:var(--success-surface)}
+/* موبایل: قاب آرت کوچک می‌شود — ریل به‌جای داخل قاب، زیر قاب و وسط می‌آید */
 @media(max-width:680px){
-  .entry-contact-rail{left:50%;transform:translateX(-50%);bottom:60px;gap:10px}
-  .contact-ico{width:44px;height:44px;border-radius:14px}
-  .contact-ico svg{width:21px;height:21px}
+  .entry-contact-rail{top:calc(100% + 18px);bottom:auto;left:50%;right:auto;transform:translateX(-50%);gap:12px}
+  .contact-ico{width:46px;height:46px;border-radius:15px}
+  .contact-ico svg{width:22px;height:22px}
 }

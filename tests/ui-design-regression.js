@@ -104,7 +104,8 @@ assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboardin
     assert.ok(studentAppSrc.includes(marker),'contact rail must carry: '+marker);
   }
   assert.match(studentAppSrc,/\$\{CONTACT_LINKS\}/,'the contact rail must render on the landing stage');
-  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-contact-rail\{position:absolute;[^}]*left:20px/,'the contact rail must sit at the bottom-left');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-contact-rail\{position:absolute;[^}]*bottom:22px;left:26px/,'the contact rail must sit inside the art frame, under the quote, bottom-left');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8'),/hotspot-register[^]*?\$\{CONTACT_LINKS\}/,'the rail must live inside the hero art frame (below the quote text)');
   assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-coach-link\{position:absolute/,'the coach link must sit at the bottom of the entry page');
 }
 {

@@ -173,6 +173,7 @@
             <button type="submit" class="hotspot hotspot-submit" id="btnLoginSubmit" aria-label="ورود"></button>
             <button type="button" class="hotspot hotspot-register" id="btnGoToRegister" aria-label="حساب کاربری ندارید؟ ثبت‌نام کنید"></button>
           </form>
+          ${CONTACT_LINKS}
         </div>
 
         <div id="authRegisterPanel" class="hero-register-stage" style="${activeTab==='register'?'display:block;':'display:none;'}">
@@ -281,7 +282,6 @@
               </form>
             </div>
         </div>
-        ${CONTACT_LINKS}
         ${COACH_ENTRY}
       </section>
     `;
