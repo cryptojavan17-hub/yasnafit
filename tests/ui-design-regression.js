@@ -99,6 +99,12 @@ assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboardin
   assert.match(studentAppSrc,/COACH_ENTRY='<a class="entry-coach-link" href="\/coach\/login">ورود مربی<\/a>'/,'the entry pages must carry a small coach-login link');
   assert.match(studentAppSrc,/if\(path==='\/'\|\|path==='\/index\.html'\)return renderLogin\(\);/,'the root path must render the student login scene');
   assert.ok((studentAppSrc.match(/\$\{COACH_ENTRY\}/g)||[]).length>=4,'coach link must appear on login/register/error/success scenes');
+  assert.match(studentAppSrc,/const CONTACTS=\[/,'the landing page contact list is missing');
+  for(const marker of ['instagram.com/','t.me/','mailto:','tel:']){
+    assert.ok(studentAppSrc.includes(marker),'contact rail must carry: '+marker);
+  }
+  assert.match(studentAppSrc,/\$\{CONTACT_LINKS\}/,'the contact rail must render on the landing stage');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-contact-rail\{position:absolute;[^}]*left:20px/,'the contact rail must sit at the bottom-left');
   assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-coach-link\{position:absolute/,'the coach link must sit at the bottom of the entry page');
 }
 {

@@ -55,6 +55,18 @@
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
   const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
   const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
+  /* راه‌های ارتباطی صفحهٔ اصلی — برای تغییر، فقط مقادیر href را عوض کنید */
+  const CONTACTS=[
+    {id:'instagram',href:'https://instagram.com/yasnafit',label:'اینستاگرام یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2"/><circle cx="12" cy="12" r="4.1"/><circle class="dot" cx="17.2" cy="6.8" r="1.25"/></svg>'},
+    {id:'telegram',href:'https://t.me/yasnafit',label:'تلگرام یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>'},
+    {id:'email',href:'mailto:crypto.javan17@gmail.com',label:'ایمیل یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.6"/><path d="m4.2 7.4 7.8 5.8 7.8-5.8"/></svg>'},
+    {id:'phone',href:'tel:+989120000000',label:'تماس تلفنی با یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>'},
+  ];
+  const CONTACT_LINKS=`<nav class="entry-contact-rail" aria-label="راه‌های ارتباطی با یاسنافیت">${CONTACTS.map(item=>`<a class="contact-ico contact-${item.id}" href="${item.href}" title="${item.label}" aria-label="${item.label}" target="_blank" rel="noopener">${item.svg}</a>`).join('')}</nav>`;
   function themeFloatButton(){const light=window.YasnafitTheme?window.YasnafitTheme.current()==='light':true;return `<button class="theme-toggle theme-toggle-float" type="button" data-theme-toggle title="${light?'رفتن به تم تاریک':'رفتن به تم روشن'}" aria-label="تغییر تم روشن/تاریک" aria-pressed="${light?'true':'false'}">${THEME_TOGGLE_ICONS}</button>`;}
   function errorPage(title,message,icon='!'){
     root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-error-icon">${icon}</div><span class="join-brand">YASNAFIT</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="student-error-actions"><button class="secondary" data-retry-reload>تلاش دوباره</button></div><small class="join-meta">برای دریافت لینک جدید با مربی خود تماس بگیرید.</small></div>${COACH_ENTRY}</section>`;
@@ -269,6 +281,7 @@
               </form>
             </div>
         </div>
+        ${CONTACT_LINKS}
         ${COACH_ENTRY}
       </section>
     `;
