@@ -57,13 +57,13 @@
   const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
   /* راه‌های ارتباطی صفحهٔ اصلی — برای تغییر، فقط مقادیر href را عوض کنید */
   const CONTACTS=[
-    {id:'instagram',href:'https://instagram.com/yasnafit',label:'اینستاگرام یاسنافیت',
+    {id:'instagram',href:'https://instagram.com/exercise._.yasna._',label:'اینستاگرام یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2"/><circle cx="12" cy="12" r="4.1"/><circle class="dot" cx="17.2" cy="6.8" r="1.25"/></svg>'},
-    {id:'telegram',href:'https://t.me/yasnafit',label:'تلگرام یاسنافیت',
+    {id:'telegram',href:'https://t.me/yasnaa1997',label:'تلگرام یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>'},
-    {id:'email',href:'mailto:crypto.javan17@gmail.com',label:'ایمیل یاسنافیت',
+    {id:'email',href:'mailto:info@yasnafit.ir',label:'ایمیل یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.6"/><path d="m4.2 7.4 7.8 5.8 7.8-5.8"/></svg>'},
-    {id:'phone',href:'tel:+989120000000',label:'تماس تلفنی با یاسنافیت',
+    {id:'phone',href:'tel:+989150000000',label:'تماس تلفنی با یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>'},
   ];
   const CONTACT_LINKS=`<nav class="entry-contact-rail" aria-label="راه‌های ارتباطی با یاسنافیت">${CONTACTS.map(item=>`<a class="contact-ico contact-${item.id}" href="${item.href}" title="${item.label}" aria-label="${item.label}" target="_blank" rel="noopener">${item.svg}</a>`).join('')}</nav>`;
