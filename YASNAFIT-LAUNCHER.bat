@@ -11,7 +11,7 @@ echo ====================================================
 call :STATUS
 call :CHECKCODE
 echo.
-echo 1. Start Server ^& Open Dashboard
+echo 1. Start Server ^& Open Homepage
 echo 2. Restart Server
 echo 3. Stop Server
 echo 4. View Live Server Logs ^& Diagnostics
@@ -57,7 +57,8 @@ echo Yasnafit started at http://localhost:%PORT% - launcher stays open
 exit /b
 
 :OPEN_DASHBOARD
-start "" "http://localhost:%PORT%/coach/login"
+REM The public homepage is the student page; the coach signs in from the small link at its bottom.
+start "" "http://localhost:%PORT%/"
 exit /b
 
 :STOP

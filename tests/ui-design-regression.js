@@ -9,6 +9,8 @@ const launcher=fs.readFileSync(path.join(root,'YASNAFIT-LAUNCHER.bat'),'utf8');
 assert.doesNotMatch(launcher,/Update Yasnafit from GitHub|Import Exercise Images|:UPDATE|:IMPORT_IMAGES/,'removed launcher maintenance actions returned');
 assert.match(launcher,/echo 5\. Exit/,'launcher exit option is not compactly renumbered');
 assert.match(launcher,/Select an option \(1-5\)/,'launcher prompt still advertises removed options');
+assert.match(launcher,/start "" "http:\/\/localhost:%PORT%\/"/,'the launcher must open the student-facing homepage (domain root)');
+assert.doesNotMatch(launcher,/start "" "http:\/\/localhost:%PORT%\/coach\/login"/,'the launcher must not deep-link the coach login anymore');
 const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','releases.css','students.css','student-app.css','unified-components.css'];
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
