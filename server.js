@@ -2795,6 +2795,14 @@ const server=http.createServer(async(req,res)=>{
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
+    // دامنهٔ اصلی عمومی است: بازدیدکننده صفحهٔ شاگرد (ورود/ثبت‌نام) را می‌بیند؛
+    // ورود مربی از لینک کوچک پایین همین صفحه در دسترس است. داشبورد مربی /coach/dashboard.
+    if(url.pathname==='/'||url.pathname==='/index.html'){
+      const entryHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
+      res.writeHead(200,entryHeaders);
+      return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
+    }
+
     // Coach SPA routes contain no public data, but the dashboard shell itself is also
     // private. Student routes use a separate HTML shell and student session.
     const requestExt=path.extname(url.pathname).toLowerCase();

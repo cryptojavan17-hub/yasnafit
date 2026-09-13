@@ -907,3 +907,9 @@
 .tg-pref input{width:17px;min-height:17px;flex:0 0 17px;accent-color:var(--accent)}
 .tg-pref:hover{border-color:var(--border-strong)}
 #tgCode{font-family:monospace;font-size:13px;letter-spacing:.5px}
+
+/* لینک کوچک «ورود مربی» در پایین صفحهٔ عمومی (ریشهٔ دامنه) */
+.entry-coach-link{position:absolute;z-index:30;bottom:max(12px,env(safe-area-inset-bottom));right:50%;transform:translateX(50%);padding:7px 18px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;background:var(--surface-overlay);color:var(--text-muted);font-size:11px;font-weight:750;text-decoration:none;white-space:nowrap;box-shadow:var(--shadow-sm);transition:color 180ms ease,border-color 180ms ease,background 180ms ease}
+.entry-coach-link:hover{color:var(--text);border-color:var(--border-hover);background:var(--surface-2)}
+.entry-coach-link:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+@media(max-width:560px){.entry-coach-link{padding:9px 20px;font-size:12px}}

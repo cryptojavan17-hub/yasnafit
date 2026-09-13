@@ -87,6 +87,18 @@ assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboa
 assert.match(studentHtml,/theme-color" content="#eef1f6"/,'student shell default browser chrome must be LIGHT');
 assert.ok(studentHtml.indexOf('<script src="/theme-toggle.js"></script>')<studentHtml.indexOf('/theme.css'),'student shell must apply the theme before stylesheets');
 assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboarding-card\\{'),'student onboarding card rule moved');
+/* ── صفحهٔ اصلی دامنه: پوستهٔ شاگرد + لینک کوچک ورود مربی ── */
+{
+  const serverSrc=fs.readFileSync(path.join(root,'server.js'),'utf8');
+  assert.match(serverSrc,/url\.pathname==='\/'\|\|url\.pathname==='\/index\.html'/,'server must special-case the domain root');
+  const rootBlock=serverSrc.slice(serverSrc.indexOf("if(url.pathname==='/'||url.pathname==='/index.html')"));
+  assert.ok(rootBlock.slice(0,400).includes("'student.html'"),'the domain root must serve the student shell');
+  const studentAppSrc=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+  assert.match(studentAppSrc,/COACH_ENTRY='<a class="entry-coach-link" href="\/coach\/login">ورود مربی<\/a>'/,'the entry pages must carry a small coach-login link');
+  assert.match(studentAppSrc,/if\(path==='\/'\|\|path==='\/index\.html'\)return renderLogin\(\);/,'the root path must render the student login scene');
+  assert.ok((studentAppSrc.match(/\$\{COACH_ENTRY\}/g)||[]).length>=4,'coach link must appear on login/register/error/success scenes');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-coach-link\{position:absolute/,'the coach link must sit at the bottom of the entry page');
+}
 {
   const studentApp=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
   assert.match(studentApp,/function themeFloatButton\(\)/,'student-app must build the floating theme toggle');

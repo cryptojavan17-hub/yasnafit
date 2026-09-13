@@ -13,8 +13,10 @@
   width:100%;
   margin:0;
   padding:12px;
+  padding-bottom:64px;
   display:grid;
   place-items:center;
+  position:relative;
   background:var(--bg);
   box-sizing:border-box;
 }

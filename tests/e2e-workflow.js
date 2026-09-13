@@ -65,7 +65,8 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.equal(home.headers.get('location'),'/coach/login');
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,200);assert.match(home.headers.get('content-type'),/text\/html/);
+  const homeHtml=await home.text();assert.match(homeHtml,/student-app\.js/,'the domain root must open the student page');assert.doesNotMatch(homeHtml,/id="sidebar"/,'the domain root must not expose the coach shell');
   const loginPage=await fetch(BASE+'/coach/login');assert.equal(loginPage.status,200);
   const loginHtml=await loginPage.text();
   assert.match(loginHtml,/ادامه/);assert.match(loginHtml,/ایمیل مربی/);
