@@ -122,7 +122,7 @@
         await api('/api/coach/auth/mail', {
           app_password: document.getElementById('coachMailPassword').value
         });
-        showError('ایمیل آزمایشی به crypto.javan17@gmail.com ارسال شد. اینباکس و پوشه اسپم را بررسی کنید.', true);
+        showError('ایمیل آزمایشی به mehdi.javan.64@gmail.com ارسال شد. اینباکس و پوشه اسپم را بررسی کنید.', true);
         setTimeout(() => location.replace('/coach/login'), 1400);
       } catch (error) {
         showError(error.message || 'ارسال آزمایشی به جیمیل انجام نشد.');

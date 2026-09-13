@@ -80,7 +80,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
   await expectStatus(404,'/api/coach/auth/totp');
   await expectStatus(404,'/api/coach/auth/totp/confirm',{method:'POST',body:{code:'000000'}});
-  const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
+  const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'mehdi.javan.64@gmail.com';
   const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
   const liveDbPath=path.join(__dirname,'..','data','yasnafit.db');
   const coachStatus=await request('/api/coach/auth/status');
@@ -94,7 +94,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
   assert.equal(statusAfterSetup.data.setup_required,false);
   // Once an account exists the one-time setup route must be unreachable.
-  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'}});
+  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'mehdi.javan.64@gmail.com',password:'YasnafitCoach1'}});
   assert.equal((await fetch(BASE+'/coach/setup')).status,404);
   await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   // ورود تک‌مرحله‌ای: ایمیل + رمز ⇒ نشست مستقیم (بدون چالش/کد ۶ رقمی)

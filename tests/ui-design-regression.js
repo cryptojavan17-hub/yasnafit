@@ -96,7 +96,22 @@ assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboardin
   const rootBlock=serverSrc.slice(serverSrc.indexOf("if(url.pathname==='/'||url.pathname==='/index.html')"));
   assert.ok(rootBlock.slice(0,400).includes("'student.html'"),'the domain root must serve the student shell');
   const studentAppSrc=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
-  assert.match(studentAppSrc,/COACH_ENTRY='<a class="entry-coach-link" href="\/coach\/login">ورود مربی<\/a>'/,'the entry pages must carry a small coach-login link');
+  assert.match(studentAppSrc,/entry-coach-link" href="\/coach\/login">ورود مربی<\/a>/,'the entry pages must carry a small coach-login link');
+  assert.match(studentAppSrc,/OWNER_MARK='© یاسنافیت — مهدی جوان'/,'the landing footer must carry the ownership mark');
+  for(const f of ['package.json','LICENSE']){
+    assert.ok(fs.readFileSync(path.join(root,f),'utf8').includes('mehdi.javan.64@gmail.com'),f+' must credit the owner/developer (mehdi.javan.64@gmail.com)');
+  }
+  const bannedPersona=['crypto.javan17'];
+  for(const persona of bannedPersona){
+    for(const dir of ['public','src']){
+      const dirPath=path.join(root,dir);
+      for(const file of fs.readdirSync(dirPath)){
+        if(!/\.(js|html|css)$/.test(file))continue;
+        const text=fs.readFileSync(path.join(dirPath,file),'utf8');
+        assert.ok(!text.includes(persona),`${dir}/${file} still references ${persona} — the owner identity is mehdi.javan.64@gmail.com`);
+      }
+    }
+  }
   assert.match(studentAppSrc,/if\(path==='\/'\|\|path==='\/index\.html'\)return renderLogin\(\);/,'the root path must render the student login scene');
   assert.ok((studentAppSrc.match(/\$\{COACH_ENTRY\}/g)||[]).length>=4,'coach link must appear on login/register/error/success scenes');
   assert.match(studentAppSrc,/const CONTACTS=\[/,'the landing page contact list is missing');
@@ -106,7 +121,7 @@ assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboardin
   assert.match(studentAppSrc,/\$\{CONTACT_LINKS\}/,'the contact rail must render on the landing stage');
   assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-contact-rail\{position:absolute;[^}]*bottom:22px;left:26px/,'the contact rail must sit inside the art frame, under the quote, bottom-left');
   assert.match(fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8'),/hotspot-register[^]*?\$\{CONTACT_LINKS\}/,'the rail must live inside the hero art frame (below the quote text)');
-  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-coach-link\{position:absolute/,'the coach link must sit at the bottom of the entry page');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-footer\{position:absolute/,'the entry footer (ownership mark + coach link) must sit at the bottom of the landing page');
 }
 {
   const studentApp=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');

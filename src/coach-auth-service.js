@@ -17,7 +17,7 @@ const MAX_PASSWORD_FAILURES=5;
 const MAX_OTP_FAILURES=3;
 const LOCK_MS=15*60*1000;
 const TOKEN_PATTERN=/^[A-Za-z0-9_-]{43}$/;
-const SETUP_EMAIL='crypto.javan17@gmail.com';
+const SETUP_EMAIL='mehdi.javan.64@gmail.com';
 const PLACEHOLDER_EMAIL='coach@yasnafit.local';
 const DUMMY_HASH=hashPassword('yasnafit-coach-dummy-password');
 
@@ -494,7 +494,7 @@ function setupCoach(db,{email,password,displayName='مربی',req=null}){
   }
   const normalized=normalizeEmail(email);
   if(normalized!==SETUP_EMAIL){
-    throw Object.assign(new Error('ایمیل مربی باید crypto.javan17@gmail.com باشد'),{statusCode:400,code:'INVALID_SETUP_EMAIL'});
+    throw Object.assign(new Error('ایمیل مربی باید mehdi.javan.64@gmail.com باشد'),{statusCode:400,code:'INVALID_SETUP_EMAIL'});
   }
   const validated=validateCoachPassword(password);
   ensureLocalCoach(db);

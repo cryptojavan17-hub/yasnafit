@@ -202,7 +202,7 @@ function coachAuthError(res,code,fallbackMessage){
     TOTP_ALREADY_SET:[409,'تأیید دو مرحله‌ای قبلاً فعال شده است.'],
     SETUP_REQUIRED:[401,'ورود ممکن نیست.'],
     SETUP_CLOSED:[409,'اکانت مربی قبلاً ساخته شده است.'],
-    INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید crypto.javan17@gmail.com باشد.'],
+    INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید mehdi.javan.64@gmail.com باشد.'],
     WEAK_PASSWORD:[400,'رمز عبور باید حداقل ۸ کاراکتر و ترکیبی از حرف و عدد باشد.'],
     INVALID_RESET:[400,'لینک بازیابی نامعتبر است.'],
     RESET_EXPIRED:[400,'لینک بازیابی منقضی شده است. دوباره درخواست کنید.'],
