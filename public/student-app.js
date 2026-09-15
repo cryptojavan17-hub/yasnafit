@@ -54,8 +54,7 @@
   }
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
   const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
-  const OWNER_MARK='© یاسنافیت — مهدی جوان';
-  const COACH_ENTRY=`<span class="entry-footer"><span class="owner-mark">${OWNER_MARK}</span><a class="entry-coach-link" href="/coach/login">ورود مربی</a></span>`;
+  const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
   /* راه‌های ارتباطی صفحهٔ اصلی — برای تغییر، فقط مقادیر href را عوض کنید */
   const CONTACTS=[
     {id:'instagram',href:'https://instagram.com/exercise._.yasna._',label:'اینستاگرام یاسنافیت',
