@@ -88,7 +88,7 @@
 .drawer-item img { width: 42px; height: 42px; flex: 0 0 42px; object-fit: contain; padding: 2px; box-sizing: border-box; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--image-plate); filter: none; }
 .drawer-item b { display: block; max-width: 230px; overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .drawer-item small { color: var(--text-muted); font-size: 9px; }
-.program-list { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill,minmax(310px,1fr)); gap: 13px; }
+.program-list { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill,minmax(min(310px,100%),1fr)); gap: 13px; }
 .program-card { padding: 17px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--glass); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); transition: var(--transition); }
 .program-card:hover { transform: translateY(-2px); border-color: var(--border-strong); background: var(--glass-hover); box-shadow: var(--shadow); }
 .program-card h3 { margin: 0 0 7px; color: var(--text); font-size: 14px; }

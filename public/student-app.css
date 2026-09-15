@@ -604,7 +604,7 @@
 /* Student Programs 3-Column Highlights & Views */
 .student-programs-tri-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
@@ -930,4 +930,9 @@
   .entry-contact-rail{top:calc(100% + 18px);bottom:auto;left:50%;right:auto;transform:translateX(-50%);gap:12px}
   .contact-ico{width:46px;height:46px;border-radius:15px}
   .contact-ico svg{width:22px;height:22px}
+}
+
+/* ═══ موبایل — ورودی‌ها ≥16px تا iOS هنگام فوکوس زوم نکند ═══ */
+@media (max-width: 680px) {
+  .student-app :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]) { font-size: 16px; }
 }

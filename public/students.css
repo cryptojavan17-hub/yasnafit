@@ -1365,3 +1365,10 @@
   background: var(--danger-surface);
   color: var(--danger);
 }
+
+/* ═══ موبایل — جدول شاگردان: فشرده‌سازی برای کم‌تر اسکرول افقی ═══ */
+.students-table-wrap { -webkit-overflow-scrolling: touch; }
+@media (max-width: 600px) {
+  .students-table { min-width: 1010px; font-size: 11.5px; }
+  .students-table th, .students-table td { padding-left: 9px; padding-right: 9px; }
+}

@@ -274,7 +274,7 @@ tbody tr:last-child td { border-bottom: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto; animation-duration: .01ms; animation-iteration-count: 1; transition-duration: .01ms; }
 }
-.release-dashboard-card{margin:16px 0;display:grid;grid-template-columns:minmax(220px,.9fr) minmax(280px,1.4fr) auto;gap:20px;align-items:center;background:var(--card);backdrop-filter:blur(18px)}
+.release-dashboard-card{margin:16px 0;display:grid;grid-template-columns:minmax(min(220px,100%),.9fr) minmax(min(280px,100%),1.4fr) auto;gap:20px;align-items:center;background:var(--card);backdrop-filter:blur(18px)}
 .release-dashboard-card h2,.release-dashboard-card p{margin:0}.release-dashboard-card small{color:var(--muted)}.release-dashboard-card ul{margin:0;padding-right:20px;color:var(--text-secondary)}
 @media(max-width:800px){.release-dashboard-card{grid-template-columns:1fr}.release-dashboard-card .secondary{width:100%;text-align:center}}
 /* Coach review notification in the global header */
@@ -290,7 +290,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .db-hero .eyebrow { margin: 0; color: var(--accent-hover, var(--accent)); font-size: 11px; font-weight: 850; letter-spacing: .5px; }
 .db-daily { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.9; font-weight: 600; }
 .dashboard-version { color: var(--text-muted); font-size: 10px; font-weight: 750; padding-top: 4px; }
-.db-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.db-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px; margin-bottom: 16px; }
 .db-stat { padding: 16px 18px; display: flex; align-items: center; gap: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--card); box-shadow: var(--shadow-sm); backdrop-filter: blur(16px); transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition); }
 .db-stat:hover { transform: translateY(-2px); border-color: var(--accent-border); box-shadow: var(--shadow); }
 .db-stat strong { display: block; font-size: 26px; font-weight: 900; line-height: 1.15; color: var(--text); }
@@ -492,3 +492,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .btn-backup-rs:hover{border-color:var(--warning-border);background:var(--warning-surface);color:var(--warning)}
 .backup-empty{color:var(--text-muted);font-size:12px}
 @media(max-width:680px){.backup-table thead{display:none}.backup-table tbody tr{display:block;padding:9px 0;border-bottom:1px solid var(--border)}.backup-table .backup-name{display:block;margin-bottom:5px}.backup-table .backup-actions{justify-content:flex-start}}
+
+/* ═══ §۲۳ — پک موبایل تاپ‌بار و ورودی‌ها (تمام عرض‌ها) ═══ */
+@media (max-width: 850px) {
+  .sidebar-toggle { display: none; }
+  .top-actions { gap: 6px; }
+  .top-actions .secondary { padding: 7px 10px; font-size: 11.5px; white-space: nowrap; }
+}
+@media (max-width: 560px) {
+  .topbar { height: auto; min-height: 64px; flex-wrap: wrap; padding-block: 8px; row-gap: 6px; }
+  .breadcrumb { order: 10; flex-basis: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; }
+  .avatar { width: 32px; height: 32px; font-size: 13px; }
+  .top-actions .secondary { padding: 6px 8px; font-size: 11px; }
+}
+@media (max-width: 680px) {
+  .app-shell :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]) { font-size: 16px; }
+}
+@media (max-width: 430px) {
+  #coachLogoutAll { display: none; }
+  .top-actions .secondary { padding: 6px 7px; font-size: 10.5px; letter-spacing: 0; }
+}
