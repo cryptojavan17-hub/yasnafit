@@ -58,4 +58,10 @@ assert.match(files['students.css'], /\.students-table-wrap \{\s*overflow-x: auto
 assert.match(files['students.css'], /@media \(max-width: 600px\) \{\s*\.students-table \{ min-width: 1010px; font-size: 11\.5px; \}/, 'the students table must compact on phones');
 assert.match(files['students.css'], /\.students-search-box \{ width: 100%; flex-shrink: 1; \}/, 'the students search box must go fluid on phones');
 
+// ─── ۷. ریل تماس صفحهٔ اصلی در موبایل باید داخل قاب بماند ───
+// قاب پوستر overflow:hidden دارد؛ ریلِ بیرون‌رفته از لبه قاب قیچی می‌شود (ناپدید در حالت عادی موبایل).
+const sacss = files['student-app.css'];
+assert.doesNotMatch(sacss, /\.entry-contact-rail\{[^}]*top:calc\(100%/, 'the contact rail must never be pushed outside the clipping frame');
+assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{top:auto;bottom:max\(10px,2\.4%\);left:4%;right:auto;transform:none/, 'on phones the rail must stay anchored inside the frame, bottom-left under the quote');
+
 console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true }));
