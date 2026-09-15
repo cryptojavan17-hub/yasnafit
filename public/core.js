@@ -189,13 +189,49 @@ async function render(label,route){
       return;
     }
     if(route==='/coach/settings'||route==='/coach/profile'){
-      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section><section class="panel settings-card"><h2>تغییر رمز مربی</h2><p>پس از تغییر رمز، همه نشست‌های قبلی باطل می‌شوند و باید دوباره وارد شوید.</p><form id="coachPasswordChangeForm" class="form-grid"><label>رمز فعلی<input name="current_password" type="password" required minlength="8" maxlength="128"></label><label>رمز جدید<input name="new_password" type="password" required minlength="8" maxlength="128"></label><button class="primary" type="submit">ذخیره رمز جدید</button></form><p id="coachPasswordChangeResult"></p></section>`;
+      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>پشتیبان‌گیری و بازیابی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است؛ نسخه‌های پشتیبان در پوشه <code>backups</code> نگهداری می‌شوند. بازیابی همهٔ داده‌ها (شاگردان، مربی، تنظیمات هوش مصنوعی، اتصال تلگرام و…) را با نسخهٔ انتخابی جایگزین می‌کند و سرویس یک بار ری‌استارت می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><div class="restore-upload-row"><input type="file" id="restoreFile" accept=".db" aria-label="انتخاب فایل پشتیبان"><button class="secondary" id="restoreUploadBtn" disabled>بازیابی از فایل</button></div><p id="backupResult" class="backup-result"></p><div id="backupList" class="backup-list">در حال دریافت فهرست پشتیبان‌ها…</div></section><section class="panel settings-card"><h2>تغییر رمز مربی</h2><p>پس از تغییر رمز، همه نشست‌های قبلی باطل می‌شوند و باید دوباره وارد شوید.</p><form id="coachPasswordChangeForm" class="form-grid"><label>رمز فعلی<input name="current_password" type="password" required minlength="8" maxlength="128"></label><label>رمز جدید<input name="new_password" type="password" required minlength="8" maxlength="128"></label><button class="primary" type="submit">ذخیره رمز جدید</button></form><p id="coachPasswordChangeResult"></p></section>`;
+      const resultEl=document.querySelector('#backupResult');
       const back=async()=>{
-        const r=await api('/api/backup',{method:'POST'});
-        document.querySelector('#backupResult').textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
+        try{
+          const r=await api('/api/backup',{method:'POST'});
+          resultEl.textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
+          await loadList();
+        }catch(error){resultEl.textContent='خطا در پشتیبان‌گیری: '+error.message;}
+      };
+      const restoreConfirm=(label,run)=>{
+        if(!confirm(`بازیابی ${label}: همهٔ اطلاعات فعلی با نسخهٔ انتخابی جایگزین می‌شود و سرویس ری‌استارت می‌شود. ادامه می‌دهید؟`))return;
+        resultEl.textContent='در حال آماده‌سازی بازیابی…';
+        run().then(()=>{
+          resultEl.textContent='✓ بازیابی انجام شد. سرویس در حال ری‌استارت است؛ چند ثانیه بعد صفحه به‌صورت خودکار باز می‌شود.';
+          setTimeout(()=>location.replace('/coach/dashboard'),7000);
+        }).catch(e=>{resultEl.textContent='خطا در بازیابی: '+e.message;});
+      };
+      const loadList=async()=>{
+        const host=document.querySelector('#backupList');
+        try{
+          const data=await api('/api/backup');
+          if(!data.backups.length){host.innerHTML='<p class="backup-empty">هنوز نسخه پشتیبانی ساخته نشده است.</p>';return;}
+          host.innerHTML='<table class="backup-table"><thead><tr><th>فایل پشتیبان</th><th>حجم</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>'+data.backups.map(b=>`<tr><td class="backup-name">${esc(b.name)}</td><td>${b.size_mb} مگابایت</td><td>${esc(b.date)}</td><td class="backup-actions"><a class="btn-backup-dl" href="/api/backup/download?name=${encodeURIComponent(b.name)}">↧ دانلود</a><button type="button" class="btn-backup-rs" data-restore="${esc(b.name)}">↺ بازیابی</button></td></tr>`).join('')+'</tbody></table>';
+          host.querySelectorAll('[data-restore]').forEach(btn=>btn.onclick=()=>restoreConfirm(`نسخه «${btn.dataset.restore}»`,()=>api('/api/backup/restore-server',{method:'POST',body:JSON.stringify({name:btn.dataset.restore})})));
+        }catch(error){host.textContent='خطا در فهرست پشتیبان‌ها: '+error.message;}
+      };
+      const fileInput=document.querySelector('#restoreFile');
+      const uploadBtn=document.querySelector('#restoreUploadBtn');
+      fileInput.onchange=()=>{uploadBtn.disabled=!fileInput.files.length;};
+      uploadBtn.onclick=()=>{
+        const f=fileInput.files[0];
+        if(!f)return;
+        restoreConfirm(`فایل «${f.name}»`,async()=>{
+          const buffer=await f.arrayBuffer();
+          const r=await fetch('/api/backup/restore',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:buffer});
+          const d=await r.json().catch(()=>({}));
+          if(!r.ok)throw new Error(d.error||'بازیابی ناموفق بود.');
+          return d;
+        });
       };
       document.querySelector('#addBtn').onclick=back;
       document.querySelector('#backupBtn').onclick=back;
+      loadList();
       document.querySelector('#coachPasswordChangeForm').onsubmit=async event=>{
         event.preventDefault();
         const form=Object.fromEntries(new FormData(event.currentTarget));

@@ -476,3 +476,19 @@ tbody tr:last-child td { border-bottom: 0; }
   .rvw-program-row { grid-template-columns: 1fr; }
   .rvw-head-links { width: 100%; }
 }
+
+/* ═══ §۲۲ — پشتیبان‌گیری و بازیابی (تنظیمات مربی) ═══ */
+.restore-upload-row{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:12px}
+.restore-upload-row input[type="file"]{max-width:320px;padding:8px;border:1px dashed var(--border-strong);border-radius:10px;background:var(--surface-inset);color:var(--text-secondary);font-size:12px}
+.backup-result{margin-top:10px;color:var(--text-secondary);font-size:12.5px;line-height:1.9}
+.backup-list{margin-top:14px}
+.backup-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.backup-table th,.backup-table td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.backup-table th{color:var(--text-muted);font-size:11px;font-weight:750;background:var(--surface-3)}
+.backup-table .backup-name{direction:ltr;text-align:left;color:var(--text-secondary);word-break:break-all}
+.backup-table .backup-actions{display:flex;gap:7px;align-items:center;justify-content:flex-end;white-space:nowrap}
+.btn-backup-dl,.btn-backup-rs{display:inline-flex;align-items:center;gap:4px;padding:6px 13px;border-radius:9px;border:1px solid var(--border-strong);background:var(--glass);color:var(--text-secondary);font-size:11.5px;font-weight:750;text-decoration:none;cursor:pointer;transition:background var(--transition),border-color var(--transition),color var(--transition)}
+.btn-backup-dl:hover{border-color:var(--accent-border);background:var(--accent-surface);color:var(--accent-hover)}
+.btn-backup-rs:hover{border-color:var(--warning-border);background:var(--warning-surface);color:var(--warning)}
+.backup-empty{color:var(--text-muted);font-size:12px}
+@media(max-width:680px){.backup-table thead{display:none}.backup-table tbody tr{display:block;padding:9px 0;border-bottom:1px solid var(--border)}.backup-table .backup-name{display:block;margin-bottom:5px}.backup-table .backup-actions{justify-content:flex-start}}

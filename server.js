@@ -2400,7 +2400,98 @@ async function handleLegacyPrograms(req,res,url){
   return null;
 }
 
+const RESTORE_MAX_BYTES = 524288000; // سقف ۵۰۰ مگابایت برای فایل بازیابی
+function readRawBody(req,maxBytes=RESTORE_MAX_BYTES){
+  return new Promise((resolve,reject)=>{
+    const chunks=[];let size=0;
+    req.on('data',c=>{size+=c.length;if(size>maxBytes){reject(Object.assign(new Error('حجم فایل پشتیبان بیش از حد مجاز است'),{statusCode:413}));req.destroy();return;}chunks.push(c);});
+    req.on('end',()=>resolve(Buffer.concat(chunks)));
+    req.on('error',reject);
+  });
+}
+function backupSafeName(value){
+  const base=path.basename(String(value||'').trim());
+  if(!base || base!==sanitizeFileName(base) || !base.endsWith('.db')) return null;
+  return base;
+}
+function validateRestoreCandidate(file){
+  try{
+    const fd=fs.openSync(file,'r');const header=Buffer.alloc(16);fs.readSync(fd,header,0,16,0);fs.closeSync(fd);
+    if(!header.toString('latin1').startsWith('SQLite format 3')) return 'فایل انتخابی یک دیتابیس SQLite معتبر نیست.';
+  }catch(e){ return 'خواندن فایل پشتیبان ممکن نشد.'; }
+  let probe;
+  try{ probe=new (require('node:sqlite').DatabaseSync)(file,{readOnly:true}); }catch(e){ return 'باز کردن فایل پشتیبان ممکن نشد.'; }
+  try{
+    const check=probe.prepare('PRAGMA integrity_check').get();
+    if(!check||check.integrity_check!=='ok') return 'فایل پشتیبان آسیب‌دیده است (integrity_check ناموفق).';
+    for(const table of ['schema_migrations','coaches','students','settings']){
+      const row=probe.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table);
+      if(!row) return 'این فایل پشتیبان یاسنا‌فیت نیست و بازیابی آن مجاز نیست.';
+    }
+    return null;
+  }finally{ try{probe.close();}catch(e){} }
+}
+function stageRestore(candidatePath,originLabel){
+  const error=validateRestoreCandidate(candidatePath);
+  if(error) return {error};
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  const safety=path.join(backupDir,`pre-restore-${stamp}.db`);
+  try{ db.exec(`VACUUM INTO '${safety.replace(/'/g,"''")}'`); }
+  catch(e){ return {error:'پشتیبان ایمنی از وضعیت فعلی ساخته نشد: '+e.message}; }
+  try{
+    fs.copyFileSync(candidatePath,path.join(path.dirname(dbPath),'restore-pending.db'));
+    fs.writeFileSync(path.join(path.dirname(dbPath),'restore-pending.json'),JSON.stringify({file:'restore-pending.db',from:originLabel,at:new Date().toISOString()}),'utf8');
+  }catch(e){ return {error:'آماده‌سازی فایل بازیابی ممکن نشد: '+e.message}; }
+  try{ db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); }catch(e){}
+  setTimeout(()=>{ console.log('[Restore] سرویس برای اعمال بازیابی ری‌استارت می‌شود'); process.exit(0); },900);
+  return {ok:true};
+}
 async function handleBackup(req,res,url){
+  if(requireCoach(req,res)) return true;
+  const p=url.pathname;
+  if(p==='/api/backup' && req.method==='GET'){
+    try{
+      const list=fs.readdirSync(backupDir).filter(f=>f.startsWith('yasnafit-')&&f.endsWith('.db')).map(f=>{
+        const full=path.join(backupDir,f);const st=fs.statSync(full);
+        return {name:f,size:st.size,size_mb:(st.size/1048576).toFixed(2),date:new Date(st.mtime).toLocaleString('fa-IR')};
+      }).sort((a,b)=>a.name<b.name?1:-1);
+      return send(res,200,{backups:list});
+    }catch(e){ return sendError(res,500,'خواندن پوشهٔ پشتیبان‌ها ناموفق بود.'); }
+  }
+  if(p==='/api/backup/download' && req.method==='GET'){
+    const name=backupSafeName(url.searchParams.get('name'));
+    if(!name) return sendError(res,400,'نام فایل پشتیبان معتبر نیست.');
+    const full=path.join(backupDir,name);
+    if(!isSafePath(backupDir,full)||!fs.existsSync(full)||!fs.statSync(full).isFile()) return sendError(res,404,'فایل پشتیبان پیدا نشد.');
+    const stat=fs.statSync(full);
+    res.writeHead(200,{'Content-Type':'application/x-sqlite3','Content-Length':stat.size,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'",'Content-Disposition':`attachment; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`});
+    fs.createReadStream(full).pipe(res);
+    return true;
+  }
+  if(p==='/api/backup/restore-server' && req.method==='POST'){
+    const body=await readBody(req);
+    const name=backupSafeName(body.name);
+    if(!name) return sendError(res,400,'نام فایل پشتیبان معتبر نیست.');
+    const full=path.join(backupDir,name);
+    if(!isSafePath(backupDir,full)||!fs.existsSync(full)) return sendError(res,404,'فایل پشتیبان پیدا نشد.');
+    const result=stageRestore(full,name);
+    if(result.error) return sendError(res,400,result.error);
+    log('بازیابی دیتابیس برنامه‌ریزی شد',name);
+    return send(res,200,{ok:true,restart_required:true,message:'بازیابی انجام شد. سرویس برای اعمال آن ری‌استارت می‌شود.'});
+  }
+  if(p==='/api/backup/restore' && req.method==='POST'){
+    let raw;
+    try{ raw=await readRawBody(req); }
+    catch(e){ return sendError(res,e.statusCode||400,e.message); }
+    if(!raw.length) return sendError(res,400,'فایلی برای بازیابی ارسال نشده است.');
+    const tmp=path.join(backupDir,`upload-restore-${new Date().toISOString().replace(/[:.]/g,'-')}.db`);
+    fs.writeFileSync(tmp,raw);
+    const result=stageRestore(tmp,'فایل آپلودشده');
+    try{ fs.unlinkSync(tmp); }catch(e){}
+    if(result.error) return sendError(res,400,result.error);
+    log('بازیابی دیتابیس از فایل آپلودشده برنامه‌ریزی شد');
+    return send(res,200,{ok:true,restart_required:true,message:'بازیابی انجام شد. سرویس برای اعمال آن ری‌استارت می‌شود.'});
+  }
   if(url.pathname==='/api/backup' && req.method==='POST'){
     try {
       // Before backup, checkpoint WAL
@@ -2679,7 +2770,7 @@ async function api(req,res,url){
       if(r) return r;
     }
 
-    if(p==='/api/backup'){
+    if(p==='/api/backup'||p.startsWith('/api/backup/')){
       const r = await handleBackup(req,res,url);
       if(r) return r;
     }
