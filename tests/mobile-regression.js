@@ -62,7 +62,7 @@ assert.match(files['students.css'], /\.students-search-box \{ width: 100%; flex-
 // قاب پوستر overflow:hidden دارد؛ ریلِ بیرون‌رفته از لبه قاب قیچی می‌شود (ناپدید در حالت عادی موبایل).
 const sacss = files['student-app.css'];
 assert.doesNotMatch(sacss, /\.entry-contact-rail\{[^}]*top:calc\(100%/, 'the contact rail must never be pushed outside the clipping frame');
-assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{[^}]*\}\s*\.contact-ico\{width:30px;height:30px/, 'phone contact icons must stay at the compact standard size, not oversized');
-assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{top:auto;bottom:max\(8px,2\.2%\);left:4%;right:auto;transform:none/, 'on phones the rail must stay anchored inside the frame, bottom-left under the quote');
+assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{[^}]*\}\s*\.contact-ico\{width:15px;height:15px/, 'phone contact icons must stay at the compact standard size, not oversized');
+assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{top:auto;bottom:max\(6px,1\.8%\);left:4%;right:auto;transform:none/, 'on phones the rail must stay anchored inside the frame, bottom-left under the quote');
 
 console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true }));

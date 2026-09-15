@@ -928,9 +928,9 @@
 /* موبایل: قاب آرت کوچک می‌شود — ریل داخل قاب می‌ماند (زیر نقل‌قول، پایین‌چپ، متناسب با قاب).
    نکته: قاب overflow:hidden دارد؛ هر خروج از لبهٔ قاب قیچی می‌شود (باگ ناپدیدشدن آیکون‌ها در موبایل). */
 @media(max-width:680px){
-  .entry-contact-rail{top:auto;bottom:max(8px,2.2%);left:4%;right:auto;transform:none;gap:8px}
-  .contact-ico{width:30px;height:30px;border-radius:9px}
-  .contact-ico svg{width:15px;height:15px}
+  .entry-contact-rail{top:auto;bottom:max(6px,1.8%);left:4%;right:auto;transform:none;gap:4px}
+  .contact-ico{width:15px;height:15px;border-radius:5px}
+  .contact-ico svg{width:8px;height:8px}
 }
 
 /* ═══ موبایل — ورودی‌ها ≥16px تا iOS هنگام فوکوس زوم نکند ═══ */
