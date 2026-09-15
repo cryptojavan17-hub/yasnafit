@@ -56,5 +56,6 @@ assert.match(files['student-app.css'], /@media \(max-width: 680px\) \{\s*\.stude
 // ─── ۶. جدول شاگردان در موبایل فشرده می‌شود ───
 assert.match(files['students.css'], /\.students-table-wrap \{\s*overflow-x: auto;/, 'the students table must scroll inside its card');
 assert.match(files['students.css'], /@media \(max-width: 600px\) \{\s*\.students-table \{ min-width: 1010px; font-size: 11\.5px; \}/, 'the students table must compact on phones');
+assert.match(files['students.css'], /\.students-search-box \{ width: 100%; flex-shrink: 1; \}/, 'the students search box must go fluid on phones');
 
 console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true }));
