@@ -686,7 +686,7 @@
             </button>
             <div class="drawer-setpreset-body" id="drawerSetPresetBody">
               <div class="drawer-setpreset-inner">
-                <small class="drawer-setpreset-hint">یک‌بار اینجا انتخاب کنید ⇒ روی حرکات همین سیستم و حرکت‌های بعدی اعمال می‌شود.</small>
+                <small class="drawer-setpreset-hint">انتخاب شما فقط روی حرکات همین سیستم اعمال می‌شود؛ حرکت بعدی ست‌های خودش را جدا و فقط با دستور شما می‌گیرد.</small>
                 <div class="drawer-preset-row">
                   <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
                     <option value="">۱ × ۱۲ (پیش‌فرض)</option>
@@ -1110,13 +1110,12 @@
 
   // Drawer
   let drawerSearchTimeout,drawerCategoryRequest=0,currentDrawerCat=null,currentDrawerSub=null,currentDrawerLocation=null;
-  let drawerPresetExtra=0; // تعداد «تکرار ست» اعمال‌شده روی انتخاب فعلی «ست‌های حرکت»
   let drawerSetsRevealed=false; // اکاردیون ست‌ها تا وقتی یک حرکتِ دستی ثبت نشود پنهان می‌ماند
   const selectedMovements=new Set(); // کلیدهای «روز-سیستم-حرکت» تیک‌خورده برای تبدیل گروهی
   let convertedFlash=null; // کلید سیستم تازه‌تبدیل‌شده برای انیمیشن نرم
   function resetDrawerBankFlow(){
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
-    resetDrawerPresetExtra();
+    resetDrawerSetNote();
     drawerSetsRevealed=false;
     const presetBarReset=document.getElementById('drawerSetPreset');
     if(presetBarReset){
@@ -1441,31 +1440,21 @@
   // ===== مودال ویرایش حرکت =====
   let mvCtx=null;
   function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
-  function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; renderDays(); }
+  function closeMovementModal(){
+    const m=document.getElementById('movementModal'); if(!m)return;
+    const mov=mvMovement();
+    // سیاست مالک: حرکت بدون ست در برنامه نمی‌ماند — یا ست می‌سازد (لغو) یا حرکت برمی‌گردد
+    if(mov&&Array.isArray(mov.sets)&&mov.sets.length===0){
+      if(!confirm('این حرکت هنوز هیچ ست ندارد. حرکت از برنامه حذف شود؟ (برای ماندن و افزودن ست، «لغو» را بزنید)'))return;
+      const {dayIdx,sysIdx,movIdx}=mvCtx;
+      const sys=currentProgram.days[dayIdx].data[sysIdx];
+      if(sys&&Array.isArray(sys.movement_list)){sys.movement_list.splice(movIdx,1);setDirty(true);}
+    }
+    m.hidden=true; mvCtx=null; renderDays();
+  }
   function applyPreset(mov,preset){
     mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
     setDirty(true);renderDays();
-  }
-  // ست‌های حرکت تازه‌اضافه‌شده: از انتخابگر «ست‌های حرکت» در بانک (زیر افزودن دستی) خوانده می‌شود
-  // تا مربی یک‌بار انتخاب کند و مجبور نباشد همان را در کارت حرکت تکرار کند.
-  // دکمهٔ «＋ تکرار ست» هم ستِ آخرِ همین انتخاب را یک‌بار دیگر به آن می‌افزاید (drawerPresetExtra).
-  function drawerBaseSpec(){
-    const select=document.getElementById('drawerPresetSelect');
-    const idx=select&&select.value!==''?Number(select.value):-1;
-    const preset=setPresets[idx];
-    if(preset)return preset.spec.map(item=>({type:item.type,count:item.count}));
-    return [{type:'REPEAT',count:12}];
-  }
-  function setsForNewMovement(){
-    const spec=drawerBaseSpec();
-    for(let r=0;r<drawerPresetExtra;r+=1){
-      const last=spec[spec.length-1];
-      spec.push({type:last.type,count:last.count});
-    }
-    return spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
-  }
-  function drawerEffectiveSetCount(){
-    return drawerBaseSpec().length+drawerPresetExtra;
   }
   function drawerActiveSystem(){
     if(!selectedSystemForAdd)return null;
@@ -1552,8 +1541,7 @@
     }
     note.textContent=`✓ ${count.toLocaleString('fa-IR')} ست برای حرکت‌های این سیستم`;
   }
-  function resetDrawerPresetExtra(){
-    drawerPresetExtra=0;
+  function resetDrawerSetNote(){
     const note=document.getElementById('drawerPresetNote');
     if(note){note.hidden=true;note.textContent='';note.classList.remove('warn');}
   }
@@ -1599,7 +1587,6 @@
   // «＋ تکرار ست»: علاوه بر پیش‌فرضِ حرکت‌های بعدی، به حرکت‌هایی که همین حالا در سیستم هستند
   // هم یک کپی از ست آخرشان اضافه می‌کند (مثلاً ۴×۱۰ ⇒ ۵×۱۰).
   function repeatDrawerSet(){
-    drawerPresetExtra+=1;
     let applied=false;
     const sys=drawerActiveSystem();
     if(sys){
@@ -1894,7 +1881,9 @@
           image_path: imgPath,
           movementHash: genHash(),
           description: '',
-          sets: setsForNewMovement()
+          // سیاست مالک: ست اضافی خودِ سیستم تولید نمی‌شود — هر حرکت بدون ست شروع می‌کند
+          // و ست‌هایش فقط با دستور صریح مربی ساخته می‌شوند (پیش‌فرض در مودال حرکت الزامی است).
+          sets: []
         });
         expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
         setDirty(true);
@@ -2184,7 +2173,7 @@
     if(presetRepeatButton)presetRepeatButton.onclick=repeatDrawerSet;
     const drawerPresetSelectEl=document.getElementById('drawerPresetSelect');
     if(drawerPresetSelectEl)drawerPresetSelectEl.onchange=()=>{
-      resetDrawerPresetExtra();
+      resetDrawerSetNote();
       if(drawerPresetSelectEl.value==='')return;
       const preset=setPresets[Number(drawerPresetSelectEl.value)];
       if(preset&&drawerSetsRevealed){

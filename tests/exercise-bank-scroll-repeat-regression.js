@@ -88,14 +88,14 @@ const presetRowIdx = programBuilderSrc.indexOf('id="drawerPresetSelect"');
 const repeatBtnIdx = programBuilderSrc.indexOf('id="drawerPresetRepeat"');
 assert.ok(presetRowIdx > -1 && repeatBtnIdx > presetRowIdx, 'the repeat button must sit right after the preset select');
 assert.ok(programBuilderSrc.includes('function repeatDrawerSet'), 'the repeat handler must exist');
-assert.ok(programBuilderSrc.includes('let drawerPresetExtra'), 'repeat state must be tracked');
+assert.doesNotMatch(programBuilderSrc, /let drawerPresetExtra/, 'the inherited repeat counter must be gone — sets are only created on explicit owner command');
 const repeatFn = slice('function repeatDrawerSet', 'function findMatchingPresetIndex');
 assert.ok(repeatFn.includes('movement_list'), 'repeating must also apply to movements already added to the active system');
 assert.ok(repeatFn.includes('setHash:genHash()'), 'every repeated set must get a fresh setHash');
 assert.ok(repeatFn.includes('setDirty(true)'), 'repeating existing sets must mark the program dirty');
-assert.ok(programBuilderSrc.includes('function drawerBaseSpec'), 'the effective-spec helper must exist');
-const setsFn = slice('function drawerBaseSpec', 'function findMatchingPresetIndex');
-assert.ok(setsFn.includes('drawerPresetExtra'), 'new movements must inherit the repeated sets too');
+assert.doesNotMatch(programBuilderSrc, /function drawerBaseSpec/, 'the auto-spec helper must be gone along with the generator');
+const setsFn = programBuilderSrc.slice(programBuilderSrc.indexOf('function repeatDrawerSet'), programBuilderSrc.indexOf('function findMatchingPresetIndex'));
+assert.ok(programBuilderSrc.includes('sets: []'), 'bank picks must start with NO sets — the coach adds every set explicitly');
 
 // ─── 7. انتخاب پیشنهاد ست، روی همهٔ حرکات همین سیستم هم اعمال می‌شود ───
 assert.ok(programBuilderSrc.includes('function applyDrawerPresetToAll'), 'preset-to-all helper must exist');
@@ -127,7 +127,7 @@ assert.doesNotMatch(builderCss, /!important/, 'no !important overrides');
 assert.ok(programBuilderSrc.includes('id="drawerSetPreset"'), 'the sets bar must stay in the exercise-bank drawer');
 assert.ok(programBuilderSrc.includes('<option value="">۱ × ۱۲ (پیش‌فرض)</option>'), 'the explicit default option must stay');
 assert.ok(programBuilderSrc.indexOf('id="drawerQuickAdd"') < programBuilderSrc.indexOf('id="drawerSetPreset"'), 'the sets bar must stay below the manual-add panel');
-assert.equal((programBuilderSrc.match(/setsForNewMovement\(\)/g) || []).length, 2, 'bank picks must still take their sets from the picker (manual add goes through the mandatory sets accordion)');
+assert.equal((programBuilderSrc.match(/setsForNewMovement/g) || []).length, 0, 'the automatic set generator must not exist anymore');
 
 console.log(JSON.stringify({
   ok: true,
