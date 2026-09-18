@@ -2781,6 +2781,34 @@ async function api(req,res,url){
       if(r) return r;
     }
 
+    // POST /api/students/:id/telegram-notify — «برنامهٔ شما آماده شد» با ربات، به چتِ وصل‌شدهٔ شاگرد
+    const tgNotifyMatch = p.match(/^\/api\/students\/(\d+)\/telegram-notify$/);
+    if(tgNotifyMatch && req.method==='POST'){
+      if(requireCoach(req,res)) return true;
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      if(!telegramService.isConfigured()) return sendError(res,503,'ربات تلگرام هنوز پیکربندی نشده است — از سیستم ← تنظیمات تلگرام توکن بات را ثبت کنید.');
+      const studentId=Number(tgNotifyMatch[1]);
+      const student=studentByReference(tgNotifyMatch[1]);
+      if(!student) return sendError(res,404,'شاگرد پیدا نشد');
+      const account=telegramService.activeAccount(db,studentId);
+      if(!account){
+        return sendError(res,409,'این شاگرد هنوز ربات را به حسابش وصل نکرده است؛ تلگرام اجازهٔ پیام به چت ناشناس نمی‌دهد. از او بخواهید در پروفایلش «اتصال تلگرام» را بزند و کد را برای ربات بفرستد.');
+      }
+      const program=one("SELECT title FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",studentId);
+      const result=notificationService.emit(db,{
+        type:'PROGRAM_ASSIGNED',studentId,audience:'student',
+        title:'🎉 برنامهٔ شما آماده شد!',
+        body:program?`مربی شما برنامهٔ «${program.title}» را آماده کرده است. همین حالا وارد شوید و تمرین امروز را ببینید.`:'مربی شما برنامهٔ شما را آماده کرده است. وارد یسنا فیت شوید تا برنامه را ببینید.',
+        entityType:'training_program',entityId:program?program.id:null,
+        dedupKey:`program_ready_ping:${studentId}:${Date.now()}`,
+      });
+      auditService.record(db,{actorType:'coach',action:'telegram.notify_program_ready',entityType:'student',entityId:studentId,entityStableId:student.stable_id,metadata:{chat_id:telegramService.maskChatId(account.chat_id),queued:result.queued||false,skipped:result.skipped||null}});
+      if(result.skipped==='preference_disabled'){
+        return send(res,200,{ok:true,delivered:false,reason:'preference_disabled',message:'شاگرد دریافت اعلان‌های تمرینی تلگرام را در تنظیماتش خاموش کرده است — پیام درون‌برنامه‌ای برایش ثبت شد.'});
+      }
+      return send(res,200,{ok:true,delivered:true,chat:telegramService.maskChatId(account.chat_id),message:`پیام «برنامهٔ شما آماده شد» برای شاگرد (${telegramService.maskChatId(account.chat_id)}) در صف ارسال ربات قرار گرفت.`});
+    }
+
     if(p.startsWith('/api/analytics/')){
       if(requireCoach(req,res)) return true;
       if(p==='/api/analytics/visits' && req.method==='GET'){

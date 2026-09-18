@@ -6,7 +6,7 @@
   "description": "Yasnafit — پلتفرم مربی‌گری هوشمند ورزشی. مالک، طراح و برنامه‌نویس: مهدی جوان (mehdi.javan.64@gmail.com). کلیه حقوق محفوظ است.",
   "scripts": {
     "start": "node server.js",
-    "test": "npm run test:migrations && npm run test:ui && npm run test:terminology && npm run test:auth && npm run test:coach-auth && npm run test:sessions && npm run test:assessment && npm run test:engagement && npm run test:students && npm run test:movement && npm run test:exercise-bank && npm run test:system-conversion && npm run test:manual-exercise && npm run test:program-pdf && npm run test:program-draft && npm run test:backup && npm run test:mobile && npm run test:assessment-number && npm run test:analytics && npm run test:ai && npm run test:diet && npm run test:supplement && npm run test:registration && npm run test:student-credentials && npm run test:deployment && npm run test:telegram",
+    "test": "npm run test:migrations && npm run test:ui && npm run test:terminology && npm run test:auth && npm run test:coach-auth && npm run test:sessions && npm run test:assessment && npm run test:engagement && npm run test:students && npm run test:movement && npm run test:exercise-bank && npm run test:system-conversion && npm run test:manual-exercise && npm run test:program-pdf && npm run test:program-draft && npm run test:backup && npm run test:mobile && npm run test:assessment-number && npm run test:analytics && npm run test:ai && npm run test:diet && npm run test:supplement && npm run test:registration && npm run test:student-credentials && npm run test:deployment && npm run test:telegram && npm run test:tgoptin",
     "test:migrations": "node tests/migration-regression.js",
     "test:ui": "node tests/ui-design-regression.js",
     "test:terminology": "node tests/terminology-regression.js",
@@ -33,6 +33,7 @@
     "test:student-credentials": "node tests/student-credentials-ui-regression.js",
     "test:deployment": "node tests/deployment-hardening-regression.js",
     "test:telegram": "node tests/telegram-integration-regression.js",
+    "test:tgoptin": "node tests/telegram-register-optin-notify.js",
     "test:e2e": "node tests/e2e-workflow.js"
   },
   "engines": {

@@ -696,6 +696,7 @@
               </dl>
               ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.id}</button>`:''}
               ${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}
+              <button class="btn btn-secondary full" data-telegram-notify="${internalStudentId}" style="margin-top:8px;font-weight:750;">📣 ارسال اعلان به تلگرام شاگرد</button>
             </section>
 
             <!-- 3. لینک‌های دعوت سریع -->
@@ -787,6 +788,21 @@
         if(window.openProgramPDF) window.openProgramPDF(progId);
       });
       content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${internalStudentId}&assessment_id=${button.dataset.createProgram}`;});
+      content.querySelectorAll('[data-telegram-notify]').forEach(button=>button.onclick=async()=>{
+        if(button.disabled)return;
+        const original=button.textContent;
+        button.disabled=true;button.textContent='⏳ در حال ارسال…';
+        try{
+          const r=await api(`/api/students/${button.dataset.telegramNotify}/telegram-notify`,{method:'POST'});
+          if(r.delivered){button.textContent='✅ پیام در صف ارسال ربات قرار گرفت';}
+          else{button.textContent='⚠️ '+((r.message||'').slice(0,40));}
+          alert(r.message||'انجام شد.');
+          setTimeout(()=>{button.textContent=original;button.disabled=false;},3000);
+        }catch(error){
+          alert(error.message);
+          button.textContent=original;button.disabled=false;
+        }
+      });
       content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(internalStudentId)));button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(caseNumber);}catch(error){alert(error.message);}});
       content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(caseNumber)}catch(error){alert(error.message)}};

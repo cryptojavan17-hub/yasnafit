@@ -272,6 +272,20 @@
                   </div>
                 </div>
 
+                <div class="luxury-field" id="regTelegramBlock">
+                  <label class="luxury-checkbox"><input type="checkbox" name="telegram_opt_in" id="regTelegramOpt"><span>🔔 اگر مایلید به‌محض آماده‌شدن برنامه‌تان توسط مربی، در تلگرام خبردار شوید این تیک را بزنید.</span></label>
+                  <div id="regTelegramIdWrap" style="display:none;margin-top:10px;">
+                    <label for="regTelegramId">آیدی تلگرام *</label>
+                    <div class="luxury-input-wrap">
+                      <span class="input-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.9 4.6 19 19.3c-.2 1-0.8 1.2-1.6 0.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.9.4l.3-4.6L18.6 7c.4-.3-.1-.5-.6-.2L8 13.2l-4.4-1.4c-1-.3-1-1 .2-1.4L20.6 3.2c.8-.3 1.5.2 1.3 1.4z"/></svg>
+                      </span>
+                      <input id="regTelegramId" name="telegram_id" dir="ltr" placeholder="@username" maxlength="32" autocomplete="off">
+                    </div>
+                    <small style="font-size:11px;color:rgba(255,255,255,.55);display:block;margin-top:5px;">آیدی تلگرام شما با @ شروع می‌شود (مثلاً @ali_ahmadi) — از تلگرام ← Settings ← Username.</small>
+                  </div>
+                </div>
+
                 <label class="luxury-checkbox"><input type="checkbox" name="terms_accepted" id="regTerms" required checked><span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span></label>
 
                 <button type="submit" class="luxury-submit" id="btnRegisterSubmit"><span>ثبت‌نام</span></button>
@@ -311,6 +325,20 @@
     const goToLogBtn = root.querySelector('#btnGoToLogin');
     if (goToRegBtn) goToRegBtn.onclick = () => switchToTab('register');
     if (goToLogBtn) goToLogBtn.onclick = () => switchToTab('login');
+
+    // تیک رضایت اعلان تلگرام → فیلد آیدی تلگرام ظاهر و الزامی می‌شود
+    const tgOpt = root.querySelector('#regTelegramOpt');
+    const tgWrap = root.querySelector('#regTelegramIdWrap');
+    const tgInput = root.querySelector('#regTelegramId');
+    if (tgOpt && tgWrap && tgInput) {
+      const syncTg = () => {
+        tgWrap.style.display = tgOpt.checked ? '' : 'none';
+        tgInput.required = tgOpt.checked;
+        if (!tgOpt.checked) tgInput.value = '';
+      };
+      tgOpt.addEventListener('change', syncTg);
+      syncTg();
+    }
 
     const provSelect = root.querySelector('#regProvince');
     const citySelect = root.querySelector('#regCity');
@@ -483,6 +511,8 @@
         const height = form.get('height') ? Number(normalizeNumber(form.get('height'))) : null;
         const weight = form.get('weight') ? Number(normalizeNumber(form.get('weight'))) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
+        const telegramOptIn = form.get('telegram_opt_in') === 'on' || form.get('telegram_opt_in') === 'true';
+        const rawTelegramId = String(form.get('telegram_id')||'').trim();
 
         if(!firstName || firstName.length < 2){ showRegErr('لطفاً نام خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
         if(!lastName || lastName.length < 2){ showRegErr('لطفاً نام خانوادگی خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
@@ -494,11 +524,18 @@
         if(!password || password.length < 8){ showRegErr('رمز عبور باید حداقل ۸ کاراکتر باشد.'); return; }
         if(password !== confirmPassword){ showRegErr('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.'); return; }
         if(!termsAccepted){ showRegErr('لطفاً تیک پذیرش شرایط استفاده و قوانین سامانه را بزنید.'); return; }
+        let telegramId = '';
+        if(telegramOptIn){
+          if(!rawTelegramId){ showRegErr('چون تیک دریافت اعلان تلگرام را زده‌اید، وارد کردن آیدی تلگرام الزامی است.'); const w=root.querySelector('#regTelegramId'); if(w)w.focus(); return; }
+          const clean = rawTelegramId.replace(/^@/,'');
+          if(!/^[A-Za-z0-9_]{5,32}$/.test(clean)){ showRegErr('آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi.'); const w2=root.querySelector('#regTelegramId'); if(w2)w2.focus(); return; }
+          telegramId = clean;
+        }
 
         if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت...</span>'; }
 
         try{
-          const payload = { full_name: fullName, mobile: completeMobile(rawMobile), date_of_birth: dob, province, city, address, password, confirm_password: confirmPassword, goal, gender, height, weight, terms_accepted: termsAccepted };
+          const payload = { full_name: fullName, mobile: completeMobile(rawMobile), date_of_birth: dob, province, city, address, password, confirm_password: confirmPassword, goal, gender, height, weight, terms_accepted: termsAccepted, telegram_opt_in: telegramOptIn, telegram_id: telegramId };
           const result = await api('/api/student/auth/register', { method: 'POST', body: jsonBody(payload) });
           const caseNum = result.student?.case_number || '';
           showRegSucc(`ثبت‌نام با موفقیت انجام شد! ${caseNum ? `(شماره پرونده: <strong>${esc(caseNum)}</strong>)` : ''} در حال انتقال...`);

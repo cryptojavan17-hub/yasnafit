@@ -282,6 +282,16 @@ function registerStudent(db, data = {}) {
     throw Object.assign(new Error('آدرس کامل محل سکونت الزامی است (حداقل ۵ کاراکتر).'), { statusCode: 400 });
   }
 
+  // رضایت اعلان تلگرام: اگر تیک خورده، آیدی تلگرام الزامی و ذخیره می‌شود (برای پرونده و تماس مربی)
+  let telegramId = '';
+  if (data.telegram_opt_in === true || data.telegram_opt_in === 'on' || data.telegram_opt_in === 'true') {
+    const raw = String(data.telegram_id || '').trim().replace(/^@/, '');
+    if (!/^[A-Za-z0-9_]{5,32}$/.test(raw)) {
+      throw Object.assign(new Error('چون تیک دریافت اعلان تلگرام را زده‌اید، وارد کردن آیدی تلگرام معتبر الزامی است (۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط).'), { statusCode: 400, code: 'TELEGRAM_ID_REQUIRED' });
+    }
+    telegramId = raw;
+  }
+
   const password = validatePersonalPassword(data.password);
   if (data.confirm_password !== undefined && String(data.confirm_password) !== password) {
     throw Object.assign(new Error('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.'), { statusCode: 400 });
@@ -322,8 +332,9 @@ function registerStudent(db, data = {}) {
         stable_id, full_name, mobile, mobile_normalized,
         password_hash, password_state, status, profile_status, goal,
         height, weight, gender, date_of_birth, province, city, address,
+        telegram_id,
         version, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'PERSONAL', 'فعال', 'INVITED', ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, 'PERSONAL', 'فعال', 'INVITED', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `).run(
       stableId,
       fullName,
@@ -337,7 +348,8 @@ function registerStudent(db, data = {}) {
       dateOfBirth,
       province,
       city,
-      address
+      address,
+      telegramId
     );
 
     const studentId = Number(insertRes.lastInsertRowid);
