@@ -452,7 +452,7 @@
                 <div style="display:flex;gap:16px">
                   <div style="width:40px;height:40px;border-radius:50%;background:var(--accent-surface);border:1px solid var(--accent-border);display:grid;place-items:center;flex:0 0 40px;font-size:16px;">📋</div>
                   <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
-                    <h3 style="margin:0 0 8px">ارزیابی #${a.assessment_number} - ${esc(fa(a.status))}</h3>
+                    <h3 style="margin:0 0 8px">ارزیابی #${a.id} - ${esc(fa(a.status))}</h3>
                     <p style="font-size:12px;color:var(--text-secondary)">وزن: ${a.weight} kg • ${new Date(a.date).toLocaleDateString('fa-IR')}</p>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">${(a.photos || []).map(p => `<img src="/api/student-photos/${p.id}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`).join('')}</div>
                     <button class="btn btn-secondary btn-small" data-open-assessment="${a.id}" style="margin-top:8px">بررسی</button>

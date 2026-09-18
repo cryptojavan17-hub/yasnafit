@@ -514,7 +514,7 @@ async function handleDashboard(req,res){
   rows(`SELECT ba.id assessment_id, ba.assessment_number, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
         WHERE ba.status IN ('SUBMITTED','PENDING_REVIEW') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 6`)
     .forEach(r=>attention.push({severity:'yellow',kind:'assessment_review',name:r.full_name,case_number:r.case_number,
-      text:`ارزیابی شماره ${r.assessment_number} آماده بررسی شماست`,sub:'برای تأیید یا درخواست تغییر، پرونده را باز کنید',
+      text:`ارزیابی شماره ${r.assessment_id} آماده بررسی شماست`,sub:'برای تأیید یا درخواست تغییر، پرونده را باز کنید',
       action:`/assessments/${r.assessment_id}`,action_label:'باز کردن ارزیابی'}));
   rows(`SELECT ba.id assessment_id, ba.status, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
         WHERE ba.status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 5`)
@@ -562,7 +562,7 @@ async function handleDashboard(req,res){
   const events=[];
   rows('SELECT id, full_name, case_number, created_at FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').forEach(r=>events.push({type:'student',name:r.full_name,text:'به سیستم اضافه شد',at:r.created_at,route:`/users-list/${r.case_number}`}));
   rows(`SELECT tp.id, tp.title, tp.status, tp.created_at, s.full_name, s.case_number FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 5`).forEach(r=>events.push({type:'program',name:r.full_name||r.title,text:`برنامه «${r.title}» ساخته شد`,at:r.created_at,route:r.case_number?`/users-list/${r.case_number}`:'/templates/exercise/list'}));
-  rows(`SELECT ba.id, ba.assessment_number, ba.submitted_at, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id WHERE ba.submitted_at IS NOT NULL AND ba.deleted_at IS NULL ORDER BY ba.submitted_at DESC LIMIT 4`).forEach(r=>events.push({type:'assessment',name:r.full_name,text:`ارزیابی شماره ${r.assessment_number} را ارسال کرد`,at:r.submitted_at,route:`/assessments/${r.id}`}));
+  rows(`SELECT ba.id, ba.assessment_number, ba.submitted_at, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id WHERE ba.submitted_at IS NOT NULL AND ba.deleted_at IS NULL ORDER BY ba.submitted_at DESC LIMIT 4`).forEach(r=>events.push({type:'assessment',name:r.full_name,text:`ارزیابی شماره ${r.id} را ارسال کرد`,at:r.submitted_at,route:`/assessments/${r.id}`}));
   rows(`SELECT ws.id, ws.completed_at, s.full_name, s.case_number FROM workout_sessions ws JOIN students s ON s.id=ws.student_id WHERE ws.status='COMPLETED' AND ws.deleted_at IS NULL ORDER BY ws.completed_at DESC LIMIT 4`).forEach(r=>events.push({type:'workout',name:r.full_name,text:'جلسه تمرینی را تکمیل کرد',at:r.completed_at,route:`/users-list/${r.case_number}`}));
   events.sort((a,b)=>new Date(String(b.at).replace(' ','T')+(String(b.at).includes('Z')?'':'Z'))-new Date(String(a.at).replace(' ','T')+(String(a.at).includes('Z')?'':'Z')));
   const timeline=events.slice(0,8);
@@ -1865,12 +1865,12 @@ engagementService.notify(db,{audienceType:'coach',studentId,type:'student_messag
     if(completeness.length)return sendError(res,400,completeness[0],completeness);
     try{
       const submitted=studentService.submitAssessment(db,assessment.id);
-      engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
+      engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.id} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
       try{
         const tgStudent=one('SELECT full_name FROM students WHERE id=?',studentId);
         const reviewLink=notificationService.portalLink(`/assessments/${submitted.id}`);
         notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
-📝 ارزیابی: #${submitted.assessment_number}
+📝 ارزیابی: #${submitted.id}
 
 یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.${reviewLink?'\n\n🔗 لینک بررسی: '+reviewLink:''}`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
       }catch(e){ console.log('[Telegram] emit ASSESSMENT_READY failed:',e.message); }

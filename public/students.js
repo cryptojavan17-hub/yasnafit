@@ -689,12 +689,12 @@
                 <h2>📊 وضعیت فعلی</h2>
               </div>
               <dl>
-                <div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div>
+                <div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.id} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div>
                 <div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div>
                 <div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div>
                 <div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div>
               </dl>
-              ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.assessment_number}</button>`:''}
+              ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.id}</button>`:''}
               ${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}
             </section>
 
