@@ -52,6 +52,17 @@
   function toast(message,type='info'){
     document.querySelector('.student-toast')?.remove();const el=document.createElement('div');el.className=`student-toast ${type==='error'?'error':''}`;el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),3600);
   }
+  // اگر شاگرد موقع ثبت‌نام آیدی تلگرام نداده بود، با کلیک روی آیکون تلگرام همین‌جا درخواست می‌شود
+  async function ensureTelegramIdSaved(status){
+    if(status.telegram_id_saved!==false)return true;
+    const typed=prompt('برای دریافت اعلان‌ها در تلگرام، آیدی تلگرام خود را وارد کنید (مثلاً @ali_ahmadi)\n— از تلگرام ← Settings ← Username قابل مشاهده است:');
+    if(typed===null){toast('بدون آیدی تلگرام نمی‌توان اتصال را کامل کرد.','error');return false;}
+    const clean=typed.trim().replace(/^@/,'');
+    if(!/^[A-Za-z0-9_]{5,32}$/.test(clean)){toast('آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi.','error');return false;}
+    await api('/api/student/telegram/id',{method:'PUT',body:jsonBody({telegram_id:clean})});
+    toast('آیدی تلگرام ذخیره شد. ✈️');
+    return true;
+  }
   // اتصال خودکار تلگرام: پنجره در همان لحظهٔ کلیک باز می‌شود (ضد پاپ‌آپ‌بلاکر)، سپس لینک deep-link تزریق می‌شود
   async function connectTelegramAuto(onPopupBlocked){
     const win=window.open('about:blank','_blank');
@@ -99,6 +110,7 @@
         const status=await api('/api/student/telegram/status');
         if(!status.configured){toast('اتصال تلگرام هنوز فعال نشده است؛ از مربی خود بخواهید ربات را در پنل مدیریتی فعال کند.','error');return;}
         if(status.telegram&&status.telegram.connected){location.href='/student/profile';return;}
+        if(!await ensureTelegramIdSaved(status))return;
         await connectTelegramAuto(link=>{ location.href=link.deep_link; });
       }catch(error){ toast(error.message,'error'); }
       finally{ if(tgConnectBtn)tgConnectBtn.disabled=false; }
@@ -992,6 +1004,7 @@
       document.querySelector('#tgLink').onclick=async()=>{
         const box=document.querySelector('#tgLinkBox');const button=document.querySelector('#tgLink');button.disabled=true;
         try{
+          if(!await ensureTelegramIdSaved(data))return;
           await connectTelegramAuto(link=>{
             // پشتیبان: اگر مرورگر پنجرهٔ تلگرام را مسدود کرد، لینک و کد دستی نمایش داده می‌شود
             box.innerHTML=`<p style="margin-top:8px">۱. روی دکمهٔ زیر بزنید و در تلگرام «Start» کنید:<br><a class="primary" style="display:inline-block;margin-top:6px" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code id="tgCode" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;direction:ltr;user-select:all">${esc(link.link_code)}</code></p><p><small>پس از /start در تلگرام، همین صفحه را دوباره باز کنید.</small></p>`;

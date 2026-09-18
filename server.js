@@ -1765,7 +1765,17 @@ async function handleStudentSessionApi(req,res,url){
     }catch(error){return sendCaughtError(res,error);}
   }
   if(p==='/api/student/telegram/status' && req.method==='GET'){
-    return send(res,200,{telegram:telegramService.statusForStudent(db,studentId),preferences:telegramService.preferences(db,studentId),configured:telegramService.isConfigured()});
+    const savedId=(one('SELECT telegram_id FROM students WHERE id=?',studentId)||{}).telegram_id||'';
+    return send(res,200,{telegram:telegramService.statusForStudent(db,studentId),preferences:telegramService.preferences(db,studentId),configured:telegramService.isConfigured(),telegram_id_saved:Boolean(savedId.trim())});
+  }
+  if(p==='/api/student/telegram/id' && req.method==='PUT'){
+    // اگر شاگرد موقع ثبت‌نام آیدی تلگرام نداده، از همین‌جا (کلیک روی آیکون تلگرام) دریافت می‌شود
+    const body=await readBody(req);
+    const raw=String((body||{}).telegram_id||'').trim().replace(/^@/,'');
+    if(!/^[A-Za-z0-9_]{5,32}$/.test(raw))return sendError(res,400,'آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi');
+    db.prepare('UPDATE students SET telegram_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(raw,studentId);
+    auditService.record(db,{actorType:'student',actorId:studentId,action:'telegram.id_saved',entityType:'student',entityId:studentId});
+    return send(res,200,{ok:true,telegram_id:raw});
   }
   if(p==='/api/student/telegram/unlink' && req.method==='POST'){
     const account=telegramService.activeAccount(db,studentId);

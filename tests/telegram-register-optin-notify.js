@@ -111,6 +111,13 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     assert.ok(app.includes("window.open('about:blank','_blank')"), 'popup opens synchronously on click (blocker-safe)');
     assert.ok(app.includes('اتصال خودکار به تلگرام'), 'profile card button auto-connects in one click');
     assert.ok(app.includes('فقط دکمهٔ «Start» را بزنید'), 'user is told to press Start');
+
+    // اگر آیدی تلگرام در ثبت‌نام نداده بود، با کلیک روی آیکون همین‌جا درخواست می‌شود
+    assert.ok(server.includes('telegram_id_saved:Boolean(savedId.trim())'), 'status exposes telegram_id_saved');
+    assert.ok(server.includes("/api/student/telegram/id' && req.method==='PUT'"), 'PUT endpoint saves the id later');
+    assert.ok(app.includes('async function ensureTelegramIdSaved'), 'icon asks for the missing telegram id');
+    assert.ok(app.includes('برای دریافت اعلان‌ها در تلگرام، آیدی تلگرام خود را وارد کنید'), 'prompt copy asks for the id');
+    assert.ok(app.includes("if(!await ensureTelegramIdSaved(status))return;"), 'header flow gates on saved id');
   }
 
   console.log('\n✅ telegram-register-optin-notify: all checks passed');
