@@ -436,10 +436,17 @@ async function sendVisitStats(db, chatId){
   if(!analytics){ await sendMessage(db, chatId, '📈 آمار بازدید در دسترس نیست.'); return; }
   const data = analytics.visitSummary(db, 7);
   const s = data.summary;
-  const topCountries = data.countries.filter(c => c.code !== '??').slice(0, 4).map(c => `${analytics.flagOf(c.code)} ${escapeHtml(c.name)}: ${c.ips} IP`).join('\n');
-  const devices = data.devices.map(d => `${analytics.deviceFa(d.device)}: ${d.views} بازدید`).join('\n');
-  await sendMessage(db, chatId,
-    `📈 <b>آمار بازدید سایت (۷ روز اخیر)</b>\n\nامروز: ${s.today_views} بازدید • ${s.today_ips} IP یکتا\n۷ روز: ${s.day7_views} بازدید • ${s.day7_ips} IP یکتا\nکل: ${s.total_views} بازدید • ${s.total_ips} IP یکتا\n\n<b>کشورها:</b>\n${topCountries || '— هنوز جغرافیایی حل نشده'}\n\n<b>دستگاه‌ها:</b>\n${devices || '—'}`);
+  const fa = n => Number(n || 0).toLocaleString('fa-IR');
+  const visitors = (data.visitors || []).slice(0, 10);
+  const blocks = visitors.map(v => {
+    const flag = analytics.flagOf(v.country_code);
+    const device = analytics.deviceFa(v.device);
+    const reg = v.registrations > 0 ? '✅ ثبت‌نام کرده' : '❌ ثبت‌نام نکرده';
+    const online = v.online ? ' 🟢' : '';
+    return `${flag} <b>${escapeHtml(v.ip || '—')}</b>${online} — ${device}${v.browser && v.browser !== 'سایر' ? ` (${escapeHtml(v.browser)})` : ''}\n🌍 ${escapeHtml(v.country_name || 'نامشخص')} | 📄 ${fa(v.views)} بازدید صفحه\n⏰ ورود: ${v.first_fa}\n⏱ آخرین: ${v.last_fa} | مدت حضور: ~${v.duration_fa}\n${reg}`;
+  });
+  const header = `📈 <b>آمار بازدید سایت — بازدیدکننده به بازدیدکننده</b>\n\nامروز: ${fa(s.today_views)} بازدید • ${fa(s.today_ips)} IP یکتا\n۷ روز: ${fa(s.day7_views)} بازدید • ${fa(s.day7_ips)} IP یکتا\nکل: ${fa(s.total_views)} بازدید • ${fa(s.total_ips)} IP یکتا\n\n<b>آخرین IPها:</b>`;
+  await sendMessage(db, chatId, blocks.length ? header + '\n\n' + blocks.join('\n\n━━━━━━━━━━━\n\n') : header + '\nهنوز بازدیدی ثبت نشده است.');
 }
 async function sendCoachNotifications(db, chatId){
   const rows = db.prepare("SELECT title,status,created_at FROM notification_deliveries WHERE audience='coach' ORDER BY id DESC LIMIT 10").all();

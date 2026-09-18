@@ -1609,6 +1609,7 @@ async function handleStudentAuth(req,res,url){
     invitationId=consumed.invitation_id;
   }
   const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRecommended=authenticated.student.password_state!=='PERSONAL';
+  if(invitationId) analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id});
   auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_recommended:passwordChangeRecommended,via_invitation:Boolean(invitationId)}});
   return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
 }
@@ -1622,6 +1623,7 @@ async function handleStudentRegister(req,res,url){
     const body=await readBody(req);
     const created=studentAuthService.registerStudent(db,body);
     const session=studentSessionService.createStudentSession(db,created.id,null);
+    analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'student',label:created.full_name,studentId:created.id});
     log('ثبت‌نام شاگرد جدید آزاد',`${created.case_number} - ${created.full_name}`);
     auditService.record(db,{
       actorType:'student',

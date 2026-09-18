@@ -534,4 +534,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .visit-chip span{color:var(--text-muted);font-size:11px}
 .visit-empty{color:var(--text-muted);font-size:12px}
 .visit-geo-note{margin:0 0 14px;padding:10px 14px;border:1px dashed var(--border-strong);border-radius:10px;color:var(--text-secondary);font-size:12px;background:var(--glass)}
-@media(max-width:680px){.visit-table .visit-time,.visit-table .visit-path{white-space:normal}.visit-bars{gap:4px}.visit-bar small{display:none}}
+@media(max-width:680px){.visit-table .visit-time,.visit-table .visit-path{white-space:normal}.visit-bars{gap:4px}.visit-bar small{display:none}.visit-visitors th:nth-child(5),.visit-visitors th:nth-child(6){display:none}.visit-visitors td:nth-child(5),.visit-visitors td:nth-child(6){display:none}}
+.visit-visitors tr.visit-online td{background:var(--accent-surface)}
+.visit-live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 8px rgba(52,211,153,.6);vertical-align:middle}
+.visit-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:750;white-space:nowrap}
+.visit-badge.yes{background:var(--success-surface);border:1px solid var(--success-border);color:var(--success)}
+.visit-badge.no{background:var(--surface-3);border:1px solid var(--border);color:var(--text-muted)}

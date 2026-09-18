@@ -271,6 +271,7 @@ window.renderVisitAnalytics=async function(label,route){
     const browsers=data.browsers.length?data.browsers.map(b=>`<div class="visit-chip"><b>${esc(b.browser)}</b><span>${fa(b.views)}</span></div>`).join(''):'';
     const oses=data.os.length?data.os.map(o=>`<div class="visit-chip"><b>${esc(o.os)}</b><span>${fa(o.views)}</span></div>`).join(''):'';
     const recent=data.recent.length?`<table class="visit-table"><thead><tr><th>زمان</th><th>IP</th><th>کشور</th><th>دستگاه</th><th>صفحه</th></tr></thead><tbody>${data.recent.map(r=>`<tr><td class="visit-time">${new Date(r.visited_at).toLocaleString('fa-IR')}</td><td class="visit-ip">${esc(r.ip||'—')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}${r.browser&&r.browser!=='سایر'?' • '+esc(r.browser):''}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const visitors=(data.visitors||[]).length?`<table class="visit-table visit-visitors"><thead><tr><th>IP</th><th>کشور</th><th>دستگاه</th><th>بازدید</th><th>اولین ورود</th><th>آخرین فعالیت</th><th>مدت حضور</th><th>ثبت‌نام</th></tr></thead><tbody>${data.visitors.map(v=>`<tr class="${v.online?'visit-online':''}"><td class="visit-ip">${esc(v.ip||'—')}${v.online?' <span class="visit-live-dot" title="احتمالاً آنلاین"></span>':''}</td><td>${flag(v.country_code)} ${esc(v.country_name||'نامشخص')}</td><td>${deviceFa[v.device]||esc(v.device||'—')}${v.browser&&v.browser!=='سایر'?' • '+esc(v.browser):''}</td><td>${fa(v.views)}</td><td class="visit-time">${esc(v.first_fa)}</td><td class="visit-time">${esc(v.last_fa)}</td><td>${esc(v.duration_fa)}</td><td>${v.registrations>0?'<span class="visit-badge yes">✅ ثبت‌نام کرده</span>':'<span class="visit-badge no">❌ نه</span>'}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
     const geoNote=data.pending_geo?`<p class="visit-geo-note">🌍 ${fa(data.pending_geo)} IP در صف تعیین کشور است؛ در چند دقیقهٔ بعدی کامل می‌شود.</p>`:'';
     content.innerHTML=`
       <div class="page-head"><div><h1>آمار بازدید سایت</h1><p>بازدید صفحه‌ها، IPهای یکتا، کشور و دستگاه بازدیدکنندگان</p></div>
@@ -287,7 +288,8 @@ window.renderVisitAnalytics=async function(label,route){
         <section class="panel"><h2>کشورها (IP یکتا)</h2>${countries}</section>
         <section class="panel"><h2>دستگاه‌ها</h2><div class="visit-chips">${devices}</div><h2 style="margin-top:16px">مرورگر</h2><div class="visit-chips">${browsers||'<p class="visit-empty">—</p>'}</div><h2 style="margin-top:16px">سیستم‌عامل</h2><div class="visit-chips">${oses||'<p class="visit-empty">—</p>'}</div></section>
       </div>
-      <section class="panel"><h2>آخرین بازدیدها</h2>${recent}</section>`;
+      <section class="panel"><h2>بازدیدکنندگان — هر IP با جزئیات</h2>${visitors}</section>
+      <section class="panel"><h2>آخرین بازدیدها (صفحه به صفحه)</h2>${recent}</section>`;
     content.querySelectorAll('[data-days]').forEach(btn=>btn.onclick=()=>{days=Number(btn.dataset.days);render();});
   };
   await render();

@@ -126,6 +126,51 @@ function cleanup(db, keepDays = 180){
 }
 
 // ── خلاصهٔ آماری ──
+function faNum(n){ return Number(n||0).toLocaleString('fa-IR'); }
+function faDateTime(iso){
+  try{ return new Date(iso).toLocaleString('fa-IR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  catch(error){ return String(iso||'—'); }
+}
+function humanizeDuration(ms){
+  if(!ms || ms < 60000) return 'کمتر از یک دقیقه';
+  const minutes = Math.round(ms/60000);
+  if(minutes < 60) return `${faNum(minutes)} دقیقه`;
+  const hours = Math.floor(minutes/60);
+  const rem = minutes % 60;
+  if(hours < 24) return rem ? `${faNum(hours)} ساعت و ${faNum(rem)} دقیقه` : `${faNum(hours)} ساعت`;
+  const days = Math.floor(hours/24);
+  return `${faNum(days)} روز`;
+}
+function visitorOverview(db, limit = 50){
+  const rows = db.prepare(`
+    SELECT v.ip,
+           (SELECT v2.device FROM site_visits v2 WHERE v2.ip=v.ip ORDER BY v2.id DESC LIMIT 1) device,
+           (SELECT v2.browser FROM site_visits v2 WHERE v2.ip=v.ip ORDER BY v2.id DESC LIMIT 1) browser,
+           MIN(v.visited_at) first_at, MAX(v.visited_at) last_at,
+           COUNT(*) views,
+           (SELECT v3.path FROM site_visits v3 WHERE v3.ip=v.ip ORDER BY v3.id DESC LIMIT 1) last_path,
+           (SELECT c.country_code FROM ip_geo_cache c WHERE c.ip=v.ip) country_code,
+           (SELECT c.country_name FROM ip_geo_cache c WHERE c.ip=v.ip) country_name,
+           (SELECT COUNT(*) FROM registration_events r WHERE r.ip=v.ip) registrations
+    FROM site_visits v
+    GROUP BY v.ip
+    ORDER BY last_at DESC, MAX(v.id) DESC
+    LIMIT ?`).all(limit);
+  return rows.map(r => {
+    const span = Math.max(0, new Date(r.last_at) - new Date(r.first_at));
+    const activeGapMin = (Date.now() - new Date(r.last_at)) / 60000;
+    return { ...r, registrations: r.registrations || 0, duration_ms: span,
+             duration_fa: humanizeDuration(span), first_fa: faDateTime(r.first_at), last_fa: faDateTime(r.last_at),
+             online: activeGapMin <= 30 };
+  });
+}
+function recordRegistration(db, { ip, kind = 'student', label = null, studentId = null }){
+  try{
+    db.prepare('INSERT INTO registration_events(stable_id,occurred_at,ip,kind,label,student_id) VALUES(?,?,?,?,?,?)')
+      .run(uuid(), new Date().toISOString(), String(ip || 'unknown'), kind, label, studentId);
+    return true;
+  }catch(error){ return false; }
+}
 const DEVICE_FA = { mobile: '📱 موبایل', tablet: '💻 تبلت', desktop: '🖥 دسکتاپ', unknown: 'نامشخص' };
 function deviceFa(d){ return DEVICE_FA[d] || d; }
 function flagOf(code){
@@ -172,8 +217,8 @@ function visitSummary(db, days = 30){
       total_views: total.views, total_ips: total.ips,
     },
     daily, countries: byCountries, devices: byDevices, browsers: byBrowsers, os: byOs,
-    recent, pending_geo: pendingGeo,
+    recent, pending_geo: pendingGeo, visitors: visitorOverview(db, 50),
   };
 }
 
-module.exports = { parseUserAgent, isBotUserAgent, isPrivateIp, recordVisit, unresolvedIps, resolveIps, backfillGeo, startGeoResolver, cleanup, visitSummary, deviceFa, flagOf, GEO_MAX_ATTEMPTS };
+module.exports = { parseUserAgent, isBotUserAgent, isPrivateIp, recordVisit, recordRegistration, visitorOverview, unresolvedIps, resolveIps, backfillGeo, startGeoResolver, cleanup, visitSummary, deviceFa, flagOf, humanizeDuration, faDateTime, faNum, GEO_MAX_ATTEMPTS };

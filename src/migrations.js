@@ -1495,6 +1495,24 @@ const migrations = [
         );
       `);
     }
+  },
+  {
+    id: '035_visitor_registration_events',
+    description: 'Registration provenance: which IP produced a student registration (for visit-to-signup tracking)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS registration_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          occurred_at TEXT NOT NULL,
+          ip TEXT,
+          kind TEXT NOT NULL DEFAULT 'student',
+          label TEXT,
+          student_id INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_registration_events_ip ON registration_events(ip);
+      `);
+    }
   }
 ];
 

@@ -56,6 +56,20 @@ assert.equal(summary.summary.total_ips, 3);
 assert.ok(summary.recent.length === 3 && summary.recent[0].path === '/', 'the most recent visit comes first');
 assert.ok(summary.devices.some(d => d.device === 'mobile') && summary.devices.some(d => d.device === 'desktop'));
 
+
+// ─── ۳-ب. نمای بازدیدکننده: هر IP با دستگاه، کشور، مدت حضور و وضعیت ثبت‌نام ───
+analytics.recordRegistration(db, { ip: '5.253.10.9', kind: 'student', label: 'شاگرد الف', studentId: 7 });
+const overview = analytics.visitorOverview(db, 50);
+assert.equal(overview.length, 3, 'each unique IP is one visitor row');
+for(let i = 1; i < overview.length; i++) assert.ok(overview[i-1].last_at >= overview[i].last_at, 'visitors are ordered by last activity');
+const regVisitor = overview.find(v => v.ip === '5.253.10.9');
+assert.ok(regVisitor, 'every visited IP appears in the overview');
+assert.ok(regVisitor.views >= 1 && regVisitor.duration_fa.length > 0 && regVisitor.first_fa && regVisitor.last_fa, 'duration and entry times must be humanized');
+assert.equal(regVisitor.registrations, 1, 'the registration must be linked to its IP');
+assert.equal(overview.find(v => v.ip === '31.7.90.11').registrations, 0, 'other IPs are not registered');
+const summaryWithVisitors = analytics.visitSummary(db, 30);
+assert.ok(Array.isArray(summaryWithVisitors.visitors) && summaryWithVisitors.visitors.length >= 2, 'visitSummary must embed the visitors table');
+
 // ─── ۴. ثبت بازدید باید به نقاط سرو HTML سرور وصل باشد ───
 for(const marker of ["analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']})",
                      "analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']})"]){
@@ -65,6 +79,9 @@ assert.match(server, /analyticsService\.cleanup\(db\)/, 'old visits must be prun
 assert.match(server, /analyticsService\.startGeoResolver\(db\)/, 'the geo resolver must start on boot');
 assert.match(server, /if\(p\.startsWith\('\/api\/analytics\/'\)\)\{\s*if\(requireCoach\(req,res\)\) return true;/, 'the analytics API must be coach-only');
 assert.match(server, /telegramService\.registerCommands\(\)\.catch\(\(\)=>\{\}\);/, 'bot menu commands must be registered when configured');
+assert.match(server, /analyticsService\.recordRegistration\(db,\{ip:requestSecurity\.clientIp\(req\),kind:'student'/, 'free registrations must record the visitor IP');
+assert.match(server, /if\(invitationId\) analyticsService\.recordRegistration\(/, 'invite first-login must record the visitor IP');
+assert.match(read('src/migrations.js'), /035_visitor_registration_events/, 'the registration events migration must exist');
 
 async function main(){
 // ─── ۵. ربات: منوی مربی با دکمه‌های واقعی (رفتار واقعی با db واقعی و ترنسپورت قلابی) ───
@@ -101,9 +118,14 @@ assert.ok(sent.some(x => x.method === 'answerCallbackQuery'), 'inline taps must 
 await tap('coach:pending', 111);
 assert.match(sent.at(-1).payload.text, /در انتظار بررسی نیست/);
 
-// /visits مستقیم هم کار کند
+// /visits مستقیم هم کار کند — پیام باید جدول IPها با کشور/دستگاه/ثبت‌نام داشته باشد
 await send('/visits', 111);
-assert.match(sent.at(-1).payload.text, /آمار بازدید/);
+const visitMsg = sent.at(-1).payload.text;
+assert.match(visitMsg, /آمار بازدید سایت/);
+assert.ok(visitMsg.includes('5.253.10.9'), 'the message must list each visitor IP');
+assert.match(visitMsg, /ثبت‌نام کرده/, 'registered IPs must be labeled');
+assert.match(visitMsg, /مدت حضور/, 'dwell time must be shown');
+assert.match(visitMsg, /ورود:/, 'entry time must be shown');
 
 // /start شاگرد → منوی شاگرد با دکمه‌های زنده (بدون noop)
 await send('/start', 222);
