@@ -1464,6 +1464,37 @@ const migrations = [
           ON notification_deliveries(chat_id);
       `);
     }
+  },
+  {
+    id: '034_site_analytics',
+    description: 'Site visit analytics: visit log (device/browser/os/path) plus an IP-to-country cache',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS site_visits (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          visited_at TEXT NOT NULL,
+          ip TEXT,
+          country_code TEXT,
+          country_name TEXT,
+          device TEXT,
+          browser TEXT,
+          os TEXT,
+          path TEXT,
+          user_agent TEXT,
+          geo_attempts INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_site_visits_time ON site_visits(visited_at);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_ip ON site_visits(ip);
+        CREATE TABLE IF NOT EXISTS ip_geo_cache (
+          ip TEXT PRIMARY KEY,
+          country_code TEXT,
+          country_name TEXT,
+          resolved_at TEXT,
+          attempts INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+    }
   }
 ];
 

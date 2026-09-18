@@ -42,6 +42,7 @@ const notificationService = require('./src/notification-service');
 telegramService.setServices({ notificationService });
 const buildInfo = require('./src/build-info');
 const storagePaths = require('./src/storage-paths');
+const analyticsService = require('./src/analytics-service');
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
@@ -58,10 +59,17 @@ try{
 
 // --- Telegram (اختیاری و ایمن: بدون پیکربندی، برنامه عادی کار می‌کند) ---
 // پیکربندی: متغیرهای محیطی اولویت دارند؛ در غیر این صورت تنظیمات ذخیره‌شدهٔ پنل مربی (جدول settings)
+// --- تحلیل بازدید سایت (ثبت در نقاط سرو HTML؛ حل‌کنندهٔ جغرافیا پس‌زمینه) ---
+try{
+  analyticsService.cleanup(db);
+  analyticsService.startGeoResolver(db);
+}catch(error){ console.log('[Analytics] شروع سرویس تحلیل ناموفق:',error.message); }
+
 telegramService.applyDbSettings(db);
 if(telegramService.isConfigured()){
   console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — منبع: ${telegramService.settingsView(db).source === 'env' ? 'متغیر محیطی' : 'تنظیمات پنل مربی'} | webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ رمز وب‌هوک تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
   if(telegramService.config().polling) telegramService.startPolling(db);
+  telegramService.registerCommands().catch(()=>{});
   notificationService.startRetryLoop(db);
 }else{
   console.log('[Telegram] غیرفعال — برای فعال‌سازی: پنل مربی ← سیستم ← تنظیمات تلگرام (یا متغیرهای محیطی TELEGRAM_BOT_TOKEN/USERNAME).');
@@ -2770,6 +2778,15 @@ async function api(req,res,url){
       if(r) return r;
     }
 
+    if(p.startsWith('/api/analytics/')){
+      if(requireCoach(req,res)) return true;
+      if(p==='/api/analytics/visits' && req.method==='GET'){
+        const days=Math.min(365,Math.max(1,Number(url.searchParams.get('days'))||30));
+        return send(res,200,analyticsService.visitSummary(db,days));
+      }
+      return sendError(res,404,'مسیر API پیدا نشد');
+    }
+
     if(p==='/api/backup'||p.startsWith('/api/backup/')){
       const r = await handleBackup(req,res,url);
       if(r) return r;
@@ -2863,6 +2880,7 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
     if(coachAuthPages[url.pathname] && req.method==='GET'){
@@ -2871,6 +2889,7 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
 
@@ -2883,6 +2902,7 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
@@ -2891,6 +2911,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/'||url.pathname==='/index.html'){
       const entryHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
       res.writeHead(200,entryHeaders);
+      analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
@@ -3007,6 +3028,7 @@ const server=http.createServer(async(req,res)=>{
     }
     const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
     res.writeHead(200,spaHeaders);
+    analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
     console.error('[Server Error]', error);

@@ -191,6 +191,28 @@ async function answerCallback(callbackQueryId, text){
 const HELP_TEXT = [
   '<b>راهنمای ربات یسنا فیت</b>',
   '',
+  '/start — شروع و نمایش منو',
+  '/menu — نمایش منو',
+  '/help — همین راهنما',
+  '',
+  'شاگردان: از پورتال یسنا فیت → «پروفایل من» → «اتصال تلگرام» کد بگیرید و <code>/start کد</code> را بفرستید.',
+  'مربی: پنل مدیریت → سیستم → تنظیمات تلگرام → «اتصال تلگرام مربی».',
+].join('\n');
+const COACH_HELP_TEXT = [
+  '<b>🛡 راهنمای ربات مدیریت یسنا فیت</b>',
+  '',
+  '/start یا /menu — منوی مدیریت',
+  '/status — وضعیت سامانه در یک نگاه',
+  '/pending — ارزیابی‌های در انتظار بررسی',
+  '/students — آخرین شاگردان',
+  '/visits — آمار بازدید سایت',
+  '/notifications — آخرین اعلان‌ها',
+  '/help — همین راهنما',
+].join('\n');
+const STUDENT_HELP_TEXT = [
+  '<b>🏋️ راهنمای ربات یسنا فیت (شاگرد)</b>',
+  '',
+  '/start یا /menu — منوی اصلی',
   '/status — وضعیت اتصال حساب',
   '/program — برنامه تمرینی فعال',
   '/nutrition — برنامه غذایی و مکمل',
@@ -198,9 +220,35 @@ const HELP_TEXT = [
   '/settings — تنظیمات اعلان‌ها',
   '/unlink — قطع اتصال حساب',
   '/help — همین راهنما',
-  '',
-  'برای دریافت اعلان‌ها ابتدا حساب خود را از پنل یسنا فیت متصل کنید.',
 ].join('\n');
+
+function coachByChatId(db, chatId){
+  try{
+    return db.prepare("SELECT * FROM telegram_coach_accounts WHERE chat_id=? AND unlinked_at IS NULL ORDER BY id DESC LIMIT 1").get(String(chatId));
+  }catch(error){ return null; }
+}
+function coachMenuKeyboard(){
+  const url = portalUrl('/coach/dashboard');
+  const rows = [
+    [{ text: '📊 وضعیت سامانه', callback_data: 'coach:status' }, { text: '📋 ارزیابی‌های در انتظار', callback_data: 'coach:pending' }],
+    [{ text: '👥 شاگردان', callback_data: 'coach:students' }, { text: '📈 آمار بازدید سایت', callback_data: 'coach:visits' }],
+    [{ text: '🔔 اعلان‌های اخیر', callback_data: 'coach:notifs' }, { text: '❓ راهنما', callback_data: 'coach:help' }],
+  ];
+  if(url) rows.push([{ text: '🌐 باز کردن پنل مدیریت', url }]);
+  return rows;
+}
+const COACH_WELCOME = '🛡 <b>پنل مدیریت یسنا فیت</b>\nسلام مربی 👋\nاز منوی زیر سامانه را مدیریت کنید:';
+function studentMenuKeyboard(){
+  const url = portalUrl('/student/login');
+  const rows = [
+    [{ text: '🏋️ برنامه تمرینی', callback_data: 'stu:program' }, { text: '🥗 برنامه غذایی و مکمل', callback_data: 'stu:nutrition' }],
+    [{ text: '🔔 اعلان‌های اخیر', callback_data: 'stu:notifs' }, { text: '⚙️ تنظیمات اعلان‌ها', callback_data: 'stu:settings' }],
+    [{ text: '📊 وضعیت حساب', callback_data: 'stu:status' }, { text: '❓ راهنما', callback_data: 'stu:help' }],
+  ];
+  if(url) rows.push([{ text: '🌐 باز کردن یسنا فیت', url }]);
+  return rows;
+}
+const STUDENT_WELCOME = '🏋️ <b>ربات یسنا فیت</b>\nسلام! از منوی زیر برنامه‌ها و اعلان‌هایت را دنبال کن:';
 
 async function handleUpdate(db, update){
   if(!update || typeof update !== 'object') return { handled: false };
@@ -254,7 +302,7 @@ async function handleMessage(db, message){
     try{
       const linked = linkCoachByToken(db, startPayload, chat);
       await sendMessage(db, chat.chat_id,
-        `سلام مربی 👋\n✅ تلگرام شما با موفقیت به پنل یسنا فیت متصل شد.\n\nاز این پس اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی») همین‌جا دریافت می‌شود.`);
+        `سلام مربی 👋\n✅ تلگرام شما با موفقیت به پنل یسنا فیت متصل شد.\n\nاز این پس اعلان‌های مدیریتی (مثل «📋 ارزیابی جدید آماده بررسی») همین‌جا دریافت می‌شود.`, coachMenuKeyboard());
       return { handled: true, linked_coach: linked.coach_id };
     }catch(coachError){
       if(coachError && /^حداکثر \d+ حساب/.test(String(coachError.message||''))){
@@ -275,10 +323,25 @@ async function handleMessage(db, message){
     }
   }
 
-  if(command === '/start'){
+  const coachAccount = coachByChatId(db, chat.chat_id);
+
+  if(command === '/start' || command === '/menu'){
+    if(coachAccount){
+      await sendMessage(db, chat.chat_id, COACH_WELCOME, coachMenuKeyboard());
+      return { handled: true, coach_menu: true };
+    }
+    if(account){
+      await sendMessage(db, chat.chat_id, STUDENT_WELCOME, studentMenuKeyboard());
+      return { handled: true, student_menu: true };
+    }
     await sendMessage(db, chat.chat_id,
-      'سلام 👋\nبه ربات یسنا فیت خوش آمدید.\n\nبرای دریافت برنامه‌ها و اعلان‌ها، ابتدا از پورتال یسنا فیت → «پروفایل من» → «اتصال تلگرام» کد اتصال بگیرید و همین‌جا بفرستید:\n<code>/start کد-اتصال</code>');
-    return { handled: true };
+      'سلام 👋\nبه ربات <b>یسنا فیت</b> خوش آمدید!\n\nاین ربات برای دو گروه است:\n🏋️ <b>شاگردان</b> — برنامه تمرینی و غذایی، اعلان‌های مربی و یادآورها\n🛡 <b>مربی/مدیر</b> — اعلان ارزیابی‌ها، آمار سامانه و آمار بازدید سایت\n\nبرای اتصال:\n• شاگرد: پورتال یسنا فیت → «پروفایل من» → «اتصال تلگرام» → کد را بفرستید:\n<code>/start کد-اتصال</code>\n• مربی: پنل مدیریت → سیستم → تنظیمات تلگرام → «اتصال تلگرام مربی»');
+    return { handled: true, guest: true };
+  }
+
+  if(coachAccount && !account){
+    const handled = await handleCoachCommand(db, chat, command, coachAccount);
+    if(handled) return { handled: true, coach: true };
   }
 
   if(!account){
@@ -289,7 +352,7 @@ async function handleMessage(db, message){
 
   switch(command){
     case '/help':
-      await sendMessage(db, chat.chat_id, HELP_TEXT);
+      await sendMessage(db, chat.chat_id, STUDENT_HELP_TEXT);
       return { handled: true };
     case '/status': {
       const status = statusForStudent(db, studentId);
@@ -335,8 +398,69 @@ async function handleMessage(db, message){
         'برای قطع اتصال، از پورتال یسنا فیت → «پروفایل من» → «قطع اتصال تلگرام» استفاده کنید.\n\n⚠️ تا اتصال مجدد، اعلان‌ها دریافت نمی‌شوند.');
       return { handled: true };
     default:
-      await sendMessage(db, chat.chat_id, 'دستور شناخته نشد. /help را امتحان کنید.');
+      await sendMessage(db, chat.chat_id, 'دستور شناخته نشد. /menu را امتحان کنید.');
       return { handled: true };
+  }
+}
+
+// ── دستورات و دادهٔ سمت مربی/مدیر ──
+const _analytics = () => { try{ return require('./analytics-service'); }catch(error){ return null; } };
+function coachStatusText(db){
+  const students = db.prepare('SELECT COUNT(*) n FROM students WHERE deleted_at IS NULL').get().n;
+  const activePrograms = db.prepare("SELECT COUNT(*) n FROM training_programs WHERE status='ACTIVE' AND deleted_at IS NULL").get().n;
+  const pending = db.prepare("SELECT COUNT(*) n FROM body_assessments WHERE status IN ('SUBMITTED','PENDING_REVIEW') AND deleted_at IS NULL").get().n;
+  const diet = db.prepare("SELECT COUNT(*) n FROM diet_programs WHERE status='ACTIVE' AND deleted_at IS NULL").get().n;
+  return `📊 <b>وضعیت سامانه</b>\n👥 شاگردان: ${students}\n🏋️ برنامه‌های تمرینی فعال: ${activePrograms}\n🥗 برنامه‌های غذایی فعال: ${diet}\n📋 ارزیابی‌های در انتظار بررسی: ${pending}`;
+}
+async function sendPendingAssessments(db, chatId){
+  const rows = db.prepare(`SELECT ba.id, s.full_name FROM body_assessments ba
+                     JOIN students s ON s.id=ba.student_id
+                     WHERE ba.status IN ('SUBMITTED','PENDING_REVIEW') AND ba.deleted_at IS NULL
+                     ORDER BY ba.submitted_at DESC LIMIT 8`).all();
+  if(!rows.length){ await sendMessage(db, chatId, '📋 در حال حاضر ارزیابی در انتظار بررسی نیست.'); return; }
+  const buttons = rows.map(r => {
+    const url = portalUrl(`/assessments/${r.id}`);
+    const label = `📋 #${r.id} — ${r.full_name || 'شاگرد'}`;
+    return url ? [{ text: label, url }] : [{ text: label, callback_data: 'coach:pending' }];
+  });
+  await sendMessage(db, chatId, `📋 <b>ارزیابی‌های در انتظار بررسی (${rows.length})</b>\nروی هر مورد بزنید تا مستقیم باز شود:`, buttons);
+}
+async function sendStudentsList(db, chatId){
+  const total = db.prepare('SELECT COUNT(*) n FROM students WHERE deleted_at IS NULL').get().n;
+  const rows = db.prepare('SELECT full_name, case_number FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 8').all();
+  const text = rows.length ? rows.map(r => `• ${escapeHtml(r.full_name || 'بی‌نام')} — پروندهٔ ${r.case_number || '—'}`).join('\n') : 'هنوز شاگردی ثبت نشده است.';
+  await sendMessage(db, chatId, `👥 <b>شاگردان (${total})</b> — آخرین‌ها:\n${text}`);
+}
+async function sendVisitStats(db, chatId){
+  const analytics = _analytics();
+  if(!analytics){ await sendMessage(db, chatId, '📈 آمار بازدید در دسترس نیست.'); return; }
+  const data = analytics.visitSummary(db, 7);
+  const s = data.summary;
+  const topCountries = data.countries.filter(c => c.code !== '??').slice(0, 4).map(c => `${analytics.flagOf(c.code)} ${escapeHtml(c.name)}: ${c.ips} IP`).join('\n');
+  const devices = data.devices.map(d => `${analytics.deviceFa(d.device)}: ${d.views} بازدید`).join('\n');
+  await sendMessage(db, chatId,
+    `📈 <b>آمار بازدید سایت (۷ روز اخیر)</b>\n\nامروز: ${s.today_views} بازدید • ${s.today_ips} IP یکتا\n۷ روز: ${s.day7_views} بازدید • ${s.day7_ips} IP یکتا\nکل: ${s.total_views} بازدید • ${s.total_ips} IP یکتا\n\n<b>کشورها:</b>\n${topCountries || '— هنوز جغرافیایی حل نشده'}\n\n<b>دستگاه‌ها:</b>\n${devices || '—'}`);
+}
+async function sendCoachNotifications(db, chatId){
+  const rows = db.prepare("SELECT title,status,created_at FROM notification_deliveries WHERE audience='coach' ORDER BY id DESC LIMIT 10").all();
+  const text = rows.length ? rows.map(r => `• ${escapeHtml(r.title || '')} — ${statusFa(r.status)} (${r.created_at})`).join('\n') : 'اعلانی ثبت نشده است.';
+  await sendMessage(db, chatId, `🔔 <b>آخرین اعلان‌های مدیریتی</b>\n${text}`);
+}
+async function handleCoachCommand(db, chat, command, coachAccount){
+  const chatId = chat.chat_id;
+  switch(command){
+    case '/help': await sendMessage(db, chatId, COACH_HELP_TEXT, coachMenuKeyboard()); return true;
+    case '/status': await sendMessage(db, chatId, coachStatusText(db)); return true;
+    case '/pending': await sendPendingAssessments(db, chatId); return true;
+    case '/students': await sendStudentsList(db, chatId); return true;
+    case '/visits': await sendVisitStats(db, chatId); return true;
+    case '/notifications': await sendCoachNotifications(db, chatId); return true;
+    case '/panel': {
+      const url = portalUrl('/coach/dashboard');
+      await sendMessage(db, chatId, url ? `🌐 پنل مدیریت:\n${url}` : 'آدرس عمومی پنل تنظیم نشده است (yasnafit_public_url).');
+      return true;
+    }
+    default: return false;
   }
 }
 
@@ -345,6 +469,26 @@ async function handleCallback(db, callback){
   const chat = chatOf({ chat: callback.message ? callback.message.chat : null, from: callback.from });
   if(!chat) return { handled: false };
   const account = accountByChatId(db, chat.chat_id);
+  const coachAccount = coachByChatId(db, chat.chat_id);
+  if(data.startsWith('coach:')){
+    if(!coachAccount){ await answerCallback(callback.id, 'ابتدا تلگرام مربی را متصل کنید'); return { handled: true }; }
+    await answerCallback(callback.id);
+    const handled = await handleCoachCommand(db, chat, '/' + data.slice(6), coachAccount);
+    if(!handled) await sendMessage(db, chat.chat_id, 'این بخش در دسترس نیست.');
+    return { handled: true, coach: true };
+  }
+  if(data.startsWith('stu:') && account){
+    await answerCallback(callback.id);
+    const cmd = '/' + data.slice(4);
+    if(cmd === '/help'){ await sendMessage(db, chat.chat_id, STUDENT_HELP_TEXT, studentMenuKeyboard()); return { handled: true, student: true }; }
+    if(cmd === '/menu'){ await sendMessage(db, chat.chat_id, STUDENT_WELCOME, studentMenuKeyboard()); return { handled: true, student: true }; }
+    if(['/program','/nutrition','/notifications','/settings','/status'].includes(cmd)){
+      await handleMessage(db, { chat: { id: chat.chat_id }, from: callback.from, text: cmd });
+      return { handled: true, student: true };
+    }
+    await sendMessage(db, chat.chat_id, 'این بخش در دسترس نیست.');
+    return { handled: true };
+  }
   if(!account){ await answerCallback(callback.id, 'ابتدا حساب خود را متصل کنید'); return { handled: true }; }
   if(!data.startsWith('pref:')){ await answerCallback(callback.id); return { handled: true }; }
   const key = data.slice(5);
@@ -356,15 +500,7 @@ async function handleCallback(db, callback){
   return { handled: true };
 }
 
-function mainKeyboard(db, studentId){
-  const url = portalUrl('/student/login');
-  const rows = [
-    [{ text: '🏋️ برنامه تمرینی', callback_data: 'noop:program' }, { text: '🥗 برنامه غذایی', callback_data: 'noop:nutrition' }],
-    [{ text: '🔔 اعلان‌ها', callback_data: 'noop:notifs' }, { text: '⚙️ تنظیمات', callback_data: 'noop:settings' }],
-  ];
-  if(url) rows.push([{ text: '🌐 باز کردن یسنا فیت', url }]);
-  return rows;
-}
+function mainKeyboard(db, studentId){ return studentMenuKeyboard(); }
 function settingsKeyboard(db, studentId){
   const prefs = preferences(db, studentId);
   const label = { workout: '🏋️ تمرین', nutrition: '🥗 تغذیه', messages: '💬 پیام‌ها', reminders: '⏰ یادآور', system: '🛡 سیستم' };
@@ -384,6 +520,25 @@ function account_key(chat){ return `${chat.chat_id}`; }
 let _services = null;
 function setServices(map){ _services = map; }
 function getServices(){ return _services || { notificationService: require('./notification-service') }; }
+
+// ── ثبت دکمهٔ منوی ربات (BotCommands) هنگام پیکربندی ──
+async function registerCommands(){
+  if(!isConfigured()) return false;
+  const result = await callApi('setMyCommands', { commands: [
+    { command: 'start', description: 'شروع و نمایش منو' },
+    { command: 'menu', description: 'نمایش منو' },
+    { command: 'status', description: 'وضعیت (مربی: سامانه / شاگرد: حساب)' },
+    { command: 'pending', description: 'ارزیابی‌های در انتظار بررسی (مربی)' },
+    { command: 'students', description: 'آخرین شاگردان (مربی)' },
+    { command: 'visits', description: 'آمار بازدید سایت (مربی)' },
+    { command: 'program', description: 'برنامه تمرینی (شاگرد)' },
+    { command: 'nutrition', description: 'برنامه غذایی و مکمل (شاگرد)' },
+    { command: 'settings', description: 'تنظیمات اعلان‌ها (شاگرد)' },
+    { command: 'help', description: 'راهنما' },
+  ] });
+  if(result && result.ok) console.log('[Telegram] منوی دستورات ربات ثبت شد.');
+  return Boolean(result && result.ok);
+}
 
 // ── Webhook ──
 function verifyWebhookSecret(headerValue){
@@ -564,7 +719,7 @@ module.exports = {
   preferences, setPreference, categoryEnabled, PREFERENCE_KEYS, ensurePreferences,
   statusForStudent,
   sendMessage, handleUpdate, verifyWebhookSecret,
-  startPolling, stopPolling,
+  startPolling, stopPolling, registerCommands, coachByChatId,
   setServices,
   applyDbSettings, settingsView, settingsSource, saveCoachSettings, testConnection, SETTING_KEYS,
   coachActiveAccount, coachStatus, createCoachLinkToken, linkCoachByToken, coachUnlinkAccount,

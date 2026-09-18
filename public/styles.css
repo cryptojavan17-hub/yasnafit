@@ -513,3 +513,25 @@ tbody tr:last-child td { border-bottom: 0; }
   #coachLogoutAll { display: none; }
   .top-actions .secondary { padding: 6px 7px; font-size: 10.5px; letter-spacing: 0; }
 }
+
+/* ═══ §۲۴ — آمار بازدید سایت (پنل مربی) ═══ */
+.visit-ranges{display:flex;gap:8px;flex-wrap:wrap}
+.visit-ranges .secondary.active{border-color:var(--accent-border);background:var(--accent-surface);color:var(--accent-hover)}
+.visit-stats article small{display:block;margin-top:6px;color:var(--text-muted);font-size:11px}
+.visit-bars{display:flex;align-items:flex-end;gap:7px;height:150px;padding-top:10px}
+.visit-bar{flex:1;min-width:14px;max-width:46px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+.visit-bar i{width:100%;min-height:3px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--accent),var(--accent-hover));opacity:.85}
+.visit-bar small{color:var(--text-muted);font-size:9px;white-space:nowrap}
+.visit-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.visit-table th,.visit-table td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.visit-table th{color:var(--text-muted);font-size:11px;font-weight:750;background:var(--surface-3)}
+.visit-table .visit-ip{direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+.visit-table .visit-path{direction:ltr;text-align:left;color:var(--text-secondary);word-break:break-all;max-width:220px}
+.visit-table .visit-time{white-space:nowrap;color:var(--text-muted);font-size:11.5px}
+.visit-chips{display:flex;flex-wrap:wrap;gap:8px}
+.visit-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:10px;background:var(--glass)}
+.visit-chip b{font-size:12.5px}
+.visit-chip span{color:var(--text-muted);font-size:11px}
+.visit-empty{color:var(--text-muted);font-size:12px}
+.visit-geo-note{margin:0 0 14px;padding:10px 14px;border:1px dashed var(--border-strong);border-radius:10px;color:var(--text-secondary);font-size:12px;background:var(--glass)}
+@media(max-width:680px){.visit-table .visit-time,.visit-table .visit-path{white-space:normal}.visit-bars{gap:4px}.visit-bar small{display:none}}

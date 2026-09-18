@@ -250,6 +250,49 @@ async function render(label,route){
     content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
   }
 }
+// ── آمار بازدید سایت (بازدید صفحه‌ها، IP یکتا، کشور، دستگاه) ──
+window.renderVisitAnalytics=async function(label,route){
+  let days=30;
+  const render=async()=>{
+    updateSidebarActiveState(route);
+    crumb.textContent=label;
+    content.innerHTML='<div class="loading-state"><span class="spinner"></span><p>در حال بارگذاری آمار…</p></div>';
+    let data;
+    try{ data=await api(`/api/analytics/visits?days=${days}`); }
+    catch(error){ content.innerHTML=`<section class="panel"><h2>آمار بازدید</h2><p class="error">${esc(error.message)}</p></section>`; return; }
+    const s=data.summary;
+    const fa=n=>Number(n||0).toLocaleString('fa-IR');
+    const flag=code=>{ const cc=String(code||'').toUpperCase(); if(cc==='LN')return '🏠'; if(!/^[A-Z]{2}$/.test(cc))return '🌐'; return String.fromCodePoint(...[...cc].map(c=>127397+c.charCodeAt(0))); };
+    const deviceFa={mobile:'📱 موبایل',tablet:'💻 تبلت',desktop:'🖥 دسکتاپ',unknown:'نامشخص'};
+    const maxDaily=Math.max(1,...data.daily.map(d=>d.views));
+    const bars=data.daily.slice(-21).map(d=>`<div class="visit-bar" title="${esc(d.day)} — ${fa(d.views)} بازدید / ${fa(d.ips)} IP"><i style="height:${Math.round(d.views/maxDaily*100)}%"></i><small>${esc(d.day.slice(5))}</small></div>`).join('');
+    const countries=data.countries.length?`<table class="visit-table"><thead><tr><th>کشور</th><th>IP یکتا</th><th>بازدید</th></tr></thead><tbody>${data.countries.map(c=>`<tr><td>${flag(c.code)} ${esc(c.name)}</td><td>${fa(c.ips)}</td><td>${fa(c.views)}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const devices=data.devices.length?data.devices.map(d=>`<div class="visit-chip"><b>${deviceFa[d.device]||esc(d.device)}</b><span>${fa(d.views)} بازدید • ${fa(d.ips)} IP</span></div>`).join(''):'<p class="visit-empty">—</p>';
+    const browsers=data.browsers.length?data.browsers.map(b=>`<div class="visit-chip"><b>${esc(b.browser)}</b><span>${fa(b.views)}</span></div>`).join(''):'';
+    const oses=data.os.length?data.os.map(o=>`<div class="visit-chip"><b>${esc(o.os)}</b><span>${fa(o.views)}</span></div>`).join(''):'';
+    const recent=data.recent.length?`<table class="visit-table"><thead><tr><th>زمان</th><th>IP</th><th>کشور</th><th>دستگاه</th><th>صفحه</th></tr></thead><tbody>${data.recent.map(r=>`<tr><td class="visit-time">${new Date(r.visited_at).toLocaleString('fa-IR')}</td><td class="visit-ip">${esc(r.ip||'—')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}${r.browser&&r.browser!=='سایر'?' • '+esc(r.browser):''}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const geoNote=data.pending_geo?`<p class="visit-geo-note">🌍 ${fa(data.pending_geo)} IP در صف تعیین کشور است؛ در چند دقیقهٔ بعدی کامل می‌شود.</p>`:'';
+    content.innerHTML=`
+      <div class="page-head"><div><h1>آمار بازدید سایت</h1><p>بازدید صفحه‌ها، IPهای یکتا، کشور و دستگاه بازدیدکنندگان</p></div>
+        <div class="visit-ranges">${[7,30,90].map(d=>`<button class="secondary ${d===days?'active':''}" data-days="${d}">${d===7?'۷ روز':d===30?'۳۰ روز':'۹۰ روز'}</button>`).join('')}</div></div>
+      ${geoNote}
+      <div class="stat-grid visit-stats">
+        <article><span>امروز</span><strong>${fa(s.today_views)}</strong><small>${fa(s.today_ips)} IP یکتا</small></article>
+        <article><span>۷ روز اخیر</span><strong>${fa(s.day7_views)}</strong><small>${fa(s.day7_ips)} IP یکتا</small></article>
+        <article><span>۳۰ روز اخیر</span><strong>${fa(s.day30_views)}</strong><small>${fa(s.day30_ips)} IP یکتا</small></article>
+        <article><span>کل از ابتدا</span><strong>${fa(s.total_views)}</strong><small>${fa(s.total_ips)} IP یکتا</small></article>
+      </div>
+      <section class="panel"><h2>روند روزانه (۲۱ روز اخیر)</h2><div class="visit-bars">${bars||'<p class="visit-empty">—</p>'}</div></section>
+      <div class="split">
+        <section class="panel"><h2>کشورها (IP یکتا)</h2>${countries}</section>
+        <section class="panel"><h2>دستگاه‌ها</h2><div class="visit-chips">${devices}</div><h2 style="margin-top:16px">مرورگر</h2><div class="visit-chips">${browsers||'<p class="visit-empty">—</p>'}</div><h2 style="margin-top:16px">سیستم‌عامل</h2><div class="visit-chips">${oses||'<p class="visit-empty">—</p>'}</div></section>
+      </div>
+      <section class="panel"><h2>آخرین بازدیدها</h2>${recent}</section>`;
+    content.querySelectorAll('[data-days]').forEach(btn=>btn.onclick=()=>{days=Number(btn.dataset.days);render();});
+  };
+  await render();
+};
+
 window.renderCoreRoute=render;
 function coachNotificationTarget(item){
   if(item.entity_type==='assessment'&&item.entity_id)return `/assessments/${item.entity_id}`;
