@@ -2351,8 +2351,9 @@ async function handleAssessmentPhotos(req,res,url){
     const photo = uploadService.getPhotoFilePath(db, photoId);
     if(!photo) return sendError(res,404,'عکس پیدا نشد');
 
-    // Security: ensure path is inside data/assessments
-    const assessmentsRoot = path.resolve(path.join(__dirname, 'data', 'assessments'));
+    // Security: ensure path is inside the ACTIVE assessments root (repo data dir or the
+    // Railway volume — never a hardcoded repo path, which 403'd every volume photo).
+    const assessmentsRoot = path.resolve(storagePaths.assessmentsDir);
     if(!isSafePath(assessmentsRoot, photo.storage_path)){
       return sendError(res,403,'دسترسی غیرمجاز');
     }

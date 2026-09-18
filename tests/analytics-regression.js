@@ -151,6 +151,16 @@ assert.match(styles, /@media\(max-width:680px\)\{\.visit-table/, 'the analytics 
 assert.match(telegramSrc, /setMyCommands/, 'the bot must register its command menu with Telegram');
 assert.doesNotMatch(telegramSrc, /callback_data: 'noop:/, 'dead noop buttons must not exist in the bot');
 
+// ─── ۸. عکس‌های ارزیابی روی Volume نباید 403 بخورند ───
+// ریشهٔ چک امنیتی باید همان storagePaths.assessmentsDir (آگاه از Volume) باشد، نه هاردکد ریپو.
+const { execFileSync } = require('node:child_process');
+assert.ok(!server.includes("path.join(__dirname, 'data', 'assessments')"), 'the photo endpoint must not hardcode the repo data path (breaks volume deployments with 403)');
+assert.match(server, /const assessmentsRoot = path\.resolve\(storagePaths\.assessmentsDir\);/, 'the photo endpoint must validate against the active storage root');
+const probed = execFileSync(process.execPath, ['-e', "console.log(require('" + path.join(root, 'src/storage-paths.js') + "').assessmentsDir)"], {
+  env: { ...process.env, YASNAFIT_DATA_DIR: '/tmp/volume-probe' },
+}).toString().trim();
+assert.equal(probed, path.resolve('/tmp/volume-probe/assessments'), 'assessmentsDir must follow YASNAFIT_DATA_DIR (volume) — this is the root the photo check uses');
+
 console.log(JSON.stringify({ ok: true, ua_parse: true, visits_recorded: 2, geo_local: true, coach_menu: true, student_menu: true, panel_page: true }));
 }
 main().catch(error=>{ console.error(error && error.message || error); process.exit(1); });
