@@ -1244,6 +1244,8 @@ async function handleTrainingPrograms(req,res,url){
         // If program_data present, validate full program
         if(b.program_data){
           const progToValidate = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : b.program_data;
+          // نسخهٔ سند (۱ یا ۲) ثابتِ سرور است؛ مقدار مخدوش از کلاینت (مثلاً شمارندهٔ ردیف) اصلاح می‌شود نه رد
+          progToValidate.version = [1,2].includes(Number(progToValidate.version)) ? Number(progToValidate.version) : 2;
           // Merge with existing title for validation if needed
           const existing = one('SELECT title FROM training_programs WHERE id=?', id);
           if(!progToValidate.title) progToValidate.title = b.title || existing?.title || 'برنامه';

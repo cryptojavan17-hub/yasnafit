@@ -2309,6 +2309,7 @@
     currentProgram.start_date=start;
     currentProgram.end_date=end;
     currentProgram.student_id=studentId?Number(studentId):null;
+    currentProgram.version=2; // قفل نسخهٔ سند؛ حتی پیش‌نویس محلیِ قدیمی هم ذخیره را نبندد
 
     try {
       let res;
@@ -2350,7 +2351,7 @@
           student_id: prog.student_id||null,
           assessment_id: prog.assessment_id||null,
           status: prog.status||'DRAFT',
-          version: prog.program_data?.version||2,
+          version: 2, // نسخهٔ سند ثابتِ سرور است؛ شمارندهٔ ردیف DB هرگز اینجا نمی‌آید
           days: prog.program_data?.days||[]
         };
         if(currentProgram.days.length===0){
