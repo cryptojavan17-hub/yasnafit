@@ -52,6 +52,18 @@
   function toast(message,type='info'){
     document.querySelector('.student-toast')?.remove();const el=document.createElement('div');el.className=`student-toast ${type==='error'?'error':''}`;el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),3600);
   }
+  // اتصال خودکار تلگرام: پنجره در همان لحظهٔ کلیک باز می‌شود (ضد پاپ‌آپ‌بلاکر)، سپس لینک deep-link تزریق می‌شود
+  async function connectTelegramAuto(onPopupBlocked){
+    const win=window.open('about:blank','_blank');
+    try{
+      const link=await api('/api/student/telegram/link',{method:'POST'});
+      if(win){ win.location=link.deep_link; }
+      else if(typeof onPopupBlocked==='function'){ onPopupBlocked(link); }
+      else { location.href=link.deep_link; }
+      toast('تلگرام باز شد؛ فقط دکمهٔ «Start» را بزنید تا اتصال کامل شود. ✈️');
+      return link;
+    }catch(error){ if(win)win.close(); throw error; }
+  }
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
   const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
   const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
@@ -78,8 +90,19 @@
   }
   function shell(path,content){
     const navigation=nav(path),name=me?.student?.full_name||'شاگرد',passwordSuggestion=me?.password_change_recommended?'<aside class="password-recommendation"><div><b>پیشنهاد امنیتی</b><span>بهتر است رمز موقت را به یک رمز شخصی حداقل ۸ کاراکتری تغییر دهید.</span></div><a href="/student/change-password">تغییر رمز</a></aside>':'';
-    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>برنامه و ارزیابی شخصی</small>${me?.student?.case_number?`<span class="portal-case-number">پرونده <b>${esc(me.student.case_number)}</b></span>`:''}</div><button class="theme-toggle" id="studentThemeToggle" type="button" data-theme-toggle title="تغییر تم روشن/تاریک" aria-label="تغییر تم روشن/تاریک" aria-pressed="false"><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg></button><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${passwordSuggestion}${content}</section></div>${navigation.bottom}</div>`;
+    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>برنامه و ارزیابی شخصی</small>${me?.student?.case_number?`<span class="portal-case-number">پرونده <b>${esc(me.student.case_number)}</b></span>`:''}</div><button class="theme-toggle" id="studentTgConnect" type="button" title="اتصال تلگرام — دریافت اعلان‌ها در تلگرام" aria-label="اتصال تلگرام"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.6 19 19.3c-.2 1-0.8 1.2-1.6 0.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.9.4l.3-4.6L18.6 7c.4-.3-.1-.5-.6-.2L8 13.2l-4.4-1.4c-1-.3-1-1 .2-1.4L20.6 3.2c.8-.3 1.5.2 1.3 1.4z"/></svg></button><button class="theme-toggle" id="studentThemeToggle" type="button" data-theme-toggle title="تغییر تم روشن/تاریک" aria-label="تغییر تم روشن/تاریک" aria-pressed="false"><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg></button><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${passwordSuggestion}${content}</section></div>${navigation.bottom}</div>`;
     root.querySelectorAll('[data-student-logout]').forEach(button=>button.addEventListener('click',logout));
+    const tgConnectBtn=root.querySelector('#studentTgConnect');
+    if(tgConnectBtn)tgConnectBtn.addEventListener('click',async()=>{
+      tgConnectBtn.disabled=true;
+      try{
+        const status=await api('/api/student/telegram/status');
+        if(!status.configured){toast('اتصال تلگرام هنوز فعال نشده است؛ از مربی خود بخواهید ربات را در پنل مدیریتی فعال کند.','error');return;}
+        if(status.telegram&&status.telegram.connected){location.href='/student/profile';return;}
+        await connectTelegramAuto(link=>{ location.href=link.deep_link; });
+      }catch(error){ toast(error.message,'error'); }
+      finally{ if(tgConnectBtn)tgConnectBtn.disabled=false; }
+    });
     if(window.YasnaJalali)window.YasnaJalali.autoInit();
     if(window.YasnafitTheme)window.YasnafitTheme.apply(window.YasnafitTheme.current());
   }
@@ -965,12 +988,14 @@
         catch(error){ toast(error.message,'error'); }
       };
     }else{
-      host.innerHTML=`<p>برای دریافت اعلان‌های برنامه و پیام مربی در تلگرام، حساب خود را متصل کنید.</p><div class="student-actions"><button class="primary" id="tgLink">🎯 گرفتن کد اتصال</button></div><div id="tgLinkBox"></div>`;
+      host.innerHTML=`<p>با یک کلیک به ربات وصل شوید و اعلان‌های برنامه را در تلگرام بگیرید.</p><div class="student-actions"><button class="primary" id="tgLink">✈️ اتصال خودکار به تلگرام</button></div><div id="tgLinkBox"></div>`;
       document.querySelector('#tgLink').onclick=async()=>{
         const box=document.querySelector('#tgLinkBox');const button=document.querySelector('#tgLink');button.disabled=true;
         try{
-          const link=await api('/api/student/telegram/link',{method:'POST'});
-          box.innerHTML=`<p style="margin-top:8px">۱. روی دکمهٔ زیر بزنید و در تلگرام «Start» کنید:<br><a class="primary" style="display:inline-block;margin-top:6px" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code id="tgCode" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;direction:ltr;user-select:all">${esc(link.link_code)}</code></p><p><small>پس از /start در تلگرام، همین صفحه را دوباره باز کنید.</small></p>`;
+          await connectTelegramAuto(link=>{
+            // پشتیبان: اگر مرورگر پنجرهٔ تلگرام را مسدود کرد، لینک و کد دستی نمایش داده می‌شود
+            box.innerHTML=`<p style="margin-top:8px">۱. روی دکمهٔ زیر بزنید و در تلگرام «Start» کنید:<br><a class="primary" style="display:inline-block;margin-top:6px" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code id="tgCode" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;direction:ltr;user-select:all">${esc(link.link_code)}</code></p><p><small>پس از /start در تلگرام، همین صفحه را دوباره باز کنید.</small></p>`;
+          });
         }catch(error){ toast(error.message,'error'); }
         finally{ button.disabled=false; }
       };

@@ -148,6 +148,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .theme-toggle .icon-sun { display: none; }
 :root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
 :root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+/* آیکون اختصاصی تلگرام در هدر پنل شاگرد — آبی رسمی تلگرام */
+.student-header #studentTgConnect { color: var(--tg-accent); }
+.student-header #studentTgConnect:hover { border-color: rgba(42,170,238,.55); background: rgba(42,170,238,.12); color: var(--tg-accent); }
 @media (max-width: 680px) { .theme-toggle { width: 40px; height: 40px; } .theme-toggle svg { width: 20px; height: 20px; } }
 @media (max-width: 560px) { .theme-toggle { width: 42px; height: 42px; } }
 .icon-button, .avatar, .mobile-menu {

@@ -104,6 +104,13 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     const coach = read('public/students.js');
     assert.ok(coach.includes('ارسال اعلان به تلگرام شاگرد'), 'coach panel button');
     assert.ok(coach.includes('/telegram-notify`'), 'button handler hits the endpoint');
+
+    // هدر شاگرد: آیکون تلگرام بالای پنل + اتصال خودکار با یک کلیک
+    assert.ok(app.includes('id="studentTgConnect"'), 'telegram icon in the student header beside the theme toggle');
+    assert.ok(app.includes("async function connectTelegramAuto"), 'auto-connect helper exists');
+    assert.ok(app.includes("window.open('about:blank','_blank')"), 'popup opens synchronously on click (blocker-safe)');
+    assert.ok(app.includes('اتصال خودکار به تلگرام'), 'profile card button auto-connects in one click');
+    assert.ok(app.includes('فقط دکمهٔ «Start» را بزنید'), 'user is told to press Start');
   }
 
   console.log('\n✅ telegram-register-optin-notify: all checks passed');

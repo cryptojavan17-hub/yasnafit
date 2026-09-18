@@ -1,6 +1,8 @@
 /* Yasnafit global design tokens — the single source of truth for every shell. */
 :root {
   color-scheme: dark;
+  /* آبی رسمی تلگرام — آیکون اتصال تلگرام پنل شاگرد */
+  --tg-accent: #2aabee;
   --bg: #050505;
   --bg-raised: #080808;
   --surface: #101010;
