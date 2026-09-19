@@ -24,6 +24,14 @@
 - **TESTS:** `npm run test:public-site` ✅ **۵۷ گروه** (گروه home بازنویسی‌شده: ترتیب دقیق ویژگی‌ها، بیو/بج‌ها، ۴ کارت نمونه + متن‌های verbatim، اعداد آمار، ساب‌لاین CTA، فوتر: ۳ placeholder + copyright دقیق + assert بدون‌لینک‌مرده بعد از ریست) • `npm test` کامل = **۱۹/۱۹ PASS** • smoke زنده روی 3020: ۸ URL = 200؛ `/coach/dashboard` ناشناس → 303 `/coach/login`؛ `/` با کوکی مربی جعلی → 200 لندینگ `data-coach-session="0"` بدون شل SPA
 - **COMPAT / عوارض شناخته‌شده:** بدون مایگریشن/تغییر schema (کلید facebook در جدول `settings` موجود؛ پیش‌فرض در خواندگی اعمال می‌شود — دیتابیس‌های موجود بدون تغییر کار می‌کنند). خروجی `GET /api/site` کلید `contact.facebook` دارد (افزایشی). اگر مالک `profile.bio`/`profile.highlight`/`profile.stats` را در پنل مربی ست کرده باشد، به‌جای پیش‌فرض‌های طرح نمایش داده می‌شوند. بخش‌های/صفحات دیگر (about/services/results/magazine/article/contact، پنل مربی، شاگرد، API) دست‌نخورده.
 
+### Task 19 — افزونه: launcher صفحهٔ اصلی (لندینگ) را باز می‌کند (درخواست مالک)
+
+- **FILES CHANGED:** `YASNAFIT-LAUNCHER.bat` (گزینهٔ 1: `Start Server & Open Site`؛ label `:OPEN_SITE`؛ URL بازشونده از `/coach/login` به `/`)، `DEPLOYMENT.md` (راستی‌آزمایی پس از deploy: `/` = 200 لندینگ عمومی به‌جای 303)، `mahdi hellp.md` (ردیف اجرا + مدخل log)
+- **WHAT:** با اجرای launcher (گزینه 1 یا 2) مرورگر حالا صفحهٔ اصلی/لندینگ را باز می‌کند، نه صفحهٔ ورود مربی. ورود مربی دست‌نخورده: دکمهٔ «ورود» هدر لندینگ (فلوی ورود موجود) یا مستقیم `/coach/login`.
+- **WHY:** درخواست مالک: «نمیخوام این صفحه باز بشه اول — صفحه لندینگ بزار صفحه اصلی».
+- **TESTS:** `ui-design-regression` + `student-credentials-ui-regression` + `deployment-hardening-regression` + `public-site-regression` سبز (منوی 5 گزینه‌ای، `5. Exit` و prompt `(1-5)` دست‌نخورده — گاردهای تست).
+- **COMPAT:** فقط رفتار «باز کردن مرورگر» launcher روی Windows؛ سرور/روت‌ها/پنل/احراز دست‌نخورده.
+
 ### Task 18 — تطبیق دقیق صفحهٔ اصلی با wireframe مرجع `newlanding.png` (درخواست مالک)
 
 - **FILES CHANGED:** `server.js` (بازچینش SSR صفحهٔ اصلی: هدر/هیرو/درباره/مجله/آمار/CTA/فوتر + آیکون‌های جدید + تنظیم `cta_image` در خروجی `publicSiteInfo` از طریق `src/public-content-service.js`)، `src/public-content-service.js` (کلید تنظیمات جدید `site.cta_image` با پیش‌فرض تصویر برند موجود)، `public/landing.css` (ترکیب چیدمان RTL: تصویر چپ/متن راست، نوار آمار، CTA دو‌ستونه، فوتر یک‌ردیفه، badge رنگی دسته‌ها، دکمهٔ pill در کارت مقاله، آیکون در کارت‌های اعتباری)، `public/landing.js` (گارد: pillهای صفحهٔ اصلی لینک‌اند نه فیلتر JS)، `public/magazine-admin.js` (فیلد «تصویر CTA پایانی» در تب تصاویر)، `tests/public-site-regression.js` (۳ گروه assert جدید + اصلاح ۱ regex)

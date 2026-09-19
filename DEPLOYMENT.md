@@ -241,7 +241,7 @@ npm test && sudo systemctl restart yasnafit
 ### ۹.۵ راستی‌آزمایی پس از deploy
 ```bash
 curl -s  https://<domain>/api/health                        # {"ok":true,"status":"ok","version":"…","uptime":…}
-curl -i  https://<domain>/                                  # 303 به /coach/login + CSP و X-Frame-Options
+curl -i  https://<domain>/                                  # 200 صفحه لندینگ عمومی + CSP و X-Frame-Options
 curl -i  https://<domain>/api/build                         # 401 بدون کوکی مربی
 curl -i -X POST https://<domain>/api/test/reset-rate-limit   # 404 چون NODE_ENV=production
 ```

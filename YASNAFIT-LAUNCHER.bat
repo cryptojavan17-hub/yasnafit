@@ -20,7 +20,7 @@ echo ====================================================
 call :STATUS
 call :CHECKCODE
 echo.
-echo 1. Start Server ^& Open Dashboard
+echo 1. Start Server ^& Open Site
 echo 2. Restart Server
 echo 3. Stop Server
 echo 4. View Live Server Logs ^& Diagnostics
@@ -55,14 +55,14 @@ exit /b
 where node >nul 2>&1
 if errorlevel 1 (echo Node.js was not found. Install Node.js 22.5 or newer, then reopen this launcher.& exit /b 1)
 powershell -NoProfile -Command "if(Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue){exit 0}else{exit 1}"
-if not errorlevel 1 (echo Server is already running on port %PORT%. If you just pulled new code, choose 2 to restart it.& call :CHECKCODE& call :SHOW_AUTHENTICATOR& call :OPEN_DASHBOARD& exit /b)
+if not errorlevel 1 (echo Server is already running on port %PORT%. If you just pulled new code, choose 2 to restart it.& call :CHECKCODE& call :SHOW_AUTHENTICATOR& call :OPEN_SITE& exit /b)
 if not exist logs mkdir logs
 echo Starting Yasnafit server in background (no extra window)...
 REM Run node in background without new window (/B) - keeps launcher visible
 start "" /B node server.js > logs\server.log 2>&1
 timeout /t 2 /nobreak >nul
 call :SHOW_AUTHENTICATOR
-call :OPEN_DASHBOARD
+call :OPEN_SITE
 echo Yasnafit started at http://localhost:%PORT% - launcher stays open
 exit /b
 
@@ -84,8 +84,8 @@ if exist data\coach-authenticator.txt (
 )
 exit /b
 
-:OPEN_DASHBOARD
-start "" "http://localhost:%PORT%/coach/login"
+:OPEN_SITE
+start "" "http://localhost:%PORT%/"
 exit /b
 
 :STOP
