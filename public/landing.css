@@ -319,13 +319,15 @@ main { padding-top: var(--header-h); }
     linear-gradient(to top, rgba(5, 7, 10, 0.5), transparent 40%);
 }
 .hero__content { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+/* Reference: the hero eyebrow is two-tone — "YASNA" in the turquoise accent, "FIT" in white. */
 .hero__label {
   font-family: Arial, sans-serif;
   letter-spacing: 0.42em;
   font-size: 14px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text);
 }
+.hero__label span { color: var(--accent); }
 .hero__title {
   font-size: clamp(40px, 6.2vw, 72px);
   line-height: 1.18;
@@ -456,6 +458,33 @@ main { padding-top: var(--header-h); }
 .stat-strip__icon svg { width: 20px; height: 20px; }
 .stat-strip__text b { display: block; font-size: 13px; color: var(--accent); line-height: 1.5; }
 .stat-strip__text span { display: block; font-size: 12px; color: var(--text-3); margin-top: 3px; line-height: 1.6; }
+
+/* Home about badges (reference section 4): four bordered cards — accent icon
+   on top, two-line text below. */
+.about-badges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+.about-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 14px 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color var(--transition), transform var(--transition);
+}
+.about-badge:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.about-badge__icon { display: grid; place-items: center; color: var(--accent); }
+.about-badge__icon svg { width: 20px; height: 20px; }
+.about-badge__text { font-size: 12.5px; font-weight: 600; color: var(--text-2); line-height: 1.7; }
 
 /* ---------- Services ---------- */
 .services {
@@ -625,11 +654,12 @@ main { padding-top: var(--header-h); }
   transition: color var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .magazine-pill:hover { color: var(--text); border-color: var(--border-strong); }
+/* Reference: the active filter is a solid turquoise pill with dark text. */
 .magazine-pill.is-active {
-  background: var(--accent-soft);
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.10);
+  color: #04222b;
+  box-shadow: 0 6px 20px rgba(34, 211, 238, 0.25);
 }
 
 .article-card {
@@ -672,11 +702,16 @@ main { padding-top: var(--header-h); }
   -webkit-backdrop-filter: blur(6px);
 }
 /* Reference: each magazine category gets its own badge hue (default = cyan). */
-.article-card__badge--bodybuilding { color: #8ab8f8; border-color: rgba(96, 165, 250, 0.45); background: rgba(37, 99, 235, 0.18); }
+.article-card__badge--bodybuilding { color: #a8b4fd; border-color: rgba(129, 140, 248, 0.45); background: rgba(79, 70, 229, 0.18); }
 .article-card__badge--nutrition { color: #5fdcb9; border-color: rgba(45, 212, 191, 0.45); background: rgba(13, 148, 136, 0.18); }
-.article-card__badge--sports-science { color: #a8b4fd; border-color: rgba(129, 140, 248, 0.45); background: rgba(79, 70, 229, 0.18); }
+.article-card__badge--sports-science { color: #8ab8f8; border-color: rgba(96, 165, 250, 0.45); background: rgba(37, 99, 235, 0.18); }
 .article-card__badge--health { color: #f9a9c4; border-color: rgba(244, 114, 182, 0.45); background: rgba(190, 24, 93, 0.18); }
 .article-card__badge--sports-news { color: #fbd391; border-color: rgba(251, 191, 36, 0.45); background: rgba(180, 83, 9, 0.18); }
+/* Sample (placeholder) cards on the home magazine preview until real articles
+   are published: dashed-free dark media field with a centered image glyph. */
+.article-card__media--sample { display: grid; place-items: center; background: var(--bg-3); }
+.article-card__placeholder { display: grid; place-items: center; color: var(--text-4); }
+.article-card__placeholder svg { width: 34px; height: 34px; opacity: 0.85; }
 .article-card__body { padding: 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .article-card__title { font-size: 16px; line-height: 1.6; }
 .article-card__title a { transition: color var(--transition); }
@@ -736,13 +771,14 @@ main { padding-top: var(--header-h); }
   padding: 10px 16px;
 }
 .stats__item + .stats__item { border-inline-start: 1px solid var(--border); }
+/* Reference: stats icons sit in thin outlined circles (no fill), icon above the number. */
 .stats__icon {
   width: 54px;
   height: 54px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--accent-soft);
+  background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--accent);
   margin-bottom: 4px;
@@ -1054,35 +1090,28 @@ main { padding-top: var(--header-h); }
   height: 14px;
   background: var(--border);
 }
-.site-footer__social { display: flex; align-items: center; gap: 12px; }
-.site-footer__social a {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+/* Reference: three plain social glyphs (no circles); configured URLs become
+   real links, unconfigured ones render as non-interactive placeholders. */
+.site-footer__social { display: flex; align-items: center; gap: 6px; }
+.site-footer__social a, .site-footer__social .site-footer__social--placeholder {
   display: grid;
   place-items: center;
-  border: 1px solid var(--border);
-  background: var(--glass);
+  width: 34px;
+  height: 34px;
   color: var(--text-2);
-  transition: color var(--transition), border-color var(--transition), transform var(--transition);
+  transition: color var(--transition), transform var(--transition);
 }
-.site-footer__social a:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
-.site-footer__social svg { width: 18px; height: 18px; }
+.site-footer__social a:hover { color: var(--accent); transform: translateY(-2px); }
+.site-footer__social .site-footer__social--placeholder { cursor: default; opacity: 0.7; }
+.site-footer__social svg { width: 19px; height: 19px; }
+/* Reference: a single centered copyright line under the footer row. */
 .site-footer__bottom {
   border-top: 1px solid var(--border);
-  max-width: var(--container);
-  margin: 0 auto;
   padding: 18px 24px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 16px;
+  text-align: center;
   color: var(--text-4);
   font-size: 13px;
 }
-.site-footer__bottom p { justify-self: center; margin: 0; }
-.site-footer__coach { justify-self: end; color: var(--text-3); transition: color var(--transition); }
-.site-footer__coach:hover { color: var(--accent); }
 
 /* ---------- Responsive: tablet ---------- */
 @media (max-width: 1180px) {
@@ -1120,6 +1149,7 @@ main { padding-top: var(--header-h); }
   .features__item { padding: 18px 10px; }
   .features__divider { width: auto; height: 1px; margin: 0 28px; }
   .stat-strip { grid-template-columns: repeat(2, 1fr); }
+  .about-badges { grid-template-columns: repeat(2, 1fr); }
   .services__grid, .services__grid--page { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -1187,6 +1217,7 @@ main { padding-top: var(--header-h); }
   .magazine-grid, .magazine-grid--home, .magazine-grid--related,
   .services__grid, .services__grid--page, .contact__cards { grid-template-columns: 1fr; }
   .stat-strip { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .about-badges { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .story-card__head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .timeline li { grid-template-columns: 1fr; gap: 6px; }
   .page-hero { padding: 64px 16px 48px; }
@@ -1196,7 +1227,7 @@ main { padding-top: var(--header-h); }
   .contact { padding: 12px 16px 72px; }
   .contact__actions .btn { width: 100%; }
   .site-footer__grid { grid-template-columns: 1fr; gap: 30px; padding: 48px 16px 32px; }
-  .site-footer__bottom { padding: 18px 16px; flex-direction: column; align-items: flex-start; }
+  .site-footer__bottom { padding: 18px 16px; }
   .btn { min-height: 50px; }
 }
 

@@ -2598,7 +2598,10 @@ const ICONS = {
   heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5C6.5 16.5 3.5 13 3.5 9.6 3.5 7 5.5 5 8 5c1.7 0 3.2.9 4 2.2C12.8 5.9 14.3 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.4-3 6.9-8.5 10.9z"/></svg>',
   star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg>',
   telegram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
-  instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="12" cy="12" r="4"/><path d="M17.3 6.7h.01"/></svg>'
+  instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="12" cy="12" r="4"/><path d="M17.3 6.7h.01"/></svg>',
+  cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5L2.5 9 12 13.5 21.5 9 12 4.5z"/><path d="M6.5 11.5v4.2c0 1.6 2.5 3 5.5 3s5.5-1.4 5.5-3v-4.2"/><path d="M21.5 9v5"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M3.5 16.5l4.5-4 4 3.5 3-2.5 5.5 4.5"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.8 4.5h-1.6a3.7 3.7 0 0 0-3.7 3.7v2.3H8.2v3.4h2.3v6.6h3.4v-6.6h2.4l.5-3.4h-2.9V8.4a1 1 0 0 1 1-1h1.4z"/></svg>'
 };
 
 const SERVICES = [
@@ -2638,27 +2641,36 @@ function headerMarkup(path, coachAuthorized) {
 }
 
 function footerMarkup(site, profile, categories) {
-  // Social icons render ONLY when the owner has configured a real URL — never
-  // a placeholder account (wireframe rule: "Do not invent social accounts").
-  const socials = [];
-  if (site.contact?.telegram) socials.push(`<a href="https://t.me/${escHtml(site.contact.telegram.replace(/^@/, ''))}" rel="noopener noreferrer" target="_blank" aria-label="تلیگرام YASNAFIT">${ICONS.telegram}</a>`);
-  if (site.contact?.instagram) socials.push(`<a href="https://instagram.com/${escHtml(site.contact.instagram.replace(/^@/, ''))}" rel="noopener noreferrer" target="_blank" aria-label="اینستاگرام YASNAFIT">${ICONS.instagram}</a>`);
-  const year = jalaliFormat(new Date().toISOString()) || String(new Date().getFullYear());
+  // Wireframe (newlanding.png section 9): brand | inline navigation | three
+  // social icons, then a centered copyright line. Icons become real links only
+  // when the owner has configured a URL (never a placeholder account); until
+  // then they render as non-interactive placeholders so the layout matches the
+  // design without dead links.
+  const contact = site.contact || {};
+  const socials = [
+    { key: 'facebook', value: contact.facebook, href: v => 'https://facebook.com/' + String(v).replace(/^@/, ''), label: 'فیسبوک YASNAFIT' },
+    { key: 'telegram', value: contact.telegram, href: v => 'https://t.me/' + String(v).replace(/^@/, ''), label: 'تلیگرام YASNAFIT' },
+    { key: 'instagram', value: contact.instagram, href: v => 'https://instagram.com/' + String(v).replace(/^@/, ''), label: 'اینستاگرام YASNAFIT' }
+  ];
+  const year = new Date().getFullYear();
   return `<footer class="site-footer">
   <div class="site-footer__row">
     ${brandMarkup()}
     <nav class="site-footer__nav" aria-label="ناوبری پاورقی">
       ${PUBLIC_NAV.map(([label, href]) => `<a href="${href}">${label}</a>`).join('')}
     </nav>
-    ${socials.length ? `<div class="site-footer__social" aria-label="شبکه‌های اجتماعی">${socials.join('')}</div>` : ''}
+    <div class="site-footer__social" aria-label="شبکه‌های اجتماعی">
+      ${socials.map(s => s.value
+        ? `<a href="${escHtml(s.href(s.value))}" rel="noopener noreferrer" target="_blank" aria-label="${s.label}">${ICONS[s.key]}</a>`
+        : `<span class="site-footer__social--placeholder" title="به‌زودی" aria-hidden="true">${ICONS[s.key]}</span>`).join('')}
+    </div>
   </div>
   <div class="site-footer__bottom">
-    <span aria-hidden="true"></span>
-    <p>© ${escHtml(String(year).split(' ').pop() || new Date().getFullYear())} YASNAFIT — تمامی حقوق محفوظ است.</p>
-    <a class="site-footer__coach" href="/coach/login">ورود مربی</a>
+    <p>YASNAFIT © ${year} | تمامی حقوق محفوظ است.</p>
   </div>
 </footer>`;
 }
+
 function articleCardMarkup(article) {
   const cover = article.cover_image || '/images/landing/cover-default.svg';
   const date = article.published_at ? jalaliFormat(article.published_at) : '';
@@ -2749,11 +2761,11 @@ function statsBandMarkup(profile) {
   const configured = Array.isArray(profile.stats) ? profile.stats.filter(s => s && (s.label || s.title) && (s.value || s.text)) : [];
   const items = configured.length
     ? configured.slice(0, 4)
-    : [
-      { label: 'برنامه اختصاصی', value: 'متناسب با هدف تو' },
-      { label: 'ارزیابی چندمرحله‌ای', value: 'پرونده کامل از روز اول' },
-      { label: 'پیگیری دوره‌ای', value: 'اصلاح مسیر با داده' },
-      { label: 'مربیگری آنلاین', value: 'همراهی مستمر' }
+        : [
+      { label: 'شاگرد موفق', value: '۵۰۰+' },
+      { label: 'سال تجربه', value: '۷۰+' },
+      { label: 'برنامه اختصاصی', value: '۱۲۰+' },
+      { label: 'رضایت شاگردان', value: '۹۸٪' }
     ];
   return `<section class="stats" aria-label="آمار YASNAFIT">
   <div class="stats__inner">
@@ -2765,6 +2777,54 @@ function statsBandMarkup(profile) {
     </div>`).join('')}
   </div>
 </section>`;
+}
+
+// Wireframe (newlanding.png section 4): the four bordered credential badges
+// under the about bio — verbatim wireframe copy. The coach's real credentials
+// remain configured for the /about page through the coach profile.
+const HOME_ABOUT_BADGES = [
+  { icon: 'heart', text: 'پشتیبانی از تغذیه و ورزش' },
+  { icon: 'user', text: 'تخصیص بدنسازی بانوان' },
+  { icon: 'cap', text: 'مدرک بین‌المللی IFBB' },
+  { icon: 'calendar', text: '۷ سال تجربه مربیگری' }
+];
+function aboutBadgesMarkup() {
+  return '<ul class="about-badges" aria-label="نمایهٔ مربیگری">'
+    + HOME_ABOUT_BADGES.map(b => '<li class="about-badge"><span class="about-badge__icon" aria-hidden="true">' + ICONS[b.icon] + '</span><span class="about-badge__text">' + b.text + '</span></li>').join('')
+    + '</ul>';
+}
+
+// Wireframe (newlanding.png section 6): the home magazine preview always shows
+// four sample cards (verbatim placeholder copy) until real articles are
+// published; every card links into the real /magazine section — no dead ends.
+const HOME_SAMPLE_CARDS = [
+  { slug: 'bodybuilding', name: 'بدنسازی' },
+  { slug: 'nutrition', name: 'تغذیه' },
+  { slug: 'sports-science', name: 'علم ورزش' },
+  { slug: 'health', name: 'سلامت' }
+];
+function sampleArticleCardMarkup(slug, name) {
+  return `<article class="article-card article-card--sample">
+  <div class="article-card__media article-card__media--sample" aria-hidden="true">
+    <span class="article-card__placeholder">${ICONS.image}</span>
+    <span class="article-card__badge article-card__badge--${slug}">${name}</span>
+  </div>
+  <div class="article-card__body">
+    <h3 class="article-card__title">عنوان مقاله اینجا قرار می‌گیرد</h3>
+    <p class="article-card__summary">خلاصه کوتاه مقاله در اینجا نمایش داده می‌شود. این متن نمونه است.</p>
+    <div class="article-card__meta">
+      <span class="article-card__meta-item">${ICONS.calendar}</span><time>۱۴۰۵/۶/۲۷</time>
+      <span class="article-card__meta-item">${ICONS.clock}</span><span>۵ دقیقه</span>
+    </div>
+    <a class="article-card__cta" href="/magazine">مطالعه مقاله <span class="article-card__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
+  </div>
+</article>`;
+}
+
+function sampleMagazineMarkup() {
+  return '<div class="magazine-grid magazine-grid--home">'
+    + HOME_SAMPLE_CARDS.map(c => sampleArticleCardMarkup(c.slug, c.name)).join('')
+    + '</div>';
 }
 
 function homeBody(ctx) {
@@ -2779,12 +2839,12 @@ function homeBody(ctx) {
   return `
 <section class="hero">
   <div class="hero__content">
-    <p class="hero__label">YASNAFIT</p>
+    <p class="hero__label"><span>YASNA</span>FIT</p>
     <h1 class="hero__title">بدنی قوی‌تر،<br><span class="hero__title-accent">زندگی بهتر</span></h1>
     <p class="hero__copy">با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. من اینجا هستم تا در مسیر سلامت، قدرت و اعتماد به نفس همراهت باشم.</p>
     <div class="hero__actions">
-      <a class="btn btn--primary" href="/student/register">شروع مسیر من <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
       <a class="btn btn--ghost" href="/about"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>آشنایی با من</a>
+      <a class="btn btn--primary" href="/student/register">شروع مسیر من <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
     </div>
   </div>
   <div class="hero__media">
@@ -2799,8 +2859,8 @@ function homeBody(ctx) {
   <div class="features__inner">
     <div class="features__item">
       <div class="features__icon" aria-hidden="true">${ICONS.dumbbell}</div>
-      <h3>برنامه اختصاصی</h3>
-      <p>متناسب با هدف و شرایط تو</p>
+      <h3>مربیگری حرفه‌ای</h3>
+      <p>تجربه، دانش و همراهی در کنار تو</p>
     </div>
     <div class="features__divider" aria-hidden="true"></div>
     <div class="features__item">
@@ -2810,9 +2870,9 @@ function homeBody(ctx) {
     </div>
     <div class="features__divider" aria-hidden="true"></div>
     <div class="features__item">
-      <div class="features__icon" aria-hidden="true">${ICONS.coaching}</div>
-      <h3>مربیگری حرفه‌ای</h3>
-      <p>تجربه، دانش و همراهی در کنار تو</p>
+      <div class="features__icon" aria-hidden="true">${ICONS.program}</div>
+      <h3>برنامه اختصاصی</h3>
+      <p>متناسب با هدف و شرایط تو</p>
     </div>
   </div>
 </section>
@@ -2821,8 +2881,8 @@ function homeBody(ctx) {
   <div class="about-preview__content">
     <h2 class="section-title">درباره من</h2>
     <p class="about-preview__highlight">${profile.highlight ? escHtml(profile.highlight) : 'مربیگری فقط ساختن بدن نیست؛ ساختن یک سبک زندگی است.'}</p>
-    <p class="about-preview__intro">${profile.bio ? escHtml(profile.bio) : 'این معرفی، با اطلاعات واقعی مربی تکمیل می‌شود. تا آن زمان، از بخش خدمات دیدن کنید که دقیقاً چه چیزی در انتظار شماست.'}</p>
-    ${statsMarkup(profile)}
+    <p class="about-preview__intro">${profile.bio ? escHtml(profile.bio) : 'من اینجا هستم: مربی، یار و برنامه‌ریز تمرینی با بیش از ۷ سال تجربه در حوزه فیتنس و بدنسازی. هدف من کمک به باورانی است که می‌خواهند. سالم‌تر، قوی‌تر و با اعتماد به نفس‌تر زندگی کنند.'}</p>
+    ${aboutBadgesMarkup()}
     <a class="btn btn--ghost" href="/about">مشاهده رزومه <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
   </div>
   <div class="about-preview__media">
@@ -2841,7 +2901,7 @@ function homeBody(ctx) {
     <a class="btn btn--ghost" href="/magazine">مشاهده همه مقالات <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
   </header>
   ${categoryPills}
-  ${articles.length ? `<div class="magazine-grid magazine-grid--home">${articles.slice(0, 4).map(articleCardMarkup).join('')}</div>` : emptyMagazineMarkup()}
+  ${articles.length ? `<div class="magazine-grid magazine-grid--home">${articles.slice(0, 4).map(articleCardMarkup).join('')}</div>` : sampleMagazineMarkup()}
 </section>
 
 ${statsBandMarkup(profile)}
@@ -2849,7 +2909,7 @@ ${statsBandMarkup(profile)}
 <section class="cta-split">
   <div class="cta-split__content">
     <h2 class="section-title">آماده‌ای بهترین نسخه خودت باشی؟</h2>
-    <p class="cta-split__copy">همین حالا مسیر تغییر را شروع کن.</p>
+    <p class="cta-split__copy">همین حالا مسیر تغییر را شروع کن. من در کارت هستم.</p>
     <a class="btn btn--primary" href="/student/register">شروع مسیر <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
   </div>
   <div class="cta-split__media">

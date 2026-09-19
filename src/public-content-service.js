@@ -213,6 +213,7 @@ const SITE_SETTINGS_DEFAULTS = {
   'site.og_image': '/login-hero.png',
   'site.contact_telegram': '',
   'site.contact_instagram': '',
+  'site.contact_facebook': '',
   'site.contact_email': '',
   'site.contact_note': '',
   'magazine.auto_fetch': '0',
@@ -261,6 +262,7 @@ function publicSiteInfo(db) {
     contact: {
       telegram: s['site.contact_telegram'] || null,
       instagram: s['site.contact_instagram'] || null,
+      facebook: s['site.contact_facebook'] || null,
       email: s['site.contact_email'] || null,
       note: s['site.contact_note'] || null
     },
