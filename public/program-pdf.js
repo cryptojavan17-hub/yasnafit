@@ -296,7 +296,7 @@
               <span class="pdf-meta-val" dir="ltr" style="text-align:right">${esc(caseNumber)}</span>
             </div>
             <div class="pdf-meta-item">
-              <span class="pdf-meta-label">دوره اجرای برنامه (جلالی)</span>
+              <span class="pdf-meta-label">دوره اجرای برنامه</span>
               <span class="pdf-meta-val">${startDate} تا ${endDate}</span>
             </div>
             <div class="pdf-meta-item">
@@ -477,11 +477,12 @@
     `;
 
     modal.hidden = false;
-    document.body.style.overflow = 'hidden';
+    // قفل اسکرول با کلاس (نه استایل inline) تا در چاپ قابلِ خنثی‌شدن باشد — صفحات خالی نسازد
+    document.body.classList.add('pdf-modal-open');
 
     const close = () => {
       modal.hidden = true;
-      document.body.style.overflow = '';
+      document.body.classList.remove('pdf-modal-open');
     };
 
     document.getElementById('btnPdfClose').onclick = close;

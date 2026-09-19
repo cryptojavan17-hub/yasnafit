@@ -18,6 +18,11 @@
   display: none;
 }
 
+/* قفل اسکرول پس‌زمینه فقط وقتی مودال PDF باز است — با کلاس تا چاپ بتواند خنثی کند */
+body.pdf-modal-open {
+  overflow: hidden;
+}
+
 .pdf-toolbar {
   position: sticky;
   top: 0;
@@ -513,18 +518,26 @@
   font-weight: 600;
 }
 
-/* Print Overrides */
+/* Print Overrides — هیچ صفحهٔ خالی چاپ نشود:
+   ۱) به‌جای visibility:hidden (که پنلِ پشت را از چیدمان حذف نمی‌کرد و صفحهٔ خالی می‌ساخت)
+      همهٔ فرزندان body جز مودال PDF با display:none کاملاً از چیدمان خارج می‌شوند.
+   ۲) کارت روزِ بلند اجازهٔ ادامه در صفحهٔ بعد دارد (break-inside:auto) — فقط بلوک‌های کوچک نشکافند.
+   ۳) قفل اسکرولِ مودال در چاپ خنثی می‌شود تا مرورگر همهٔ صفحات را تولید کند. */
 @media print {
-  body * {
-    visibility: hidden;
+  body > *:not(.pdf-preview-modal) {
+    display: none;
   }
-  .pdf-preview-modal,
-  .pdf-preview-modal * {
-    visibility: visible;
+  html,
+  body {
+    overflow: visible;
+    height: auto;
+    background: var(--pdf-bg);
   }
   .pdf-preview-modal {
     position: static;
     inset: auto;
+    z-index: auto;
+    display: block;
     background: transparent;
     padding: 0;
     overflow: visible;
@@ -547,12 +560,16 @@
     size: A4 portrait;
     margin: 10mm 10mm 12mm 10mm;
   }
-  .pdf-day-card,
+  .pdf-day-card {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
   .pdf-combo-group,
   .pdf-mov-row,
   .pdf-meta-grid,
   .pdf-coach-note,
-  .pdf-guidelines-box {
+  .pdf-guidelines-box,
+  .pdf-day-head {
     page-break-inside: avoid;
     break-inside: avoid;
   }
