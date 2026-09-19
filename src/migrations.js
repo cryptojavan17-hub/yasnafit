@@ -1328,6 +1328,111 @@ const migrations = [
       if (!columns.has('totp_confirmed_at')) db.exec('ALTER TABLE coaches ADD COLUMN totp_confirmed_at TEXT');
       if (!columns.has('totp_last_counter')) db.exec('ALTER TABLE coaches ADD COLUMN totp_last_counter INTEGER');
     }
+  },
+  {
+    // Public website content (landing + about + magazine + results).
+    // Additive only: no existing table is touched. Content starts EMPTY on
+    // purpose — no fabricated articles, sources or success stories. The five
+    // structural categories are seeded because they are the magazine taxonomy
+    // itself, not claims.
+    id: '031_public_site_content',
+    description: 'Public site: magazine categories/articles/sources, success stories, coach profile',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS magazine_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          slug TEXT NOT NULL UNIQUE,
+          name_fa TEXT NOT NULL,
+          description TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS magazine_articles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          slug TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          category_id INTEGER,
+          cover_image TEXT,
+          status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','PENDING_REVIEW','REJECTED','PUBLISHED')),
+          content_origin TEXT NOT NULL DEFAULT 'human' CHECK(content_origin IN ('generated','edited','human','imported')),
+          source_name TEXT,
+          source_url TEXT,
+          reading_time INTEGER NOT NULL DEFAULT 0,
+          published_at TEXT,
+          reviewed_at TEXT,
+          reviewed_by TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(category_id) REFERENCES magazine_categories(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_articles_status ON magazine_articles(status, published_at);
+        CREATE INDEX IF NOT EXISTS idx_magazine_articles_category ON magazine_articles(category_id, status);
+        CREATE TABLE IF NOT EXISTS magazine_article_sources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          article_id INTEGER NOT NULL,
+          source_name TEXT NOT NULL,
+          source_url TEXT,
+          note TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(article_id) REFERENCES magazine_articles(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_article_sources_article ON magazine_article_sources(article_id);
+        CREATE TABLE IF NOT EXISTS success_stories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          display_name TEXT,
+          duration_months INTEGER,
+          goal TEXT,
+          metrics TEXT,
+          testimonial TEXT,
+          before_image TEXT,
+          after_image TEXT,
+          consent_status TEXT NOT NULL DEFAULT 'none' CHECK(consent_status IN ('none','verbal','written')),
+          status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','PUBLISHED','ARCHIVED')),
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS coach_profile (
+          id INTEGER PRIMARY KEY CHECK(id = 1),
+          display_name TEXT,
+          title TEXT,
+          highlight TEXT,
+          bio TEXT,
+          philosophy TEXT,
+          methodology TEXT,
+          photo TEXT,
+          specialties TEXT,
+          certifications TEXT,
+          timeline TEXT,
+          stats TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      const genUUID = () => require('crypto').randomUUID();
+      const seedCategory = db.prepare(`
+        INSERT OR IGNORE INTO magazine_categories (stable_id, slug, name_fa, sort_order) VALUES (?,?,?,?)
+      `);
+      const seeded = [
+        ['bodybuilding', 'بدنسازی', 1],
+        ['sports-science', 'علم ورزش', 2],
+        ['nutrition', 'تغذیه', 3],
+        ['health', 'سلامت', 4],
+        ['sports-news', 'اخبار ورزشی', 5]
+      ];
+      for (const [slug, nameFa, order] of seeded) seedCategory.run(genUUID(), slug, nameFa, order);
+    }
   }
 ];
 

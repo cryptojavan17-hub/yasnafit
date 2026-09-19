@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-08** (توسط Agent جلسهٔ `arena/01a0817f-yasnafit` — Task 25: اصلاح احراز هویت قدیمی در `PROJECT-CONTEXT.md` + بستن کامل Task 24 و KI-015 با تأیید چشمی مالک + بازیابی docsِ ازدست‌رفتهٔ سندباکس قبل • **Task 26: بانک حرکات — خوانایی «افزودن حرکت دستی» در موبایل + انتخابگر ست زیر آن با اعمال خودکار + حذف «عضله هدف درگیر»**).
+> آخرین به‌روزرسانی: **2026-09-19** (توسط Agent جلسهٔ `arena/01a0b993-yasnafit` — **Task 17 (شماره‌گذاری docs/project-tracking): سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`** و **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`** — هر دو کامل، تست‌شده و **کاملاً بدون کامیت** (منتظر تصمیم مالک). جلسهٔ قبل: `arena/01a0817f-yasnafit` — Task 25/26).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -47,9 +47,9 @@
 * **GitHub:** `https://github.com/cryptojavan17-hub/yasnafit`
 * **مسیر لوکال (مهدی):** `C:\Users\MAHDI\Desktop\yasnafit-git`
 * **شاخه‌های مهم:** `main` — الان **`607587f`** (merge PR #5 = Task 24، 2026-09-03 18:41:45Z)؛ قبل‌تر از ۲۰۲۶-۰۹-۰۲ **`50aaa53` = اپ کامل** (PR #2 merge شد؛ قبلاً فقط `README.md` + `login-hero.png` بود، و آن تصویر با `R100` به `public/login-hero.png` منتقل شد). `086f3e0` («Add exact login hero image - do not change face») پدر آن است
-* **شاخهٔ کاری جلسه:** `arena/01a0817f-yasnafit` (از `main` = `607587f` = merge PR #5 ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. شاخه‌های آرشیو: `arena/01a06884-yasnafit` (tip `8abd85c` = docs بعد از merge PR #5؛ کامیت کد Task 24 = `ab2a8a9`)، `arena/01a0671e-yasnafit` (`58615d4` = Task 23)، `arena/01a066e6-yasnafit` (`6e79fd9`). ⚠️ **سه کامیت docs پایانی جلسهٔ `arena/01a06884-yasnafit` (`a8132ae` + `57ea75c` + `5c61866`) هرگز push نشدند و با بازسازی سندباکس از دست رفتند** ⇒ در این جلسه محتوایشان از گزارش مالک بازسازی شد؛ کامیت push‌شدهٔ `8abd85c` روی origin بود و با cherry-pick به `583af1b` روی شاخهٔ این جلسه برگشت (بدون force-push). نکتهٔ قدیمی‌تر: جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` هم هیچ کامیت/pushی نداشت و Task 24 از نو ساخته شد.
+* **شاخهٔ کاری جلسه (فعلاً):** `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. ⚠️ **کل کار Task 17/18 (سایت عمومی + wireframe) در working tree این شاخه است و هنوز کامیت نشده** (13 فایل changed + 9 فایل/دایرکتوری جدید). `origin/main` از 2026-09-19 = `8b693cb`. شاخهٔ قبلی: `arena/01a0817f-yasnafit`. شاخه‌های آرشیو: `arena/01a06884-yasnafit` (tip `8abd85c` = docs بعد از merge PR #5؛ کامیت کد Task 24 = `ab2a8a9`)، `arena/01a0671e-yasnafit` (`58615d4` = Task 23)، `arena/01a066e6-yasnafit` (`6e79fd9`). ⚠️ **سه کامیت docs پایانی جلسهٔ `arena/01a06884-yasnafit` (`a8132ae` + `57ea75c` + `5c61866`) هرگز push نشدند و با بازسازی سندباکس از دست رفتند** ⇒ در این جلسه محتوایشان از گزارش مالک بازسازی شد؛ کامیت push‌شدهٔ `8abd85c` روی origin بود و با cherry-pick به `583af1b` روی شاخهٔ این جلسه برگشت (بدون force-push). نکتهٔ قدیمی‌تر: جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` هم هیچ کامیت/pushی نداشت و Task 24 از نو ساخته شد.
 * **مستندات ریشه (حذفشان ممنوع):** `README.md`, `ARCHITECTURE.md`, `DATABASE_SCHEMA.md`, `CHANGELOG.md` (محصولی/نسخه‌ها), `EXERCISE_MANAGEMENT.md`, **`DEPLOYMENT.md` (جدید)**.
-* **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…17)، `KNOWN-ISSUES.md` (KI-001…KI-013)، `TODO.md` (T-01…T-16)، `TECHNICAL-DECISIONS.md` (TD-*)، `archive/`.
+* **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…18)، `KNOWN-ISSUES.md` (KI-001…KI-018)، `TODO.md` (T-01…T-18)، `TECHNICAL-DECISIONS.md` (TD-1…TD-20)، `archive/`.
 
 ---
 
@@ -57,17 +57,13 @@
 
 | مورد | وضعیت تأییدشده |
 |---|---|
-| شاخهٔ جاری | `arena/01a0817f-yasnafit` (از `main` = `607587f` = merge PR #5 ساخته شد) |
-| آخرین کامیت | **Task 26** (UI بانک حرکات: `public/program-builder.js` + `.css` + گارد + harness) روی **Task 25** (docs احراز هویت) روی `607587f` (merge PR #5) با واسطهٔ `583af1b` (cherry-pick کامیت docs جلسهٔ قبل) |
-| کامیت قبلی | `8abd85c` (docs بعد از merge PR #5، جلسهٔ `arena/01a06884-yasnafit`) • `ab2a8a9` (کد Task 24) • `23fbbf1` (merge PR #4 = Task 23) • `58615d4` (Task 23) • `8354a68` (merge PR #3) • `e60d3eb` (Task 22) |
-| working tree | **تمیز** بعد از کامیت‌های این جلسه (`git status --short` خالی) |
-| local vs origin | شاخهٔ جلسهٔ `arena/01a0817f-yasnafit` به origin push شده؛ `main` = `607587f` (PR #5 MERGED — Task 24) |
-| PR | **#6 باز** (Task 25 مستندات **+ Task 26 UI بانک حرکات** → main — merge فقط با تأیید مالک؛ چون هر دو روی شاخهٔ همین جلسه‌اند، در یک PR نشسته‌اند) • **#5 MERGED** (Task 24 → main، 2026-09-03 18:41:45Z با تأیید صریح مالک — merge commit `607587f`) • #4 MERGED (Task 23) • #3 MERGED • #2 MERGED • #1 CLOSED |
-| وضعیت merge | محتوای PR #5 روی `main` است (`main` = `607587f`) و با auto-deploy منتشر شد (ریست uptime ~18:42:42Z) **و 2026-09-08 دوباره از بیرون راستی‌آزمایی شد**: `uptime:418274` در 14:54:25Z ⇒ استارت پروسه ≈ 2026-09-03T18:43:11Z = همان auto-deploy، ۴٫۸۴ روز بدون ری‌استارت ⇒ کد Task 24 هنوز زنده است. **تأیید چشمی مالک هم گرفته شد ⇒ Task 24 کاملاً بسته است** |
-| اقدامات باز | (۰) **مالک: تصمیم دربارهٔ «غیرفعال‌کردن گوگل‌اتنتیکاتور»** — چهار گزینه در گزارش همین جلسه داده شد (فقط متغیر محیطی `YASNAFIT_ALLOW_2FA_SKIP=1` / تغییر کد با سوئیچ بازگشت / حل ریشه با چرخش کلید / حذف کامل). **هیچ تغییری در کد احراز هویت انجام نشد** چون روشش انتخاب نشد و کاهش امنیت روی دامنهٔ عمومی بدون انتخاب صریح مالک انجام‌شدنی نیست (۱) مالک: merge **PR #6** (Task 25 مستندات + Task 26 UI) ⇒ با merge، auto-deploy منتشر می‌کند و **این بار ریست uptime انتظار می‌رود** (چون `public/**` در `watchPatterns` است)؛ سپس تست چشمی سه مورد Task 26 (۲) مهدی در ویندوز: بلوک bat §17 با نام شاخهٔ همین جلسه (۳) پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` بعد از تست (۴) `KI-016` (اختلاف ۲۷۲۴ ↔ ۲٬۷۰۷ حرکت) فقط با تأیید مالک و **کاملاً خواندنی** (۵) اختیاری با تأیید مالک: cache-busting نسخه‌دار اسکریپت‌ها (کش ۲۴ ساعتهٔ JS). ✅ **در این جلسه بسته شدند:** تست چشمی Task 24 • پاک‌کردن دستی کارت‌های تکراری قدیمی + تأیید چشمی شمارش کارت‌ها (کار مالک انجام شد) • لاگ `[Media]` + تست عکس `/api/exercise-image/4` ⇒ KI-015 بسته • اصلاح `PROJECT-CONTEXT.md` ⇒ Task 25 • بازیابی کامیت docs جلسهٔ قبل |
-| هشدار Arena (تجربهٔ واقعی — دو رخداد) | سندباکس ممکن است بین جلسات بازسازی شود. **روش بازیابی (فقط داخل سندباکس، فقط شاخهٔ همین جلسه، بدون force-push):** اول `git status` را چک کن، بعد `git fetch -q origin arena/01a0817f-yasnafit` + `git update-ref refs/heads/arena/01a0817f-yasnafit FETCH_HEAD` + `git reset --hard FETCH_HEAD`. **روی ماشین لوکال مهدی این کار را نکنید** — آنجا فقط `git pull --ff-only`. ⚠️ درس ۱ (`arena/01a0686c`): کارِ کامیت‌نشده با قطع شدن چت از دست می‌رود. ⚠️ درس ۲ (همین جلسه): **کامیتِ push‌نشده هم از دست می‌رود** — سه کامیت docs جلسهٔ `arena/01a06884-yasnafit` فقط local بودند و سندباکس نو آن‌ها را نداشت (`git cat-file -t` ⇒ not a valid object name) ⇒ بلافاصله بعد از هر کامیت، push کنید. راه تشخیص درست: **محتوا نه هش** (`grep -c originalProgramId src/ai-service.js` = ۶). |
-
----
+| شاخهٔ جاری | `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) |
+| آخرین کامیت | `6301712` (مبنا) — **هیچ کامیتی برای Task 17/18 نشده است** |
+| working tree | **کثیف — کل سایت عمومی (Task 17) + تطبیق wireframe (Task 18) بدون کامیت**: ۱۳ فایل changed (server.js +۹۶۷، src/migrations.js +۱۰۵، package.json، public/app.js+core.js+index.html، ۵ مستند پیگیری، tests/e2e+migration-regression) + ۹ آیتم جدید (public/landing.css, landing.js, magazine-admin.css, magazine-admin.js, public/images/landing/, src/article-service.js, src/public-content-service.js, tests/public-site-regression.js) |
+| local vs origin | شاخهٔ جلسه هنوز push نشده (با base هم‌خوان است)؛ `origin/main` از 2026-09-19 = `8b693cb` (جلوتر از base ما — merge‌های جدید، بی‌ربط به این شاخه) |
+| PR | **هنوز ساخته نشده** — فقط با تأیید صریح مالک |
+| اقدامات باز | (۱) **مالک: تصمیم commit/PR** برای Task 17+18 (حکم ممیزی: SAFE TO COMMIT) (۲) بعد از commit: push + PR + merge ⇒ auto-deploy (ریست uptime ملاک) + تست چشمی (۳) T-17 (auto-fetch) و T-18 (عکس نهایی برند) فقط با تأیید مالک (۴) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل هنوز بی‌پاسخ است |
+| هشدار Arena | همان درس‌های قبل: بلافاصله بعد از هر کامیت **push کنید** (کامیت local می‌سوزد)؛ قبل از هر کاری `git status` + قضاوت با محتوا نه هش. ⚠️ در این session فایل `data/` چندین بار پاک/بازسازی شده (سندباکس) ⇒ DB فعلی = تازه + داده e2e؛ **هیچ ربطی به DB لوکال/production مالک ندارد** |
 
 ## 6. Railway Deployment
 
@@ -85,7 +81,7 @@
 * **Auto-deploy روشن شد (۲۰۲۶-۰۹-۰۳ عصر — از جلسهٔ `arena/01a0671e-yasnafit` به بعد):** مالک Auto-deploy را روی Branch = `main` روشن کرد ⇒ بعد از هر merge، Railway خودش منتشر می‌کند و **«Check for updates» دیگر لازم نیست**؛ فقط بعد از merge با `GET /api/health` (fetch) ریست uptime را تأیید کنید. تأیید مالک بعد از merge PR #4 (Task 23): ریست uptime + خواندن کد جدید از خود `program-builder.js` سرو‌شده روی production.
 * **وضعیت زنده (۲۰۲۶-۰۹-۰۳، جلسهٔ `arena/01a06884-yasnafit` — baseline قبل از merge PR #5):** `GET /api/health` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":2999}` (پروسه ~۵۰ دقیقه قبل از fetch ری‌استارت شده — سازگار با auto-deploy پس از merge PR #4) ⇒ کد Task 23 روی production اجرا می‌شود.
 * **تأیید انتشار Task 24 (۲۰۲۶-۰۹-۰۳ 18:4x UTC، جلسهٔ `arena/01a06884-yasnafit`):** PR #5 با تأیید صریح مالک در **18:41:45Z** merge شد (merge commit `607587f`). یک ریست uptime در ~18:34:40Z دیده شد که **قبل از** merge بود (ملاک نیست)؛ ریست ملاک: fetch بعدی در 18:46:15Z → `uptime: 213` ⇒ استارت پروسه ~**18:42:42Z = ۵۷ ثانیه بعد از merge** ⇒ auto-deploy کد Task 24 روی production اجرا می‌شود. کامیتِ deploy از بیرون خواندنی نیست (قاعدهٔ ثابت) ⇒ اثبات نهایی رفتار جدید = تست چشمی مالک (دکمهٔ «🤖 تولید پیش‌نویس هوشمند» روی برنامهٔ باز ⇒ بدون کارت تکراری).
-* **وضعیت زنده (۲۰۲۶-۰۹-۰۸ — راستی‌آزمایی مجدد از بیرون، جلسهٔ `arena/01a0817f-yasnafit`):** `GET /api/health` در `2026-09-08T14:54:25Z` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":418274}` ⇒ ۴٫۸۴ روز بدون ری‌استارت؛ استارت پروسه ≈ **2026-09-03T18:43:11Z** = دقیقاً auto-deploy بعد از merge PR #5 (18:41:45Z) ⇒ **کد Task 24 همین حالا روی production زنده است** (بدون نیاز به «Check for updates»). این عدد با build stamp `18:41:44Z` در لاگ Railway مالک هم سازگار است.
+* **وضعیت زنده (۲۰۲۶-۰۹-۰۸ — راستی‌آزمایی مجدد از بیرون، جلسهٔ `arena/01a0b993-yasnafit`):** `GET /api/health` در `2026-09-08T14:54:25Z` → `{"ok":true,"status":"ok","version":"0.9.1","uptime":418274}` ⇒ ۴٫۸۴ روز بدون ری‌استارت؛ استارت پروسه ≈ **2026-09-03T18:43:11Z** = دقیقاً auto-deploy بعد از merge PR #5 (18:41:45Z) ⇒ **کد Task 24 همین حالا روی production زنده است** (بدون نیاز به «Check for updates»). این عدد با build stamp `18:41:44Z` در لاگ Railway مالک هم سازگار است.
 * **فکت‌های production (از لاگ مالک — ۲۰۲۶-۰۹-۰۳، در این جلسه ثبت شد چون کامیت قبلی‌اش local ماند و از دست رفت):** پورت داخلی **`8080`** با bind **`0.0.0.0`** (Railway `PORT` را inject می‌کند) • **۳۰ مایگریشن applied** (تا `030_coach_totp_authenticator`) • پیام «Exercises already imported: **2724** items» که از دیتاست مرجع ۲٬۷۰۷ بیشتر است ⇒ **علت نامعلوم، در `KI-016` ثبت شد؛ هیچ حرکت/دادهٔ ساختگی نسازید و هیچ رکوردی را حدسی حذف نکنید** • شناسه‌های Railway: Project `01244a7a…` • Service `5f6f027f…` • Environment `05a2bb2d…` (ادامهٔ شناسه‌ها عمداً نوشته نمی‌شود؛ رمز/توکن نیستند ولی نیازی هم به ثبت کاملشان نیست).
 * **تأیید چشمی مالک (۲۰۲۶-۰۹-۰۸ ⇒ دو مورد بسته شد):** (۱) **Task 24 CLOSED** — زدن چندبارهٔ «🤖 تولید پیش‌نویس هوشمند» روی برنامهٔ باز فقط همان کارت را به‌روز کرد و کارت تکراری نساخت؛ کارت‌های تکراری قدیمی (ساختهٔ قبل از merge) هم دستی پاک شدند و شمارش چشمی کارت‌ها تأیید شد. (۲) **KI-015 CLOSED** — لاگ `[Media] تصاویر حرکات: 1888 فایل (Volume: 1888 | ریپو: 0)` و بازکردن `/api/exercise-image/4` در مرورگر ⇒ **عکس واقعی حرکت، نه مربع سفید**.
 * **ماجرای «کد Google Authenticator کار نمی‌کند» (علت قطعی، از کد):** کلید TOTP در دیتابیس همان سرور است (`coaches.totp_secret`) و `setupCoach` آن را `NULL` می‌گذارد؛ در اولین restart، `ensureCoachAuthenticator()` یک **کلید تازه** می‌سازد، `totp_confirmed_at` را ست می‌کند و کلید را در `<mount>/coach-authenticator.txt` می‌نویسد ⇒ کلید قدیمیِ نسخهٔ لوکال روی Railway هیچ‌وقت قبول نمی‌شود. در UI هم هیچ‌وقت کلید نشان داده نمی‌شود (طراحی عمدی؛ مسیر HTTP برای نمایش/چرخش کلید وجود ندارد). راه‌حل‌ها در `DEPLOYMENT.md` §۹.۸: (۱) خواندن فایل از Volume با `railway ssh`/`railway volume browse`، (۲) `node scripts/provision-coach-totp.js --rotate` داخل کانتینر، (۳) اگر CLI ندارید: موقتاً `YASNAFIT_REVEAL_AUTHENTICATOR_KEY=1` و بعد از ورود پاکش کنید. ⚠️ اعداد قفل: `MAX_OTP_FAILURES=3` ⇒ `AUTH_LOCKED` به مدت `LOCK_MS=15 دقیقه`؛ عمر چلنج `OTP_TTL_MS=5 دقیقه`؛ کد یک‌بارمصرف (`totp_last_counter`)؛ تلورانس ساعت ±۳۰ ثانیه (`window=1`).
@@ -118,7 +114,7 @@
 
 * **تکنولوژی:** SQLite از طریق ماژول داخلی `node:sqlite` (`DatabaseSync`) — بدون ORM، بدون سرور دیتابیس.
 * **محل فایل:** `data/yasnafit.db`؛ بکاپ‌ها در `backups/`؛ مجوزها: `data/` و `backups/` → `700`، فایل DB و `data/smtp.json` و `data/coach-authenticator.txt` → `600` (از Task 16).
-* **مایگریشن:** `src/migrations.js`، **۳۰ مایگریشن** `001_initial` … `030_coach_totp_authenticator`؛ وضعیت جاری = `030_coach_totp_authenticator`؛ جدول `schema_migrations` + `settings.schema_version`.
+* **مایگریشن:** `src/migrations.js`، **۳۱ مایگریشن** `001_initial` … `031_magazine_public_site` (Task 17 — ۴ جدول جدید: `articles`, `article_sources`, `article_related`, `magazine_settings`؛ وضعیت جاری = `031_magazine_public_site`، ۵۳ جدول)؛ جدول `schema_migrations` + `settings.schema_version`.
 * **جداول کلیدی:** `students`, `student_sessions`, `student_invites`, `assessments` + `assessment_*` (section‌های ساختاریافته)، `training_programs` + `training_days`/`training_sets` (و همتایا)، `diet_*`, `supplement_*`, `exercises`, `exercise_categories`, `workout_sessions`/نتایج، `notifications`, `messages`, `audit_events`, `coach_auth_events`, `coach_totp …`، `releases`. جداول legacy: `movements`, `programs`, `orders`, `measurements`, `activity_log` (سرنوشتشان T-06؛ مسیر `/api/programs` هنوز مصرف می‌شود).
 * **قواعد مایگریشن:** فقط **افزودن** مایگریشن جدید؛ حذف/بازنویسی مایگریشن اعمال‌شده ممنوع. هر تسک جدید مایگریشن، شمارش `tests/migration-regression.js` را می‌شکند → باید هم‌زمان به‌روز شود (و `tests/e2e-workflow.js` `schema_version` را assert می‌کند).
 * **Backups:** دکمهٔ پنل = `POST /api/backup` (چرخش ۱۰ نسخه) و در سرور cron با کپی فایل (سند `DEPLOYMENT.md` §۶). WAL قبل از بکاپ چک‌پوینت می‌شود.
@@ -129,7 +125,7 @@
 ## 9. Important Project Rules (قواعد دائمی)
 
 **کاری/ابزاری**
-1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسهٔ جاری (فعلاً `arena/01a0817f-yasnafit`). push فقط به همان شاخه.
+1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسهٔ جاری (فعلاً `arena/01a0b993-yasnafit`). push فقط به همان شاخه.
 2. **دستکاری/بازنویسی تاریخچه و force-push ممنوع.** قبل از pull/reset/checkout/rebase اول `git status` و شاخه را چک کن؛ `git reset --hard` روی ماشین مهدی فقط با اجازهٔ صریح.
 3. هیچ داده/حرکت/شاگرد غیرواقعی (fake) ساخته نشود؛ حرکات فقط از دیتاست ۲۷۰۷تایی.
 4. فایل/رسانه خصوصی شاگرد هرگز از `public/` سرو نشود؛ ریشهٔ فایل‌ها با `isSafePath` محدود شود.
@@ -148,11 +144,14 @@
 15. روی سرور: `YASNAFIT_HOST=127.0.0.1` + پروکسی nginx با TLS؛ `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی ترافیک حتماً از پروکسی است؛ `NODE_ENV=production`؛ `YASNAFIT_COOKIE_SECURE=1` در HTTPS. جزئیات: `DEPLOYMENT.md`.
 
 **حافظهٔ جلسه (این فایل)**
-16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل بعدی `docs/project-tracking/CHANGELOG.md`: **Task 27** (Task 26 = بانک حرکات: خوانایی افزودن دستی + انتخابگر ست با اعمال خودکار + حذف «عضله هدف درگیر»؛ Task 25 = اصلاح احراز هویت قدیمی در `PROJECT-CONTEXT.md` — هر دو انجام شده).
+16. شروع هر جلسه = خواندن `mahdi hellp.md` **اول از همه**، سپس فقط فایل‌های مرتبط با تسک؛ کل مخزن/همهٔ مستندات را ناخوانده باز نکن. پایان هر تسک معنادار = به‌روزرسانی همین فایل (§5، §10، §11، §12، §13، §14، §15، §16) و commit آن. `tests/deployment-hardening-regression.js` عمداً این فایل را از اسکن «ارجاع به فایل حذف‌شده» مستثنا کرده، چون اینجا باید نام فایل‌های حذف‌شده بیاید. مدخل‌های `docs/project-tracking/CHANGELOG.md` با شماره‌گذاری جداگانه خود را پیش می‌برند؛ در آن سیستم: **Task 17** = سایت عمومی + پنل مجله (انجام‌شده، بدون کامیت) و **Task 18** = تطبیق صفحهٔ اصلی با wireframe (انجام‌شده، بدون کامیت) ⇒ مدخل بعدی **Task 19**.
 
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
+
+* **2026-09-19** — **Task 18 (جلسهٔ `arena/01a0b993-yasnafit` — شماره‌گذاری docs — تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`):** صفحهٔ `/` عمومی دقیقاً ۸ بخش به ترتیب `هیدر → هیرو → ۳ ویژگی → درباره → مجله → آمار → CTA پایانی → فوتر` با ترکیب عمداً **تصویر چپ / متن راست** (DOM RTL، بدون آینه‌سازی — TD-20). هیرو: eyebrow YASNAFIT + تیتر دوخطی (خط دوم cyan) + «شروع مسیر من»/«آشنایی با من» + تصویر با `object-fit:cover` و `object-position: 26% 26%`. نوار ۳ ویژگی (برنامه اختصاصی / ارزیابی و پیگیری / مربیگری حرفه‌ای). درباره: تصویر چپ + متن راست + ۴ کارت آیکون‌دار + «مشاهده رزومه» → `/about`. مجله: «YASNAFIT MAGAZINE» + ۶ pill که **لینک** به فیلتر موجود `/magazine?category=…`‌اند (سیستم دوم نساخته شد) + «مشاهده همه مقالات»؛ کارت مقاله با badge رنگی دسته (۵ رنگ پیش‌فرض)، meta با آیکون تاریخ/ساعت + «۵ دقیقه» + CTA «مطالعه مقاله». نوار آمار ۴ ستونه **داده‌محور** (`profile.stats` یا ۴ عبارت کیفی — آمار ساختگی منتشر نمی‌شود). CTA پایانی: چیدمان دو‌ستونه + تنظیم جدید `site.cta_image` (جدول `settings` موجود، بدون مایگریشن). فوتر یک‌ردیفه (brand | nav | socials فقط با آیدی واقعی). بخش‌های services/results از home خارج شدند (صفحاتشان دست‌نخورده). `tests/public-site-regression.js` ⇒ **۵۴ گروه**؛ `npm test` = **۱۹/۱۹**؛ e2e سبز؛ smoke زنده ۱۶/۱۶ URL ۲۰. **بدون کامیت.**
+* **2026-09-19** — **Task 17 (همین جلسه/شاخه — شماره‌گذاری docs — سایت عمومی YASNAFIT + پنل مجله):** ۷ صفحه SSR فارسی/RTL (home, about, services, results, contact, magazine, article) + SEO (canonical/OG/JSON-LD/sitemap/robots) + `src/article-service.js` + `src/public-content-service.js` + مایگریشن `031_magazine_public_site` (۴ جدول) + پنل مربی `/coach/magazine` (CRUD مقاله، دسته‌ها، تنظیمات سایت شامل `site.{hero,about,cta,og}_image`) + مسیر دوقلو `/` (ناشناس=عمومی، مربی=SPA). UI عمومی بدون واژهٔ AI (فقط `content_origin` داخلی). `package.json` ⇒ ۱۹ سوئیت. **بدون کامیت** (با Task 18 در یک working tree).
 
 * **2026-09-08** — **Task 26 (همین جلسه — بانک حرکات: سه درخواست مالک):** (۱) **خوانایی/موبایل «افزودن حرکت دستی»:** اندازه‌های ریز inline (عنوان ۱۱px، ورودی ۱۰px/۳۶px، راهنما ۸px، دکمهٔ «ثبت حرکت» ۳۲px) حذف و به `program-builder.css` منتقل شد ⇒ عنوان ۱۳px/۸۰۰، ورودی‌ها ۱۳px با `min-height: var(--component-control-height)` (۴۲px)، راهنما ۱۱px، دکمهٔ ثبت ۴۲px و در موبایل **تمام‌عرض/۴۶px/۱۴px**، دکمهٔ «＋ افزودن حرکت دستی» هم `drawer-manual-toggle` (۴۲px) و در موبایل تمام‌عرض. (۲) **انتخابگر ست زیر افزودن دستی با اعمال خودکار:** بلوک `#drawerSetPreset` + سلکت `#drawerPresetSelect` (گزینهٔ صریح «۱ × ۱۲ (پیش‌فرض)» + هر ۱۵ preset) دقیقاً زیر `#drawerQuickAdd`؛ هلپر `setsForNewMovement()` و استفاده در **هر دو مسیر افزودن** (ثبت دستی و انتخاب از لیست بانک) ⇒ حرکت تازه با همان ست‌ها ساخته می‌شود و دوباره‌کاری در کارت حرکت لازم نیست؛ نوار فقط هنگام تکمیل یک سیستم دیده می‌شود و با بستن بانک مخفی می‌شود. (۳) **حذف «عضله هدف درگیر»** از پنل افزودن دستی (سلکت/چیپ/state/بایندینگ) و از فرم ویرایش حرکت (بلوک `mv-anatomy` با آدمک جلو/پشت و ۲۱ لایهٔ عضله + متغیرهای مرده) و CSS مردهٔ مربوطه؛ `.mv-learn` تک‌ستونه شد. **حفظ‌شده‌ها (عمدی):** `muscleCatalog` + `mov.target_muscles=activeMuscleIds` ⇒ دادهٔ عضلات هدف همچنان ذخیره و در **PDF و پنل شاگرد** نمایش داده می‌شود؛ ستون DB/مایگریشن ۰۲۳/API دست‌نخورده (بدون مایگریشن مخرب)؛ «آموزش حرکت» (ویدیو) سر جایش؛ دیالوگ بانک حرکات (`exercises.js`) دست‌نخورده. گارد `tests/movement-dialog-regression.js` با تصمیم مالک هم‌زمان شد (بخش ۵ معکوس + بخش‌های ۶/۷ جدید) و `tool/smoke-program-builder.js` پنج چک عملکردی گرفت. `npm test` = ۱۸/۱۸ ✅ • هر سه smoke ✅ • **جهش‌سنجی ۴/۴** ✅.
 * **2026-09-08** — **Task 25 (جلسهٔ `arena/01a0817f-yasnafit` — اصلاح `docs/project-tracking/PROJECT-CONTEXT.md`: احراز هویت قدیمی «فعلی/VERIFIED» نوشته شده بود):** انتخاب مستقیم مالک از بین گزینه‌ها. آن سند مکانیزم **حذف‌شده** را فعال اعلام می‌کرد (خطوط ۵۷/۶۳/۲۵۲: فایل توکن `data/coach-access-token`، مسیر `/coach-access/{token}`، env مشترک `YASNAFIT_COACH_TOKEN`). اول همه‌چیز از کد راستی‌آزمایی شد: `YASNAFIT_COACH_TOKEN` در کل کد صفر مورد • `server.js:2667` ⇒ `/coach-access/*` عمداً ۴۰۴ • روت‌های واقعی `/api/coach/auth/*` و صفحه‌های `/coach/login|2fa|forgot|reset` • ثابت‌ها (`SESSION_TTL_MS=12h`, `OTP_TTL_MS=5min`, `RESET_TTL_MS=15min`, `MAX_OTP_FAILURES=3`, `MAX_PASSWORD_FAILURES=5`, `LOCK_MS=15min`, `SETUP_EMAIL` قفل‌شده، کوکی‌ها و فلگ‌ها) • `src/totp.js` (`PERIOD=30`, `DIGITS=6`, `window=1`) • هدرهای `src/request-security.js` • لیست کامل env با اسکن `process.env`. بعد §3 (ردیف احراز هویت + متغیرهای محیطی)، §6 (ردیف Authentication) و §11 (دسترسی مربی + هدرهای امنیتی) بازنویسی شدند؛ شمارنده‌های راستی‌آزمایی‌شده هم اصلاح شد (`server.js` ~1937⇒~۲۸۴۸ خط، ۲۲⇒۳۰ مایگریشن، ۹⇒۱۸ سوئیت تست، نسخهٔ مستندشده 0.9.0⇒0.9.1 بدون دست‌زدن به `package.json`)؛ شمارش ۳۹ جدول بازراستی‌آزمایی نشد ⇒ صریحاً `PARTIALLY VERIFIED`/snapshot. **رفع خطر تکرار خطای BR-13:** نام شاخهٔ کهنهٔ `arena/01a02ff4-yasnafit` از §۱۳ و پایین سند حذف و به §۱۷ همین حافظه ارجاع داده شد. **بدون هیچ تغییر کد/مایگریشن/API.** `npm test` = ۱۸/۱۸ ✅.
@@ -196,6 +195,8 @@
 | KI-012 | جستجوی «دسته+کوئری» فقط LIKE نرمال‌شده | Low | OPEN | `server.js` | رتبه‌بندی در صورت نیاز |
 | KI-013 | آیتم «رمز ورود» منوی ⋮ مرده بود | Medium | **FIXED** (Task 13) | `public/students.js` | — |
 | — | ✅ **بسته شد (Task 25 — ۲۰۲۶-۰۹-۰۸):** `docs/project-tracking/PROJECT-CONTEXT.md` مکانیزم احراز هویت قدیمی را «VERIFIED/فعلی» می‌دانست (خطوط ۵۷/۶۳/۲۵۲) | Low (مستندات) | **FIXED** (Task 25 — بازنویسی §3/§6/§11 از روی کد، با ارجاع به Task 16) | `docs/project-tracking/PROJECT-CONTEXT.md` | — |
+| KI-017 | موتور auto-fetch مقالات (RSS/وب) در تنظیمات مجله خاموش است و پیاده نشده | Low (P2) | OPEN (T-17) | `src/public-content-service.js` | فقط با تأیید مالک |
+| KI-018 | تصاویر برند سایت عمومی (هیرو/درباره/CTA/OG) فعلاً CSS-crop از `public/images/auth-hero.jpg` + fallback برند‌شده | Low (بصری) | OPEN (T-18 — در انتظار فایل مالک) | `server.js`, `src/public-content-service.js`, `public/landing.css` | رسیدن عکس نهایی مالک → `public/images/landing/` + ست از «تنظیمات سایت» |
 
 ---
 
@@ -209,6 +210,7 @@
 * **تصمیم انتقال دادهٔ لوکال → Railway:** (الف) از صفر شروع کردن (پیشنهاد فعلی) یا (ب) افزودن endpoint ادمین «restore from upload» — گزینهٔ (ب) API جدید است و فقط با تأیید صریح مالک نوشته می‌شود.
 * (به‌روز ۲۰۲۶-۰۹-۰۸) **اعمال تغییرات روی لوکال مهدی:** بلوک bat §17 با شاخهٔ `arena/01a0817f-yasnafit` + ری‌استارت لانچر + `Ctrl+Shift+R`. ⚠️ تغییرات این جلسه **فقط مستندات** است ⇒ رفتار برنامه عوض نمی‌شود و ری‌استارت سرور لازم نیست (رفرش مرورگر کافی است). DB لوکال دست‌نخورده می‌ماند.
 * (جدید، فقط با تأیید مالک) **`KI-016` — اختلاف ۲۷۲۴ ↔ ۲٬۷۰۷ حرکت:** بررسی **کاملاً خواندنی** (یافتن متن دقیق پیام لاگ در کد + گزارش تفکیکی شمارش `exercises`)؛ بدون نوشتار روی DB، بدون ساخت/حذف حرکت.
+* (به‌روز ۲۰۲۶-۰۹-۱۹ — شماره‌گذاری docs) **T-17: موتور auto-fetch مقالات** (P2 — فقط با تأیید مالک) • **T-18: تصاویر نهایی برند سایت عمومی** (P2 — در انتظار فایل مالک؛ فعلاً crop برند + fallback، KI-018).
 
 ### Medium Priority
 * T-14 کاتالوگ ۱۲ سیستم به DB (هنگام سینک) • T-02 پخش ویدیوی حرکات در UI • T-03 آپلود عکس حرکت از UI • T-04 پرکردن `equipment/difficulty/description/name_en` • T-05 پاکسازی داده تستی e2e • T-06 سرنوشت جداول legacy • T-07 طراحی لایهٔ سینک • T-15 افزودن `tool/smoke-*.js` به زنجیرهٔ `npm test` • T-11 مقاوم‌سازی harness تست.
@@ -220,69 +222,59 @@
 
 ## 13. Current Task
 
-* **عنوان (جلسهٔ جاری، 2026-09-08 — `arena/01a0817f-yasnafit`):** **Task 26 — بانک حرکات: خوانایی/موبایل «افزودن حرکت دستی» + انتخابگر ست زیر آن با اعمال خودکار + حذف «عضله هدف درگیر»** (انجام شد؛ منتظر merge PR #6 و تست چشمی مالک). پیش‌تر در همین جلسه: **Task 25** (اصلاح احراز هویت قدیمی در `PROJECT-CONTEXT.md`) + بستن Task 24 و KI-015 با تأیید چشمی مالک.
-* **انتخاب تسک‌ها:** Task 25 از میان چهار گزینه توسط مالک انتخاب شد (گزینه‌های باقی‌مانده برای جلسات بعد: cache-busting نسخه‌دار اسکریپت‌ها، بررسی خواندنی `KI-016`). Task 26 سه درخواست مستقیم مالک دربارهٔ بانک حرکات بود و دامنهٔ دو مورد مبهم آن با پرسش روشن شد: حذف «عضله هدف» = **پنل افزودن دستی + فرم ویرایش حرکت** (نه دیالوگ `exercises.js`) • انتخابگر ست = **زیر پنل دستی + اعمال خودکار**. ⚠️ **درخواست «غیرفعال‌کردن گوگل‌اتنتیکاتور» هنوز بی‌پاسخ مانده** (مالک از پاسخ به گزینه‌ها صرف‌نظر کرد) ⇒ هیچ تغییری در کد احراز هویت داده نشد؛ چهار گزینه در §۱۴ و گزارش جلسه هست.
-* **عنوان تسک قبلی:** Task 24 (رفع کارت تکراری «🤖 تولید پیش‌نویس هوشمند») — merge شد (PR #5، `607587f`)، انتشارش با auto-deploy تأیید شد و **تست چشمی مالک هم سبز شد ⇒ کامل بسته است**.
-* **هدف Task 25:** سندِ «حافظهٔ فنی دائمی» نباید مکانیزم حذف‌شده را فعال نشان دهد؛ همهٔ ادعاها باید از کد راستی‌آزمایی شوند و هر شمارندهٔ کهنه یا اصلاح شود یا صریحاً snapshot علامت بخورد.
-* **فایل‌های مرتبط:** `docs/project-tracking/PROJECT-CONTEXT.md` (تنها فایل ویرایش‌شدهٔ محتوایی تسک)، `docs/project-tracking/KNOWN-ISSUES.md` (بستن KI-015 + KI-016 جدید)، `docs/project-tracking/CHANGELOG.md` (دو مدخل ۱۴۰۵/۰۶/۱۷)، همین فایل. **فایل‌های فقط-خوانده‌شده برای راستی‌آزمایی:** `server.js`، `src/coach-auth-service.js`، `src/totp.js`، `src/request-security.js`، `src/migrations.js`، `package.json`، `tests/deployment-hardening-regression.js`.
-* **نتیجهٔ مورد انتظار:** `npm test` سبز (۱۸/۱۸) بدون هیچ تغییر کد + صفر ادعای کهنهٔ احراز هویت در `PROJECT-CONTEXT.md` + ثبت وضعیت‌های بسته‌شده در حافظه.
-* **وضعیت نهایی:** ✅ **انجام شد** — `npm test` = ۱۸/۱۸ (exit 0) بعد از ویرایش؛ همهٔ ویرایش‌ها با anchor یکتا و assert انجام شد. کامیت `ca53577` روی شاخهٔ جلسه + push فوری + **PR #6 باز** (merge فقط با تأیید مالک). تسک بعدی از مالک/TODO گرفته می‌شود؛ مدخل بعدی changelog: **Task 26**.
+* **عنوان (جلسهٔ جاری، 2026-09-19 — `arena/01a0b993-yasnafit`):** **Task 17 (شماره‌گذاری docs): سایت عمومی YASNAFIT — ۷ صفحه SSR (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine` + مایگریشن 031**، و روی آن **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`** (۸ بخش به ترتیب، تصویر چپ/متن راست عمداً، نوار آمار داده‌محور، CTA دو‌ستونه با `site.cta_image`، فوتر یک‌ردیفه، pillهای مجله به‌عنوان لینک به فیلتر موجود).
+* **مبنای wireframe:** تصویر `newlanding.png` (در ریشهٔ remote main) **فقط** نقش blueprint دارد — نه سایت، نه background، نه منبع عکس. ترکیب چپ/راست عمداً آینه نیست (DOM RTL، متن=اولین فرزند).
+* **قواعد اجرا (مالک):** عکس شخص فقط مالک/پلاسی‌هولدر برند (هرگز تولید/جستجوی تصویر)؛ آمار و اطلاعات شخصی فقط از داده/تنظیمات (پیش‌فرض: ۴ عبارت کیفی)؛ بدون دکمهٔ مرده، بدون سیستم فیلتر/اداری دوم، بدون واژهٔ AI در UI؛ همهٔ تنظیمات از پنل مربی موجود.
+* **نتیجهٔ مورد انتظار و حاصل:** پیاده‌سازی + اتصال + responsive + تست. ✅ `npm test` = **۱۹/۱۹** (public-site = ۵۴ گروه) • e2e روی سرور زنده = PASS • smoke ۱۶/۱۶ URL • بررسی توالی DOM همهٔ ۸ بخش در HTML زنده.
+* **وضعیت نهایی:** ✅ **انجام شد و مستند شد — کاملاً بدون کامیت** (5 مستند پیگیری + حافظه این فایل به‌روز؛ commit/PR منتظر تأیید مالک).
 
----
 
 ## 14. Last Session Handoff
 
 ### What was done
-1. **شروع جلسهٔ جدید `arena/01a0817f-yasnafit` از `main` = `607587f` (merge PR #5).** طبق قانون اول فقط `mahdi hellp.md` خوانده شد، سپس `git status` (تمیز) و `git log --oneline -1` (`607587f`).
-2. **قضاوت محتوا-محور (نه هش‌محور):** `grep -c originalProgramId src/ai-service.js` = **۶** ⇒ کد Task 24 واقعاً روی `main`. هر سه کامیت docs فقط-local جلسهٔ قبل (`a8132ae`/`57ea75c`/`5c61866`) با `git cat-file -t` ⇒ *not a valid object name* ⇒ سندباکس نو است و آن‌ها از دست رفته‌اند؛ کامیت **push‌شدهٔ** `8abd85c` روی origin بود و cherry-pick شد ⇒ `583af1b` (بدون force-push، بدون بازنویسی تاریخچه).
-3. **پرسش از مالک (تسک اصلی جلسه) با چهار سؤال اولویت‌دار** و دریافت پاسخ: تست چشمی Task 24 ✅ • عکس `/api/exercise-image/4` = عکس واقعی ✅ • پاک‌کردن دستی کارت‌های تکراری قدیمی + تأیید چشمی شمارش ✅ • Task 25 = اصلاح `PROJECT-CONTEXT.md`.
-4. **راستی‌آزمایی زندهٔ production از بیرون:** `GET /api/health` در `2026-09-08T14:54:25Z` → `uptime:418274` ⇒ استارت ≈ `2026-09-03T18:43:11Z` = auto-deploy بعد از merge PR #5، ۴٫۸۴ روز بدون ری‌استارت ⇒ کد Task 24 زنده است.
-5. **بستن Task 24 و KI-015** در همین فایل و `KNOWN-ISSUES.md` + ثبت فکت‌های production از لاگ مالک (پورت 8080/`0.0.0.0`، ۳۰ مایگریشن، شناسه‌های Railway) + افزودن `KI-016` برای اختلاف ۲۷۲۴ ↔ ۲٬۷۰۷ (فقط مشاهدهٔ `UNKNOWN`؛ بدون ساخت/حذف داده).
-6. **Task 25:** راستی‌آزمایی تک‌تک فکت‌های احراز هویت از کد (روت‌ها، ۴۰۴ بودن `/coach-access/*`، صفر بودن `YASNAFIT_COACH_TOKEN`، TTLها، قفل‌ها، کوکی‌ها، TOTP، هدرها، لیست کامل env با اسکن `process.env`) سپس بازنویسی §3/§6/§11 آن سند + اصلاح شمارنده‌های کهنه + حذف نام شاخهٔ کهنه (دام BR-13).
-7. **به‌روزرسانی کامل همین فایل:** §4/§5/§6/§9/§10/§11/§12/§13/§14/§15/§16/§17.
-8. **Task 26 (بانک حرکات):** سه درخواست مالک پیاده شد — خوانا/لمسی‌کردن پنل «افزودن حرکت دستی» و دکمهٔ «ثبت حرکت» (به‌ویژه موبایل)، افزودن نوار «ست‌های حرکت» **زیر** همان پنل با **اعمال خودکار** روی هر حرکت تازه (هلپر `setsForNewMovement()` در هر دو مسیر افزودن)، و حذف کامل «عضله هدف درگیر» از پنل دستی و فرم ویرایش حرکت (+ CSS مرده) با حفظ دادهٔ `target_muscles` و نمایش PDF/شاگرد. گارد `tests/movement-dialog-regression.js` هم‌زمان بازنویسی شد و `tool/smoke-program-builder.js` پنج چک عملکردی گرفت.
-9. **درخواست «غیرفعال‌کردن گوگل‌اتنتیکاتور»:** بررسی کامل انجام شد ( footprint: `src/coach-auth-service.js`، `src/totp.js`، روت‌های `/api/coach/auth/*`، صفحهٔ `/coach/2fa`، `YASNAFIT_ALLOW_2FA_SKIP` در `src/request-security.js` و ۴۰+ ادعای تست) و **چهار گزینهٔ اجرایی** به مالک داده شد؛ چون انتخابی صورت نگرفت، **هیچ تغییری در کد/کانفیگ احراز هویت انجام نشد** (کاهش امنیت روی دامنهٔ عمومی بدون تصمیم صریح مالک مجاز نیست).
+1. **Task 17 (سایت عمومی):** ۷ صفحه SSR فارسی/RTL با SEO (canonical/OG/JSON-LD/sitemap/robots)؛ مسیر دوقلو `/` (ناشناس=عمومی، مربی=SPA)؛ مجله با فیلتر pill + query URL؛ صفحهٔ مقاله با برادکرامب/منابع/مرتبط؛ `src/article-service.js` + `src/public-content-service.js`؛ مایگریشن `031_magazine_public_site` (۴ جدول: `articles`, `article_sources`, `article_related`, `magazine_settings` ⇒ ۵۳ جدول)؛ پنل مربی `/coach/magazine` (CRUD مقاله/دسته + «تنظیمات سایت» شامل `site.{hero,about,cta,og}_image` و auto-fetch خاموش)؛ ۱۹ سوئیت در `package.json`.
+2. **Task 18 (wireframe):** صفحهٔ اصلی دقیقاً ۸ بخش: هیدر (لوگو راست، منو، «ورود» با آیکون) → هیرو (متن راست: eyebrow + تیتر دوخطی خط دوم cyan + «شروع مسیر من»/«آشنایی با من»؛ تصویر چپ: crop 26% 26%) → ۳ ویژگی (برنامه اختصاصی/ارزیابی و پیگیری/مربیگری حرفه‌ای) → درباره (تصویر چپ/متن راست + ۴ کارت آیکون + «مشاهده رزومه») → مجله (تیتر + ۶ pill **لینک** + کارت با badge رنگی/meta/CTA) → نوار آمار ۴ستونه داده‌محور → CTA پایانی دو‌ستونه (`site.cta_image`) → فوتر یک‌ردیفه. خدمات/نتایج از home حذف (صفحاتشان دست‌نخورده).
+3. **تست‌ها:** `tests/public-site-regression.js` ⇒ **۵۴ گروه** (ترتیب DOM، empty-state، cta_image round-trip، footer socials gate، badge رنگ‌ها، pill guard)؛ `npm test` = ۱۹/۱۹ exit 0؛ `npm run test:e2e` روی سرور زنده = ok:true؛ smoke ۱۶ URL (۷ صفحه + category + sitemap/robots + assetها) همه 200.
+4. **مستندات:** ۵ فایل `docs/project-tracking/` (Task 17/18 در CHANGELOG، TD-20، KI-017/018، T-17/18، PROJECT-CONTEXT) + همین حافظه.
 
-### What changed
-**Task 26 (کد/UI):** `public/program-builder.js` (−۴٫۷KB)، `public/program-builder.css`، `tests/movement-dialog-regression.js` (بخش ۵ معکوس + بخش‌های ۶/۷)، `tool/smoke-program-builder.js` (۵ چک عملکردی جدید).
-**Task 25 و بستن‌ها (فقط مستندات):** `docs/project-tracking/PROJECT-CONTEXT.md` (۲۱ جایگزینی: ۴ بخش احراز هویت + ۱۷ شمارنده/شاخه)، `docs/project-tracking/KNOWN-ISSUES.md` (KI-015 بسته + KI-016 جدید)، `docs/project-tracking/CHANGELOG.md` (دو مدخل ۱۴۰۵/۰۶/۱۷)، `mahdi hellp.md`. **هیچ فایل کد/تست/مایگریشن/`package.json` تغییر نکرد** و `version` = 0.9.1 دست‌نخورده است.
+### What changed (همگی بدون کامیت)
+**کد:** `server.js` (+۹۶۷ — homeBody/stats/CTA/footer/articleCard/header + ۱۳ آیکن SVG)، `src/migrations.js` (+۱۰۵)، `src/article-service.js` (جدید)، `src/public-content-service.js` (جدید)، `public/landing.css` (جدید — تمام sectionها + responsive 1180/960/640)، `public/landing.js` (جدید — pill guard)، `public/magazine-admin.css/js` (جدید — پنل مجله + فیلد `site.cta_image`)، `public/images/landing/` (SVG placeholderها)، `public/app.js`+`core.js`+`index.html` (لینک «ورود» به `/student/login` + assetهای CSP)، `package.json` (سوئیت جدید)، `tests/e2e-workflow.js`+`migration-regression.js` (assert 031).
+**مستندات:** ۵ فایل docs/project-tracking + `mahdi hellp.md`. **هیچ مایگریشن مخرب/اضافی، هیچ API جدید خارج از docs، `version` = 0.9.1 دست‌نخورده.**
 
 ### What was tested
-* `npm test` **قبل از** ویرایش‌ها = exit 0 (۱۸/۱۸) ✅ و `npm test` **بعد از همهٔ ویرایش‌های Task 25 و Task 26** = exit 0 (**۱۸/۱۸**) ✅ — اجرا شده، نه ادعا.
-* **تست عملکردی واقعی (Task 26):** `tool/smoke-program-builder.js` (اجرای واقعی `program-builder.js` با استاب DOM + fetch mock) ⇒ PASS با پنج چک جدید: دیده‌شدن نوار ست هنگام افزودن • اعمال خودکار preset «۴ * ۱۰» ⇒ **دقیقاً ۴ ست با مقدار ۱۰** • فرم حرکت بدون «عضله هدف» ولی با «آموزش حرکت» • مخفی‌شدن نوار پس از بستن بانک • حفظ رفتار قبلی بدون preset (**۱ ست × ۱۲**). `smoke-jalali-picker.js` و `smoke-jalali.js` هم exit 0.
-* **جهش‌سنجی (Task 26): هر ۴ جهش گرفته شد** — بازگرداندن `mv-anatomy` ⇒ exit 1 • `.quickadd-submit` با `min-height:32px` ⇒ exit 1 • hardcoded کردن ست در یکی از دو مسیر افزودن ⇒ exit 1 • نادیده‌گرفتن انتخابگر در `setsForNewMovement` ⇒ شکست چک عملکردی. بعد از هر جهش فایل‌ها با diff بازراستی‌آزمایی و بازگردانده شدند.
-* نکتهٔ واقعی از دیباگ: شمارش `value="10"` در HTML مودال گمراه‌کننده است چون خودِ `mvPresetSelect` پانزده `<option value="0..14">` دارد ⇒ چک‌ها به `data-mv-count="N" value="10"` محدود شدند.
-* راستی‌آزمایی متنی: `grep` برای `coach-access-token`/`YASNAFIT_COACH_TOKEN`/`coach-access/{token}` در `PROJECT-CONTEXT.md` ⇒ تنها داخل جمله‌های «حذف شده/۴۰۴» باقی مانده، هیچ ادعای فعال بودن نیست ✅ • `grep` برای شمارنده‌های کهنه (`~1937`, `۲۲ مایگریشن`, `۹ سوئیت`, `arena/01a02ff4`) ⇒ صفر ✅ (تنها `0.9.0` در تگ تاریخی BR-1 ماند که درست است).
-* همهٔ ویرایش‌ها با anchor یکتا + `assert` (اگر anchor پیدا نمی‌شد، اسکریپت بدون نوشتن exit 1 می‌داد) ✅.
-* تاریخ شمسی مدخل‌ها با `Intl` (ca-persian) راستی‌آزمایی شد: 2026-09-03 = ۱۴۰۵/۰۶/۱۲ (مطابق مدخل‌های موجود) و 2026-09-08 = **۱۴۰۵/۰۶/۱۷** ✅.
-* fetch زندهٔ `/api/health` ✅. **تصویر تست نشد** (fetch ابزار Agent روی پاسخ تصویری خطای گمراه‌کننده می‌دهد) ⇒ تشخیص فقط با مرورگر مالک، که گرفته شد.
-
-### What passed
-همهٔ موارد بالا؛ working tree تمیز؛ کامیت‌ها روی شاخهٔ جلسهٔ `arena/01a0817f-yasnafit` + push به همان شاخه.
+* `npm test` (۱۹ سوئیت) exit 0 — اجرا شده، نه ادعا.
+* `npm run test:e2e` روی سرور زندهٔ 3020 = ok:true (fresh DB: 31 مایگریشن، ۲۷۰۷ حرکت).
+* smoke زنده: ۱۶/۱۶ URL 200 + HEAD 200.
+* DOM-order check روی HTML زنده: `hero__content` < `hero__media`، `about-preview__content` < `about-preview__media`، `cta-split__content` < `cta-split__media`، توالی offset همهٔ ۸ بخش صحیح؛ صفر services/results در home؛ ۶ pill + ۴ stats + ۴ about-card + ۳ features در HTML.
 
 ### What failed
-* **سه کامیت docs فقط-local جلسهٔ `arena/01a06884-yasnafit` برای همیشه از دست رفتند** (سندباکس بازسازی شد و objectهایشان وجود نداشت) ⇒ محتوایشان از گزارش مالک بازسازی شد. **درس ثبت‌شده در §5: بلافاصله بعد از هر کامیت push کنید — کامیتِ local هم می‌سوزد.**
-* (تجربهٔ تکرارشده: ابزار `edit_file` فازی گاهی بلاک‌های مشابه را اشتباه می‌گیرد ⇒ این جلسه ویرایش‌های انبوه با اسکریپت `assert`-دار انجام شد تا هیچ جایگزینی بی‌صدا جا نیفتد.)
+* (تجربهٔ این session) نوشتار فارسی از طریق اسکریپت/ترمینال می‌تواند **هوموگلیف سیریلیک** داخل فایل جا بیندازد ⇒ بعد از هر نوشتار، ناحیهٔ هدف را با dump codepoint راستی‌آزمایی کنید و رفع را با index-splice (نه literal-match) انجام دهید.
+* (تجربه) `pkill -f "node server.js"` پوستهٔ فراخواننده را هم می‌کشد ⇒ از PID یا `-xf` استفاده کنید.
 
 ### What remains
-1. **مالک:** merge **PR #6** (Task 25 مستندات **+ Task 26 UI بانک حرکات**) ⇒ این بار چون `public/**` تغییر کرده، **auto-deploy منتشر می‌کند و ریست uptime ملاک است**.
-1b. **مالک (تصمیم باز):** روش «غیرفعال‌کردن گوگل‌اتنتیکاتور» را از چهار گزینهٔ §۱۴ بند ۹ انتخاب کنید — پیشنهاد Agent: **فقط متغیر محیطی `YASNAFIT_ALLOW_2FA_SKIP=1`** (بدون تغییر کد، از قبل کامل سیم‌کشی و مستند در `DEPLOYMENT.md` §۹.۹، فوری و قابل بازگشت) یا اگر هدف «کارکردن کدها» است: **چرخش/خواندن کلید از Volume** (§۹.۸) تا 2FA سالم بماند.
-2. **مالک (تست چشمی Task 26 بعد از deploy):** در بانک حرکات روی موبایل ⇒ درشت/راحت دیده‌شدن «＋ افزودن حرکت دستی» و دکمهٔ «ثبت حرکت»؛ نوار «ست‌های حرکت» زیر همان پنل؛ با انتخاب «۴ * ۱۰» حرکت اضافه‌شده از بانک باید همان ۴ ست را داشته باشد (بدون انتخاب مجدد در کارت)؛ در فرم ویرایش حرکت بخش «عضله هدف» نباشد ولی «آموزش حرکت» باشد. سپس پاک‌کردن `YASNAFIT_ALLOW_2FA_SKIP` (و `YASNAFIT_ALLOW_REMOTE_SETUP` اگر هنوز هست) **فقط اگر** تصمیم بند ۱b «حفظ 2FA» باشد.
-3. **مهدی در ویندوز:** بلوک bat §17 با شاخهٔ `arena/01a0817f-yasnafit` ⇒ چون `public/*` تغییر کرده، **رفرش `Ctrl+Shift+R` لازم است** (ری‌استارت سرور لازم نیست؛ کش JS بیست‌وچهار ساعته است).
-4. **اختیاری، فقط با تأیید مالک:** cache-busting نسخه‌دار اسکریپت‌ها به‌خاطر کش ۲۴ ساعتهٔ JS (`max-age=86400`) بعد از هر deploy.
-5. **اختیاری، فقط با تأیید مالک و کاملاً خواندنی:** `KI-016` (۲۷۲۴ ↔ ۲٬۷۰۷) — بدون نوشتار روی DB.
-6. **تسک بعدی (Task 26):** از مالک/`TODO.md` گرفته شود؛ P0 بازی وجود ندارد.
+1. **مالک: تصمیم commit + PR** (Task 17+18 در یک working tree) — حکم ممیزی: SAFE TO COMMIT (تغییر روی خطوط موجود فقط `studentScoped`).
+2. بعد از merge: auto-deploy ⇒ ریست uptime + تست چشمی مالک (هیرو/درباره/CTA، pillها، فوتر، پنل مجله).
+3. **T-18:** عکس نهایی برند مالک (هیرو/درباره/CTA/OG) → `public/images/landing/` + ست از «تنظیمات سایت» (KI-018).
+4. **T-17:** موتور auto-fetch (P2، فقط با تأیید مالک).
+5. تصمیم باز «غیرفعال‌کردن گوگل‌اتنتیکاتور» (جلسهٔ قبل) هنوز بی‌پاسخ.
 
 ### Exact next step for the next Agent
-1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` و `git log --oneline -1` (انتظار: تمیز + کامیت‌های Task 25 روی `arena/01a0817f-yasnafit`؛ مبنا `main` = `607587f`). اگر سندباکس بازسازی شده بود: §5 (بازیابی) + قضاوت با محتوا نه هش.
-2. وضعیت **PR #6** را بگیر (`gh pr view 6`)؛ اگر merged شد: فقط مستندات بوده ⇒ **ریست uptime انتظار نمی‌رود**؛ در §۵/§۱۶ ثبت کن و `main` جدید را در §۴/§۱۶ بنویس.
-3. تسک بعدی را از مالک بپرس (اولویت‌های باز در §۱۲ + تصمیم باز «گوگل‌اتنتیکاتور»)؛ مدخل بعدی changelog: **Task 27**.
-4. پایان هر تسک: به‌روزرسانی همین فایل (§5/§10/§11/§12/§13/§14/§15/§16/§17) + commit + **push فوری** + گزارش فارسی با هدر SUCCESS/PARTIAL/FAILED و بلوک `bat` §17 با نام شاخهٔ همان جلسه.
+1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: ۱۳ changed + ۹ untracked روی `arena/01a0b993-yasnafit`، مبنا `6301712`). اگر سندباکس بازسازی شده: `data/` تازه است و کار بدون‌کامیت اگر push نشده بود از دست رفته ⇒ با محتوا (نه هش) قضاوت کن.
+2. اگر مالک commit/PR تأیید کرد: commit روی همین شاخه + **push فوری** + PR به main.
+3. پایان هر تسک: به‌روزرسانی همین فایل + commit + push + گزارش فارسی + بلوک `bat` §17 با نام شاخهٔ جلسه.
 
----
 
 ## 15. Files Changed Recently
 
+| `server.js` | **Task 17+18 (بدون کامیت):** ۷ صفحهٔ عمومی SSR + API عمومی/مدیریتی + `statsMarkup`/`statsBandMarkup`/`cta-split`/`footerMarkup`/`articleCardMarkup` + ۱۳ آیکن SVG + header «ورود» | uncommitted این session |
+| `src/article-service.js`, `src/public-content-service.js` | **Task 17 (جدید):** CRUD/فیلتر مقالات + تنظیمات سایت (`site.{hero,about,cta,og}_image`، auto-fetch خاموش) | uncommitted |
+| `src/migrations.js` | **Task 17:** مایگریشن `031_magazine_public_site` (۴ جدول) | uncommitted |
+| `public/landing.css`, `public/landing.js` | **Task 17+18 (جدید):** استایل/رفتار تمام ۸ بخش + responsive + pill guard | uncommitted |
+| `public/magazine-admin.css`, `public/magazine-admin.js` | **Task 17+18 (جدید):** پنل مجله مربی + فیلد `site.cta_image` | uncommitted |
+| `public/images/landing/` | **Task 18 (جدید):** SVG placeholderهای برند‌شده (coach/cover) | uncommitted |
+| `tests/public-site-regression.js` | **Task 17+18 (جدید):** ۵۴ گروه (ترتیب DOM، wireframe composition، cta_image، footer gate) | uncommitted |
+| `package.json`, `tests/e2e-workflow.js`, `tests/migration-regression.js`, `public/app.js`, `public/core.js`, `public/index.html` | ۱۹ سوئیت، assert 031، لینک «ورود» → `/student/login`، assetهای CSP | uncommitted |
+| ۵ فایل `docs/project-tracking/` + `mahdi hellp.md` | Task 17/18 (CHANGELOG, TD-20, KI-017/018, T-17/18, PROJECT-CONTEXT, این حافظه) | uncommitted |
 | مسیر | دلیل | وضعیت |
 |---|---|---|
 | `public/program-builder.js` | **Task 26 (این جلسه):** اندازه‌های خوانای پنل «افزودن حرکت دستی» (حذف inlineهای ریز)، نوار `#drawerSetPreset` زیر آن با `#drawerPresetSelect`، هلپر `setsForNewMovement()` در هر دو مسیر افزودن، حذف «عضله هدف درگیر» از پنل دستی و `mv-anatomy` از فرم حرکت (با حفظ `muscleCatalog` و `mov.target_muscles`) | committed این جلسه |
@@ -336,11 +328,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0817f-yasnafit`) هم‌زمان می‌شود؛ چون `public/*` (Task 26) تغییر کرده **`Ctrl+Shift+R` لازم است** (ری‌استارت سرور نه)؛ DB لوکال دست‌نخورده می‌ماند |
-| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a0817f-yasnafit` = `583af1b` (بازیابی docs) + کامیت Task 25/بستن KI-015 + کامیت **Task 26** (UI بانک حرکات)؛ مبنا `main` = `607587f` |
-| Git / GitHub origin | **CURRENT** | `main` = `607587f` (**merge PR #5 = Task 24**)؛ شاخهٔ جلسهٔ `arena/01a0817f-yasnafit` push شده (tip `ca53577`) و کامیت docs بازماندهٔ جلسهٔ قبل را هم با خودش برد ⇒ دیگر کامیت فقط-local نداریم؛ **PR #6** (Task 25) باز — merge فقط با تأیید مالک |
-| `main` | **`607587f` — Task 24 روی main** | بلافاصله بعد از هر merge، build باید موفق شود (`railway.json` و lockfile از PR #2 روی main هستند) |
-| Railway | **LIVE (0.9.1) — کد Task 24 اجرا می‌شود؛ Task 26 بعد از merge PR #6 منتشر می‌شود (ریست uptime ملاک است). راستی‌آزمایی مجدد ۲۰۲۶-۰۹-۰۸** | **Auto-deploy روشن** (Branch = `main`)؛ استارت پروسه ≈ `2026-09-03T18:43:11Z` (از `uptime:418274` در `2026-09-08T14:54:25Z`) = auto-deploy بعد از merge PR #5 ⇒ ۴٫۸۴ روز بدون ری‌استارت. ۱۸۸۸ عکس روی Volume در `/app/data/media/images/exercises/imported`؛ **لاگ `[Media] Volume: 1888 \| ریپو: 0` و تست چشمی عکس از مالک گرفته شد ⇒ KI-015 بسته**. پورت داخلی 8080 با `0.0.0.0`؛ ۳۰ مایگریشن applied. merge تسک 25 (فقط `.md`) ریست uptime نمی‌دهد و انتظار هم نمی‌رود |
+| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0b993-yasnafit`) هم‌زمان می‌شود؛ چون `public/*` و `server.js` تغییر کرده **ری‌استارت سرور + `Ctrl+Shift+R` لازم است**؛ DB لوکال دست‌نخورده می‌ماند |
+| Local (سندباکس Agent) | **CURRENT (بدون کامیت)** | شاخهٔ `arena/01a0b993-yasnafit` = base `6301712` + کل Task 17/18 در working tree؛ سرور زنده روی 3020 با DB تازه (۳۱ مایگریشن، ۲۷۰۷ حرکت، داده e2e، بدون مربی provisioned) |
+| Git / GitHub origin | **BEHIND** | `origin/main` = `8b693cb`؛ شاخهٔ جلسه push نشده؛ **PR باز نشده** — فقط با تأیید مالک |
+| `main` | **`6301712` + merge‌های جدید (`8b693cb`)** | سایت عمومی هنوز روی main نیست؛ بعد از merge PR، build باید موفق شود و auto-deploy منتشر کند |
+| Railway | **LIVE (0.9.1) — کد سایت عمومی هنوز نیست** | بعد از merge، auto-deploy ⇒ ریست uptime ملاک است. ⚠️ DB production مالک با DB سندباکس **هیچ ارتباطی ندارد**؛ دادهٔ e2e سندباکس نباید به production برسد |
+
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**
 
@@ -348,12 +341,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
-نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0817f-yasnafit`)؛ ساختار بلوک تغییر نکند:
+نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0b993-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git fetch origin
-git checkout arena/01a0817f-yasnafit
-git pull --ff-only origin arena/01a0817f-yasnafit
+git checkout arena/01a0b993-yasnafit
+git pull --ff-only origin arena/01a0b993-yasnafit
 .\YASNAFIT-LAUNCHER.bat
 ```

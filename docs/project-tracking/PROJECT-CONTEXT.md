@@ -4,8 +4,8 @@
 > بعد از هر تسک توسعه، این فایل باید به‌روز شود (قواعد کامل: انتهای همین فایل و `CHANGELOG.md`).
 > هر ادعایی در این سند یکی از این وضعیت‌ها را دارد: `VERIFIED` (تأییدشده با کد/اجرا)، `PARTIALLY VERIFIED`، `NOT VERIFIED`، `NOT IMPLEMENTED`.
 
-**آخرین به‌روزرسانی:** 2026-09-08 — **Task 25: اصلاح بخش‌های احراز هویت (§3 ردیف «احراز هویت» + متغیرهای محیطی، §6 ردیف Authentication، §11)** چون مکانیزم قدیمی «توکن مربی» در Task 16 (2026-09-02) حذف شده بود ولی اینجا هنوز `VERIFIED`/فعلی نوشته می‌شد. شمارنده‌های قابل‌راستی‌آزمایی هم در همین پاس اصلاح شدند (طول `server.js`، تعداد مایگریشن، تعداد سوئیت تست، نسخه)؛ تنها **تعداد جدول‌ها (۳۹)** همچنان snapshot 2026-08-24 است و بازراستی‌آزمایی نشده. مرجع زندهٔ وضعیت جلسه/استقرار: فایل حافظهٔ ریشهٔ مخزن.
-**نسخه برنامه:** 0.9.1 (مقدار فعلی `package.json` — در این تسک تغییر نکرد) • **وضعیت تست‌ها:** ۱۸/۱۸ سوئیت پاس (اجرای واقعی `npm test` در 2026-09-08، سندباکس Agent)
+**آخرین به‌روزرسانی:** 2026-09-19 — **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`** (چیدمان تصویر چپ/متن راست، نوار آمار، CTA دو‌ستونه + تنظیم `site.cta_image`، فوتر یک‌ردیفه) — بر پایهٔ **Task 17: سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`** — §۳ (طول server.js، ۳۱ مایگریشن، ۵۳ جدول، ۱۹ سوئیت، سرویس‌های جدید، روت‌ها)، §۴ (فایل‌های جدید)، §۶ (ردیف «Public Website» + «Editorial Admin»), §۱۲ (سوئیت `test:public-site`)، §۱۳ (حالت فعلی). مرجع زندهٔ وضعیت جلسه/استقرار: فایل حافظهٔ ریشهٔ مخزن.
+**نسخه برنامه:** 0.9.1 (مقدار فعلی `package.json` — در Task 17 تغییر نکرد) • **وضعیت تست‌ها:** ۱۹/۱۹ سوئیت پاس (اجرای واقعی `npm test` در 2026-09-19، سندباکس Agent) + e2e روی سرور زندهٔ 3020 = PASS
 
 ---
 
@@ -50,16 +50,16 @@ Backend / Sync Layer (سرور مرکزی — NOT IMPLEMENTED)
 | لایه | پیاده‌سازی واقعی |
 |---|---|
 | Runtime | Node.js >= 22.5 (تست‌شده با v22.22.3) — `engines` در package.json |
-| Backend | **یک فایل `server.js` (~۲۸۴۸ خط در 2026-09-08)** — HTTP سرور خالش Node بدون Express؛ روتر دستی با regex روی pathname |
-| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ ۳۹ جدول |
-| Frontend | Vanilla JS + HTML + CSS خالص؛ بدون فریم‌ورک/باندلر؛ دو شل جدا: `public/index.html` (مربی) و `public/student.html` (شاگرد) |
-| API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی |
-| سرویس‌ها | لایه `src/*-service.js` (program, student, assessment, engagement, upload, release, audit, student-auth, student-session, assessment-document) + `src/database.js`، `src/migrations.js`، `src/validation.js` |
+| Backend | **یک فایل `server.js` (3813 خط در 2026-09-19)** — HTTP سرور خالص Node بدون Express؛ روتر دستی با regex روی pathname؛ **شامل موتور SSR سایت عمومی** (۷ صفحه + sitemap/robots + meta/JSON-LD) |
+| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ **۵۳ جدول** (49 موجود + ۴ سایت عمومی در 031: `magazine_categories`، `magazine_articles`، `magazine_article_sources`، `success_stories`) |
+| Frontend | Vanilla JS + HTML + CSS خالص؛ بدون فریم‌ورک/باندلر؛ سه شل: `public/index.html` (مربی)، `public/student.html` (شاگرد) و **صفحات SSR عمومی** (HTML تولیدشده در server.js + `landing.css`/`landing.js`) |
+| API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی؛ **API عمومی سایت** (`/api/magazine[?category]`، `/api/magazine/:slug`، `/api/results`، `/api/coach-profile`، `/api/site`) بدون احراز + **API مدیریتی** `/api/magazine/admin/*` (نشست مربی + same-origin) |
+| سرویس‌ها | لایه `src/*-service.js` (program, student, assessment, engagement, upload, release, audit, student-auth, student-session, assessment-document, **article** (Task 17), **public-content** (Task 17)) + `src/database.js`، `src/migrations.js`، `src/validation.js` |
 | احراز هویت | `VERIFIED` (بازبینی کد 2026-09-08 — Task 25) **مربی:** ایمیل + رمز (scrypt) + **TOTP گوگل‌اتنتیکاتور**؛ فلوی سه‌مرحله‌ای `/coach/login` → `/coach/2fa` با API‌های `/api/coach/auth/{setup,login,challenge,verify,forgot,reset,change-password,logout,logout-all,status,mail}`. کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/, Max-Age ۱۲ ساعت، `+Secure` روی HTTPS) و کوکی چلنج `yasnafit_coach_challenge` (۵ دقیقه). ایمیل مربی در کد قفل است (`SETUP_EMAIL` در `src/coach-auth-service.js`) و ساخت حساب فقط از لوپ‌بک مجاز است (مگر `YASNAFIT_ALLOW_REMOTE_SETUP=1`). **مکانیزم قدیمی «توکن فایل محلی `data/coach-access-token` + کوکی per-boot + Bearer با env مشترک» در Task 16 کاملاً حذف شده** و مسیر `/coach-access/*` عمداً **۴۰۴** برمی‌گرداند. **شاگرد:** موبایل + رمز scrypt + نشست تصادفی ۳۲ بایتی که فقط هشش در `student_sessions` ذخیره می‌شود؛ ورود با لینک دعوت یک‌بارمصرف `/join/:token` |
 | Storage | استاتیک از `public/`؛ فایل‌های خصوصی شاگرد در `data/assessments` و `data/assessment-documents` (خارج از public) با محافظ path-traversal |
 | آماده‌سازی سینک | stable_id + version + soft-delete روی موجودیت‌های sync (بنگرید §5) |
-| Migrations | **۳۰ مایگریشن** نسخه‌ای idempotent در `src/migrations.js` (`001_initial` … `030_coach_totp_authenticator`)؛ جدول `schema_migrations`؛ `settings.schema_version` |
-| تست | **۱۸ سوئیت رگرسیون** در زنجیرهٔ `npm test` + `npm run test:e2e` جدا — با `node:assert` و بدون فریم‌ورک تست خارجی |
+| Migrations | **۳۱ مایگریشن** نسخه‌ای idempotent در `src/migrations.js` (`001_initial` … `031_public_site_content`)؛ جدول `schema_migrations`؛ `settings.schema_version` |
+| تست | **۱۹ سوئیت رگرسیون** در زنجیرهٔ `npm test` (شامل `test:public-site` از Task 17) + `npm run test:e2e` جدا — با `node:assert` و بدون فریم‌ورک تست خارجی |
 
 **متغیرهای محیطی شناخته‌شده** `VERIFIED` (اسکن `process.env` در `server.js` + `src/*.js` — 2026-09-08): `PORT`، `NODE_ENV`، `YASNAFIT_HOST` (fallback به `HOST`؛ پیش‌فرض `0.0.0.0`)، `YASNAFIT_TRUST_PROXY` (تنها دروازهٔ خواندن `X-Forwarded-*`)، `YASNAFIT_COOKIE_SECURE`، مسیرهای دائمی `YASNAFIT_DATA_DIR` / `YASNAFIT_BACKUP_DIR` / `YASNAFIT_MEDIA_DIR` / `RAILWAY_VOLUME_MOUNT_PATH` (همه از `src/storage-paths.js`)، ایمیل `YASNAFIT_SMTP_{HOST,PORT,USER,PASS,FROM,SECURE}`، و فقط برای تست/ابزار: `YASNAFIT_BASE_URL`، `YASNAFIT_COACH_EMAIL`، `YASNAFIT_COACH_PASSWORD` (`tests/e2e-workflow.js` و `scripts/provision-coach-totp.js`). سه فلگ **موقت/اضطراری** هم وجود دارد که باید بعد از استفاده پاک شوند: `YASNAFIT_ALLOW_REMOTE_SETUP`، `YASNAFIT_ALLOW_2FA_SKIP`، `YASNAFIT_REVEAL_AUTHENTICATOR_KEY`. ⚠️ **`YASNAFIT_COACH_TOKEN` دیگر در کد وجود ندارد** (حذف در Task 16) و گارد `tests/deployment-hardening-regression.js` مستندشدنش را هم ممنوع کرده است. مقدار هیچ متغیری هرگز در مستندات، چت یا Git نوشته نمی‌شود — فقط نام‌ها.
 
@@ -74,7 +74,7 @@ yasnafit/
 ├── server.js                  ← کل HTTP سرور: روتینگ، احراز هویت، API، سرو فایل استاتیک
 ├── src/
 │   ├── database.js            ← اتصال DB، seed، ایمپورت ۲۷۰۷ حرکت از JSON
-│   ├── migrations.js          ← ۳۰ مایگریشن (001_initial … 030_coach_totp_authenticator)
+│   ├── migrations.js          ← ۳۱ مایگریشن (001_initial … 031_public_site_content)
 │   ├── program-service.js     ← ساخت/ذخیره/بازخوانی برنامه از جدول‌های نرمال (منبع حقیقت)
 │   ├── student-service.js     ← CRM شاگرد، آنبوردینگ، ارزیابی‌ها
 │   ├── student-auth-service.js / student-session-service.js ← رمز scrypt + سشن هش‌شده
@@ -83,11 +83,16 @@ yasnafit/
 │   ├── upload-service.js      ← آپلود امن عکس/مدرک خصوصی
 │   ├── audit-service.js       ← رویدادهای ممیزی
 │   ├── release-service.js     ← نسخه و تاریخچه انتشار
+│   ├── article-service.js     ← (Task 17) مقالات مجله: چرخه وضعیت، slug، sanitize، bulk، دسته‌ها
+│   ├── public-content-service.js ← (Task 17) نتایج شاگردان (گارد consent)، پروفایل مربی، تنظیمات سایت
 │   └── validation.js          ← اعتبارسنجی ورودی (بدون وابستگی)
-├── public/                    ← فرانت‌اند (مربی + شاگرد) — بنگرید §6
+├── public/                    ← فرانت‌اند (مربی + شاگرد + صفحات SSR عمومی) — بنگرید §6
+│   ├── landing.css / landing.js ← (Task 17) سیستم طراحی + تعاملات صفحات عمومی (بدون وابستگی)
+│   ├── magazine-admin.css/.js   ← (Task 17) پنل ویرایشی مجله (/coach/magazine)
+│   └── images/landing/          ← (Task 17) پلاسی‌هولدهای برند‌شده (coach-placeholder.svg, cover-default.svg)
 ├── data/                      ← (gitignore) دیتابیس، توکن مربی، فایل‌های خصوصی شاگرد
 ├── data-source/exercises_data.json ← دیتاست مرجع ۲۷۰۷ حرکت
-├── tests/                     ← ۱۸ سوئیت رگرسیون + e2e
+├── tests/                     ← ۱۹ سوئیت رگرسیون (شامل public-site) + e2e
 ├── tool/                      ← اسکریپت‌های کمکی (program-helper.py)
 ├── docs/project-tracking/     ← همین سیستم مستندات (منبع حقیقت فنی)
 ├── YASNAFIT-LAUNCHER.bat      ← لانچر ویندوز (اجرای سرور، ایمپورت عکس‌ها و...)
@@ -149,6 +154,8 @@ training_programs → program_days → exercise_systems → program_movements �
 | Notifications | **IMPLEMENTED** `VERIFIED` | هر دو طرف، خوانده‌شده/خوانده‌نشده، یادآوری پایان برنامه |
 | Media (عکس) | **IMPLEMENTED** `VERIFIED` | آپلود امن خصوصی، fallback تصویر حرکات (زنجیره ۴ مرحله‌ای)، گاید ژست زنانه |
 | Media (ویدیو) | **PARTIAL** | مسیر ویدیو در DB + سرو از `/files/exercise/videos/` `VERIFIED`؛ **پخش‌کننده در UI وجود ندارد** `VERIFIED` |
+| Public Website (لندینگ + مجله) | **IMPLEMENTED** `VERIFIED` (Task 17+18 — 2026-09-19) | ۷ صفحه SSR فارسی/RTL با SEO (canonical/OG/JSON-LD) + sitemap/robots؛ مسیر `/` دوقلو (ناشناس=عمومی، مربی=SPA)؛ مجله با فیلتر pill + query URL (pillهای صفحهٔ اصلی لینک به همین سیستم‌اند)؛ صفحه مقاله با برادکرامب/منابع/مرتبط؛ صفحهٔ اصلی دقیقاً با ترکیب wireframe `newlanding.png` (تصویر چپ/متن راست، نوار آمار، CTA دو‌ستونه با `site.cta_image`، فوتر یک‌ردیفه)؛ بدون واژه AI در UI؛ `no-store` |
+| Editorial Admin (پنل مجله) | **IMPLEMENTED** `VERIFIED` (Task 17 — 2026-09-19) | `/coach/magazine` در سایدبار؛ تب‌های مقالات (چرخه Draft→بررسی→انتشار/رد + bulk با چک‌باکس + جستجو/فیلتر) / نتایج شاگردان (فیلد رضایت + گارد privacy) / دسته‌بندی‌ها / تنظیمات (toggleها + تماس + تصاویر + پروفایل مربی)؛ همه تغییرات audit می‌شوند؛ same-origin ۴۰۳ |
 | Authentication | **IMPLEMENTED** `VERIFIED` (بازبینی 2026-09-08 — Task 25) | مربی: ایمیل+رمز+TOTP سه‌مرحله‌ای، نشست ۱۲ ساعته، قفل ۱۵ دقیقه‌ای پس از ۳ خطای کد یا ۵ خطای رمز، بازیابی رمز با لینک ۱۵ دقیقه‌ای • شاگرد: scrypt + سشن هش‌شده — دو مسیر کاملاً جدا. توکن مشترک قدیمی حذف شده (`/coach-access/*` = ۴۰۴) |
 | Access Control | **PARTIAL** | تک‌مربی محلی؛ جدول coaches/coach_students پایه‌گذاری شده اما UI چندمربی/نقش وجود ندارد `VERIFIED` |
 | Audit Logs | **IMPLEMENTED** `VERIFIED` | رویدادهای ساختاریافته (message.sent, workout.started/completed و...) |
@@ -263,12 +270,12 @@ T-14: انتقال کاتالوگ به DB (`training_system_catalog`) هنگام
 
 ## 12. Testing
 
-- **فریم‌ورک:** `node:assert/strict` + fetch — بدون وابستگی خارجی؛ ۱۸ سوئیت در `npm test` + `tests/e2e-workflow.js`.
-- **انواع:** رگرسیون مایگریشن، UI-design (استاتیک روی سورس)، واژگانی، auth، سشن شاگرد، پروفایل ارزیابی، engagement، مدیریت شاگرد، و **e2e** (چرخه کامل دعوت→آنبوردینگ→ارزیابی→برنامه→تمرین→ماه دوم→ایزوله‌سازی).
-- **دستور:** `npm test` (یا تک‌تک: `npm run test:e2e` و…).
+- **فریم‌ورک:** `node:assert/strict` + fetch — بدون وابستگی خارجی؛ **۱۹ سوئیت** در `npm test` + `tests/e2e-workflow.js`.
+- **انواع:** رگرسیون مایگریشن، UI-design (استاتیک روی سورس)، واژگانی، auth، سشن شاگرد، پروفایل ارزیابی، engagement، مدیریت شاگرد، **سایت عمومی/مجله** (`test:public-site` — Task 17: خودسرور روی پورت آزاد + DB موقت تازه + کل چرخه محتوایی + مرزهای امنیتی + audit)، و **e2e** (چرخه کامل دعوت→آنبوردینگ→ارزیابی→برنامه→تمرین→ماه دوم→ایزوله‌سازی + قرارداد جدید مسیر `/`).
+- **دستور:** `npm test` (یا تک‌تک: `npm run test:public-site`، `npm run test:e2e` و…).
 - **شرط e2e:** سرور باید روی 3020 در حال اجرا باشد (`npm start`)، وگرنه ECONNREFUSED می‌گیرد — گارد نشده (KI-001).
-- **وضعیت آخرین اجرا (2026-09-08، سندباکس Agent):** ✅ `npm test` = **۱۸/۱۸ سوئیت PASS** (exit 0) — قبل از ثبت هر ادعای «پاس» باید واقعاً اجرا شده باشد.
-- حجم تقریبی: ~۳۰۰ نقطه assert در ۹ فایل (شمارش grep؛ عدد دقیق اجرا متغیر است).
+- **وضعیت آخرین اجرا (2026-09-19، سندباکس Agent):** ✅ `npm test` = **۱۹/۱۹ سوئیت PASS** (exit 0) + ✅ `npm run test:e2e` روی سرور زندهٔ 3020 = PASS — قبل از ثبت هر ادعای «پاس» باید واقعاً اجرا شده باشد.
+- حجم تقریبی: ~۳۰۰+ نقطه assert در ۱۰+ فایل (شمارش grep؛ عدد دقیق اجرا متغیر است).
 
 ---
 
@@ -279,17 +286,17 @@ VERSION:            0.9.1  (مقدار package.json — در مستندات تغ
 CURRENT BRANCH:     شاخهٔ جلسهٔ جاری Arena (هیچ کاری مستقیم روی main ممنوع) — نام دقیق شاخه فقط در §۱۷ فایل حافظهٔ ریشهٔ مخزن و در گزارش پایان هر جلسه اعلام می‌شود
 MAIN:               607587f  (merge PR #5 = Task 24)
 LAST COMMIT (main): 607587f "Merge pull request #5" (Task 24 — جایگزینی درجای تولید پیش‌نویس هوشمند)
-LAST VERIFIED:      2026-09-08 (Task 25 — بازبینی احراز هویت و شمارنده‌ها؛ `npm test` = ۱۸/۱۸ PASS؛ `GET /api/health` روی production = `0.9.1` با uptime 418274)
-TEST STATUS:        ✅ PASS (۱۸/۱۸ سوئیت — `test:e2e` نیازمند سرور در حال اجراست، KI-001)
+LAST VERIFIED:      2026-09-19 (Task 17+18 — سایت عمومی با ترکیب wireframe + پنل مجله؛ `npm test` = ۱۹/۱۹ PASS (۵۴ گروه public-site)؛ `npm run test:e2e` روی سرور زندهٔ 3020 = PASS؛ `GET /api/health` = `0.9.1`)
+TEST STATUS:        ✅ PASS (۱۹/۱۹ سوئیت — `test:e2e` نیازمند سرور در حال اجراست، KI-001)
 BUILD STATUS:       N/A (بدون مرحله بیلد — جاوااسکریپت خالص)
 SERVER STATUS:      اجراشده و سالم روی پورت 3020 (در محیط این تسک)
-DATABASE STATUS:    schema 030_coach_totp_authenticator؛ ۳۹ جدول (snapshot 2026-08-24)؛ ۲۷۰۷ حرکت در دیتاست مرجع؛ داده تستی e2e انباشته می‌شود (ممیزی 2026-08-24 آخرِ روز: ۲۵ شاگرد/۹ برنامه/۳ جلسه تمرین — با هر اجرای e2e رشد می‌کند، بنگرید KI-007)
+DATABASE STATUS:    schema 031_public_site_content؛ **۵۳ جدول** (بازشمارش واقعی روی DB زنده، 2026-09-19)؛ ۲۷۰۷ حرکت در دیتاست مرجع؛ داده تستی e2e انباشته می‌شود (KI-007)
 ```
 
-**COMPLETED:** همه ماژول‌های §6 با وضعیت IMPLEMENTED + مستندات ریشه + `DEPLOYMENT.md` + ۳۰ مایگریشن + لایهٔ امنیتی متمرکز (Task 16) + استقرار Railway (§۶ حافظه).
-**IN PROGRESS:** سیستم مستندات دائمی (همین پوشه — ایجاد شد در 2026-08-24).
+**COMPLETED:** همه ماژول‌های §6 با وضعیت IMPLEMENTED + مستندات ریشه + `DEPLOYMENT.md` + **۳۱ مایگریشن** + لایهٔ امنیتی متمرکز (Task 16) + استقرار Railway (§۶ حافظه) + **سایت عمومی (لندینگ/مجله/مقالات) و پنل ویرایشی مجله `/coach/magazine` (Task 17) + صفحهٔ اصلی دقیقاً مطابق wireframe مرجع (Task 18)**.
+**IN PROGRESS:** —
 **BLOCKED:** —
-**TODO / TECHNICAL DEBT:** → `TODO.md` (خلاصه: کاتالوگ ۱۲ سیستم، پخش ویدیو، آپلود عکس از UI، فیلد تجهیزات/عضله هدف، سینک، اندروید، جداول legacy).
+**TODO / TECHNICAL DEBT:** → `TODO.md` (خلاصه: موتور دریافت خودکار مجله T-17، تصاویر نهایی برند T-18، کاتالوگ ۱۲ سیستم، پخش ویدیو، آپلود عکس از UI، فیلد تجهیزات/عضله هدف، سینک، اندروید، جداول legacy).
 
 ---
 

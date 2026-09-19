@@ -64,6 +64,12 @@
 ### T-12 | پوشش تست برای tool/program-helper.py
 - **Status:** OPEN (KI-008) • **Reason:** ابزار بدون تست خودکار است. • **Dep:** — • **Next:** چند assert ساده روی خروجی info/search.
 
+### T-17 | موتور دریافت خودکار اخبار/محتوا برای مجله (پشت toggle `magazine.auto_fetch`)
+- **Priority:** P2 • **Status:** OPEN • **Reason:** toggle تنظیمات در Task 17 (2026-09-19) ساخته و در `settings` ذخیره می‌شود اما هنوز موتور دریافتی پشتش نیست (UI صریحاً «در انتظار پیاده‌سازی» می‌گوید — KI-017). طبق قاعده مالک، تا موتور نباشد toggle باید خاموش بماند. • **Dep:** تصمیم درباره منبع خبری/قانونی دریافت و فرم پیش‌نویس خروجی. • **Next:** اسکریپت/سرویس دریافت → ساخت رکورد `magazine_articles` با `status='DRAFT'` + `content_origin='generated'`؛ هرگز مستقیم منتشر نشود (فقط مسیر review→publish).
+
+### T-18 | تصاویر نهایی برند (هیرو، درباره من، CTA پایانی، OG) — در انتظار فایل‌های مالک
+- **Priority:** P2 • **Status:** OPEN • **Reason:** فعلاً CSS crop از `public/images/auth-hero.jpg` (با `object-position` اختصاصی) + fallback SVG برند‌شده؛ `site.hero_image`/`site.about_image`/`site.cta_image`/`site.og_image` از پنل مجله قابل تنظیم‌اند (Task 17/18، KI-018). • **Dep:** ارسال عکس نهایی توسط مالک. • **Next:** کپی به `public/images/landing/` + ست کردن مسیرها از «تنظیمات سایت» → تصویر هیرو (برش 26% 26%)، درباره (26% 30%)، CTA پایانی (26% 30%) و OG.
+
 ### T-16 | ویجت تقویم شمسی گرافیکی (بازشو)
 - **Status:** **DONE** (2026-08-24 — jalali-picker.js با نمای روز/ماه/سال و پرش سال؛ smoke اختصاصی) • **Reason:** ورودی فعلی متنی با placeholder است؛ تقویم بازشو UX بهتری دارد. • **Dep:** — • **Next:** گریل ماهانه سبک روی jalali.js فعلی.
 
@@ -79,3 +85,5 @@
 ## DONE (آرشیو سریع)
 - ~~ایجاد سیستم مستندات `docs/project-tracking/`~~ — 2026-08-24 (تسک ۲)
 - ~~ابزار `tool/program-helper.py`~~ — 2026-08-24 (تسک ۱)
+- ~~سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`~~ — 2026-09-19 (تسک ۱۷ — ۷ صفحه SSR + API عمومی/مدیریتی + مایگریشن 031 + سوئیت test:public-site؛ پیوند‌های باز: T-17، T-18)
+- ~~تطبیق دقیق صفحهٔ اصلی با wireframe مرجع `newlanding.png`~~ — 2026-09-19 (تسک ۱۸ — چیدمان تصویر چپ/متن راست، نوار آمار، CTA دو‌ستونه با `site.cta_image`، فوتر یک‌ردیفه، badge رنگی دسته‌ها، pillهای مجله به‌عنوان لینک؛ ۵۴ گروه test:public-site + ۱۹/۱۹ npm test + e2e)

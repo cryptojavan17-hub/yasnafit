@@ -18,6 +18,9 @@ const sidebarMenu = [
     ['لیست شاگردان','/users-list'],
     ['ارزیابی‌های در انتظار','/students/submissions']
   ]],
+  ['مجله و سایت',null,'📰',[
+    ['مدیریت مجله','/coach/magazine']
+  ]],
   ['برنامه‌ها',null,'📚',[
     ['برنامه‌های تمرینی','/templates/exercise/list'],
     ['برنامه‌های غذایی','/programs/diet/list'],
@@ -66,6 +69,7 @@ function renderRoute(label,route){
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
   if((route==='/settings/ai' || route==='/coach/ai') && window.renderAISettings) return window.renderAISettings(label,route);
   if(route==='/coach/releases' && window.renderReleaseHistory) return window.renderReleaseHistory(label,route);
+  if(route==='/coach/magazine' && window.renderMagazineAdmin) return window.renderMagazineAdmin(label,route);
   if(window.renderCoreRoute)return window.renderCoreRoute(label,route);
   // core.js loads immediately after this shell and owns dashboard/settings.
   // Unknown legacy URLs are normalized instead of rendering dead placeholders.
