@@ -3658,8 +3658,9 @@ const server=http.createServer(async(req,res)=>{
     }
 
     // ---- Public website (landing / about / services / results / magazine / contact) ----
-    // "/" is dual-use: anonymous visitors see the public home, an authenticated
-    // coach keeps the legacy dashboard on the same URL (fall-through below).
+    // "/" is the public home for EVERYONE, including an authenticated coach
+    // (owner decision 2026-09-19: the landing is the site's front door; the
+    // coach panel is reached from the header "پنل مربی" button → /coach/dashboard).
     // HEAD mirrors GET (Node suppresses the response body automatically).
     const isSafeMethod = req.method==='GET' || req.method==='HEAD';
     if(url.pathname==='/sitemap.xml' && isSafeMethod) return sendSitemap(req,res);
@@ -3669,7 +3670,7 @@ const server=http.createServer(async(req,res)=>{
     const isPublicPageRoute = isSafeMethod && (
       url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||
       url.pathname==='/magazine' || url.pathname==='/contact' ||
-      (url.pathname==='/' && !isCoachAuthorized(req))
+      url.pathname==='/'
     );
     if(isPublicPageRoute) return sendPublicPage(req,res,{kind:url.pathname==='/'?'home':url.pathname.slice(1),path:url.pathname});
 
@@ -3678,7 +3679,7 @@ const server=http.createServer(async(req,res)=>{
     const requestExt=path.extname(url.pathname).toLowerCase();
     const isCoachSpaRoute=!url.pathname.startsWith('/join/') &&
       !coachAuthPages[url.pathname] &&
-      (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
+      (url.pathname==='/index.html' || !requestExt);
     if(isCoachSpaRoute && !isCoachAuthorized(req)) return redirectCoachLogin(res);
 
     // Blank white placeholder image serving

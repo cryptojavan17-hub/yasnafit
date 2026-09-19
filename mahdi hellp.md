@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-19** (توسط Agent جلسهٔ `arena/01a0b993-yasnafit` — **Task 17 (شماره‌گذاری docs/project-tracking): سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`** و **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`** — هر دو کامل، تست‌شده و **کاملاً بدون کامیت** (منتظر تصمیم مالک). جلسهٔ قبل: `arena/01a0817f-yasnafit` — Task 25/26).
+> آخرین به‌روزرسانی: **2026-09-19** (توسط Agent جلسهٔ `arena/01a0b993-yasnafit` — **Task 17 (شماره‌گذاری docs/project-tracking): سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`** و **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png` + افزونهٔ Task 18: «/» همیشه لندینگ (پنل مربی به `/coach/dashboard`)** — هر دو کامل، تست‌شده و **کاملاً بدون کامیت** (منتظر تصمیم مالک). جلسهٔ قبل: `arena/01a0817f-yasnafit` — Task 25/26).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -227,6 +227,7 @@
 * **قواعد اجرا (مالک):** عکس شخص فقط مالک/پلاسی‌هولدر برند (هرگز تولید/جستجوی تصویر)؛ آمار و اطلاعات شخصی فقط از داده/تنظیمات (پیش‌فرض: ۴ عبارت کیفی)؛ بدون دکمهٔ مرده، بدون سیستم فیلتر/اداری دوم، بدون واژهٔ AI در UI؛ همهٔ تنظیمات از پنل مربی موجود.
 * **نتیجهٔ مورد انتظار و حاصل:** پیاده‌سازی + اتصال + responsive + تست. ✅ `npm test` = **۱۹/۱۹** (public-site = ۵۴ گروه) • e2e روی سرور زنده = PASS • smoke ۱۶/۱۶ URL • بررسی توالی DOM همهٔ ۸ بخش در HTML زنده.
 * **وضعیت نهایی:** ✅ **انجام شد و مستند شد — کاملاً بدون کامیت** (5 مستند پیگیری + حافظه این فایل به‌روز؛ commit/PR منتظر تأیید مالک).
+* **افزونه (۲۰۲۶-۰۹-۱۹، درخواست مالک):** «/» قبل دوقلو بود (مربی نشست‌دار ⇒ داشبورد) ⇒ حالا «/» همیشه لندینگ عمومی است؛ پنل مربی از دکمهٔ «پنل مربی» هدر یا `/coach/dashboard` (TD-21). تست‌ها ۵۷ گروه + ۱۹/۱۹.
 
 
 ## 14. Last Session Handoff
@@ -236,6 +237,7 @@
 2. **Task 18 (wireframe):** صفحهٔ اصلی دقیقاً ۸ بخش: هیدر (لوگو راست، منو، «ورود» با آیکون) → هیرو (متن راست: eyebrow + تیتر دوخطی خط دوم cyan + «شروع مسیر من»/«آشنایی با من»؛ تصویر چپ: crop 26% 26%) → ۳ ویژگی (برنامه اختصاصی/ارزیابی و پیگیری/مربیگری حرفه‌ای) → درباره (تصویر چپ/متن راست + ۴ کارت آیکون + «مشاهده رزومه») → مجله (تیتر + ۶ pill **لینک** + کارت با badge رنگی/meta/CTA) → نوار آمار ۴ستونه داده‌محور → CTA پایانی دو‌ستونه (`site.cta_image`) → فوتر یک‌ردیفه. خدمات/نتایج از home حذف (صفحاتشان دست‌نخورده).
 3. **تست‌ها:** `tests/public-site-regression.js` ⇒ **۵۴ گروه** (ترتیب DOM، empty-state، cta_image round-trip، footer socials gate، badge رنگ‌ها، pill guard)؛ `npm test` = ۱۹/۱۹ exit 0؛ `npm run test:e2e` روی سرور زنده = ok:true؛ smoke ۱۶ URL (۷ صفحه + category + sitemap/robots + assetها) همه 200.
 4. **مستندات:** ۵ فایل `docs/project-tracking/` (Task 17/18 در CHANGELOG، TD-20، KI-017/018، T-17/18، PROJECT-CONTEXT) + همین حافظه.
+5. **افزونهٔ Task 18 (ریشه):** با درخواست مالک «فقط لندینگ را خواستم ارتقا بدم؛ الان میره تو صفحهٔ مربی» ⇒ «/» برای همه (از جمله مربی نشست‌دار) لندینگ عمومی شد؛ ورودی پنل «/coach/dashboard» (gate + redirect ورود از قبل همین بود) — TD-21 + addendum CHANGELOG + بازنویسی گروه ۱۲ تست.
 
 ### What changed (همگی بدون کامیت)
 **کد:** `server.js` (+۹۶۷ — homeBody/stats/CTA/footer/articleCard/header + ۱۳ آیکن SVG)، `src/migrations.js` (+۱۰۵)، `src/article-service.js` (جدید)، `src/public-content-service.js` (جدید)، `public/landing.css` (جدید — تمام sectionها + responsive 1180/960/640)، `public/landing.js` (جدید — pill guard)، `public/magazine-admin.css/js` (جدید — پنل مجله + فیلد `site.cta_image`)، `public/images/landing/` (SVG placeholderها)، `public/app.js`+`core.js`+`index.html` (لینک «ورود» به `/student/login` + assetهای CSP)، `package.json` (سوئیت جدید)، `tests/e2e-workflow.js`+`migration-regression.js` (assert 031).

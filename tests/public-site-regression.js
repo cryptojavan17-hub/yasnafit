@@ -529,13 +529,35 @@ async function waitForServer(timeoutMs = 15000) {
     check('audit events recorded for all mutation types');
   }
 
-  // ---------- 12. Authenticated coach sees the legacy dashboard on / ----------
-  console.log('· dual-use root route');
+  // ---------- 12. Root is the public landing page for EVERYONE (owner decision 2026-09-19) ----------
+  // The landing is the site's front door; a logged-in coach reaches the panel from
+  // the header "پنل مربی" button (or directly at /coach/dashboard).
+  console.log('· root always serves the public landing page');
   {
+    const anon = await request('/');
+    assert.equal(anon.response.status, 200);
+    assert.ok(anon.data.includes('id="main"'), 'anonymous visitor gets the landing shell');
+    assert.ok(!anon.data.includes('id="content"'), 'anonymous visitor must not get the coach SPA shell');
+    assert.ok(anon.data.includes('data-coach-session="0"'), 'anonymous landing marks no coach session');
+    check('GET / (anonymous) → public landing page');
+
     const res = await request('/', { cookie: coachCookie });
     assert.equal(res.response.status, 200);
-    assert.ok(res.data.includes('پنل مربی') || res.data.includes('id="content"'), 'authed coach gets the SPA shell, not the marketing page');
-    check('GET / with coach session → legacy coach SPA');
+    assert.ok(res.data.includes('id="main"'), 'authed coach still gets the landing page on /');
+    assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /');
+    assert.ok(res.data.includes('data-coach-session="1"'), 'authed landing marks the coach session');
+    assert.ok(res.data.includes('پنل مربی'), 'authed landing header offers the پنل مربی button');
+    check('GET / (coach session) → public landing page with panel button');
+
+    const dash = await request('/coach/dashboard', { cookie: coachCookie });
+    assert.equal(dash.response.status, 200);
+    assert.ok(dash.data.includes('id="content"'), 'coach panel shell is still served at /coach/dashboard');
+    check('GET /coach/dashboard (coach session) → SPA shell');
+
+    const dashAnon = await request('/coach/dashboard');
+    assert.equal(dashAnon.response.status, 303);
+    assert.equal(dashAnon.response.headers.get('location'), '/coach/login');
+    check('GET /coach/dashboard (anonymous) → 303 /coach/login');
   }
 
   console.log(`\n✓ public-site-regression: ${passed} groups passed`);

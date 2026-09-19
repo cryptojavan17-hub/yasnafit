@@ -29,6 +29,13 @@
   - رفتار مربی/شاگرد/Telegram/کل API و پنل مربی دست‌نخورده (e2e + regression تأیید).
   - تصاویر شخصی هنوز در انتظار فایل مالک — همان نقشهٔ T-18 که حالا CTA هم دارد: هیرو `site.hero_image` (26% 26%)، درباره `site.about_image` (26% 30%)، CTA `site.cta_image` (26% 30%)، OG `site.og_image`؛ fallback هر سه: `coach-placeholder.svg`.
 
+### Task 18 — افزونه: «/» همیشه صفحهٔ لندینگ است (درخواست مالک — پنل مربی جدا شد از ریشه)
+
+- **FILES CHANGED:** `server.js` (روتینگ: `/` برای همه — از جمله مربی نشست‌دار — صفحهٔ لندینگ عمومی می‌شود؛ `/index.html` و مسیرهای بدون پسوند دست‌نخورده)، `tests/public-site-regression.js` (گروه ۱۲ بازنویسی شد: ۴ assert جدید)
+- **WHAT:** پیش‌تر «/» دوقلو بود (ناشناس=لندینگ، مربی با نشست=SPA داشبورد). با درخواست مالک که «فقط خواستم لندینگ را ارتقا بدم ولی الان میره تو صفحهٔ مربی»، «/» **همیشه** صفحهٔ لندینگ عمومی شد. پنل مربی با دو راه دسترس‌پذیر می‌ماند: (۱) دکمهٔ «پنل مربی» در هدر لندینگ (فقط وقتی نشست مربی فعال است) → `/coach/dashboard`؛ (۲) URL مستقیم `/coach/dashboard` (بدون نشست → 303 به `/coach/login`). کل SPA، روت‌های عمیق آن (SPA-fallback)، فلوی ورود (redirect به `/coach/dashboard`) و صفحه‌های `/coach/*` کاملاً دست‌نخورده‌اند.
+- **TESTS:** `npm run test:public-site` ✅ **۵۷ گروه** (گروه جدید: `/` ناشناس=لندینگ، `/` با نشست مربی=لندینگ + دکمهٔ «پنل مربی» + `data-coach-session="1"`، `/coach/dashboard` با نشست=SPA shell، `/coach/dashboard` بدون نشست=303) • `npm test` کامل = **۱۹/۱۹ PASS**
+- **COMPAT:** `schema_version` بدون تغییر؛ هیچ API/فرم/فلوی احراز هویت تغییر نکرده؛ فقط رفتار نمایش ریشه برای مربی نشست‌دار عوض شده است.
+
 ### Task 17 — سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) و پنل ویرایشی محتوای مربی
 
 - **FILES NEW:** `src/article-service.js` (مدل ویرایشی مقالات: اعتبارسنجی، slug، چرخه وضعیت، bulk، دسته‌ها، sanitize با whitelist)، `src/public-content-service.js` (نتایج شاگردان با گارد consent، پروفایل مربی، تنظیمات سایت)، `public/landing.css` (سیستم طراحی سایت عمومی — RTL، تارک سینمایی)، `public/landing.js` (تعاملات عمومی بدون وابستگی)، `public/magazine-admin.css` + `public/magazine-admin.js` (پنل ویرایشی مجله)، `public/images/landing/coach-placeholder.svg` + `cover-default.svg` (پلاسی‌هولدهای برند‌شده با مسیر مستند)، `tests/public-site-regression.js` (سوئیت جدید — ۵۱ گروه assert)
