@@ -35,6 +35,7 @@
     queue: [],
     newsStats: {},
     progress: { running: false, phase: 'idle' },
+    canSearchMore: false,
     discoverRunning: false,
     sources: [],
     editingSource: null
@@ -873,9 +874,11 @@
           <p class="mag-news-count">${n ? `AI ${faDigits(n)} مطلب جدید پیدا کرده است.` : 'هنوز مطلب جدیدی برای بررسی وجود ندارد.'}</p>
         </div>
         <div class="mag-toolbar__actions">
-          <button type="button" class="primary mag-news-run" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : '🔍 بررسی مطالب جدید'}</button>
+          <button type="button" class="primary mag-news-run" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : '🔍 بررسی مطالب جدید'}</button>          ${state.canSearchMore && !state.discoverRunning ? `<button type="button" class="secondary mag-news-run" id="magSearchMore">جستجو بیشتر (${faDigits(20)} مورد دیگر)</button>` : ''}
+
         </div>
       </div>
+      ${state.canSearchMore && !state.discoverRunning ? '<p class="mag-toolbar__note mag-news-more-note">این بار '+ '۲۰' + ' مورد آماده شد — برای ادامهٔ بررسی «جستجو بیشتر» را بزنید.</p>' : ''}
       ${state.discoverRunning ? newsProgressMarkup() : ''}
       ${state.queue.length ? `<div class="mag-news-grid">${state.queue.map(newsCard).join('')}</div>` : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — سیستم از منابع معتبر روز دنیا جستجو می‌کند، فارسی می‌کند و گزارش آماده می‌سازد.</div>'}
     `;
@@ -928,25 +931,42 @@
   function bindNews() {
     const pane = document.getElementById('magazinePane');
     if (!pane) return;
-    const discoverBtn = pane.querySelector('#magRunDiscover');
-    if (discoverBtn) discoverBtn.addEventListener('click', async () => {
+    const runDiscoverFlow = async () => {
       state.discoverRunning = true;
       state.progress = { running: true, phase: 'sources' };
       renderPane();
       let stopped = false;
+      // Update only the progress panel in place — the cards/pane are NOT
+      // re-rendered on every tick (no page flicker or scroll jumps).
+      const applyPanel = () => {
+        const paneEl = document.getElementById('magazinePane');
+        if (!paneEl) return;
+        let host = paneEl.querySelector('.mag-progress-host');
+        if (!host) {
+          const head = paneEl.querySelector('.mag-news-head');
+          if (!head) return;
+          host = document.createElement('div');
+          host.className = 'mag-progress-host';
+          head.insertAdjacentElement('afterend', host);
+        }
+        host.innerHTML = newsProgressMarkup();
+      };
+      applyPanel();
       const timer = setInterval(async () => {
         if (stopped) return;
         try {
           const p = await api('/api/magazine/admin/discover/progress');
           state.progress = p;
           if (!p.running && (p.phase === 'done' || p.phase === 'done_with_errors' || p.phase === 'error')) { stopped = true; clearInterval(timer); }
-          if (state.discoverRunning) renderPane();
+          if (state.discoverRunning) applyPanel();
         } catch (e) { /* keep the last known state */ }
       }, 1500);
       try {
         const result = await api('/api/magazine/admin/discover', { method: 'POST', body: '{}' });
+        state.canSearchMore = Boolean(result.stopped_at_cap);
         const found = result.drafted ? `📰 ${faDigits(result.drafted)} مطلب جدید پیدا شد — در کارت‌ها بررسی کنید` : 'مطلب جدیدی پیدا نشد — همه منابع بررسی شد';
-        if (result.errors && result.errors.length) toast(found + ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم)`, true);
+        if (result.stopped_at_cap) toast(found + ' — برای ادامه «جستجو بیشتر» را بزنید', true);
+        else if (result.errors && result.errors.length) toast(found + ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم)`, true);
         else toast(found);
       } catch (error) {
         toast('بررسی خطا کرد: ' + error.message, true);
@@ -956,7 +976,11 @@
         state.discoverRunning = false;
         await renderPane();
       }
-    });
+    };
+    const discoverBtn = pane.querySelector('#magRunDiscover');
+    if (discoverBtn) discoverBtn.addEventListener('click', runDiscoverFlow);
+    const moreBtn = pane.querySelector('#magSearchMore');
+    if (moreBtn) moreBtn.addEventListener('click', runDiscoverFlow);
     pane.querySelectorAll('[data-news-action]').forEach(btn => {
       const id = Number(btn.dataset.id);
       const action = btn.dataset.newsAction;

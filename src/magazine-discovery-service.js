@@ -548,6 +548,10 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
   }
 }
 
+// How many NEW items one discovery run turns into drafts. The coach UI shows
+// a next-batch button to continue (each run: up to this many new items).
+const DISCOVERY_BATCH_SIZE = 20;
+
 // ---------- live progress (shown in the coach UI; plain status, no internals) ----------
 const progressState = {
   running: false, phase: 'idle', current_source: '',
@@ -575,12 +579,17 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     images_total: 0, images_done: 0, drafted: 0, duplicates: 0, failed: 0, skipped: 0,
     error_sources: [], started_at: Date.now(), finished_at: null, last_result: null
   });
-  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, sources: 0, errors: [] };
+  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, sources: 0, errors: [], stopped_at_cap: false };
   try {
   const sources = listSources(db).filter(s => s.is_active);
   summary.sources = sources.length;
   progressState.sources_total = sources.length;
-  let actionable = 0;
+  // Pass 1: fetch every feed; log duplicates; reserve a discovery row for each
+  // NEW item (dedupe must also work within this run) and collect the candidates.
+  const candidates = [];
+  // In-run dedupe: candidates collected earlier in THIS run must also count
+  // (the DB rows are reserved as NEW and only become DRAFTED in pass 2).
+  const seenInRun = [];
   for (const source of sources) {
     progressState.current_source = source.name;
     let items = [];
@@ -595,36 +604,55 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     setSourceFetchResult(db, source.id, { ok: !fetchError, error: fetchError });
     progressState.sources_done += 1;
     summary.fetched += items.length;
-    syncProgressFromSummary(summary);
     for (const item of items) {
       const url = normalizeUrl(item.url);
       if (!url || !item.title) continue;
-      const dup = findDuplicate(db, { url: item.url, title: item.title, sourceName: source.name });
+      const inRun = seenInRun.find(c => c.url === url || titleSimilarity(c.title, item.title) >= TITLE_SIMILARITY_THRESHOLD);
+      const dup = inRun || findDuplicate(db, { url: item.url, title: item.title, sourceName: source.name });
       if (dup) {
         summary.duplicates += 1;
         db.prepare(`
           INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, status)
           VALUES (?,?,?,?,?,?,?,?,?,?, 'DUPLICATE')
         `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null);
+        seenInRun.push({ url, title: item.title });
         continue;
       }
-      summary.newItems += 1;
-      progressState.items_total += 1;
       const info = db.prepare(`
         INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, status)
         VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW')
       `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null);
-      try {
-        const result = await processDiscovery(db, { id: Number(info.lastInsertRowid) });
-        if (result && result.skipped) { summary.skipped += 1; }
-        else { summary.drafted += 1; actionable += 1; }
-      } catch (e) {
-        summary.failed += 1;
-        summary.errors.push(`پردازش: ${e.message || e}`);
-      }
-      progressState.items_done += 1;
-      syncProgressFromSummary(summary);
+      seenInRun.push({ url, title: item.title });
+      candidates.push({ source, item, url, discoveryId: Number(info.lastInsertRowid) });
     }
+    syncProgressFromSummary(summary);
+  }
+  summary.newItems = candidates.length;
+  // Prioritize items whose own feed already provides an image, then cap this
+  // run at DISCOVERY_BATCH_SIZE new items (the UI «جستجو بیشتر» starts the next batch).
+  const ordered = [...candidates.filter(c => c.item.imageUrl), ...candidates.filter(c => !c.item.imageUrl)];
+  const toProcess = ordered.slice(0, DISCOVERY_BATCH_SIZE);
+  summary.stopped_at_cap = ordered.length > DISCOVERY_BATCH_SIZE;
+  // Items beyond the cap: release their reserved rows so the next run picks them up.
+  for (const c of ordered.slice(DISCOVERY_BATCH_SIZE)) {
+    db.prepare("DELETE FROM magazine_discoveries WHERE id=? AND status='NEW'").run(c.discoveryId);
+  }
+  progressState.items_total = toProcess.length;
+  // Pass 2: turn the batch into Persian editorial drafts.
+  let actionable = 0;
+  for (const c of toProcess) {
+    const { source, discoveryId } = c;
+    progressState.current_source = source.name;
+    try {
+      const result = await processDiscovery(db, { id: discoveryId });
+      if (result && result.skipped) { summary.skipped += 1; }
+      else { summary.drafted += 1; actionable += 1; }
+    } catch (e) {
+      summary.failed += 1;
+      summary.errors.push(`پردازش: ${e.message || e}`);
+    }
+    progressState.items_done += 1;
+    syncProgressFromSummary(summary);
   }
   // Notification only when the coach has actionable review items (section 17).
   if (actionable > 0 && notifyAudience === 'coach') {
@@ -669,7 +697,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
   progressState.running = false;
   progressState.finished_at = Date.now();
   progressState.phase = summary.errors.length ? 'done_with_errors' : 'done';
-  progressState.last_result = { drafted: summary.drafted, duplicates: summary.duplicates, failed: summary.failed, skipped: summary.skipped, fetched: summary.fetched, error_count: summary.errors.length, images_backfilled: imgFixed };
+  progressState.last_result = { drafted: summary.drafted, duplicates: summary.duplicates, failed: summary.failed, skipped: summary.skipped, fetched: summary.fetched, error_count: summary.errors.length, images_backfilled: imgFixed, stopped_at_cap: summary.stopped_at_cap };
   return result;
   } catch (e) {
     progressState.running = false;
@@ -791,6 +819,7 @@ function queueStats(db) {
 }
 
 module.exports = {
+  DISCOVERY_BATCH_SIZE,
   getDiscoveryProgress,
   fetchOgImage,
   fetchSourceItems,

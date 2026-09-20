@@ -18,6 +18,15 @@ const RSS_B=`<?xml version="1.0" encoding="UTF-8"?>
 <entry><title>خبر سوم دربارهٔ سلامتی</title><link href="https://www.other-news.example/story-3"/><updated>2026-09-18T11:00:00Z</summary>سلامتی.<media:content url="https://img.example.com/b3.jpg" medium="image"/><media:thumbnail url="https://img.example.com/b3t.jpg"/></entry></entry>
 </feed>`;
 
+
+// 25-item feed: items 1-5 carry their own feed image (priority test)
+const entriesC=Array.from({length:25},(_,i)=>{
+  const n=String(i+1).padStart(2,'0');
+  const img=i<5?'<media:content url="https://img-c.example.com/c'+n+'.jpg" medium="image"/>':'';
+  return '<entry><title>Item C-'+n+'</title><link href="https://c.example.com/story-'+n+'"/><updated>2026-09-18T08:'+n+':00Z</updated><summary>Summary '+n+'.</summary>'+img+'</entry>';
+}).join('');
+const RSS_C='<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"><title>Feed C</title>'+entriesC+'</feed>';
+
 let failures=0;
 function check(label, ok, extra='') {
   console.log((ok?'PASS':'FAIL')+' — '+label+(extra?' ('+extra+')':''));
@@ -36,6 +45,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const b3=itemsB.find(x=>x.url&&x.url.includes('story-3'));
   check('feed-provided image parsed (media:content)', b3 && b3.imageUrl==='https://img.example.com/b3.jpg', b3?JSON.stringify(b3.imageUrl):'missing item');
   check('parseFeed Atom: 2 entries (malformed summary tolerated)', itemsB.length===2, 'got '+itemsB.length);
+  const itemsC=discovery.parseFeed(RSS_C);
+  check('parseFeed C: 25 items, first 5 with feed images', itemsC.length===25 && itemsC.slice(0,5).every((x,i)=>x.imageUrl==='https://img-c.example.com/c'+String(i+1).padStart(2,'0')+'.jpg') && !itemsC[5].imageUrl, 'got '+itemsC.length);
   check('titleSimilarity same', discovery.titleSimilarity('پژوهش جدید دربارهٔ تمرینات مقاومتی','پژوهش جدید درباره تمرینات مقاومتی')>0.86);
   check('titleSimilarity different', discovery.titleSimilarity('تغذیه قبل از تمرین','سلامت قلب و عروق')<0.86);
   check('sha1 stable', discovery.sha1('x')===discovery.sha1('x'));
@@ -65,6 +76,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     res.setHeader('Content-Type','application/xml; charset=utf-8');
     if(req.url.startsWith('/a.xml'))res.end(RSS_A2);
     else if(req.url.startsWith('/b.xml'))res.end(RSS_B);
+    else if(req.url.startsWith('/c.xml')){res.end(RSS_C);return;}
     else {res.statusCode=404;res.end('not found');}
   });
   await new Promise(r=>feedServer.listen(feedPort,'127.0.0.1',r));
@@ -142,6 +154,28 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
     const af=await j('/api/magazine/admin/articles/'+backfillId);
     check('image backfill: old draft now has source og:image (https)', af.data && af.data.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', af.data?JSON.stringify(af.data.cover_image):'missing');
+  }
+  // batch cap + image priority (isolated in-memory db + local feed C)
+  {
+    const { runMigrations } = require('../src/migrations');
+    const { DatabaseSync } = require('node:sqlite');
+    const mem = new DatabaseSync(':memory:');
+    runMigrations(mem);
+    mem.prepare('UPDATE magazine_sources SET is_active=0').run();
+    mem.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-c','Test C','http://127.0.0.1:'+feedPort+'/c.xml','rss','nutrition');
+    const r1 = await discovery.runDiscovery(mem, { notifyAudience: 'none' });
+    check('batch: first run drafts exactly 20 new items (cap)', r1.drafted === 20, 'drafted='+r1.drafted+' new='+r1.newItems);
+    check('batch: stopped_at_cap=true when 25 candidates > cap', r1.stopped_at_cap === true && r1.newItems === 25, 'stopped='+r1.stopped_at_cap);
+    let allImgs = true;
+    for (let n=1;n<=5;n++){
+      const u='https://c.example.com/story-0'+n;
+      if(!mem.prepare('SELECT id FROM magazine_articles WHERE source_url=?').get(u)) allImgs=false;
+    }
+    check('priority: all 5 feed-image items drafted in the first batch', allImgs);
+    const r2 = await discovery.runDiscovery(mem, { notifyAudience: 'none' });
+    check('batch: second run (جستجو بیشتر) drafts the remaining 5', r2.drafted === 5, 'drafted='+r2.drafted);
+    check('batch: second run not stopped at cap', r2.stopped_at_cap === false, 'new='+r2.newItems);
+    mem.close();
   }
   r=await j('/api/magazine/admin/queue');
   check('queue has 4 pending drafts (3 discovered + 1 backfill test)', r.data.queue.length===4, 'got '+r.data.queue.length);
@@ -240,6 +274,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('UI: technical sources tab hidden from coach tabs', !ui.match(/const tabs = \[\s*\n(?:\s*\['[a-z]+',[^\n]*\n)*?\s*\['sources'[^\n]*\n/));
   check('UI: editorial inbox card + image modal present', ui.includes('function newsCard') && ui.includes('function imageModal') && ui.includes('mag-news-grid'));
   check('UI: live progress bar + progress endpoint + image referrer fix', ui.includes('mag-progress__fill') && ui.includes('/api/magazine/admin/discover/progress') && ui.includes('referrerpolicy="no-referrer"') && ui.includes("referrerPolicy = 'no-referrer'"));
+  check('UI: search-more button + in-place progress (no full re-render per tick) + batch cap flag', ui.includes('magSearchMore') && ui.includes('جستجو بیشتر') && ui.includes('mag-progress-host') && ui.includes('stopped_at_cap'));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
 
   // ---- scheduler (in-process, same db as the server's data dir) ----
