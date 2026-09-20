@@ -1530,6 +1530,24 @@ const migrations = [
       const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
       for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
     }
+  },
+  {
+    id: '036_magazine_source_tiers',
+    description: 'Magazine: owner source-tier coverage — Tier 1 (BJSM/ACSM/JSCR) + Tier 2 (NSCA/ISSN) + Tier 3 (RED-S/energy availability, injury prevention & bone health, protein/supplements evidence) via Google News',
+    up(db) {
+      const builtins = [
+        ['builtin-gnews-bjsm', 'روز دنیا: British Journal of Sports Medicine', 'https://news.google.com/rss/search?q=%22British%20Journal%20of%20Sports%20Medicine%22&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-acsm', 'روز دنیا: ACSM — position standها و راهنماها', 'https://news.google.com/rss/search?q=ACSM%20%22position%20stand%22%20OR%20%22clinical%20guideline%22&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-jscr', 'روز دنیا: Journal of Strength and Conditioning Research', 'https://news.google.com/rss/search?q=%22Journal%20of%20Strength%20and%20Conditioning%20Research%22&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-nsca', 'روز دنیا: NSCA — strength & conditioning', 'https://news.google.com/rss/search?q=NSCA%20OR%20%22strength%20and%20conditioning%22%20women%20training&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-issn', 'روز دنیا: ISSN — International Society of Sports Nutrition', 'https://news.google.com/rss/search?q=%22International%20Society%20of%20Sports%20Nutrition%22&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition'],
+        ['builtin-gnews-reds', 'روز دنیا: سلامت ورزشکاران زنان — RED-S و energy availability', 'https://news.google.com/rss/search?q=%22energy%20availability%22%20OR%20%22RED-S%22%20female%20athletes&hl=en&gl=US&ceid=US:en', 'rss', 'health'],
+        ['builtin-gnews-women-injury', 'روز دنیا: آسیب‌پیشگیری و سلامت استخوان ورزشکاران زنان', 'https://news.google.com/rss/search?q=women%20athletes%20injury%20prevention%20OR%20%22bone%20health%22&hl=en&gl=US&ceid=US:en', 'rss', 'health'],
+        ['builtin-gnews-protein-supps', 'روز دنیا: شواهد پروتئین و مکمل‌های ورزشی', 'https://news.google.com/rss/search?q=protein%20OR%20creatine%20supplements%20athletes%20evidence&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
   }
 ];
 

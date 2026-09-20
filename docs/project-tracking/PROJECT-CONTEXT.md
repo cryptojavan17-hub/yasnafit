@@ -4,7 +4,7 @@
 > بعد از هر تسک توسعه، این فایل باید به‌روز شود (قواعد کامل: انتهای همین فایل و `CHANGELOG.md`).
 > هر ادعایی در این سند یکی از این وضعیت‌ها را دارد: `VERIFIED` (تأییدشده با کد/اجرا)، `PARTIALLY VERIFIED`، `NOT VERIFIED`، `NOT IMPLEMENTED`.
 
-**آخرین به‌روزرسانی:** 2026-09-20 — **Task 27 (T-17 + اصلاح ۳ «Inbox ویرایشی»): «اخبار و مطالب جدید» در پنل مربی — سربرگ «آخرین بررسی» + «AI N مطلب جدید پیدا کرده است» + دکمهٔ «بررسی مطالب جدید» + کارت‌های ویرایشی (تصویر/خلاصه/چرا مهم است/نکات کلیدی/منبع) + مودال «انتخاب تصویر» + og:image خودکار + تب فنی «منابع خبری» پنهان از مربی؛ ۱۱ منبع پیش‌فرض (034+035) در بک‌اند؛ ۶۰ چک + npm test + e2e سبز — قبل‌تر: اصلاح ۲ (منابع پیش‌فرض + ترجمه) + Task 25 مرحلهٔ ۳ (مجله home) + Task 26 (ربات تلگرام)**
+**آخرین به‌روزرسانی:** 2026-09-20 — **Task 27 (T-17 + اصلاح ۴): تصحیح تصویر کارت‌ها (fetch مرورگری og:image/secure_url + بازسازی تصویر برای پیش‌نویس‌های قدیمی + فallback تمیز) و اجرای سلسله‌مراتب منابع مالک (Tier 1 BJSM/ACSM/JSCR، Tier 2 NSCA/ISSN، Tier 3 RED-S/آسیب/مکمل — ۱۹ منبع پیش‌فرض در بک‌اند) + قوانین شواهد در prompt؛ ۶۳ چک + npm test + e2e (schema ۳۶) — قبل‌تر: اصلاح ۳ (Inbox ویرایشی) + اصلاح ۲ + Task ۲۵ مرحلهٔ ۳ + Task ۲۶**
 **نسخه برنامه:** 0.9.1 (مقدار فعلی `package.json` — در Task 17–22 تغییر نکرد) • **وضعیت تست‌ها:** ۱۹/۱۹ سوئیت پاس (اجرای واقعی `npm test` در 2026-09-20 Task 22، سندباکس Agent) + e2e روی سرور زندهٔ 3020 = PASS
 
 ---
@@ -51,7 +51,7 @@ Backend / Sync Layer (سرور مرکزی — NOT IMPLEMENTED)
 |---|---|
 | Runtime | Node.js >= 22.5 (تست‌شده با v22.22.3) — `engines` در package.json |
 | Backend | **یک فایل `server.js` (3813 خط در 2026-09-19)** — HTTP سرور خالص Node بدون Express؛ روتر دستی با regex روی pathname؛ **شامل موتور SSR سایت عمومی** (۷ صفحه + sitemap/robots + meta/JSON-LD) |
-| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ **۵۵ جدول** (49 موجود + ۴ سایت عمومی در 031 + ۲ خط سامپاد مجله در 033؛ 034/035 فقط seed ۱۱ منبع پیش‌فرض روز دنیا بدون جدول جدید) |
+| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ **۵۵ جدول** (49 موجود + ۴ سایت عمومی در 031 + ۲ خط سامپاد مجله در 033؛ 034/035/036 فقط seed ۱۹ منبع پیش‌فرض روز دنیا بدون جدول جدید) |
 | Frontend | Vanilla JS + HTML + CSS خالص؛ بدون فریم‌ورک/باندلر؛ سه شل: `public/index.html` (مربی)، `public/student.html` (شاگرد) و **صفحات SSR عمومی** (HTML تولیدشده در server.js + `landing.css`/`landing.js`) |
 | API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی؛ **API عمومی سایت** (`/api/magazine[?category]`، `/api/magazine/:slug`، `/api/results`، `/api/coach-profile`، `/api/site`) بدون احراز + **API مدیریتی** `/api/magazine/admin/*` (نشست مربی + same-origin؛ شامل صف بررسی `queue`/`queue/stats`/`queue/:id`، کشف دستی `discover`، منابع خبری `sources` CRUD + `sources/:id/test` — Task 27) |
 | سرویس‌ها | لایه `src/*-service.js` (program, student, assessment, engagement, upload, release, audit, student-auth, student-session, assessment-document, **article** (Task 17), **public-content** (Task 17)) + `src/database.js`، `src/migrations.js`، `src/validation.js` |

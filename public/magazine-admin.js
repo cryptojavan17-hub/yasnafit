@@ -917,36 +917,58 @@
     pane.querySelectorAll('[data-news-action]').forEach(btn => {
       const id = Number(btn.dataset.id);
       const action = btn.dataset.newsAction;
-      btn.addEventListener('click', async () => {
-        try {
-          if (action === 'review') {
-            state.reviewId = id;
-            await renderPane();
-          } else if (action === 'edit') {
-            const article = await api(`/api/magazine/admin/articles/${id}`);
-            state.articles = state.articles.filter(x => x.id !== article.id);
-            state.articles.unshift(article);
-            articleModal(id);
-          } else if (action === 'image') {
-            const item = state.queue.find(x => x.id === id);
-            imageModal(id, item ? item.cover_image : '');
-          } else if (action === 'publish') {
-            if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
-            await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
-            toast('مطلب منتشر شد');
-            await renderPane();
-          } else if (action === 'reject') {
-            const reason = window.prompt('دلیل رد (اختیاری):', REJECT_REASONS[0]);
-            if (reason === null) return;
-            await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
-            toast('مطلب رد شد');
-            await renderPane();
-          }
-        } catch (error) {
-          toast(error.message, true);
-        }
+      btn.addEventListener('click', async () => { await newsCardAction(id, action); });
+    });
+    // Broken/unreachable source images: replace with the clean placeholder + picker
+    pane.querySelectorAll('.mag-news-card__media img').forEach(img => {
+      img.addEventListener('error', () => {
+        const card = img.closest('.mag-news-card');
+        if (!card) return;
+        const media = card.querySelector('.mag-news-card__media');
+        if (!media) return;
+        const cid = Number(card.dataset.id);
+        media.innerHTML = '<div class="mag-news-card__noimg"><span>🖼️ تصویر بارگذاری نشد</span><button type="button" class="mag-action" data-fallback-image>انتخاب تصویر</button></div>';
+        const fb = media.querySelector('[data-fallback-image]');
+        if (fb) fb.addEventListener('click', () => {
+          const item = state.queue.find(x => x.id === cid);
+          imageModal(cid, item ? item.cover_image : '');
+        });
       });
     });
+    pane.querySelectorAll('[data-news-action]').forEach(btn => {
+      const id2 = Number(btn.dataset.id);
+      const action2 = btn.dataset.newsAction;
+      btn.addEventListener('click', async () => { await newsCardAction(id2, action2); });
+    });
+  }
+  async function newsCardAction(id, action) {
+    try {
+      if (action === 'review') {
+        state.reviewId = id;
+        await renderPane();
+      } else if (action === 'edit') {
+        const article = await api(`/api/magazine/admin/articles/${id}`);
+        state.articles = state.articles.filter(x => x.id !== article.id);
+        state.articles.unshift(article);
+        articleModal(id);
+      } else if (action === 'image') {
+        const item = state.queue.find(x => x.id === id);
+        imageModal(id, item ? item.cover_image : '');
+      } else if (action === 'publish') {
+        if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
+        await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
+        toast('مطلب منتشر شد');
+        await renderPane();
+      } else if (action === 'reject') {
+        const reason = window.prompt('دلیل رد (اختیاری):', REJECT_REASONS[0]);
+        if (reason === null) return;
+        await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
+        toast('مطلب رد شد');
+        await renderPane();
+      }
+    } catch (error) {
+      toast(error.message, true);
+    }
   }
 
   function reviewMarkup() {
@@ -970,6 +992,7 @@
             </label>
             <label class="field-label field-label--full">خلاصه (SEO)<textarea class="field" id="revSummary" rows="2" maxlength="500">${esc(a.summary || '')}</textarea></label>
             <label class="field-label">تصویر کاور (مسیر)<input class="field" id="revCover" dir="ltr" placeholder="/images/…" value="${esc(a.cover_image || '')}"></label>
+            <div id="revCoverPreview" class="mag-review__coverpreview"></div>
             <label class="field-label field-label--full">متن مقاله (HTML ساده)<textarea class="field" id="revContent" rows="12" dir="auto">${esc(a.content || '')}</textarea></label>
           </div>
           <div class="mag-sources-editor" style="margin-top:14px">
@@ -1048,6 +1071,27 @@
     renderRefsList();
     const id = state.reviewId;
     pane.querySelector('#revBack')?.addEventListener('click', () => { state.reviewId = null; renderPane(); });
+    const revCover = pane.querySelector('#revCover');
+    const revPrev = pane.querySelector('#revCoverPreview');
+    if (revCover && revPrev) {
+      const updCover = () => {
+        revPrev.innerHTML = '';
+        if (!revCover.value) return;
+        const img = document.createElement('img');
+        img.src = revCover.value;
+        img.alt = '';
+        img.addEventListener('error', () => {
+          revPrev.innerHTML = '';
+          const p = document.createElement('p');
+          p.className = 'mag-toolbar__note';
+          p.textContent = 'پیش‌نمایش تصویر در دسترس نیست.';
+          revPrev.append(p);
+        });
+        revPrev.append(img);
+      };
+      revCover.addEventListener('input', updCover);
+      updCover();
+    }
     pane.querySelector('#revAddRef')?.addEventListener('click', () => {
       state.review.references.push({ source_name: '', source_url: '' });
       renderRefsList();

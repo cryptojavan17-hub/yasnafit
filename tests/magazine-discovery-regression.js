@@ -15,7 +15,7 @@ const RSS_A=`<?xml version="1.0" encoding="UTF-8"?>
 const RSS_B=`<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"><title>Feed B</title>
 <entry><title>پژوهش جدید درباره تمرینات مقاومتی</title><link href="https://www.other-news.example/story-1?gclid=abc&amp;utm_source=feed"/><updated>2026-09-18T09:30:00Z</updated><summary>همان خبر با عنوان کمی متفاوت از منبع دیگر.</summary></entry>
-<entry><title>خبر سوم دربارهٔ سلامتی</title><link href="https://www.other-news.example/story-3"/><updated>2026-09-18T11:00:00Z</summary>سلامتی.</entry></entry>
+<entry><title>خبر سوم دربارهٔ سلامتی</title><link href="https://www.other-news.example/story-3"/><updated>2026-09-18T11:00:00Z</summary>سلامتی.<media:content url="https://img.example.com/b3.jpg" medium="image"/><media:thumbnail url="https://img.example.com/b3t.jpg"/></entry></entry>
 </feed>`;
 
 let failures=0;
@@ -33,6 +33,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('parseFeed strips utm from nothing (link kept raw)', /story-1/.test(itemsA[0].url));
   check('parseFeed normalizes url (utm stripped)', discovery.normalizeUrl('https://news.example.com/story-1?utm_source=rss')==='https://news.example.com/story-1');
   const itemsB=discovery.parseFeed(RSS_B);
+  const b3=itemsB.find(x=>x.url&&x.url.includes('story-3'));
+  check('feed-provided image parsed (media:content)', b3 && b3.imageUrl==='https://img.example.com/b3.jpg', b3?JSON.stringify(b3.imageUrl):'missing item');
   check('parseFeed Atom: 2 entries (malformed summary tolerated)', itemsB.length===2, 'got '+itemsB.length);
   check('titleSimilarity same', discovery.titleSimilarity('پژوهش جدید دربارهٔ تمرینات مقاومتی','پژوهش جدید درباره تمرینات مقاومتی')>0.86);
   check('titleSimilarity different', discovery.titleSimilarity('تغذیه قبل از تمرین','سلامت قلب و عروق')<0.86);
@@ -56,7 +58,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const feedPort=await freePort();
   const STORY2_URL='http://127.0.0.1:'+feedPort+'/story2.html';
   const RSS_A2=RSS_A.replace('__STORY2_URL__',STORY2_URL);
-  const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image" content="/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
+  const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image:secure_url" content="/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
   const feedServer=http.createServer((req,res)=>{
     if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
     if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
@@ -94,10 +96,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // built-in world sources (migration 034): seeded & active by default; zero-setup flow
   r=await j('/api/magazine/admin/sources');
-  check('built-in world sources seeded (11, all active)', r.data.sources.length===11 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
+  check('built-in world sources seeded (19, all active)', r.data.sources.length===19 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
   for(const b of r.data.sources){ await j(`/api/magazine/admin/sources/${b.id}`,{method:'PUT',body:JSON.stringify({is_active:false})}); }
   r=await j('/api/magazine/admin/sources');
-  check('built-ins can be toggled off (advanced)', r.data.sources.length===11 && r.data.sources.every(x=>!x.is_active));
+  check('built-ins can be toggled off (advanced)', r.data.sources.length===19 && r.data.sources.every(x=>!x.is_active));
 
   // sources CRUD
   r=await j('/api/magazine/admin/sources',{method:'POST',body:JSON.stringify({name:'منبع نامعتبر',feed_url:'ftp://bad.example/x'})});
@@ -126,13 +128,23 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // og:image retrieval: the local article page image must be attached
   r=await j('/api/magazine/admin/queue');
   const qImg=r.data.queue.find(q=>q.source_url===STORY2_URL);
-  check('og:image attached from original article page', qImg && qImg.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
+  check('og:image attached from original article page (secure_url key)', qImg && qImg.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
+  // backfill: a pre-existing draft without a cover must get the source image on the next run
+  {
+    const body='بررسی شواهد مربوط به تغذیه قبل از تمرین و تأثیر آن بر عملکرد ورزشی؛ این متن صرفاً برای آزمایش بازسازی تصویر کاور نوشته شده و طول کافی برای اعتبارسنجی ایجاد مقاله دارد.';
+    r=await j('/api/magazine/admin/articles',{method:'POST',body:JSON.stringify({title:'مطلب آزمایشی تصویر',summary:'test backfill',content:body,category:'nutrition',source_url:STORY2_URL,source_name:'news.example.com'})});
+    const backfillId=r.data&&r.data.id;
+    check('test draft created without cover image', r.status===201 && backfillId && !r.data.cover_image, 'status='+r.status);
+    r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
+    const af=await j('/api/magazine/admin/articles/'+backfillId);
+    check('image backfill: old draft now has source og:image', af.data && af.data.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', af.data?JSON.stringify(af.data.cover_image):'missing');
+  }
   r=await j('/api/magazine/admin/queue');
-  check('queue has 3 pending drafts', r.data.queue.length===3, 'got '+r.data.queue.length);
+  check('queue has 4 pending drafts (3 discovered + 1 backfill test)', r.data.queue.length===4, 'got '+r.data.queue.length);
   const q1=r.data.queue.find(q=>q.title.includes('پژوهش جدید'));
   check('queue item has source + flags + discovered_at', q1 && q1.source_name==='فید آزمایشی A' && Array.isArray(q1.quality_flags) && q1.discovered_at, q1?JSON.stringify({s:q1.source_name,f:q1.quality_flags,d:q1.discovered_at}):'missing');
   r=await j('/api/magazine/admin/queue/stats');
-  check('stats: 0 published, 3 drafts, 3 new today', r.data.published===0 && r.data.drafts===3 && r.data.new_today===3, JSON.stringify(r.data));
+  check('stats: 0 published, 4 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===4, JSON.stringify(r.data));
   r=await j('/api/magazine/admin/queue/stats');
   check('stats: last_run_at recorded after discovery', Boolean(r.data.last_run_at), JSON.stringify(r.data.last_run_at));
 

@@ -331,7 +331,10 @@ const EDITORIAL_SYSTEM_PROMPT = [
   '4) خروجی فقط JSON معتبر با همین کلیدها باشد: title, summary, content_html, claims[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1), category, why_it_matters, useful.',
   '7) category فقط یکی از اینها باشد: bodybuilding / sports-science / nutrition / health / sports-news (هر کدام بیشتر با مطلب جور است). why_it_matters یک یا دو جملهٔ روان فارسی دربارهٔ اینکه این مطلب برای مخاطبان YASNAFIT (به‌ویژه زنان) چرا مهم/مفید است. useful فقط در صورت بی‌ربط/کلیک‌بیت/کم‌اعتبار بودن محتوا false باشد.',
   '5) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی و ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
-  '6) اگر منبع علمی است، نام پژوهش/موسسه را فقط در حدی که در متن منبع آمده در references بنویسید.'
+  '6) اگر منبع علمی است، نام پژوهش/موسسه را فقط در حدی که در متن منبع آمده در references بنویسید.',
+  '8) منابع بر اساس اعتبار به این ترتیب اولویت دارند: سطح ۱ (علمی/مبتنی بر شواهد): PubMed/NCBI، ACSM، British Journal of Sports Medicine، Sports Medicine، Journal of Strength and Conditioning Research؛ سطح ۲ (سازمان‌های حرفه‌ای): NSCA، ISSN (International Society of Sports Nutrition)، IOC؛ سطح ۳ (نشریات معتبر ورزش و تغذیه و فدراسیون‌های بزرگ). از کلیک‌بیت، بلاگ‌های ضعیف و ادعاهای بی‌منبع اینفلوئنسرها پرهیز کنید.',
+  '9) شواهد: پیش‌فرض به مرورهای سیستماتیک، متاآنالیزها، کارآزمایی‌های تصادفی‌سازی‌شده، بیانیه‌های اجماعی و position standهای رسمی بدهید. هرگز یک مطالعهٔ تکی را به‌عنوان «حقیقت اثبات‌شده» ارائه نکنید (بنویسید «این مطالعه نشان داد…»). برای ادعاهای مهم، در حد امکان با چند منبع معتبر تطبیق دهید.',
+  '10) هر پیشنهاد مقاله باید نام منبع اصلی و تاریخ انتشار آن را در references حفظ کند (قانون ثابت: منبع اصلی + تاریخ). فقط ترجمه/خلاصه — هرگز اطلاعات اختراع‌شده.'
 ].join('\n');
 
 function editorialUserPrompt(item, sourceName) {
@@ -428,14 +431,18 @@ async function fetchOgImage(pageUrl) {
       const response = await fetch(pageUrl, {
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'YasnaFit-Magazine/1.0 (editorial preview; +https://yasnafit.ir)', 'Accept': 'text/html' }
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
       });
       if (!response.ok) return '';
       const html = (await response.text()).slice(0, 2000000);
       const tags = [...html.matchAll(/<meta[^>]+>/gi)].map(m => m[0]);
       for (const tag of tags) {
         const key = (tag.match(/(?:property|name)\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
-        if (!/^(og:image|og:image:url|twitter:image)$/i.test(key)) continue;
+        if (!/^(og:image|og:image:url|og:image:secure_url|twitter:image|twitter:image:src)$/i.test(key)) continue;
         const val = (tag.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
         if (!val) continue;
         try {
@@ -594,15 +601,32 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
       entityType: 'magazine_discovery'
     });
   }
+  // Backfill: drafts discovered before image support (or whose og fetch
+  // failed) get another chance to receive their own source image.
+  let imgFixed = 0;
+  const needImage = db.prepare(`
+    SELECT id, source_url FROM magazine_articles
+    WHERE deleted_at IS NULL AND status IN ('DRAFT','PENDING_REVIEW')
+      AND (cover_image IS NULL OR cover_image='')
+      AND source_url IS NOT NULL AND source_url != ''
+    ORDER BY updated_at DESC LIMIT 15
+  `).all();
+  for (const row of needImage) {
+    const img = await fetchOgImage(row.source_url);
+    if (img) {
+      db.prepare('UPDATE magazine_articles SET cover_image=? WHERE id=?').run(img, row.id);
+      imgFixed += 1;
+    }
+  }
   db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.last_run_at', ?)").run(new Date().toISOString());
   const audit = require('./audit-service');
   audit.record(db, {
     actorType: 'system',
     action: 'discovery.completed',
     entityType: 'magazine_discovery',
-    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, failed: summary.failed, skipped: summary.skipped }
+    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, failed: summary.failed, skipped: summary.skipped, images_backfilled: imgFixed }
   });
-  return summary;
+  return { ...summary, images_backfilled: imgFixed };
 }
 
 // ---------- scheduler (in-process; mirrors the app's in-memory patterns) ----------
