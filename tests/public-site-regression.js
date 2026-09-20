@@ -146,12 +146,24 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
     assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
     check('home: owner header (5 links + ثبت نام/ورود)');
-    // Owner directive (2026-09-20): a «ربات تلگرام» button with a telegram
-    // icon next to ثبت نام/ورود, connected to the student telegram section.
-    assert.ok(home.includes('data-telegram-bot="true"'), 'header: ربات تلگرام button present');
-    assert.match(home, /data-telegram-bot="true"[^>]*>[\s\S]*?ربات تلگرام<\/a>/, 'header: ربات تلگرام with telegram icon → student section');
-    assert.ok(home.includes('href="/student/profile"'), 'header: ربات تلگرام → student profile (telegram bot section)');
-    check('home: header ربات تلگرام button (telegram icon, next to ثبت نام/ورود)');
+    // Task 26 (owner spec): the «ربات تلگرام» header button (telegram icon,
+    // next to ثبت نام/ورود) opens a modal that asks ONLY for the Telegram ID,
+    // then sends the user to the Telegram app to start the bot.
+    assert.ok(home.includes('data-telegram-bot="true"'), 'header: ربات تلگرام control present');
+    assert.match(home, /<button[^>]*data-telegram-bot="true"[^>]*>[\s\S]*?<\/svg>[\s\S]*?ربات تلگرام<\/button>/, 'header: ربات تلگرام button with telegram icon');
+    const landingJs = await request('/landing.js');
+    assert.equal(landingJs.response.status, 200);
+    assert.match(landingJs.data, /tg-dialog/, 'landing.js: telegram bot modal present');
+    const tgApi = await request('/api/telegram-bot');
+    assert.equal(tgApi.response.status, 200);
+    assert.ok('telegram_id' in tgApi.data && 'bot_username' in tgApi.data, 'telegram bot API shape');
+    assert.equal(tgApi.data.bot_username, null, 'bot username unconfigured by default');
+    const tgBad = await request('/api/telegram-bot/connect', { method: 'POST', body: { telegram_id: '   ' } });
+    assert.equal(tgBad.response.status, 400, 'blank telegram id rejected');
+    const tgOk = await request('/api/telegram-bot/connect', { method: 'POST', body: { telegram_id: '@yasnafit_smoke' } });
+    assert.equal(tgOk.response.status, 200);
+    assert.equal(tgOk.data.ok, true);
+    check('home: ربات تلگرام modal button + /api/telegram-bot connect flow');
     // The previous structural landing AND the full-image landing must be gone;
     // home now uses the same header + footer shell as the other public pages.
     assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|magazine-filters--home|landing-full|home-placeholder/);

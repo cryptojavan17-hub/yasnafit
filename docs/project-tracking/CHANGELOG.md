@@ -8,6 +8,14 @@
 
 ## 2026-09-20
 
+### Task 26 (اصلاح — دستور نهایی مالک) — ربات تلگرام = مودال فقط‌آیدی + هدایت مستقیم به تلگرام
+
+- **FILES CHANGED:** `server.js` (دکمهٔ هدر به <button> مودال‌ساز تبدیل شد؛ API جدید: GET /api/telegram-bot + POST /api/telegram-bot/connect) • `src/migrations.js` (032: جدول telegram_bot_connections) • `src/public-content-service.js` (setting جدید site.telegram_bot_username + نورمالایز) • `public/landing.js` (مودال «اتصال به ربات تلگرام»: یک ورودی @username → POST → window.open ت.me/ربات) • `public/landing.css` (استایل مودال) • `public/magazine-admin.js` (فیلد «نام کاربری ربات» در تنظیمات) • برگردانده: `public/student-app.js` (کارت پروفایلِ دورزدیدۀ اصلاح قبل حذف شد) • تست‌ها.
+- **WHAT:** مالک: «باید کد رو جوری بنویسی که وقتی کاربر روی ربات تلگرام کلیک کرد کاربر تنها با دادن ایدی تلگرام هدایت بشه به برنامه تلگرام و وصل بشه به ربات» ⇒ کلیک روی دکمهٔ هدر → مودال با **یک** ورودی «آیدی تلگرام» → ثبت در سرور (و در حساب شاگرد اگر لاگین باشد) → باز شدن مستقیم **https://t.me/نام‌کاربری‌ربات** (در موبایل = خود برنامهٔ تلگرام) برای شروع ربات. نام کاربری ربات از تنظیمات سایت (admin) خوانده می‌شود؛ تا زمانی که مالک آن را تنظیم نکند، آیدی فقط ثبت می‌شود و پیام «به‌زودی فعال می‌شود» نمایش داده می‌شود (بدون لینک مرده).
+- **TESTS:** ۶۱ گروه public-site (شامل flow کامل API: 400 آیدی خالی + 200 اتصال) + e2e کامل سبز (اتصال شاگرد لاگین‌شده → ثبت در حساب + prefill) + smoke زنده (دکمه/مودال/API/setting).
+- **BUG FOUND & FIXED:** اصلاح قبلی اشتباهاً شاخهٔ نورمالایز site.contact_* را در updateSiteSettings حذف کرده بود (آیدی‌های تماس با cleanPath خالی می‌شدند) — بازگردانده + با تست «فوتر سوشال» پوشش دارد.
+- **COMPAT:** هدر مربی دست‌نخورده؛ بدون تغییر endpointهای موجود؛ migration 032 idempotent.
+
 ### Task 26 — دکمهٔ «ربات تلگرام» در هدر سایت عمومی + اتصال به بخش ربات تلگرام شاگرد
 
 - **FILES CHANGED:** `server.js` (headerMarkup: دکمهٔ سوم در actions برای حالت غیرمربی: «ربات تلگرام» با آیکون تلگرام موجود (ICONS.telegram) → `/student/profile`) • `public/student-app.js` (renderProfile: کارت جدید «ربات تلگرام» — ورودی @username با مقادیر از student.telegram_id + دکمهٔ «اتصال به ربات تلگرام» → PUT /api/student/profile؛ telegram_id از پیش در API پشتیبانی و معتبرسازی می‌شد) • `tests/public-site-regression.js` (assertions هدر) • `tests/e2e-workflow.js` (shell صفحهٔ پروفایل + form در سورس).

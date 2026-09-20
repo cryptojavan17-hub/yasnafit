@@ -2633,7 +2633,7 @@ function headerMarkup(path, coachAuthorized) {
   }).join('');
   const action = coachAuthorized
     ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
-    : `<a class="btn btn--ghost btn--sm" href="/student/profile" data-telegram-bot="true" aria-label="ربات تلگرام"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</a>
+    : `<button type="button" class="btn btn--ghost btn--sm" data-telegram-bot="true" aria-haspopup="dialog"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</button>
       <a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
       <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
   return `<header class="site-header" id="siteHeader">
@@ -3273,6 +3273,36 @@ async function api(req,res,url){
     }
     if(p.startsWith('/api/student/'))return handleStudentSessionApi(req,res,url);
 
+    // ---- Telegram bot connection (public header «ربات تلگرام» button, Task 26) ----
+    // GET  /api/telegram-bot          -> { telegram_id (own, when a student session
+    //    exists), bot_username (when the owner configured the bot) }
+    // POST /api/telegram-bot/connect  -> { telegram_id } -> logs the connection and,
+    //    when a student session exists, stores it on the account; replies with
+    //    bot_username so the client can open the bot in the Telegram app.
+    if(p==='/api/telegram-bot' || p==='/api/telegram-bot/connect'){
+      const siteInfo=publicContentService.publicSiteInfo(db);
+      const botUsername=siteInfo.telegram_bot_username || null;
+      if(p==='/api/telegram-bot' && req.method==='GET'){
+        const student=studentSessionService.resolveStudentSession(db,req);
+        let own=null;
+        if(student){ const row=one('SELECT telegram_id FROM students WHERE id=? AND deleted_at IS NULL',student.student_id); own=row?.telegram_id || null; }
+        return send(res,200,{telegram_id:own,bot_username:botUsername});
+      }
+      if(p==='/api/telegram-bot/connect' && req.method==='POST'){
+        let body={};
+        try{ body=await readBody(req); }catch(e){ return send(res,400,{error:'ورودی نامعتبر است',code:'INVALID_BODY'}); }
+        const raw=body===null||body===undefined||body.telegram_id===undefined||body.telegram_id===null?'':String(body.telegram_id);
+        const value=raw.replace(/^@+/,'').trim();
+        if(!value||value.length>64) return send(res,400,{error:'آیدی تلگرام نامعتبر است',code:'INVALID_TELEGRAM_ID'});
+        const student=studentSessionService.resolveStudentSession(db,req);
+        db.prepare('INSERT INTO telegram_bot_connections (telegram_id, student_id) VALUES (?, ?)').run(value, student?student.student_id:null);
+        if(student){
+          db.prepare('UPDATE students SET telegram_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run('@'+value, student.student_id);
+        }
+        return send(res,200,{ok:true,bot_username:botUsername});
+      }
+      return send(res,405,{error:'روش مجاز نیست',code:'METHOD_NOT_ALLOWED'});
+    }
     // ---- Public website content (no authentication; published data only) ----
     const isPublicContentPath = p==='/api/magazine' || p==='/api/results' || p==='/api/coach-profile' || p==='/api/site'
       || (p.startsWith('/api/magazine/') && !p.startsWith('/api/magazine/admin'));

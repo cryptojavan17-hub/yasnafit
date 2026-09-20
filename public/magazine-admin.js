@@ -651,6 +651,7 @@
           <p class="mag-toolbar__note">تا زمانی که خالی باشد، صفحه تماس فقط راه‌های ثبت‌نام/ورود را نشان می‌دهد.</p>
           <div class="form-grid">
             <label class="field-label">تلیگرام (آیدی)<input class="field" dir="ltr" data-setting="site.contact_telegram" value="${esc(s['site.contact_telegram'] || '')}"></label>
+            <label class="field-label">ربات تلگرام (نام کاربری ربات، بدون @)<input class="field" dir="ltr" data-setting="site.telegram_bot_username" value="${esc(s['site.telegram_bot_username'] || '')}"></label>
             <label class="field-label">اینستاگرام (آیدی)<input class="field" dir="ltr" data-setting="site.contact_instagram" value="${esc(s['site.contact_instagram'] || '')}"></label>
             <label class="field-label">فیسبوک (لینک)<input class="field" dir="ltr" data-setting="site.contact_facebook" value="${esc(s['site.contact_facebook'] || '')}"></label>
             <label class="field-label">ایمیل<input class="field" dir="ltr" data-setting="site.contact_email" value="${esc(s['site.contact_email'] || '')}"></label>
@@ -712,7 +713,7 @@
     const autoKeys = ['magazine.auto_fetch', 'magazine.auto_publish',
       'magazine.category_enabled.bodybuilding', 'magazine.category_enabled.sports-science',
       'magazine.category_enabled.nutrition', 'magazine.category_enabled.health', 'magazine.category_enabled.sports-news'];
-    const contactKeys = ['site.contact_telegram', 'site.contact_instagram', 'site.contact_facebook', 'site.contact_email', 'site.contact_note'];
+    const contactKeys = ['site.contact_telegram', 'site.telegram_bot_username', 'site.contact_instagram', 'site.contact_facebook', 'site.contact_email', 'site.contact_note'];
     const imageKeys = ['site.hero_image', 'site.about_image', 'site.cta_image', 'site.og_image'];
     pane.querySelector('#magSaveSettings')?.addEventListener('click', event => saveGroup(event.currentTarget, autoKeys));
     pane.querySelector('#magSaveContact')?.addEventListener('click', event => saveGroup(event.currentTarget, contactKeys));

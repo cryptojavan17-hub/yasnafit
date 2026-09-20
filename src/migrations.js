@@ -1433,6 +1433,22 @@ const migrations = [
       ];
       for (const [slug, nameFa, order] of seeded) seedCategory.run(genUUID(), slug, nameFa, order);
     }
+  },
+  {
+    id: '032_telegram_bot_connections',
+    description: 'Telegram bot: student connection log (public header «ربات تلگرام» button)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_bot_connections (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          telegram_id TEXT NOT NULL,
+          student_id INTEGER,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_bot_connections_student ON telegram_bot_connections(student_id);
+      `);
+    }
   }
 ];
 

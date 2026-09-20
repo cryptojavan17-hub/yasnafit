@@ -1059,3 +1059,82 @@ main { padding-top: var(--header-h); }
    centered on desktop, full-width (responsive) on mobile. */
 .home-about { background: var(--bg); }
 .home-about__img { display: block; width: 100%; height: auto; max-width: 941px; margin: 0 auto; }
+
+/* Task 26 — Telegram bot modal (header «ربات تلگرام» button, owner spec
+   2026-09-20): the visitor provides ONLY their Telegram ID, then the site
+   sends them straight to the Telegram app to start the bot. */
+.tg-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(2, 4, 6, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.tg-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 26px 26px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+.tg-dialog__close {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.tg-dialog__close:hover { border-color: var(--accent); color: var(--accent); }
+.tg-dialog__title { font-size: 20px; margin-bottom: 10px; }
+.tg-dialog__text { color: var(--text-2); font-size: 14px; line-height: 1.9; margin-bottom: 18px; }
+.tg-dialog__input {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.tg-dialog__input:focus-within { border-color: var(--border-strong); }
+.tg-dialog__input span {
+  padding: 0 12px;
+  color: var(--accent);
+  font-weight: 700;
+  border-right: 1px solid var(--border);
+  line-height: 48px;
+  user-select: none;
+}
+.tg-dialog__input input {
+  flex: 1;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  padding: 0 12px;
+}
+.tg-dialog__form .btn { width: 100%; }
+.tg-dialog__message {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  color: var(--accent);
+  line-height: 1.8;
+  text-align: center;
+}

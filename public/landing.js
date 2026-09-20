@@ -178,4 +178,89 @@
       });
     }, 2500);
   }
+  // ---------- Telegram bot modal (Task 26 — owner spec 2026-09-20) ----------
+  // The header «ربات تلگرام» button asks ONLY for the Telegram ID; on submit
+  // the user is sent straight to the Telegram app (t.me/<bot>) to start the
+  // bot. The ID is stored server-side (and on the student account when the
+  // user is logged in) so the bot can match the person.
+  let telegramDialog = null;
+  function closeTelegramDialog(){
+    if (!telegramDialog) return;
+    telegramDialog.remove();
+    telegramDialog = null;
+    document.removeEventListener('keydown', onTelegramDialogKeydown);
+  }
+  function onTelegramDialogKeydown(event){
+    if (event.key === 'Escape') closeTelegramDialog();
+  }
+  function openTelegramDialog(){
+    if (telegramDialog) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tg-dialog__backdrop';
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-label', 'اتصال به ربات تلگرام');
+    backdrop.innerHTML =
+      '<div class="tg-dialog">' +
+        '<button type="button" class="tg-dialog__close" aria-label="بستن">×</button>' +
+        '<h2 class="tg-dialog__title">اتصال به ربات تلگرام</h2>' +
+        '<p class="tg-dialog__text">فقط آیدی تلگرام خود را وارد کنید تا به تلگرام هدایت شوید و به ربات وصل شوید.</p>' +
+        '<form class="tg-dialog__form">' +
+          '<div class="tg-dialog__input" dir="ltr"><span>@</span><input name="telegram_id" maxlength="64" autocomplete="off" placeholder="username" required></div>' +
+          '<button class="btn btn--primary" type="submit">ورود به ربات تلگرام</button>' +
+        '</form>' +
+        '<p class="tg-dialog__message" role="status" hidden></p>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    telegramDialog = backdrop;
+    const input = backdrop.querySelector('input');
+    const message = backdrop.querySelector('.tg-dialog__message');
+    const form = backdrop.querySelector('form');
+    const submitButton = form.querySelector('[type="submit"]');
+    const close = () => closeTelegramDialog();
+    backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
+    backdrop.querySelector('.tg-dialog__close').addEventListener('click', close);
+    document.addEventListener('keydown', onTelegramDialogKeydown);
+    input.focus();
+    // Prefill when the visitor is a logged-in student with a stored ID.
+    fetch('/api/telegram-bot', { credentials: 'same-origin' })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => {
+        if (data && data.telegram_id) input.value = String(data.telegram_id).replace(/^@+/, '');
+      })
+      .catch(() => {});
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const value = String(input.value).replace(/^@+/, '').trim();
+      if (!value) return;
+      submitButton.disabled = true;
+      try {
+        const response = await fetch('/api/telegram-bot/connect', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telegram_id: value })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) throw new Error(data.error || 'خطا در اتصال');
+        if (data.bot_username) {
+          message.hidden = false;
+          message.textContent = 'اتصال شما ثبت شد — برنامه تلگرام باز می‌شود؛ ربات را شروع کنید.';
+          window.open('https://t.me/' + encodeURIComponent(data.bot_username), '_blank', 'noopener');
+          setTimeout(close, 1400);
+        } else {
+          message.hidden = false;
+          message.textContent = 'آیدی شما ثبت شد؛ ربات تلگرام به‌زودی فعال می‌شود.';
+        }
+      } catch (error) {
+        message.hidden = false;
+        message.textContent = error.message || 'خطا در اتصال';
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  }
+  document.querySelectorAll('[data-telegram-bot]').forEach(button => {
+    button.addEventListener('click', () => openTelegramDialog());
+  });
 })();

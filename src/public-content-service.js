@@ -212,6 +212,7 @@ const SITE_SETTINGS_DEFAULTS = {
   'site.cta_image': '/images/landing/cta-woman.jpg',
   'site.og_image': '/login-hero.png',
   'site.contact_telegram': '',
+  'site.telegram_bot_username': '',
   'site.contact_instagram': '',
   'site.contact_facebook': '',
   'site.contact_email': '',
@@ -243,6 +244,7 @@ function updateSiteSettings(db, input) {
     if (key.startsWith('magazine.category_enabled.')) value = value === '1' ? '1' : '0';
     else if (key === 'magazine.auto_fetch' || key === 'magazine.auto_publish') value = value === '1' ? '1' : '0';
     else if (key.startsWith('site.contact_')) value = value.slice(0, 300);
+    else if (key === 'site.telegram_bot_username') value = value.replace(/^@+/, '').trim().slice(0, 64);
     else if (key.startsWith('site.')) value = cleanPath(value) || '';
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
   }
@@ -266,6 +268,7 @@ function publicSiteInfo(db) {
       email: s['site.contact_email'] || null,
       note: s['site.contact_note'] || null
     },
+    telegram_bot_username: s['site.telegram_bot_username'] || null,
     enabled_categories: enabledCategories
   };
 }
