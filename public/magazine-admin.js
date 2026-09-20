@@ -33,7 +33,7 @@
     reviewId: null,
     review: null,
     queue: [],
-    queueStats: {},
+    newsStats: {},
     discoverRunning: false,
     sources: [],
     editingSource: null
@@ -71,8 +71,7 @@
   function renderMagazineAdmin(label, route) {
     const tabs = [
       ['articles', 'مقالات'],
-      ['queue', 'در انتظار بررسی'],
-      ['sources', 'منابع خبری'],
+      ['news', 'اخبار و مطالب جدید'],
       ['results', 'نتایج شاگردان'],
       ['categories', 'دسته‌بندی‌ها'],
       ['settings', 'تنظیمات سایت']
@@ -85,7 +84,7 @@
         <div class="magazine-admin__head">
           <div>
             <h1>مجله و سایت عمومی</h2>
-            <p class="magazine-admin__sub">مدیریت محتوای سایت عمومی YASNAFIT: مقالات، نتایج، دسته‌بندی‌ها و تنظیمات انتشار</p>
+            <p class="magazine-admin__sub">مدیریت محتوای سایت عمومی YASNAFIT: اخبار و مطالب جدید، مقالات، نتایج، دسته‌بندی‌ها و تنظیمات انتشار</p>
           </div>
         </div>
         <div class="magazine-tabs" role="tablist" aria-label="بخش‌های مدیریت مجله">
@@ -132,7 +131,7 @@
         state.categories = data.categories;
         pane.innerHTML = categoriesMarkup();
         bindCategories();
-      } else if (state.tab === 'queue') {
+      } else if (state.tab === 'news') {
         if (state.reviewId) {
           const [detail, categories] = await Promise.all([
             api(`/api/magazine/admin/queue/${state.reviewId}`),
@@ -149,10 +148,10 @@
             api('/api/magazine/admin/categories')
           ]);
           state.queue = data.queue;
-          state.queueStats = stats;
+          state.newsStats = stats;
           state.categories = categories.categories;
-          pane.innerHTML = queueMarkup();
-          bindQueue();
+          pane.innerHTML = newsMarkup();
+          bindNews();
         }
       } else if (state.tab === 'sources') {
         const [data, categories] = await Promise.all([
@@ -801,64 +800,153 @@
 
   // ---------- Editorial queue (discovered drafts) ----------
   const REJECT_REASONS = ['منبع نامعتبر', 'خبر تکراری', 'محتوای ضعیف', 'نیاز به بررسی بیشتر', 'خارج از حوزه', 'اطلاعات کافی نیست'];
+  const CATEGORY_EMOJI = { bodybuilding: '🏋️', 'sports-science': '🔬', nutrition: '🥗', health: '❤️', 'sports-news': '📰' };
 
-  function queueStatsMarkup() {
-    const s = state.queueStats || {};
-    const items = [
-      ['published', 'منتشر شده', s.published || 0],
-      ['pending', 'در انتظار بررسی', s.pending_review || 0],
-      ['drafts', 'پیش‌نویس‌ها', s.drafts || 0],
-      ['rejected', 'رد شده', s.rejected || 0],
-      ['new_today', 'مطالب جدید امروز', s.new_today || 0]
-    ];
-    return `<div class="mag-queue-stats" role="group" aria-label="آمار مجله">${items.map(([key, label, value]) => `<div class="mag-queue-stats__card"><b>${faDigits(value)}</b><span>${label}</span></div>`).join('')}</div>`;
+  function faDateTime(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z').toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return String(iso).slice(0, 16); }
   }
 
-  function flagsBadge(flags) {
-    if (!flags || !flags.length) return '';
-    return `<span class="mag-badge mag-badge--flag" title="${esc(flags.join('؛ '))}">⚠ ${faDigits(flags.length)}</span>`;
-  }
-
-  function queueMarkup() {
+  function newsCard(item) {
+    const emoji = CATEGORY_EMOJI[item.category] || '📰';
+    const catName = item.category_name || 'مجله';
+    const date = item.source_published_at || item.discovered_at || item.created_at;
+    const points = (item.key_points || []).slice(0, 4);
     return `
-      ${queueStatsMarkup()}
-      <div class="mag-toolbar">
-        <p class="mag-toolbar__note">سیستم به‌صورت خودکار منابع معتبر روز دنیا (PubMed + رسانه‌های علمی و ورزشی) را برای ورزش، تغذیه، بدنسازی و به‌ویژه سلامت زنان جستجو می‌کند، به فارسی ترجمه/ویراستاری می‌کند و برای بازبینی شما آماده می‌سازد. انتشار فقط با تأیید شما انجام می‌شود.</p>
+    <article class="mag-news-card" data-id="${item.id}">
+      <div class="mag-news-card__media">
+        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy">` : `<div class="mag-news-card__noimg"><span>🖼️ بدون تصویر</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
+      </div>
+      <div class="mag-news-card__head">
+        <span class="mag-news-cat">${emoji} ${esc(catName)}</span>
+        ${statusBadge(item.status)}
+      </div>
+      <h4 class="mag-news-title">${esc(item.title)}</h4>
+      ${item.original_title ? `<div class="mag-news-orig" dir="auto">Original: ${esc(item.original_title)}</div>` : ''}
+      <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ: ${faDate(date)}</div>
+      ${item.summary ? `<p class="mag-news-summary">${esc(item.summary)}</p>` : ''}
+      ${item.why_it_matters ? `<p class="mag-news-why"><b>چرا مهم است:</b> ${esc(item.why_it_matters)}</p>` : ''}
+      ${points.length ? `<ul class="mag-news-points">${points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+      ${item.source_url ? `<a class="mag-news-src" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده منبع اصلی ↗</a>` : ''}
+      <div class="mag-news-actions">
+        <button type="button" class="mag-action" data-news-action="review" data-id="${item.id}">مشاهده کامل</button>
+        <button type="button" class="mag-action" data-news-action="edit" data-id="${item.id}">ویرایش</button>
+        <button type="button" class="mag-action mag-action--publish" data-news-action="publish" data-id="${item.id}">✓ انتشار</button>
+        <button type="button" class="mag-action mag-action--reject" data-news-action="reject" data-id="${item.id}">رد</button>
+      </div>
+    </article>`;
+  }
+
+  function newsMarkup() {
+    const st = state.newsStats || {};
+    const n = state.queue.length;
+    return `
+      <div class="mag-news-head">
+        <div class="mag-news-head__info">
+          <p class="mag-news-last">آخرین بررسی: <b>${st.last_run_at ? faDateTime(st.last_run_at) : 'هنوز انجام نشده'}</b></p>
+          <p class="mag-news-count">${n ? `AI ${faDigits(n)} مطلب جدید پیدا کرده است.` : 'هنوز مطلب جدیدی برای بررسی وجود ندارد.'}</p>
+        </div>
         <div class="mag-toolbar__actions">
-          <button type="button" class="primary" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : 'بررسی مطالب جدید'}</button>
+          <button type="button" class="primary mag-news-run" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : '🔍 بررسی مطالب جدید'}</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="mag-table">
-          <thead>
-            <tr><th>مطلب</th><th>دسته</th><th>منبع</th><th>وضعیت</th><th>کیفیت</th><th>کشف‌شده</th><th>عملیات</th></tr>
-          </thead>
-          <tbody>
-            ${state.queue.length ? state.queue.map(item => `
-              <tr data-id="${item.id}">
-                <td>
-                  <div class="mag-title-cell">
-                    <b>${esc(item.title)}</b>
-                    ${item.duplicate_warning ? '<span class="mag-badge mag-badge--dup">احتمال تکراری</span>' : ''}
-                  </div>
-                </td>
-                <td>${esc(item.category_name || '—')}</td>
-                <td class="mag-origin" title="${esc(item.source_url || '')}">${esc(item.source_name || '—')}</td>
-                <td>${statusBadge(item.status)}</td>
-                <td>${flagsBadge(item.quality_flags)}</td>
-                <td>${faDate(item.discovered_at || item.created_at)}</td>
-                <td>
-                  <div class="mag-actions">
-                    <button type="button" class="mag-action mag-action--review" data-queue-action="review" data-id="${item.id}">بررسی</button>
-                    <button type="button" class="mag-action" data-queue-action="edit" data-id="${item.id}">ویرایش</button>
-                    <button type="button" class="mag-action mag-action--publish" data-queue-action="publish" data-id="${item.id}">تأیید و انتشار</button>
-                    <button type="button" class="mag-action mag-action--reject" data-queue-action="reject" data-id="${item.id}">رد</button>
-                  </div>
-                </td>
-              </tr>`).join('') : `<tr><td colspan="7" class="empty">مطلب جدیدی برای بررسی وجود ندارد. دکمهٔ «بررسی مطالب جدید» را بزنید یا منابع خبری را در تب «منابع خبری» اضافه کنید.</td></tr>`}
-          </tbody>
-        </table>
+      ${state.queue.length ? `<div class="mag-news-grid">${state.queue.map(newsCard).join('')}</div>` : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — سیستم از منابع معتبر روز دنیا جستجو می‌کند، فارسی می‌کند و گزارش آماده می‌سازد.</div>'}
+    `;
+  }
+
+  function imageModal(id, current) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal modal--sm">
+        <div class="modal-head"><h2>تصویر مطلب</h2><button type="button" class="close" data-close-modal aria-label="بستن">×</button></div>
+        <div class="modal-body">
+          <p class="mag-toolbar__note">مسیر یا آدرس تصویر را وارد کنید (تصویر خود منبع یا تصویری که خودتان بارگذاری کرده‌اید). از تصاویر تصادفی استفاده نمی‌شود.</p>
+          <label class="field-label">تصویر<input class="field" id="imgUrl" dir="ltr" value="${esc(current || '')}"></label>
+          <div id="imgPreview" class="mag-news-preview"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary" data-close-modal>بستن</button>
+          <button type="button" class="primary" id="imgSave">ذخیره تصویر</button>
+        </div>
       </div>`;
+    document.body.append(backdrop);
+    const close = () => backdrop.remove();
+    backdrop.querySelectorAll('[data-close-modal]').forEach(b => b.addEventListener('click', close));
+    backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+    const input = backdrop.querySelector('#imgUrl');
+    const prev = backdrop.querySelector('#imgPreview');
+    const upd = () => {
+      prev.innerHTML = '';
+      if (!input.value) return;
+      const img = document.createElement('img');
+      img.src = input.value;
+      img.alt = '';
+      img.addEventListener('error', () => { prev.innerHTML = ''; const p = document.createElement('p'); p.className = 'mag-toolbar__note'; p.textContent = 'پیش‌نمایش در دسترس نیست.'; prev.append(p); });
+      prev.append(img);
+    };
+    input.addEventListener('input', upd);
+    upd();
+    backdrop.querySelector('#imgSave').addEventListener('click', async () => {
+      try {
+        await api(`/api/magazine/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify({ cover_image: input.value || '' }) });
+        toast('تصویر ذخیره شد');
+        close();
+        renderPane();
+      } catch (e) { toast(e.message, true); }
+    });
+  }
+
+  function bindNews() {
+    const pane = document.getElementById('magazinePane');
+    if (!pane) return;
+    const discoverBtn = pane.querySelector('#magRunDiscover');
+    if (discoverBtn) discoverBtn.addEventListener('click', async () => {
+      state.discoverRunning = true;
+      discoverBtn.disabled = true;
+      discoverBtn.textContent = 'در حال بررسی…';
+      try {
+        const result = await api('/api/magazine/admin/discover', { method: 'POST', body: '{}' });
+        toast(result.drafted ? `${faDigits(result.drafted)} مطلب جدید پیدا شد` : 'مطلب جدیدی پیدا نشد');
+        await renderPane();
+      } catch (error) {
+        toast(error.message, true);
+        await renderPane();
+      }
+    });
+    pane.querySelectorAll('[data-news-action]').forEach(btn => {
+      const id = Number(btn.dataset.id);
+      const action = btn.dataset.newsAction;
+      btn.addEventListener('click', async () => {
+        try {
+          if (action === 'review') {
+            state.reviewId = id;
+            await renderPane();
+          } else if (action === 'edit') {
+            const article = await api(`/api/magazine/admin/articles/${id}`);
+            state.articles = state.articles.filter(x => x.id !== article.id);
+            state.articles.unshift(article);
+            articleModal(id);
+          } else if (action === 'image') {
+            const item = state.queue.find(x => x.id === id);
+            imageModal(id, item ? item.cover_image : '');
+          } else if (action === 'publish') {
+            if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
+            await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
+            toast('مطلب منتشر شد');
+            await renderPane();
+          } else if (action === 'reject') {
+            const reason = window.prompt('دلیل رد (اختیاری):', REJECT_REASONS[0]);
+            if (reason === null) return;
+            await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
+            toast('مطلب رد شد');
+            await renderPane();
+          }
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    });
   }
 
   function reviewMarkup() {
@@ -952,55 +1040,6 @@
       sources: (state.review?.references || []).map(s => ({ name: s.source_name, url: s.source_url })).filter(s => s.name || s.url)
     };
     await api(`/api/magazine/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify(body) });
-  }
-
-  function bindQueue() {
-    const pane = document.getElementById('magazinePane');
-    if (!pane) return;
-    const discoverBtn = pane.querySelector('#magRunDiscover');
-    if (discoverBtn) discoverBtn.addEventListener('click', async () => {
-      state.discoverRunning = true;
-      discoverBtn.disabled = true;
-      discoverBtn.textContent = 'در حال بررسی…';
-      try {
-        const result = await api('/api/magazine/admin/discover', { method: 'POST' });
-        toast(result.drafted ? `بررسی انجام شد: ${faDigits(result.drafted)} مطلب جدید از منابع روز دنیا آمادهٔ بازبینی شماست` : `بررسی انجام شد: مطلب جدیدی پیدا نشد (تکراری: ${faDigits(result.duplicates)})`);
-        await renderPane();
-      } catch (error) {
-        toast(error.message, true);
-        await renderPane();
-      }
-    });
-    pane.querySelectorAll('[data-queue-action]').forEach(btn => {
-      const id = Number(btn.dataset.id);
-      const action = btn.dataset.queueAction;
-      btn.addEventListener('click', async () => {
-        try {
-          if (action === 'review') {
-            state.reviewId = id;
-            await renderPane();
-          } else if (action === 'edit') {
-            const article = await api(`/api/magazine/admin/articles/${id}`);
-            state.articles = state.articles.filter(x => x.id !== article.id);
-            state.articles.unshift(article);
-            articleModal(id);
-          } else if (action === 'publish') {
-            if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
-            await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
-            toast('مطلب منتشر شد');
-            await renderPane();
-          } else if (action === 'reject') {
-            const reason = window.prompt('دلیل رد (اختیاری):', REJECT_REASONS[0]);
-            if (reason === null) return;
-            await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
-            toast('مطلب رد شد');
-            await renderPane();
-          }
-        } catch (error) {
-          toast(error.message, true);
-        }
-      });
-    });
   }
 
   function bindReview() {

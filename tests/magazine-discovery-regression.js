@@ -10,7 +10,7 @@ const discovery=require('/home/user/yasnafit/src/magazine-discovery-service');
 const RSS_A=`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>Feed A</title>
 <item><title>پژوهش جدید دربارهٔ تمرینات مقاومتی</title><link>https://news.example.com/story-1?utm_source=rss</link><pubDate>Mon, 18 Sep 2026 09:00:00 GMT</pubDate><description>یک مطالعهٔ جدید نشان می‌دهد تمرینات مقاومتی اثر مثبت بر سلامت است.</description><author>editor@example.com</author></item>
-<item><title>تغذیه قبل از تمرین</title><link>https://news.example.com/story-2</link><pubDate>Mon, 18 Sep 2026 10:00:00 GMT</description>بررسی زمان‌بندی مصرف پروتئین.</description></item>
+<item><title>تغذیه قبل از تمرین</title><link>__STORY2_URL__</link><pubDate>Mon, 18 Sep 2026 10:00:00 GMT</description>بررسی زمان‌بندی مصرف پروتئین.</description></item>
 </channel></rss>`;
 const RSS_B=`<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"><title>Feed B</title>
@@ -28,7 +28,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
 (async()=>{
   // ---- unit checks (no server) ----
-  const itemsA=discovery.parseFeed(RSS_A);
+  const itemsA=discovery.parseFeed(RSS_A.replace('__STORY2_URL__','http://127.0.0.1:1/story-2.html'));
   check('parseFeed RSS 2.0: 2 items', itemsA.length===2, 'got '+itemsA.length);
   check('parseFeed strips utm from nothing (link kept raw)', /story-1/.test(itemsA[0].url));
   check('parseFeed normalizes url (utm stripped)', discovery.normalizeUrl('https://news.example.com/story-1?utm_source=rss')==='https://news.example.com/story-1');
@@ -54,9 +54,14 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   db.close();
 
   const feedPort=await freePort();
+  const STORY2_URL='http://127.0.0.1:'+feedPort+'/story2.html';
+  const RSS_A2=RSS_A.replace('__STORY2_URL__',STORY2_URL);
+  const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image" content="/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
   const feedServer=http.createServer((req,res)=>{
+    if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
+    if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
     res.setHeader('Content-Type','application/xml; charset=utf-8');
-    if(req.url.startsWith('/a.xml'))res.end(RSS_A);
+    if(req.url.startsWith('/a.xml'))res.end(RSS_A2);
     else if(req.url.startsWith('/b.xml'))res.end(RSS_B);
     else {res.statusCode=404;res.end('not found');}
   });
@@ -89,10 +94,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // built-in world sources (migration 034): seeded & active by default; zero-setup flow
   r=await j('/api/magazine/admin/sources');
-  check('built-in world sources seeded (6, all active)', r.data.sources.length===6 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
+  check('built-in world sources seeded (11, all active)', r.data.sources.length===11 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
   for(const b of r.data.sources){ await j(`/api/magazine/admin/sources/${b.id}`,{method:'PUT',body:JSON.stringify({is_active:false})}); }
   r=await j('/api/magazine/admin/sources');
-  check('built-ins can be toggled off (advanced)', r.data.sources.length===6 && r.data.sources.every(x=>!x.is_active));
+  check('built-ins can be toggled off (advanced)', r.data.sources.length===11 && r.data.sources.every(x=>!x.is_active));
 
   // sources CRUD
   r=await j('/api/magazine/admin/sources',{method:'POST',body:JSON.stringify({name:'منبع نامعتبر',feed_url:'ftp://bad.example/x'})});
@@ -118,13 +123,18 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('discover#1 duplicate 1 (cross-source same story)', d1.duplicates===1, 'dups='+d1.duplicates);
   check('discover#1 failed 0', d1.failed===0, JSON.stringify(d1.errors||[]));
 
-  // queue
+  // og:image retrieval: the local article page image must be attached
+  r=await j('/api/magazine/admin/queue');
+  const qImg=r.data.queue.find(q=>q.source_url===STORY2_URL);
+  check('og:image attached from original article page', qImg && qImg.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
   r=await j('/api/magazine/admin/queue');
   check('queue has 3 pending drafts', r.data.queue.length===3, 'got '+r.data.queue.length);
   const q1=r.data.queue.find(q=>q.title.includes('پژوهش جدید'));
   check('queue item has source + flags + discovered_at', q1 && q1.source_name==='فید آزمایشی A' && Array.isArray(q1.quality_flags) && q1.discovered_at, q1?JSON.stringify({s:q1.source_name,f:q1.quality_flags,d:q1.discovered_at}):'missing');
   r=await j('/api/magazine/admin/queue/stats');
   check('stats: 0 published, 3 drafts, 3 new today', r.data.published===0 && r.data.drafts===3 && r.data.new_today===3, JSON.stringify(r.data));
+  r=await j('/api/magazine/admin/queue/stats');
+  check('stats: last_run_at recorded after discovery', Boolean(r.data.last_run_at), JSON.stringify(r.data.last_run_at));
 
   // review detail
   r=await j(`/api/magazine/admin/queue/${q1.id}`);
@@ -193,7 +203,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // notification
   r=await j('/api/coach/notifications');
   const note=(r.data.notifications||[]).find(n=>n.type==='magazine_review_ready');
-  check('coach in-app notification after discovery', Boolean(note) && /مطلب جدید برای بررسی مجله/.test(note.body), note?note.body:'none');
+  check('coach in-app notification after discovery (📰)', Boolean(note) && note.body.includes('📰') && note.body.includes('مطلب جدید برای بررسی آماده است'), note?note.body:'none');
 
   // settings: fetch_interval validation
   r=await j('/api/magazine/admin/settings',{method:'PUT',body:JSON.stringify({'magazine.fetch_interval':'13'})});
@@ -210,7 +220,9 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // admin UI assets reference the new tabs
   const ui=fs.readFileSync('/home/user/yasnafit/public/magazine-admin.js','utf8');
-  check('UI: queue + sources tabs present', ui.includes("['queue', 'در انتظار بررسی']") && ui.includes("['sources', 'منابع خبری']"));
+  check('UI: news inbox tab present', ui.includes("['news', 'اخبار و مطالب جدید']"));
+  check('UI: technical sources tab hidden from coach tabs', !ui.match(/const tabs = \[\s*\n(?:\s*\['[a-z]+',[^\n]*\n)*?\s*\['sources'[^\n]*\n/));
+  check('UI: editorial inbox card + image modal present', ui.includes('function newsCard') && ui.includes('function imageModal') && ui.includes('mag-news-grid'));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
 
   // ---- scheduler (in-process, same db as the server's data dir) ----

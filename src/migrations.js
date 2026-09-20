@@ -1515,6 +1515,21 @@ const migrations = [
       const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
       for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
     }
+  },
+  {
+    id: '035_magazine_builtin_topic_coverage',
+    description: 'Magazine: extend built-in world sources to full topic list (hypertrophy, recovery/sleep, supplements, women\'s sports, sports news) — still zero coach setup',
+    up(db) {
+      const builtins = [
+        ['builtin-pubmed-women-hypertrophy', 'PubMed — رشد عضلانی زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+muscle+hypertrophy&format=rss', 'rss', 'bodybuilding'],
+        ['builtin-pubmed-recovery-sleep', 'PubMed — ریکاوری و خواب', 'https://pubmed.ncbi.nlm.nih.gov/?term=exercise+recovery+OR+sleep&format=rss', 'rss', 'health'],
+        ['builtin-pubmed-supplements', 'PubMed — مکمل‌های ورزشی', 'https://pubmed.ncbi.nlm.nih.gov/?term=sports+supplements&format=rss', 'rss', 'nutrition'],
+        ['builtin-gnews-womens-sports', 'روز دنیا: ورزش زنان', 'https://news.google.com/rss/search?q=women%27s+sports&hl=en&gl=US&ceid=US:en', 'rss', 'sports-news'],
+        ['builtin-gnews-sports-news', 'روز دنیا: اخبار ورزشی مهم', 'https://news.google.com/rss/search?q=sports+news&hl=en&gl=US&ceid=US:en', 'rss', 'sports-news']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
   }
 ];
 
