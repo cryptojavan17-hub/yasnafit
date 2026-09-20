@@ -129,7 +129,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.match(home, /home-hero__logo/, 'home: hero logo (yasnafit.ir)');
     assert.ok(home.includes('بدنی قوی‌تر، زندگی'), 'home: hero title');
     assert.ok(home.includes('اعتماد به نفس'), 'home: hero lead copy');
-    assert.match(home, /src="\/images\/landing\/hero-photo\.jpg"/, 'home: hero photo from the reference crop');
+    assert.match(home, /src="\/images\/landing\/hero-photo\.png"/, 'home: hero photo from the reference crop');
     assert.doesNotMatch(home, /landing2\.png/, 'home: full design image removed');
     assert.match(home, /<title>YASNAFIT \| بدنی قوی‌تر، زندگی بهتر<\/title>/);
     assert.match(home, /rel="canonical"/);
@@ -152,9 +152,9 @@ async function waitForServer(timeoutMs = 15000) {
     // home now uses the same header + footer shell as the other public pages.
     assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|magazine-filters--home|landing-full|home-placeholder/);
     assert.match(home, /class="site-footer"/, 'home: footer shell like the other public pages');
-    const heroImg = await request('/images/landing/hero-photo.jpg');
+    const heroImg = await request('/images/landing/hero-photo.png');
     assert.equal(heroImg.response.status, 200, 'hero photo served');
-    assert.match(heroImg.response.headers.get('content-type') || '', /image\/jpeg/);
+    assert.match(heroImg.response.headers.get('content-type') || '', /image\/png/);
     const designImg = await request('/images/landing/landing2.png');
     assert.equal(designImg.response.status, 404, 'old design image no longer served');
     check('home: old structures removed, footer present, hero photo 200 (jpeg), old image 404');

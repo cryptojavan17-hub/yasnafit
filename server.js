@@ -3098,7 +3098,7 @@ function sendPublicPage(req, res, { kind, path }) {
         <p class="home-hero__lead">با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. من اینجا هستم تا در مسیر سلامت، قدرت و اعتماد به نفس به همراهت باشم.</p>
       </div>
       <figure class="home-hero__media">
-        <img src="/images/landing/hero-photo.jpg" alt="تصویر مربی YASNAFIT" fetchpriority="high">
+        <img src="/images/landing/hero-photo.png" alt="تصویر مربی YASNAFIT" fetchpriority="high">
       </figure>
     </div>
   </main>
