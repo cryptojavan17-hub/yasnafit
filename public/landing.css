@@ -1243,28 +1243,26 @@ main { padding-top: var(--header-h); }
   .service-card:hover, .story-card:hover, .article-card:hover, .contact-card:hover,
   .btn--primary:hover, .btn--ghost:hover { transform: none; }
 }
-/* Task 25 (PART 1 of 4) — home HERO, visual reference: owner's Hero.png
-   (2026-09-20). Photo = exact crop from the reference (hero-photo.jpg, no
-   text baked in); logo/title/lead are real HTML. Dark top space below the
-   fixed header (main { padding-top: var(--header-h) }). No buttons — the
-   reference has none. Desktop: photo LEFT ~44% / text RIGHT; mobile: photo
-   on top, text below. */
+/* Task 25 (PART 1 of 4 — FIX 1: sizing & balance, owner report 2026-09-20).
+   Balanced two-column hero, ref: owner's Hero.png. Photo = exact reference
+   crop shown at its NATURAL ratio (731:941) — never stretched to full height,
+   never zoomed/cropped — capped in size and framed with generous dark space.
+   Text right: logo + title + lead, prominent, with room under the paragraph
+   for future buttons. No buttons yet (none in the reference). Mobile: framed
+   photo stacks above the text. */
 .home-hero { background: var(--bg); }
 .home-hero__inner { display: grid; grid-template-columns: 1fr; }
-.home-hero__media { position: relative; margin: 0; order: -1; }
-.home-hero__media img { display: block; width: 100%; height: 46vh; min-height: 320px; object-fit: cover; object-position: 50% 30%; }
-.home-hero__media::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 56px; background: linear-gradient(to bottom, transparent, var(--bg)); }
-.home-hero__text { padding: 44px 20px 56px; }
-.home-hero__logo { margin: 0 0 18px; font-size: clamp(2rem, 5vw, 2.6rem); font-weight: 800; letter-spacing: 0.01em; color: var(--text); }
+.home-hero__media { position: relative; margin: 0 auto; order: -1; max-width: min(100%, 380px); }
+.home-hero__media img { display: block; width: 100%; height: auto; }
+.home-hero__text { padding: 32px 20px 88px; }
+.home-hero__logo { margin: 0 0 20px; font-size: clamp(2.2rem, 5.5vw, 4rem); font-weight: 800; letter-spacing: 0.01em; color: var(--text); }
 .home-hero__logo span { color: var(--accent); }
-.home-hero__title { margin: 0 0 18px; font-size: clamp(1.9rem, 5.4vw, 2.6rem); font-weight: 800; line-height: 1.65; color: var(--text); }
+.home-hero__title { margin: 0 0 20px; font-size: clamp(2rem, 4.8vw, 3.4rem); font-weight: 800; line-height: 1.6; color: var(--text); }
 .home-hero__title span { color: var(--accent); }
-.home-hero__lead { margin: 0; font-size: clamp(1rem, 2.4vw, 1.15rem); line-height: 2.25; color: var(--text-2); max-width: 34rem; }
+.home-hero__lead { margin: 0; font-size: clamp(1.05rem, 1.9vw, 1.3rem); line-height: 2.25; color: var(--text-2); max-width: 36rem; }
 @media (min-width: 901px) {
-  .home-hero__inner { grid-template-columns: 44fr 56fr; min-height: max(560px, calc(100vh - var(--header-h))); align-items: center; }
-  .home-hero__media { order: 0; height: 100%; }
-  .home-hero__media img { height: 100%; min-height: 0; }
-  .home-hero__media::before { display: none; }
-  .home-hero__media::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 88px; background: linear-gradient(to left, var(--bg), transparent); }
-  .home-hero__text { padding: 56px 0 56px 48px; margin-inline-end: clamp(24px, 16vw, 320px); }
+  .home-hero__inner { grid-template-columns: 48fr 52fr; align-items: center; min-height: max(560px, calc(100vh - var(--header-h))); }
+  .home-hero__media { order: 0; justify-self: center; max-width: min(100%, 540px); }
+  .home-hero__media img { width: auto; height: auto; max-width: 100%; max-height: min(74vh, 700px); }
+  .home-hero__text { padding: 64px 0 96px 56px; margin-inline-end: clamp(16px, 6vw, 110px); max-width: 40rem; }
 }
