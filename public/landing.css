@@ -1243,3 +1243,8 @@ main { padding-top: var(--header-h); }
   .service-card:hover, .story-card:hover, .article-card:hover, .contact-card:hover,
   .btn--primary:hover, .btn--ghost:hover { transform: none; }
 }
+/* Task 21 — full reference design image (landing2.png): owner directive 2026-09-20.
+   The landing page renders the complete design image; interactive elements
+   (header/buttons) will be overlaid later per owner's placement (T-19). */
+.landing-full { margin: 0; padding: 0; background: #05070a; }
+.landing-full__img { display: block; width: 100%; height: auto; }

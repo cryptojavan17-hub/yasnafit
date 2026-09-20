@@ -2794,131 +2794,6 @@ function aboutBadgesMarkup() {
     + '</ul>';
 }
 
-// Wireframe (newlanding.png section 6): the home magazine preview always shows
-// four sample cards (verbatim placeholder copy) until real articles are
-// published; every card links into the real /magazine section — no dead ends.
-const HOME_SAMPLE_CARDS = [
-  { slug: 'bodybuilding', name: 'بدنسازی' },
-  { slug: 'nutrition', name: 'تغذیه' },
-  { slug: 'sports-science', name: 'علم ورزش' },
-  { slug: 'health', name: 'سلامت' }
-];
-function sampleArticleCardMarkup(slug, name) {
-  return `<article class="article-card article-card--sample">
-  <div class="article-card__media article-card__media--sample" aria-hidden="true">
-    <img loading="lazy" src="/images/landing/cover-${slug}.jpg" alt="" data-fallback="/images/landing/cover-default.svg">
-    <span class="article-card__badge article-card__badge--${slug}">${name}</span>
-  </div>
-  <div class="article-card__body">
-    <h3 class="article-card__title">عنوان مقاله اینجا قرار می‌گیرد</h3>
-    <p class="article-card__summary">خلاصه کوتاه مقاله در اینجا نمایش داده می‌شود. این متن نمونه است.</p>
-    <div class="article-card__meta">
-      <span class="article-card__meta-item">${ICONS.calendar}</span><time>۱۴۰۵/۶/۲۷</time>
-      <span class="article-card__meta-item">${ICONS.clock}</span><span>۵ دقیقه</span>
-    </div>
-    <a class="article-card__cta" href="/magazine">مطالعه مقاله <span class="article-card__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
-  </div>
-</article>`;
-}
-
-function sampleMagazineMarkup() {
-  return '<div class="magazine-grid magazine-grid--home">'
-    + HOME_SAMPLE_CARDS.map(c => sampleArticleCardMarkup(c.slug, c.name)).join('')
-    + '</div>';
-}
-
-function homeBody(ctx) {
-  const { site, profile, articles } = ctx;
-  const heroImage = site.hero_image || '/images/landing/coach-placeholder.svg';
-  const aboutImage = site.about_image || '/images/landing/coach-placeholder.svg';
-  const ctaImage = site.cta_image || '/images/landing/coach-placeholder.svg';
-  const categoryPills = `<nav class="magazine-filters magazine-filters--home" aria-label="فیلتر دسته‌بندی مجله">
-    <a class="magazine-pill is-active" href="/magazine">همه</a>
-    ${ctx.categories.map(c => `<a class="magazine-pill" href="/magazine?category=${escHtml(c.slug)}">${escHtml(c.name_fa)}</a>`).join('')}
-  </nav>`;
-  return `
-<section class="hero">
-  <div class="hero__content">
-    <p class="hero__label"><span>YASNA</span>FIT</p>
-    <h1 class="hero__title">بدنی قوی‌تر،<br><span class="hero__title-accent">زندگی بهتر</span></h1>
-    <p class="hero__copy">با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. من اینجا هستم تا در مسیر سلامت، قدرت و اعتماد به نفس همراهت باشم.</p>
-    <div class="hero__actions">
-      <a class="btn btn--ghost" href="/about"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>آشنایی با من</a>
-      <a class="btn btn--primary" href="/student/register">شروع مسیر من <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
-    </div>
-  </div>
-  <div class="hero__media">
-    <div class="hero__frame">
-      <img class="hero__img hero__img--crop-hero" src="${escHtml(heroImage)}" alt="تصویر حرفه‌ای YASNAFIT" fetchpriority="high" data-fallback="/images/landing/coach-placeholder.svg">
-      <div class="hero__glow" aria-hidden="true"></div>
-    </div>
-  </div>
-</section>
-
-<section class="features" aria-label="ویژگی‌های کلیدی">
-  <div class="features__inner">
-    <div class="features__item">
-      <div class="features__icon" aria-hidden="true">${ICONS.dumbbell}</div>
-      <h3>مربیگری حرفه‌ای</h3>
-      <p>تجربه، دانش و همراهی در کنار تو</p>
-    </div>
-    <div class="features__divider" aria-hidden="true"></div>
-    <div class="features__item">
-      <div class="features__icon" aria-hidden="true">${ICONS.analytics}</div>
-      <h3>ارزیابی و پیگیری</h3>
-      <p>رصد مستمر پیشرفت و اصلاح مسیر</p>
-    </div>
-    <div class="features__divider" aria-hidden="true"></div>
-    <div class="features__item">
-      <div class="features__icon" aria-hidden="true">${ICONS.program}</div>
-      <h3>برنامه اختصاصی</h3>
-      <p>متناسب با هدف و شرایط تو</p>
-    </div>
-  </div>
-</section>
-
-<section class="about-preview">
-  <div class="about-preview__content">
-    <h2 class="section-title">درباره من</h2>
-    <p class="about-preview__highlight">${profile.highlight ? escHtml(profile.highlight) : 'مربیگری فقط ساختن بدن نیست؛ ساختن یک سبک زندگی است.'}</p>
-    <p class="about-preview__intro">${profile.bio ? escHtml(profile.bio) : 'من اینجا هستم: مربی، یار و برنامه‌ریز تمرینی با بیش از ۷ سال تجربه در حوزه فیتنس و بدنسازی. هدف من کمک به باورانی است که می‌خواهند. سالم‌تر، قوی‌تر و با اعتماد به نفس‌تر زندگی کنند.'}</p>
-    ${aboutBadgesMarkup()}
-    <a class="btn btn--ghost" href="/about">مشاهده رزومه <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
-  </div>
-  <div class="about-preview__media">
-    <div class="coach-frame">
-      ${coachImageMarkup(aboutImage, 'تصویر مربی', 'hero__img--crop-about')}
-    </div>
-  </div>
-</section>
-
-<section class="magazine">
-  <header class="section-head">
-    <div>
-      <h2 class="section-title">YASNAFIT <span class="section-title__accent">MAGAZINE</span></h2>
-      <p class="section-subtitle">علم، ورزش و سبک زندگی</p>
-    </div>
-    <a class="btn btn--ghost" href="/magazine">مشاهده همه مقالات <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
-  </header>
-  ${categoryPills}
-  ${articles.length ? `<div class="magazine-grid magazine-grid--home">${articles.slice(0, 4).map(articleCardMarkup).join('')}</div>` : sampleMagazineMarkup()}
-</section>
-
-${statsBandMarkup(profile)}
-
-<section class="cta-split">
-  <div class="cta-split__content">
-    <h2 class="section-title">آماده‌ای بهترین نسخه خودت باشی؟</h2>
-    <p class="cta-split__copy">همین حالا مسیر تغییر را شروع کن. من در کارت هستم.</p>
-    <a class="btn btn--primary" href="/student/register">شروع مسیر <span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
-  </div>
-  <div class="cta-split__media">
-    <div class="cta-split__frame">
-      <img class="cta-split__img" src="${escHtml(ctaImage)}" alt="تصویر YASNAFIT" loading="lazy" data-fallback="/images/landing/coach-placeholder.svg">
-    </div>
-  </div>
-</section>`;
-}
 
 function aboutBody(ctx) {
   const { site, profile } = ctx;
@@ -3186,7 +3061,7 @@ function sendPublicPage(req, res, { kind, path }) {
   const canonical = `${base}${path}${kind === 'magazine' && ctx.activeCategory ? `?category=${encodeURIComponent(ctx.activeCategory)}` : ''}`;
   const ogImage = meta.ogImage ? (meta.ogImage.startsWith('http') ? meta.ogImage : `${base}${meta.ogImage}`) : (ctx.site.og_image ? `${base}${ctx.site.og_image}` : '');
   const coachAuthorized = isCoachAuthorized(req);
-  const body = kind === 'home' ? homeBody(ctx)
+  const body = kind === 'home' ? ''
     : kind === 'about' ? aboutBody(ctx)
     : kind === 'services' ? servicesBody(ctx)
     : kind === 'results' ? resultsBody(ctx)
@@ -3194,6 +3069,19 @@ function sendPublicPage(req, res, { kind, path }) {
     : kind === 'article' ? articleBody(ctx)
     : contactBody(ctx);
   const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
+  // Task 21 — owner directive (2026-09-20): the landing page is the FULL reference
+  // design image (landing2.png) — «همین تصویر مرجع رو کامل استفاده کن». Real
+  // interactive elements (header/buttons/links) will be positioned on top later,
+  // once the owner marks their places (T-19). All other public pages keep the
+  // normal header/footer shell.
+  const bodyHtml = kind === 'home'
+    ? `<main id="main" class="landing-full"><img class="landing-full__img" src="/images/landing/landing2.png" alt="طراحی کامل صفحهٔ اصلی YASNAFIT" fetchpriority="high" /></main>`
+    : `<a class="skip-link" href="#main">پرش به محتوا</a>
+  ${headerMarkup(path, coachAuthorized)}
+  <main id="main">${body}</main>
+  ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
+  <script src="/jalali.js" defer></script>
+  <script src="/landing.js" defer></script>`;
   const html = `<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -3219,12 +3107,7 @@ function sendPublicPage(req, res, { kind, path }) {
   ${jsonLd}
 </head>
 <body data-page="${kind === 'article' ? 'article' : escHtml(path)}" data-coach-session="${coachAuthorized ? '1' : '0'}">
-  <a class="skip-link" href="#main">پرش به محتوا</a>
-  ${headerMarkup(path, coachAuthorized)}
-  <main id="main">${body}</main>
-  ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
-  <script src="/jalali.js" defer></script>
-  <script src="/landing.js" defer></script>
+  ${bodyHtml}
 </body>
 </html>`;
   const publicHeaders = {

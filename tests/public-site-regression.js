@@ -121,73 +121,26 @@ async function waitForServer(timeoutMs = 15000) {
   console.log('· public SSR pages');
   {
     const home = await html('/');
+    // Task 21 — owner directive (2026-09-20): the landing is the FULL reference
+    // design image (landing2.png); real interactive elements are placed later (T-19).
     assert.match(home, /<html[^>]+lang="fa"[^>]+dir="rtl"/);
-    assert.match(home, /بدنی قوی‌تر،\s*(<br\s*\/?>)?\s*(?:<span[^>]*>)?\s*زندگی بهتر/);
-    assert.match(home, /شروع مسیر من/);
-    assert.match(home, /آشنایی با من/);
-    assert.match(home, /YASNAFIT\s*(?:<[^>]*>)?\s*MAGAZINE/);
-    assert.match(home, /href="\/student\/login"/, 'header login uses the existing student login flow');
+    assert.match(home, /<img[^>]+src="\/images\/landing\/landing2\.png"/, 'home: full reference design image');
     assert.match(home, /<title>YASNAFIT \| بدنی قوی‌تر، زندگی بهتر<\/title>/);
     assert.match(home, /rel="canonical"/);
     assert.match(home, /property="og:title"/);
     assert.match(home, /property="og:description"/);
     assert.match(home, /name="description"/);
-    assert.match(home, /skip-link/i);
     assert.match(inlineScripts(home).join(''), /^$/);
     assert.doesNotMatch(home, /هوش مصنوعی/);
     assert.doesNotMatch(home, /AI-?generated|تولیدشده توسط/);
-    check('home: hero, CTAs, meta, canonical, no inline scripts, no AI wording');
-    // Wireframe composition (newlanding.png): in the RTL DOM the text block is
-    // the first (rightmost) child and the image block the second (leftmost).
-    const heroText = home.indexOf('hero__content');
-    const heroImg = home.indexOf('hero__media');
-    assert.ok(heroText > -1 && heroImg > -1 && heroText < heroImg, 'hero: text right / image left');
-    const aboutText = home.indexOf('about-preview__content');
-    const aboutImg = home.indexOf('about-preview__media');
-    assert.ok(aboutText > -1 && aboutImg > -1 && aboutText < aboutImg, 'about: text right / image left');
-    assert.match(home, /hero__title-accent/, 'hero: second headline line in cyan accent');
-    assert.match(home, /class="stats"/, 'home: statistics band present');
-    assert.match(home, /stats__value/, 'home: stats band renders values');
-    assert.match(home, /cta-split/, 'home: final CTA is a split text+image section');
-    assert.match(home, /magazine-filters--home/, 'home: magazine category pills present');
-    assert.ok(home.includes('href="/magazine?category=nutrition"'), 'home: pills reuse the /magazine?category= system');
-    assert.doesNotMatch(home, /<section class="services"/, 'home: no services section (wireframe order)');
-    assert.doesNotMatch(home, /<section class="results"/, 'home: no results section (wireframe order)');
-    assert.match(home, /site-footer__nav/, 'footer: inline navigation row');
-    assert.match(home, /site-footer__social/, 'footer: social icons row per wireframe');
-    assert.equal((home.match(/site-footer__social--placeholder/g) || []).length, 3, 'footer: three social placeholders until URLs configured');
-    assert.ok(home.includes('YASNAFIT © ' + new Date().getFullYear() + ' | تمامی حقوق محفوظ است'), 'footer: wireframe copyright line');
-    assert.doesNotMatch(home, /site-footer__coach/, 'footer: matches wireframe layout (no extra links)');
-    assert.ok(home.includes('<p class="hero__label"><span>YASNA</span>FIT</p>'), 'hero: two-tone label');
-    const featuresStart = home.indexOf('<section class="features"');
-    const featCoach = home.indexOf('مربیگری حرفه‌ای', featuresStart);
-    const featTrack = home.indexOf('ارزیابی و پیگیری', featuresStart);
-    const featProg = home.indexOf('برنامه اختصاصی', featuresStart);
-    assert.ok(featCoach > -1 && featTrack > -1 && featProg > -1 && featCoach < featTrack && featTrack < featProg, 'features: wireframe RTL order');
-    assert.match(home, /تجربه، دانش و همراهی در کنار تو/, 'features: wireframe subtext 1');
-    assert.match(home, /رصد مستمر پیشرفت و اصلاح مسیر/, 'features: wireframe subtext 2');
-    assert.match(home, /متناسب با هدف و شرایط تو/, 'features: wireframe subtext 3');
-    assert.match(home, /مربیگری فقط ساختن بدن نیست/, 'about: wireframe highlight');
-    assert.match(home, /با بیش از ۷ سال تجربه در حوزه فیتنس و بدنسازی/, 'about: wireframe bio default');
-    assert.match(home, /پشتیبانی از تغذیه و ورزش/, 'about: badge 1');
-    assert.match(home, /تخصیص بدنسازی بانوان/, 'about: badge 2');
-    assert.match(home, /مدرک بین‌المللی IFBB/, 'about: badge 3');
-    assert.match(home, /۷ سال تجربه مربیگری/, 'about: badge 4');
-    assert.match(home, /مشاهده رزومه/, 'about: resume CTA');
-    assert.equal((home.match(/article-card--sample/g) || []).length, 4, 'magazine: four sample cards when no articles');
-    assert.match(home, /عنوان مقاله اینجا قرار می‌گیرد/, 'sample card title');
-    assert.match(home, /خلاصه کوتاه مقاله در اینجا نمایش داده می‌شود/, 'sample card summary');
-    assert.ok(home.includes('۱۴۰۵' + '/' + '۶' + '/' + '۲۷'), 'sample card date (Persian digits)');
-    assert.match(home, /مطالعه مقاله/, 'sample card CTA');
-    assert.ok(home.includes('۵۰۰' + '+'), 'stats: 500+ students');
-    assert.match(home, /شاگرد موفق/, 'stats label 1');
-    assert.ok(home.includes('۷۰' + '+'), 'stats: 70+ years');
-    assert.match(home, /سال تجربه/, 'stats label 2');
-    assert.ok(home.includes('۱۲۰' + '+'), 'stats: 120+ programs');
-    assert.match(home, /۹۸٪/, 'stats: 98% satisfaction');
-    assert.match(home, /رضایت شاگردان/, 'stats label 4');
-    assert.match(home, /من در کارت هستم/, 'CTA: wireframe subline');
-    check('home: wireframe composition (left images, stats band, pills, footer)');
+    check('home: full reference image + head/meta/canonical, no inline scripts, no AI wording');
+    // The previous structural landing (hero/features/stats/sample cards/header/footer)
+    // must be gone from the page shell.
+    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|site-footer|class="brand"|magazine-filters--home/);
+    const designImg = await request('/images/landing/landing2.png');
+    assert.equal(designImg.response.status, 200, 'design image served');
+    assert.match(designImg.response.headers.get('content-type') || '', /image\/png/);
+    check('home: old structure removed + design image 200 (image/png)');
 
     const homeRes = await request('/');
     const csp = homeRes.response.headers.get('content-security-policy') || '';
@@ -458,17 +411,21 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(!('random.key' in lenient.settings));
     // The final CTA image is admin-configurable and drives the public home.
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.cta_image': '/images/landing/coach-placeholder.svg' } });
-    const homeAfterCta = await html('/');
-    assert.ok(homeAfterCta.includes('src="/images/landing/coach-placeholder.svg"'), 'home CTA image reflects the configured cta_image');
-    check('site.cta_image → public home CTA image');
+    // The final CTA image stays admin-configurable and exposed via /api/site; the
+    // full-image landing (Task 21) does not render it until T-19 places the controls.
+    const siteAfterCta = await ok('/api/site');
+    assert.equal(siteAfterCta.cta_image, '/images/landing/coach-placeholder.svg', 'cta_image configurable + exposed via /api/site');
+    check('site.cta_image → admin-configurable, exposed via /api/site');
 
     // Footer social icons render ONLY when the owner configures a real URL.
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '@yasnafit_sample' } });
-    const homeWithSocial = await html('/');
-    assert.ok(homeWithSocial.includes('site-footer__social') && homeWithSocial.includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
+    // Footer social icons render ONLY when the owner configures a real URL (footer is
+    // on every public page except the full-image home — verified on /about).
+    const aboutWithSocial = await html('/about');
+    assert.ok(aboutWithSocial.includes('site-footer__social') && aboutWithSocial.includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '', 'site.cta_image': '' } });
-    const homeNoSocial = await html('/');
-    assert.ok(!homeNoSocial.includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
+    const aboutNoSocial = await html('/about');
+    assert.ok(!aboutNoSocial.includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
     check('footer: social icon only when a real URL is configured');
     check('unknown settings keys ignored, known keys applied');
   }
@@ -562,8 +519,9 @@ async function waitForServer(timeoutMs = 15000) {
   }
 
   // ---------- 12. Root is the public landing page for EVERYONE (owner decision 2026-09-19) ----------
-  // The landing is the site's front door; a logged-in coach reaches the panel from
-  // the header "پنل مربی" button (or directly at /coach/dashboard).
+  // The landing is the site's front door; a logged-in coach reaches the panel at
+  // /coach/dashboard (Task 21: the full-image landing has no header until T-19
+  // places the real controls on top of the design image).
   console.log('· root always serves the public landing page');
   {
     const anon = await request('/');
@@ -578,7 +536,8 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(res.data.includes('id="main"'), 'authed coach still gets the landing page on /');
     assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /');
     assert.ok(res.data.includes('data-coach-session="1"'), 'authed landing marks the coach session');
-    assert.ok(res.data.includes('پنل مربی'), 'authed landing header offers the پنل مربی button');
+    // Task 21: the full-image landing has no header — the coach reaches the panel at /coach/dashboard.
+    assert.ok(!res.data.includes('class="brand"'), 'full-image landing has no header; panel lives at /coach/dashboard');
     check('GET / (coach session) → public landing page with panel button');
 
     const dash = await request('/coach/dashboard', { cookie: coachCookie });
