@@ -178,6 +178,32 @@
       });
     }, 2500);
   }
+  // ---------- Home magazine category filter (Task 25 PART 3) ----------
+  // The home shows the same real article cards as /magazine; the pills filter
+  // them in place (buttons + aria-pressed, same convention as the magazine page).
+  const homeMagazineGrid = document.getElementById('magazineHomeGrid');
+  if (homeMagazineGrid) {
+    const homeSection = homeMagazineGrid.closest('section');
+    const homePills = homeSection.querySelectorAll('.magazine-filters--home .magazine-pill');
+    const homeNone = homeSection.querySelector('.magazine--home__none');
+    homePills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        homePills.forEach(p => { p.classList.remove('is-active'); p.setAttribute('aria-pressed', 'false'); });
+        pill.classList.add('is-active');
+        pill.setAttribute('aria-pressed', 'true');
+        const category = pill.dataset.category || '';
+        homeMagazineGrid.dataset.category = category;
+        let visible = 0;
+        homeMagazineGrid.querySelectorAll('.article-card').forEach(card => {
+          const show = !category || card.dataset.category === category;
+          card.classList.toggle('is-hidden', !show);
+          if (show) visible += 1;
+        });
+        if (homeNone) homeNone.hidden = !(category && visible === 0);
+      });
+    });
+  }
+
   // ---------- Telegram bot modal (Task 26 — owner spec 2026-09-20) ----------
   // The header «ربات تلگرام» button asks ONLY for the Telegram ID; on submit
   // the user is sent straight to the Telegram app (t.me/<bot>) to start the

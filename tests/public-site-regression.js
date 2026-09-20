@@ -166,7 +166,26 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: ربات تلگرام modal button + /api/telegram-bot connect flow');
     // The previous structural landing AND the full-image landing must be gone;
     // home now uses the same header + footer shell as the other public pages.
-    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|magazine-filters--home|landing-full|home-placeholder/);
+    assert.doesNotMatch(home, /hero__content|features__item|article-card--sample|landing-full|home-placeholder/);
+    // Task 25 (PART 3): magazine + stats section below the about section — the
+    // real article system (published articles only, no invented content), the
+    // owner's exact pill list, and the owner-provided stats numbers.
+    assert.match(home, /<section class="magazine magazine--home"/, 'home: magazine section below about');
+    assert.match(home, /<p class="section-eyebrow">YASNAFIT MAGAZINE<\/p>/, 'home magazine: title YASNAFIT MAGAZINE');
+    assert.match(home, /<h2 class="magazine--home__title">علم، ورزش و سبک زندگی<\/h2>/, 'home magazine: subtitle');
+    for (const [slug, label] of [['', 'همه'], ['bodybuilding', 'بدنسازی'], ['sports-science', 'علم ورزش'], ['nutrition', 'تغذیه'], ['health', 'سلامت']]) {
+      assert.ok(home.includes(`data-category="${slug}"`), `home magazine pill: ${label}`);
+    }
+    assert.ok(home.includes('aria-pressed="true"'), 'home magazine: همه pill active by default');
+    assert.match(home, /id="magazineHomeGrid"/, 'home magazine: article grid present');
+    assert.match(home, /هنوز مقاله‌ای منتشر نشده است/, 'home magazine: clean empty state (no invented articles)');
+    assert.match(home, /<section class="stats" aria-label="آمار YASNAFIT">/, 'home: stats row present');
+    const faDigits = n => String(n).replace(/[0-9]/g, d => String.fromCodePoint(0x06F0 + +d));
+    if (faDigits("0123456789") !== String.fromCodePoint(0x06F0,0x06F1,0x06F2,0x06F3,0x06F4,0x06F5,0x06F6,0x06F7,0x06F8,0x06F9)) throw new Error("faDigits map broken");
+    const statsBlock = home.split('<div class="stats__inner">')[1] || '';
+    assert.equal((statsBlock.match(/class="stats__item"/g) || []).length, 4, 'home: four stats items');
+    for (const label of ['شاگرد موفق', 'سال تجربه', 'برنامه اختصاصی', 'رضایت شاگردان']) assert.ok(statsBlock.includes(label), `home stats label: ${label}`);
+    for (const value of [faDigits('500+'), faDigits('17+'), faDigits('120+'), faDigits('98') + '٪']) assert.ok(statsBlock.includes(value), `home stats value: ${value}`);
     assert.match(home, /class="site-footer"/, 'home: footer shell like the other public pages');
     const heroImg = await request('/images/landing/hero.png');
     assert.equal(heroImg.response.status, 200, 'full hero image served');

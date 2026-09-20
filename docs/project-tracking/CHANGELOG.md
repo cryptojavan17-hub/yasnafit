@@ -8,6 +8,13 @@
 
 ## 2026-09-20
 
+### Task 25 (مرحلهٔ ۳ از ۴ — مجله + آمار) — بخش مجلهٔ واقعی + نوار آمار زیر درباره من
+
+- **FILES CHANGED:** `server.js` (home: بلاک جدید مجله + آمار زیر بخش about — پیل‌ها با فهرست دقیق مالک، کارت‌ها از articleCardMarkup موجود با data-category، آمار با اعداد مالک) • `public/landing.css` (۶ قانون کوچک: سرصفحهٔ وسط‌چین + گرید ۳ ستونه + حالت خالی) • `public/landing.js` (فیلتر در‌جا پیل‌های مجلهٔ home با aria-pressed) • `tests/public-site-regression.js` (assertions بخش + آمار + empty state؛ regex منفی قدیمی به‌روزرسانی شد).
+- **WHAT:** دستور مالک: عنوان YASNAFIT MAGAZINE + زیرعنوان «علم، ورزش و سبک زندگی» + پیل‌های فیلتر (دکمه، نه چک‌باکس): همه | بدنسازی | علم ورزش | تغذیه | سلامت + گرید کارت‌های مقاله (تصویر + دسته + عنوان + خلاصه + مطالعه مقاله) + نوار آمار: ۵۰۰+ شاگرد موفق | ۱۷+ سال تجربه | ۱۲۰+ برنامه اختصاصی | ۹۸٪ رضایت شاگردان ⇒ **کاملاً روی سیستم واقعی**: کارت‌ها فقط مقالات منتشرشدهٔ DB (workflow draft→review→publish + گیتهای دستهٔ عمومی) — صفر محتوای اختراعی؛ اگر مقاله‌ای نیست، empty state تمیز نمایش داده می‌شود. فیلتر پیل‌ها در‌جا (client) کار می‌کند؛ هر کارت به صفحهٔ واقعی /magazine/<slug> لینک دارد.
+- **TESTS:** ۶۱ گروه public-site + e2e کامل سبز + smoke زنده (حالت خالی: empty state + ۴ آمار؛ با ۲ مقالهٔ منتشرشده: ۲ کارت با دسته + CTA + حذف empty state؛ تمیزکاری بعد از تست).
+- **COMPAT:** صفحهٔ /magazine و سیستم مقاله دست‌نخورده؛ هیرو/درباره من دست‌نخورده؛ responsive موجود (۳→۲→۱ ستون) استفاده شد.
+
 ### Task 26 (اصلاح — دستور نهایی مالک) — ربات تلگرام = مودال فقط‌آیدی + هدایت مستقیم به تلگرام
 
 - **FILES CHANGED:** `server.js` (دکمهٔ هدر به <button> مودال‌ساز تبدیل شد؛ API جدید: GET /api/telegram-bot + POST /api/telegram-bot/connect) • `src/migrations.js` (032: جدول telegram_bot_connections) • `src/public-content-service.js` (setting جدید site.telegram_bot_username + نورمالایز) • `public/landing.js` (مودال «اتصال به ربات تلگرام»: یک ورودی @username → POST → window.open ت.me/ربات) • `public/landing.css` (استایل مودال) • `public/magazine-admin.js` (فیلد «نام کاربری ربات» در تنظیمات) • برگردانده: `public/student-app.js` (کارت پروفایلِ دورزدیدۀ اصلاح قبل حذف شد) • تست‌ها.

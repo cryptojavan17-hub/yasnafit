@@ -2956,6 +2956,21 @@ function sendPublicPage(req, res, { kind, path }) {
   // owner's Hero.png, shown in FULL — exact file from main, no crop, no gap,
   // no deletion of anything (text/logo are part of the image; no HTML text
   // overlay that would duplicate them). Full width, natural ratio, responsive.
+  // Task 25 (PART 3) — magazine + stats on home. Real system, real articles
+  // only (published, category-gated); the owner's exact pill list; stats row
+  // with the owner-provided numbers. Markup/CSS reuse the /magazine system.
+  const homeMagSlugs=['bodybuilding','sports-science','nutrition','health'];
+  const homeMagNames={bodybuilding:'بدنسازی','sports-science':'علم ورزش',nutrition:'تغذیه',health:'سلامت'};
+  const homeMagCategories=homeMagSlugs.map(slug=>{const found=(ctx.categories||[]).find(c=>c.slug===slug);return found?found:{slug,name_fa:homeMagNames[slug]};});
+  const homeMagPills=[`<button type="button" class="magazine-pill is-active" data-category="" aria-pressed="true">همه</button>`,
+    ...homeMagCategories.map(c=>`<button type="button" class="magazine-pill" data-category="${escHtml(c.slug)}" aria-pressed="false">${escHtml(c.name_fa)}</button>`)].join('');
+  const homeMagCards=(ctx.articles||[]).map(a=>articleCardMarkup(a).replace('<article class="article-card">',`<article class="article-card" data-category="${escHtml(a.category||'')}">`)).join('');
+  const homeMagStats=[
+    {icon:'user',value:toFaDigits('500+'),label:'شاگرد موفق'},
+    {icon:'calendar',value:toFaDigits('17+'),label:'سال تجربه'},
+    {icon:'program',value:toFaDigits('120+'),label:'برنامه اختصاصی'},
+    {icon:'heart',value:toFaDigits('98')+'٪',label:'رضایت شاگردان'}
+  ].map(item=>`<div class="stats__item"><span class="stats__icon" aria-hidden="true">${ICONS[item.icon]}</span><span class="stats__value">${item.value}</span><span class="stats__label">${item.label}</span></div>`).join('');
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
@@ -2965,6 +2980,18 @@ function sendPublicPage(req, res, { kind, path }) {
     </div>
     <section id="about" class="home-about">
       <img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT" loading="lazy">
+    </section>
+    <section class="magazine magazine--home" aria-label="YASNAFIT MAGAZINE">
+      <div class="magazine--home__head">
+        <p class="section-eyebrow">YASNAFIT MAGAZINE</p>
+        <h2 class="magazine--home__title">علم، ورزش و سبک زندگی</h2>
+      </div>
+      <div class="magazine-filters magazine-filters--home" role="group" aria-label="فیلتر دسته‌بندی">${homeMagPills}</div>
+      <div class="magazine-grid magazine-grid--home" id="magazineHomeGrid" data-category="">${homeMagCards || emptyMagazineMarkup()}</div>
+      <div class="magazine--home__none empty-state" role="status" hidden><div class="empty-state__icon" aria-hidden="true">${ICONS.program}</div><h3>هنوز مقاله‌ای در این دسته منتشر نشده است</h3><p>دستهٔ دیگر را انتخاب کنید یا از صفحهٔ مجله دیدن کنید.</p></div>
+    </section>
+    <section class="stats" aria-label="آمار YASNAFIT">
+      <div class="stats__inner">${homeMagStats}</div>
     </section>
   </main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}

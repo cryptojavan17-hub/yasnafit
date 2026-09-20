@@ -521,6 +521,14 @@ main { padding-top: var(--header-h); }
   margin: 0 auto;
   padding: 40px 24px 96px;
 }
+/* Task 25 (PART 3) — home magazine section: centered head under the about
+   section + 3-up cards (same card/filter system as /magazine). */
+.magazine--home__head { text-align: center; margin-bottom: 34px; }
+.magazine--home__head .section-eyebrow { margin-bottom: 10px; }
+.magazine--home__title { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; margin: 0; }
+.magazine-grid--home { grid-template-columns: repeat(3, 1fr); }
+.magazine--home__none { margin-top: 24px; }
+.magazine-grid--home .article-card.is-hidden { display: none; }
 .magazine-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
