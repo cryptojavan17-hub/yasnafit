@@ -41,6 +41,7 @@ const buildInfo = require('./src/build-info');
 const storagePaths = require('./src/storage-paths');
 const articleService = require('./src/article-service');
 const publicContentService = require('./src/public-content-service');
+const magazineDiscovery = require('./src/magazine-discovery-service');
 if(requestSecurity.ALLOW_2FA_SKIP){
   console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
 }
@@ -3136,14 +3137,114 @@ async function handleMagazineAdmin(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     const id=Number(adminActionMatch[1]);
     const action=adminActionMatch[2];
+    const body=await readBody(req);
     const labels={ 'to-review':'به بررسی ارسال شد', 'publish':'انتشار یافت', 'reject':'رد شد', 'to-draft':'به پیش‌نویس برگشت' };
+    if(action==='publish'){
+      const existing=articleService.adminArticle(db,id);
+      if(!existing) return sendError(res,404,'مقاله پیدا نشد');
+      if(['generated','imported'].includes(existing.content_origin)){
+        const refCount=db.prepare('SELECT COUNT(*) c FROM magazine_article_sources WHERE article_id=?').get(id).c;
+        if(!existing.source_url && !existing.source_name && !refCount) return send(res,400,{error:'برای انتشار این مقاله باید منبع معتبر ثبت شود',code:'SOURCE_REQUIRED'});
+      }
+      if(existing.source_url){
+        const urlHash=magazineDiscovery.sha1(magazineDiscovery.normalizeUrl(existing.source_url));
+        if(urlHash){
+          const published=db.prepare("SELECT source_url FROM magazine_articles WHERE deleted_at IS NULL AND status='PUBLISHED' AND id<>? AND source_url IS NOT NULL").all(id);
+          if(published.some(r=>magazineDiscovery.sha1(magazineDiscovery.normalizeUrl(r.source_url))===urlHash)) return send(res,409,{error:'این خبر قبلاً با همین منبع منتشر شده است',code:'DUPLICATE_SOURCE'});
+        }
+      }
+    }
     try{
       const article=articleService.transitionArticle(db,id,action.replace(/-/g,'_'));
+      if(action==='reject' && body && body.reason){
+        db.prepare('UPDATE magazine_articles SET rejection_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL').run(String(body.reason).slice(0,300),id);
+      }
       log(`مقاله مجله: ${labels[action]}`, article.title);
-      auditService.record(db,{actorType:'coach',action:`article.${action.replace('-','_')}`,entityType:'magazine_article',entityId:id,entityStableId:article.stable_id,metadata:{status:article.status}});
+      auditService.record(db,{actorType:'coach',action:`article.${action.replace('-','_')}`,entityType:'magazine_article',entityId:id,entityStableId:article.stable_id,metadata:{status:article.status,rejection_reason:action==='reject'&&body&&body.reason?String(body.reason).slice(0,300):null}});
       return send(res,200,article);
     }catch(error){ return sendCaughtError(res,error); }
   }
+  // ----- Editorial review queue (discovered drafts) -----
+  if(p==='/api/magazine/admin/queue' && req.method==='GET'){
+    const status=(url.searchParams.get('status')||'').toUpperCase();
+    return send(res,200,{queue:magazineDiscovery.queueView(db,{status})});
+  }
+  if(p==='/api/magazine/admin/queue/stats' && req.method==='GET'){
+    return send(res,200,magazineDiscovery.queueStats(db));
+  }
+  const queueItemMatch=p.match(/^\/api\/magazine\/admin\/queue\/(\d+)$/);
+  if(queueItemMatch && req.method==='GET'){
+    const id=Number(queueItemMatch[1]);
+    const article=articleService.adminArticle(db,id);
+    if(!article) return sendError(res,404,'مقاله پیدا نشد');
+    const discovery=db.prepare('SELECT * FROM magazine_discoveries WHERE article_id=? ORDER BY id DESC LIMIT 1').get(id);
+    let qualityFlags=[];let aiMeta=null;
+    if(discovery){try{qualityFlags=JSON.parse(discovery.quality_flags||'[]');}catch(e){qualityFlags=[];}try{aiMeta=JSON.parse(discovery.ai_meta||'null');}catch(e){aiMeta=null;}}
+    const refs=db.prepare('SELECT source_name, source_url, note FROM magazine_article_sources WHERE article_id=? ORDER BY sort_order, id').all(id);
+    const history=auditService.listForEntity(db,'magazine_article',id);
+    return send(res,200,{article,discovery:discovery?{discovered_at:discovery.created_at,original_title:discovery.title_original,source_published_at:discovery.date_published,duplicate:discovery.status==='DUPLICATE'}:null,quality_flags:qualityFlags,ai_meta:aiMeta,references:refs,history:history.slice(0,20)});
+  }
+  if(p==='/api/magazine/admin/discover' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      const result=await magazineDiscovery.runDiscovery(db);
+      log('بررسی مطالب جدید مجله انجام شد', `${result.drafted} پیش‌نویس جدید / ${result.duplicates} تکراری`);
+      return send(res,200,result);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  // ----- News sources (magazine_sources) -----
+  if(p==='/api/magazine/admin/sources' && req.method==='GET'){
+    return send(res,200,{sources:magazineDiscovery.listSources(db)});
+  }
+  if(p==='/api/magazine/admin/sources' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const source=magazineDiscovery.createSource(db,b);
+      log('منبع خبری جدید مجله', source.name);
+      auditService.record(db,{actorType:'coach',action:'source.created',entityType:'magazine_source',entityId:source.id,metadata:{name:source.name}});
+      return send(res,201,source);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  const adminSourceMatch=p.match(/^\/api\/magazine\/admin\/sources\/(\d+)$/);
+  if(adminSourceMatch){
+    const id=Number(adminSourceMatch[1]);
+    if(req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const b=await readBody(req);
+      try{
+        const source=magazineDiscovery.updateSource(db,id,b);
+        log('منبع خبری مجله ویرایش شد', source.name);
+        auditService.record(db,{actorType:'coach',action:'source.updated',entityType:'magazine_source',entityId:id,metadata:{name:source.name,is_active:source.is_active}});
+        return send(res,200,source);
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      try{
+        if(!magazineDiscovery.deleteSource(db,id)) return sendError(res,404,'منبع پیدا نشد');
+        log('منبع خبری مجله حذف شد', `#${id}`);
+        auditService.record(db,{actorType:'coach',action:'source.deleted',entityType:'magazine_source',entityId:id});
+        return send(res,200,{id,soft_deleted:true});
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
+  const sourceTestMatch=p.match(/^\/api\/magazine\/admin\/sources\/(\d+)\/test$/);
+  if(sourceTestMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(sourceTestMatch[1]);
+    const source=magazineDiscovery.listSources(db).find(x=>x.id===id);
+    if(!source) return sendError(res,404,'منبع پیدا نشد');
+    try{
+      const items=await magazineDiscovery.fetchSourceItems(db,source).catch(async e=>{ magazineDiscovery.setSourceFetchResult(db,id,{ok:false,error:String(e.message||e).slice(0,300)}); throw e; });
+      magazineDiscovery.setSourceFetchResult(db,id,{ok:true});
+      return send(res,200,{ok:true,item_count:items.length,preview:items.slice(0,3).map(i=>({title:i.title,url:i.url,published_at:i.publishedAt}))});
+    }catch(error){
+      return send(res,200,{ok:false,error:String(error.message||error).slice(0,300)});
+    }
+  }
+
   // ----- Categories -----
   if(p==='/api/magazine/admin/categories' && req.method==='GET'){
     return send(res,200,{categories:articleService.listAdminCategories(db)});
@@ -3697,6 +3798,7 @@ server.listen(port,listenHost,()=>{
   if(!requestSecurity.TRUST_PROXY) console.log('[Security] X-Forwarded-* headers are ignored (set YASNAFIT_TRUST_PROXY=1 behind a reverse proxy).');
   if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
+  try { magazineDiscovery.startDiscoveryScheduler(db); console.log('[Magazine Discovery] scheduler armed (settings-driven)'); } catch (e) { console.log('[Magazine Discovery] scheduler unavailable:', e.message); }
   const repoImageCount = countFlatImages(path.join(publicDir,'assets','images','exercises','imported'));
   const volumeImageCount = countFlatImages(storagePaths.exerciseImagesDir);
   const mediaSummary = `[Media] تصاویر حرکات: ${repoImageCount+volumeImageCount} فایل (Volume: ${volumeImageCount} | ریپو: ${repoImageCount}) · ریشه: ${storagePaths.exerciseImagesDir}`;

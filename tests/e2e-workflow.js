@@ -268,7 +268,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
     assert.match(script.headers.get('content-security-policy')||'',/frame-ancestors/,'static assets bypass the hardening headers');
   }
   const publicHealth=await ok('/api/health');assert.deepEqual(Object.keys(publicHealth).sort(),['ok','status','uptime','version'],'public health payload exposes more than liveness');
-  const health=await ok('/api/health?detailed=1',{coach:true});assert.equal(health.exercises,2707);assert.equal(health.schema_version,'032_telegram_bot_connections');
+  const health=await ok('/api/health?detailed=1',{coach:true});assert.equal(health.exercises,2707);assert.equal(health.schema_version,'033_magazine_discovery_pipeline');
   await expectStatus(401,'/api/health?detailed=1');await expectStatus(401,'/api/build');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     // Only quoted version literals count: inline SVG path data ("c.12 1.05.4 2.07.82")

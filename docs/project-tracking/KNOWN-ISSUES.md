@@ -115,10 +115,10 @@
 ---
 
 ## KI-017 | toggle «به‌روزرسانی خودکار اخبار» بدون موتور دریافت
-- **SEVERITY:** Low (عمداً نیمه‌کاره — طبق قاعده «ساختنه‌نما نباشد») • **STATUS:** OPEN (by design — Task 17)
-- **DESCRIPTION:** تنظیمات پنل مجله `magazine.auto_fetch` (toggle) ذخیره و خوانده می‌شود ولی هنوز هیچ سرویس/اسکریپت دریافت محتوا پشتش نیست. UI در کنار toggle صریحاً می‌نویسد «در انتظار پیاده‌سازی موتور دریافت منابع؛ فعلاً محتوای دستی/پیش‌نویسی» — پس هیچ رفتار فریبنده‌ای وجود ندارد. `magazine.auto_publish` هم همیشه پیش‌فرض خاموش است و `getSiteSettings` حتی مقدار کهنه را به «۰» برمی‌گرداند مگر دقیقاً «۱» باشد.
-- **EXPECTED (وقتی پیاده شود):** خروجی موتور فقط `status='DRAFT'` + `content_origin='generated'` بسازد؛ انتشار فقط از مسیر بررسی/تأیید انسانی.
-- **NEXT ACTION:** TODO T-17.
+- **SEVERITY:** Low (عمداً نیمه‌کاره — طبق قاعده «ساختنه‌نما نباشد») • **STATUS:** **CLOSED** (Task ۲۷ — 2026-09-20: موتور دریافت پیاده شد؛ رفتار دقیقاً مطابق بخش EXPECTED)
+- **DESCRIPTION (تاریخ):** تا Task ۲۷, تنظیمات پنل مجله `magazine.auto_fetch` (toggle) ذخیره و خوانده می‌شد ولی هیچ سرویس دریافت محتوا پشتش نبود و UI صریحاً «در انتظار پیاده‌سازی» می‌نوشت. `magazine.auto_publish` همیشه پیش‌فرض خاموش است و `getSiteSettings` مقدار کهنه را به «۰» برمی‌گرداند مگر دقیقاً «۱» باشد — این گارد دست‌نخورده ماند.
+- **RESOLUTION (Task ۲۷):** `src/magazine-discovery-service.js` + مایگریشن ۳۳: خروجی موتور فقط `status='DRAFT'` + `content_origin='generated'` + `quality_flags` است؛ انتشار فقط از مسیر تأیید/انتشار مربی؛ toggle `magazine.auto_fetch` + بازه `magazine.fetch_interval` (۶/۱۲/24 ساعته) موتور زمان‌دار را کنترل می‌کنند؛ `magazine.auto_publish` عمداً بی‌اثر باقی ماند (هیچ انتشار خودکار نیست).
+- **NEXT ACTION:** —
 
 ## KI-018 | تصاویر برند سایت عمومی فعلاً crop از `auth-hero.jpg` است
 - **SEVERITY:** Low (بصری) • **STATUS:** **CLOSED** (Task 20 — 2026-09-20: هیرو/درباره/CTA + ۴ تصویر کارت مجله از طراحی مالک `landing2.png`؛ باقی‌مانده: فقط OG ⇒ T-18 PARTIAL)

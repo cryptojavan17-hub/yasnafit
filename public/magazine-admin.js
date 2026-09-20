@@ -29,7 +29,14 @@
     articleCounts: {},
     stories: [],
     settings: null,
-    profile: null
+    profile: null,
+    reviewId: null,
+    review: null,
+    queue: [],
+    queueStats: {},
+    discoverRunning: false,
+    sources: [],
+    editingSource: null
   };
 
   async function api(url, options = {}) {
@@ -64,6 +71,8 @@
   function renderMagazineAdmin(label, route) {
     const tabs = [
       ['articles', 'مقالات'],
+      ['queue', 'در انتظار بررسی'],
+      ['sources', 'منابع خبری'],
       ['results', 'نتایج شاگردان'],
       ['categories', 'دسته‌بندی‌ها'],
       ['settings', 'تنظیمات سایت']
@@ -123,6 +132,37 @@
         state.categories = data.categories;
         pane.innerHTML = categoriesMarkup();
         bindCategories();
+      } else if (state.tab === 'queue') {
+        if (state.reviewId) {
+          const [detail, categories] = await Promise.all([
+            api(`/api/magazine/admin/queue/${state.reviewId}`),
+            api('/api/magazine/admin/categories')
+          ]);
+          state.review = detail;
+          state.categories = categories.categories;
+          pane.innerHTML = reviewMarkup();
+          bindReview();
+        } else {
+          const [data, stats, categories] = await Promise.all([
+            api('/api/magazine/admin/queue'),
+            api('/api/magazine/admin/queue/stats'),
+            api('/api/magazine/admin/categories')
+          ]);
+          state.queue = data.queue;
+          state.queueStats = stats;
+          state.categories = categories.categories;
+          pane.innerHTML = queueMarkup();
+          bindQueue();
+        }
+      } else if (state.tab === 'sources') {
+        const [data, categories] = await Promise.all([
+          api('/api/magazine/admin/sources'),
+          api('/api/magazine/admin/categories')
+        ]);
+        state.sources = data.sources;
+        state.categories = categories.categories;
+        pane.innerHTML = sourcesMarkup();
+        bindSources();
       } else if (state.tab === 'settings') {
         const [settings, profile] = await Promise.all([api('/api/magazine/admin/settings'), api('/api/magazine/admin/coach-profile')]);
         state.settings = settings.settings;
@@ -636,7 +676,14 @@
       <div class="mag-settings-grid">
         <section class="mag-settings-card">
           <h3>تنظیمات انتشار</h3>
-          ${toggleHtml('magazine.auto_fetch', s['magazine.auto_fetch'] === '1', 'به‌روزرسانی خودکار اخبار', 'در انتظار پیاده‌سازی موتور دریافت منابع؛ فعلاً محتوای دستی/پیش‌نویسی.')}
+          ${toggleHtml('magazine.auto_fetch', s['magazine.auto_fetch'] === '1', 'به‌روزرسانی خودکار اخبار', 'موتور دریافت منابع فعال است؛ مطالب کشف‌شده فقط به‌صورت پیش‌نویس می‌سازند و انتشار فقط با تأیید شما انجام می‌شود.')}
+          <label class="field-label">بازهٔ بررسی خودکار
+            <select class="field" data-setting="magazine.fetch_interval">
+              <option value="6" ${s['magazine.fetch_interval'] === '6' ? 'selected' : ''}>هر ۶ ساعت</option>
+              <option value="12" ${s['magazine.fetch_interval'] !== '6' && s['magazine.fetch_interval'] !== '24' ? 'selected' : ''}>هر ۱۲ ساعت</option>
+              <option value="24" ${s['magazine.fetch_interval'] === '24' ? 'selected' : ''}>روزانه</option>
+            </select>
+          </label>
           ${toggleHtml('magazine.auto_publish', s['magazine.auto_publish'] === '1', 'انتشار خودکار', 'پیشنهاد: خاموش بماند — هر انتشار باید بازبینی انسانی داشته باشد.')}
           <h4>فعال بودن دسته‌ها در سایت عمومی</h4>
           ${['bodybuilding', 'sports-science', 'nutrition', 'health', 'sports-news'].map(slug => {
@@ -710,7 +757,7 @@
         button.disabled = false;
       } catch (error) { toast(error.message, true); button.disabled = false; }
     };
-    const autoKeys = ['magazine.auto_fetch', 'magazine.auto_publish',
+    const autoKeys = ['magazine.auto_fetch', 'magazine.fetch_interval', 'magazine.auto_publish',
       'magazine.category_enabled.bodybuilding', 'magazine.category_enabled.sports-science',
       'magazine.category_enabled.nutrition', 'magazine.category_enabled.health', 'magazine.category_enabled.sports-news'];
     const contactKeys = ['site.contact_telegram', 'site.telegram_bot_username', 'site.contact_instagram', 'site.contact_facebook', 'site.contact_email', 'site.contact_note'];
@@ -750,6 +797,375 @@
       } catch (error) { toast(error.message, true); button.disabled = false; }
     });
   }
+
+
+  // ---------- Editorial queue (discovered drafts) ----------
+  const REJECT_REASONS = ['منبع نامعتبر', 'خبر تکراری', 'محتوای ضعیف', 'نیاز به بررسی بیشتر', 'خارج از حوزه', 'اطلاعات کافی نیست'];
+
+  function queueStatsMarkup() {
+    const s = state.queueStats || {};
+    const items = [
+      ['published', 'منتشر شده', s.published || 0],
+      ['pending', 'در انتظار بررسی', s.pending_review || 0],
+      ['drafts', 'پیش‌نویس‌ها', s.drafts || 0],
+      ['rejected', 'رد شده', s.rejected || 0],
+      ['new_today', 'مطالب جدید امروز', s.new_today || 0]
+    ];
+    return `<div class="mag-queue-stats" role="group" aria-label="آمار مجله">${items.map(([key, label, value]) => `<div class="mag-queue-stats__card"><b>${faDigits(value)}</b><span>${label}</span></div>`).join('')}</div>`;
+  }
+
+  function flagsBadge(flags) {
+    if (!flags || !flags.length) return '';
+    return `<span class="mag-badge mag-badge--flag" title="${esc(flags.join('؛ '))}">⚠ ${faDigits(flags.length)}</span>`;
+  }
+
+  function queueMarkup() {
+    return `
+      ${queueStatsMarkup()}
+      <div class="mag-toolbar">
+        <p class="mag-toolbar__note">مطالب کشف‌شده از منابع خبری اینجا برای بازبینی شما آماده می‌شوند. انتشار فقط با تأیید شما انجام می‌شود.</p>
+        <div class="mag-toolbar__actions">
+          <button type="button" class="primary" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : 'بررسی مطالب جدید'}</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="mag-table">
+          <thead>
+            <tr><th>مطلب</th><th>دسته</th><th>منبع</th><th>وضعیت</th><th>کیفیت</th><th>کشف‌شده</th><th>عملیات</th></tr>
+          </thead>
+          <tbody>
+            ${state.queue.length ? state.queue.map(item => `
+              <tr data-id="${item.id}">
+                <td>
+                  <div class="mag-title-cell">
+                    <b>${esc(item.title)}</b>
+                    ${item.duplicate_warning ? '<span class="mag-badge mag-badge--dup">احتمال تکراری</span>' : ''}
+                  </div>
+                </td>
+                <td>${esc(item.category_name || '—')}</td>
+                <td class="mag-origin" title="${esc(item.source_url || '')}">${esc(item.source_name || '—')}</td>
+                <td>${statusBadge(item.status)}</td>
+                <td>${flagsBadge(item.quality_flags)}</td>
+                <td>${faDate(item.discovered_at || item.created_at)}</td>
+                <td>
+                  <div class="mag-actions">
+                    <button type="button" class="mag-action mag-action--review" data-queue-action="review" data-id="${item.id}">بررسی</button>
+                    <button type="button" class="mag-action" data-queue-action="edit" data-id="${item.id}">ویرایش</button>
+                    <button type="button" class="mag-action mag-action--publish" data-queue-action="publish" data-id="${item.id}">تأیید و انتشار</button>
+                    <button type="button" class="mag-action mag-action--reject" data-queue-action="reject" data-id="${item.id}">رد</button>
+                  </div>
+                </td>
+              </tr>`).join('') : `<tr><td colspan="7" class="empty">مطلب جدیدی برای بررسی وجود ندارد. دکمهٔ «بررسی مطالب جدید» را بزنید یا منابع خبری را در تب «منابع خبری» اضافه کنید.</td></tr>`}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function reviewMarkup() {
+    const r = state.review || {};
+    const a = r.article || {};
+    const d = r.discovery || {};
+    const flags = r.quality_flags || [];
+    const ai = r.ai_meta || {};
+    const catOptions = (state.categories || []).filter(c => !c.deleted_at);
+    return `
+      <div class="mag-review">
+        <div class="mag-review__main">
+          <h3>ویرایش مطلب</h3>
+          <div class="form-grid">
+            <label class="field-label">عنوان *<input class="field" id="revTitle" required maxlength="200" value="${esc(a.title || '')}"></label>
+            <label class="field-label">دسته‌بندی
+              <select class="field" id="revCategory">
+                <option value="">— بدون دسته —</option>
+                ${catOptions.map(c => `<option value="${esc(c.slug)}" ${a.category_slug === c.slug ? 'selected' : ''}>${esc(c.name_fa)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="field-label field-label--full">خلاصه (SEO)<textarea class="field" id="revSummary" rows="2" maxlength="500">${esc(a.summary || '')}</textarea></label>
+            <label class="field-label">تصویر کاور (مسیر)<input class="field" id="revCover" dir="ltr" placeholder="/images/…" value="${esc(a.cover_image || '')}"></label>
+            <label class="field-label field-label--full">متن مقاله (HTML ساده)<textarea class="field" id="revContent" rows="12" dir="auto">${esc(a.content || '')}</textarea></label>
+          </div>
+          <div class="mag-sources-editor" style="margin-top:14px">
+            <div class="mag-sources-editor__head"><h4>منابع و ارجاع‌ها (عمومی)</h4><button type="button" class="secondary btn-small" id="revAddRef">＋ افزودن منبع</button></div>
+            <div id="revRefsList"></div>
+          </div>
+        </div>
+        <aside class="mag-review__side">
+          <h3>منبع اصلی (فقط برای شما)</h3>
+          <dl class="mag-review__meta">
+            <dt>منبع</dt><dd>${esc(d.source_name || a.source_name || '—')}</dd>
+            <dt>آدرس اصلی</dt><dd>${a.source_url ? `<a href="${esc(a.source_url)}" target="_blank" rel="noopener noreferrer" dir="ltr">${esc(a.source_url)}</a>` : '—'}</dd>
+            <dt>عنوان اصلی</dt><dd>${esc(d.original_title || '—')}</dd>
+            <dt>تاریخ انتشار منبع</dt><dd>${faDate(d.source_published_at)}</dd>
+            <dt>تاریخ کشف</dt><dd>${faDate(d.discovered_at)}</dd>
+            ${ai.confidence != null ? `<dt>اعتماد پردازش</dt><dd>${faDigits(Math.round(Number(ai.confidence) * 100))}٪</dd>` : ''}
+            ${ai.ai_failed ? `<dt>پردازش</dt><dd class="mag-review__warn">${esc(ai.ai_failed)}</dd>` : ''}
+          </dl>
+          ${flags.length ? `<div class="mag-review__flags"><b>نیاز به بررسی:</b><ul>${flags.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''}
+          ${d.duplicate ? '<div class="mag-review__flags mag-review__flags--dup">هشدار: این مطلب ممکن است تکراری باشد.</div>' : ''}
+          <p class="mag-toolbar__note">وضعیت فعلی: ${statusBadge(a.status)}</p>
+        </aside>
+      </div>
+      <div class="mag-settings-actions mag-review__actions">
+        <button type="button" class="secondary" id="revBack">بازگشت به فهرست</button>
+        <button type="button" class="primary" id="revSave">ذخیره پیش‌نویس</button>
+        <button type="button" class="primary" id="revPublish">تأیید و انتشار</button>
+        <select class="field" id="revRejectReason" aria-label="دلیل رد">${REJECT_REASONS.map(reason => `<option value="${esc(reason)}">${esc(reason)}</option>`).join('')}</select>
+        <input class="field" id="revRejectNote" placeholder="توضیح اختیاری…" maxlength="200">
+        <button type="button" class="secondary mag-action--reject" id="revReject">رد</button>
+      </div>`;
+  }
+
+  function renderRefsList() {
+    const list = document.getElementById('revRefsList');
+    if (!list) return;
+    const refs = state.review?.references || [];
+    list.innerHTML = refs.length ? refs.map((s, i) => `
+      <div class="mag-source-row">
+        <input class="field" data-ref-index="${i}" data-ref-field="name" placeholder="نام منبع" value="${esc(s.source_name || '')}">
+        <input class="field" data-ref-index="${i}" data-ref-field="url" dir="ltr" placeholder="https://…" value="${esc(s.source_url || '')}">
+        <button type="button" class="mag-action mag-action--danger" data-ref-remove="${i}">حذف</button>
+      </div>`).join('') : '<p class="mag-sources-empty">منبعی ثبت نشده است.</p>';
+    list.querySelectorAll('[data-ref-remove]').forEach(btn => btn.addEventListener('click', () => {
+      const refs = state.review.references;
+      refs.splice(Number(btn.dataset.refRemove), 1);
+      renderRefsList();
+    }));
+    list.querySelectorAll('[data-ref-field]').forEach(input => input.addEventListener('input', () => {
+      const refs = state.review.references;
+      const ref = refs[Number(input.dataset.refIndex)];
+      if (input.dataset.refField === 'name') ref.source_name = input.value;
+      else ref.source_url = input.value;
+    }));
+  }
+
+  async function saveReviewDraft() {
+    const id = state.reviewId;
+    const a = state.review?.article || {};
+    const body = {
+      title: document.getElementById('revTitle')?.value || '',
+      summary: document.getElementById('revSummary')?.value || '',
+      content: document.getElementById('revContent')?.value || '',
+      category: document.getElementById('revCategory')?.value || null,
+      cover_image: document.getElementById('revCover')?.value || '',
+      source_name: a.source_name || null,
+      source_url: a.source_url || '',
+      sources: (state.review?.references || []).map(s => ({ name: s.source_name, url: s.source_url })).filter(s => s.name || s.url)
+    };
+    await api(`/api/magazine/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  function bindQueue() {
+    const pane = document.getElementById('magazinePane');
+    if (!pane) return;
+    const discoverBtn = pane.querySelector('#magRunDiscover');
+    if (discoverBtn) discoverBtn.addEventListener('click', async () => {
+      state.discoverRunning = true;
+      discoverBtn.disabled = true;
+      discoverBtn.textContent = 'در حال بررسی…';
+      try {
+        const result = await api('/api/magazine/admin/discover', { method: 'POST' });
+        toast(`بررسی انجام شد: ${faDigits(result.drafted)} پیش‌نویس جدید، ${faDigits(result.duplicates)} تکراری، ${faDigits(result.failed)} خطا`);
+        await renderPane();
+      } catch (error) {
+        toast(error.message, true);
+        await renderPane();
+      }
+    });
+    pane.querySelectorAll('[data-queue-action]').forEach(btn => {
+      const id = Number(btn.dataset.id);
+      const action = btn.dataset.queueAction;
+      btn.addEventListener('click', async () => {
+        try {
+          if (action === 'review') {
+            state.reviewId = id;
+            await renderPane();
+          } else if (action === 'edit') {
+            const article = await api(`/api/magazine/admin/articles/${id}`);
+            state.articles = state.articles.filter(x => x.id !== article.id);
+            state.articles.unshift(article);
+            articleModal(id);
+          } else if (action === 'publish') {
+            if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
+            await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
+            toast('مطلب منتشر شد');
+            await renderPane();
+          } else if (action === 'reject') {
+            const reason = window.prompt('دلیل رد (اختیاری):', REJECT_REASONS[0]);
+            if (reason === null) return;
+            await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
+            toast('مطلب رد شد');
+            await renderPane();
+          }
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+    });
+  }
+
+  function bindReview() {
+    const pane = document.getElementById('magazinePane');
+    if (!pane) return;
+    renderRefsList();
+    const id = state.reviewId;
+    pane.querySelector('#revBack')?.addEventListener('click', () => { state.reviewId = null; renderPane(); });
+    pane.querySelector('#revAddRef')?.addEventListener('click', () => {
+      state.review.references.push({ source_name: '', source_url: '' });
+      renderRefsList();
+    });
+    pane.querySelector('#revSave')?.addEventListener('click', async event => {
+      const btn = event.currentTarget;
+      try {
+        btn.disabled = true;
+        await saveReviewDraft();
+        toast('تغییرات ذخیره شد');
+        const updated = await api(`/api/magazine/admin/queue/${id}`);
+        state.review = updated;
+        renderRefsList();
+      } catch (error) { toast(error.message, true); }
+      btn.disabled = false;
+    });
+    pane.querySelector('#revPublish')?.addEventListener('click', async event => {
+      const btn = event.currentTarget;
+      if (!window.confirm('این مطلب نهایی است و در سایت عمومی منتشر می‌شود. ادامه می‌دهید؟')) return;
+      try {
+        btn.disabled = true;
+        await saveReviewDraft();
+        await api(`/api/magazine/admin/articles/${id}/publish`, { method: 'POST', body: '{}' });
+        toast('مطلب تأیید و منتشر شد');
+        state.reviewId = null;
+        await renderPane();
+      } catch (error) { toast(error.message, true); btn.disabled = false; }
+    });
+    pane.querySelector('#revReject')?.addEventListener('click', async event => {
+      const btn = event.currentTarget;
+      const reason = [pane.querySelector('#revRejectReason')?.value, pane.querySelector('#revRejectNote')?.value.trim()].filter(Boolean).join(' — ');
+      try {
+        btn.disabled = true;
+        await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
+        toast('مطلب رد شد');
+        state.reviewId = null;
+        await renderPane();
+      } catch (error) { toast(error.message, true); btn.disabled = false; }
+    });
+  }
+
+  // ---------- News sources ----------
+  function sourcesMarkup() {
+    const editing = state.editingSource;
+    const catOptions = (state.categories || []).filter(c => !c.deleted_at);
+    const s = editing && editing !== 'new' ? state.sources.find(x => x.id === editing) : null;
+    return `
+      ${editing ? `
+      <div class="mag-settings-card" style="margin-bottom:16px">
+        <h3>${s ? 'ویرایش منبع' : 'افزودن منبع خبری'}</h3>
+        <div class="form-grid">
+          <label class="field-label">نام منبع *<input class="field" id="srcName" maxlength="120" value="${esc(s?.name || '')}"></label>
+          <label class="field-label">آدرس فید *<input class="field" id="srcUrl" dir="ltr" maxlength="500" placeholder="https://example.com/feed.xml" value="${esc(s?.feed_url || '')}"></label>
+          <label class="field-label">نوع فید
+            <select class="field" id="srcType">
+              ${[['rss', 'RSS'], ['atom', 'Atom'], ['api', 'API عمومی']].map(([v, l]) => `<option value="${v}" ${(s?.source_type || 'rss') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field-label">دسته پیش‌فرض
+            <select class="field" id="srcCategory">
+              <option value="">— بدون دسته —</option>
+              ${catOptions.map(c => `<option value="${esc(c.slug)}" ${s?.category_slug === c.slug ? 'selected' : ''}>${esc(c.name_fa)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field-label">بازهٔ دریافت
+            <select class="field" id="srcInterval">
+              ${[['6', 'هر ۶ ساعت'], ['12', 'هر ۱۲ ساعت'], ['24', 'روزانه']].map(([v, l]) => `<option value="${v}" ${String(s?.fetch_interval_h || '12') === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+          </label>
+          <label class="check-label">فعال<input type="checkbox" id="srcActive" ${(!s || s.is_active) ? 'checked' : ''}></label>
+        </div>
+        <div class="mag-settings-actions">
+          <button type="button" class="primary" id="srcSave">${s ? 'ذخیره منبع' : 'افزودن منبع'}</button>
+          <button type="button" class="secondary" id="srcCancel">انصراف</button>
+        </div>
+      </div>` : `
+      <div class="mag-toolbar">
+        <p class="mag-toolbar__note">فیدهای عمومی RSS/Atom خبری و علمی. کشف فقط پیش‌نویس می‌سازد؛ انتشار همیشه دستی و از طرف شماست.</p>
+        <div class="mag-toolbar__actions"><button type="button" class="primary" id="srcAddNew">＋ افزودن منبع</button></div>
+      </div>`}
+      <div class="table-wrap">
+        <table class="mag-table">
+          <thead><tr><th>منبع</th><th>فید</th><th>نوع</th><th>دسته</th><th>وضعیت</th><th>آخرین دریافت</th><th>عملیات</th></tr></thead>
+          <tbody>
+            ${state.sources.length ? state.sources.map(x => `
+              <tr data-id="${x.id}">
+                <td><b>${esc(x.name)}</b></td>
+                <td class="mag-slug" dir="ltr" title="${esc(x.feed_url)}">${esc((x.feed_url || '').slice(0, 42))}${(x.feed_url || '').length > 42 ? '…' : ''}</td>
+                <td>${esc(x.source_type)}</td>
+                <td>${esc(x.category_name || '—')}</td>
+                <td>${x.is_active ? '<span class="mag-badge mag-badge--published">فعال</span>' : '<span class="mag-badge mag-badge--draft">غیرفعال</span>'}${x.last_error ? ` <span class="mag-badge mag-badge--flag" title="${esc(x.last_error)}">خطا</span>` : ''}</td>
+                <td>${x.last_success_at ? faDate(x.last_success_at) : '—'}</td>
+                <td>
+                  <div class="mag-actions">
+                    <button type="button" class="mag-action" data-src-action="edit" data-id="${x.id}">ویرایش</button>
+                    <button type="button" class="mag-action" data-src-action="test" data-id="${x.id}">تست منبع</button>
+                    <button type="button" class="mag-action" data-src-action="toggle" data-id="${x.id}">${x.is_active ? 'غیرفعال‌کردن' : 'فعال‌کردن'}</button>
+                    <button type="button" class="mag-action mag-action--danger" data-src-action="delete" data-id="${x.id}">حذف</button>
+                  </div>
+                </td>
+              </tr>`).join('') : `<tr><td colspan="7" class="empty">هنوز منبع خبری ثبت نشده است.</td></tr>`}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function bindSources() {
+    const pane = document.getElementById('magazinePane');
+    if (!pane) return;
+    pane.querySelector('#srcAddNew')?.addEventListener('click', () => { state.editingSource = 'new'; renderPane(); });
+    pane.querySelector('#srcCancel')?.addEventListener('click', () => { state.editingSource = null; renderPane(); });
+    pane.querySelector('#srcSave')?.addEventListener('click', async event => {
+      const btn = event.currentTarget;
+      const body = {
+        name: document.getElementById('srcName')?.value || '',
+        feed_url: document.getElementById('srcUrl')?.value || '',
+        source_type: document.getElementById('srcType')?.value || 'rss',
+        category_slug: document.getElementById('srcCategory')?.value || null,
+        fetch_interval_h: Number(document.getElementById('srcInterval')?.value || 12),
+        is_active: document.getElementById('srcActive') ? document.getElementById('srcActive').checked : true
+      };
+      try {
+        btn.disabled = true;
+        if (state.editingSource === 'new') await api('/api/magazine/admin/sources', { method: 'POST', body: JSON.stringify(body) });
+        else await api(`/api/magazine/admin/sources/${state.editingSource}`, { method: 'PUT', body: JSON.stringify(body) });
+        toast('منبع ذخیره شد');
+        state.editingSource = null;
+        await renderPane();
+      } catch (error) { toast(error.message, true); btn.disabled = false; }
+    });
+    pane.querySelectorAll('[data-src-action]').forEach(btn => {
+      const id = Number(btn.dataset.id);
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.srcAction;
+        try {
+          if (action === 'edit') { state.editingSource = id; renderPane(); }
+          else if (action === 'toggle') {
+            const source = state.sources.find(x => x.id === id);
+            await api(`/api/magazine/admin/sources/${id}`, { method: 'PUT', body: JSON.stringify({ is_active: !source.is_active }) });
+            await renderPane();
+          } else if (action === 'test') {
+            btn.disabled = true;
+            const data = await api(`/api/magazine/admin/sources/${id}/test`, { method: 'POST', body: '{}' });
+            toast(data.ok ? `فید معتبر است: ${faDigits(data.item_count)} خبر` : `فید خطا دارد: ${data.error || 'نامشخص'}`, !data.ok);
+            btn.disabled = false;
+            await renderPane();
+          } else if (action === 'delete') {
+            if (!window.confirm('این منبع حذف شود؟ (مطالب قبلی باقی می‌مانند)')) return;
+            await api(`/api/magazine/admin/sources/${id}`, { method: 'DELETE' });
+            toast('منبع حذف شد');
+            await renderPane();
+          }
+        } catch (error) { toast(error.message, true); }
+      });
+    });
+  }
+
 
   window.renderMagazineAdmin = renderMagazineAdmin;
 })();

@@ -4,7 +4,7 @@
 > بعد از هر تسک توسعه، این فایل باید به‌روز شود (قواعد کامل: انتهای همین فایل و `CHANGELOG.md`).
 > هر ادعایی در این سند یکی از این وضعیت‌ها را دارد: `VERIFIED` (تأییدشده با کد/اجرا)، `PARTIALLY VERIFIED`، `NOT VERIFIED`، `NOT IMPLEMENTED`.
 
-**آخرین به‌روزرسانی:** 2026-09-20 — **Task 25 (مرحلهٔ ۳ از ۴ — مجله + آمار): بخش مجلهٔ واقعی (پیل‌های مالک + کارت‌های منتشرشده + فیلتر در‌جا) + نوار آمار ۴گانه زیر درباره من در home (۶۱ گروه + e2e + smoke) — قبل‌تر: مرحلهٔ ۲ (درباره من) + Task 26 (ربات تلگرام)**
+**آخرین به‌روزرسانی:** 2026-09-20 — **Task ۲۷ (T-17): خط সম্পاد کامل مجله — موتور کشف منابع خبری (RSS/Atom) + تکراری‌زدایی سه‌لایه + پیش‌نویس (AI با پروتکل «فقط بازنویسی منبع»/حداقلی با پرچم) + صف بررسی مربی + تأیید و انتشار با اعتبارسنجی + اعلان درون‌برنامه‌ای + زمان‌بند (۵۲ چک + npm test + e2e سبز) — قبل‌تر: Task ۲۵ مرحلهٔ ۳ از ۴ (مجله home) + Task ۲۶ (ربات تلگرام)**
 **نسخه برنامه:** 0.9.1 (مقدار فعلی `package.json` — در Task 17–22 تغییر نکرد) • **وضعیت تست‌ها:** ۱۹/۱۹ سوئیت پاس (اجرای واقعی `npm test` در 2026-09-20 Task 22، سندباکس Agent) + e2e روی سرور زندهٔ 3020 = PASS
 
 ---
@@ -51,9 +51,9 @@ Backend / Sync Layer (سرور مرکزی — NOT IMPLEMENTED)
 |---|---|
 | Runtime | Node.js >= 22.5 (تست‌شده با v22.22.3) — `engines` در package.json |
 | Backend | **یک فایل `server.js` (3813 خط در 2026-09-19)** — HTTP سرور خالص Node بدون Express؛ روتر دستی با regex روی pathname؛ **شامل موتور SSR سایت عمومی** (۷ صفحه + sitemap/robots + meta/JSON-LD) |
-| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ **۵۳ جدول** (49 موجود + ۴ سایت عمومی در 031: `magazine_categories`، `magazine_articles`، `magazine_article_sources`، `success_stories`) |
+| دیتابیس | `node:sqlite` داخلی (experimental) → `data/yasnafit.db` حالت WAL، `foreign_keys=ON`؛ **۵۵ جدول** (49 موجود + ۴ سایت عمومی در 031 + ۲ خط সম্পاد مجله در ۳۳: `magazine_sources`، `magazine_discoveries`) |
 | Frontend | Vanilla JS + HTML + CSS خالص؛ بدون فریم‌ورک/باندلر؛ سه شل: `public/index.html` (مربی)، `public/student.html` (شاگرد) و **صفحات SSR عمومی** (HTML تولیدشده در server.js + `landing.css`/`landing.js`) |
-| API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی؛ **API عمومی سایت** (`/api/magazine[?category]`، `/api/magazine/:slug`، `/api/results`، `/api/coach-profile`، `/api/site`) بدون احراز + **API مدیریتی** `/api/magazine/admin/*` (نشست مربی + same-origin) |
+| API | REST‌مانند JSON با پیشوندهای `/api/...`؛ رشته‌های خطا فارسی؛ **API عمومی سایت** (`/api/magazine[?category]`، `/api/magazine/:slug`، `/api/results`، `/api/coach-profile`، `/api/site`) بدون احراز + **API مدیریتی** `/api/magazine/admin/*` (نشست مربی + same-origin؛ شامل صف بررسی `queue`/`queue/stats`/`queue/:id`، کشف دستی `discover`، منابع خبری `sources` CRUD + `sources/:id/test` — Task ۲۷) |
 | سرویس‌ها | لایه `src/*-service.js` (program, student, assessment, engagement, upload, release, audit, student-auth, student-session, assessment-document, **article** (Task 17), **public-content** (Task 17)) + `src/database.js`، `src/migrations.js`، `src/validation.js` |
 | احراز هویت | `VERIFIED` (بازبینی کد 2026-09-08 — Task 25) **مربی:** ایمیل + رمز (scrypt) + **TOTP گوگل‌اتنتیکاتور**؛ فلوی سه‌مرحله‌ای `/coach/login` → `/coach/2fa` با API‌های `/api/coach/auth/{setup,login,challenge,verify,forgot,reset,change-password,logout,logout-all,status,mail}`. کوکی `yasnafit_coach_session` (HttpOnly, SameSite=Strict, Path=/, Max-Age ۱۲ ساعت، `+Secure` روی HTTPS) و کوکی چلنج `yasnafit_coach_challenge` (۵ دقیقه). ایمیل مربی در کد قفل است (`SETUP_EMAIL` در `src/coach-auth-service.js`) و ساخت حساب فقط از لوپ‌بک مجاز است (مگر `YASNAFIT_ALLOW_REMOTE_SETUP=1`). **مکانیزم قدیمی «توکن فایل محلی `data/coach-access-token` + کوکی per-boot + Bearer با env مشترک» در Task 16 کاملاً حذف شده** و مسیر `/coach-access/*` عمداً **۴۰۴** برمی‌گرداند. **شاگرد:** موبایل + رمز scrypt + نشست تصادفی ۳۲ بایتی که فقط هشش در `student_sessions` ذخیره می‌شود؛ ورود با لینک دعوت یک‌بارمصرف `/join/:token` |
 | Storage | استاتیک از `public/`؛ فایل‌های خصوصی شاگرد در `data/assessments` و `data/assessment-documents` (خارج از public) با محافظ path-traversal |
@@ -84,6 +84,7 @@ yasnafit/
 │   ├── audit-service.js       ← رویدادهای ممیزی
 │   ├── release-service.js     ← نسخه و تاریخچه انتشار
 │   ├── article-service.js     ← (Task 17) مقالات مجله: چرخه وضعیت، slug، sanitize، bulk، دسته‌ها
+│   ├── magazine-discovery-service.js ← (Task ۲۷) خط সম্পاد مجله: منابع RSS/Atom، تکراری‌زدایی سه‌لایه، پیش‌نویس (AI/حداقلی + پرچم‌های کیفیت)، صف بررسی، زمان‌بند
 │   ├── public-content-service.js ← (Task 17) نتایج شاگردان (گارد consent)، پروفایل مربی، تنظیمات سایت
 │   └── validation.js          ← اعتبارسنجی ورودی (بدون وابستگی)
 ├── public/                    ← فرانت‌اند (مربی + شاگرد + صفحات SSR عمومی) — بنگرید §6
@@ -155,7 +156,7 @@ training_programs → program_days → exercise_systems → program_movements �
 | Media (عکس) | **IMPLEMENTED** `VERIFIED` | آپلود امن خصوصی، fallback تصویر حرکات (زنجیره ۴ مرحله‌ای)، گاید ژست زنانه |
 | Media (ویدیو) | **PARTIAL** | مسیر ویدیو در DB + سرو از `/files/exercise/videos/` `VERIFIED`؛ **پخش‌کننده در UI وجود ندارد** `VERIFIED` |
 | Public Website (لندینگ + مجله) | **IMPLEMENTED** `VERIFIED` (Task 17+18 — 2026-09-19) | ۷ صفحه SSR فارسی/RTL با SEO (canonical/OG/JSON-LD) + sitemap/robots؛ «/» همیشه لندینگ عمومی (حتی برای مربی نشست‌دار — افزونهٔ Task 18؛ پنل مربی از دکمهٔ «پنل مربی» هدر یا `/coach/dashboard`)؛ مجله با فیلتر pill + query URL (pillهای صفحهٔ اصلی لینک به همین سیستم‌اند)؛ صفحه مقاله با برادکرامب/منابع/مرتبط؛ صفحهٔ اصلی دقیقاً با ترکیب wireframe `newlanding.png` (تصویر چپ/متن راست، نوار آمار، CTA دو‌ستونه با `site.cta_image`، فوتر یک‌ردیفه) + بازسازی دقیق Task 19 (متن‌های verbatim، ۴ کارت نمونه مجله، آمار ۵۰۰+/۷۰+/۱۲۰+/۹۸٪، socials سه‌گانه)؛ بدون واژه AI در UI؛ `no-store` |
-| Editorial Admin (پنل مجله) | **IMPLEMENTED** `VERIFIED` (Task 17 — 2026-09-19) | `/coach/magazine` در سایدبار؛ تب‌های مقالات (چرخه Draft→بررسی→انتشار/رد + bulk با چک‌باکس + جستجو/فیلتر) / نتایج شاگردان (فیلد رضایت + گارد privacy) / دسته‌بندی‌ها / تنظیمات (toggleها + تماس + تصاویر + پروفایل مربی)؛ همه تغییرات audit می‌شوند؛ same-origin ۴۰۳ |
+| Editorial Admin (پنل مجله) | **IMPLEMENTED** `VERIFIED` (Task ۱۷ — 2026-09-19؛ **Task ۲۷ — 2026-09-20: خط সম্পاد کامل**) | `/coach/magazine` در سایدبار؛ تب‌های مقالات / **در انتظار بررسی** (آمار ۵گانه + «بررسی مطالب جدید» + عملیات بررسی/ویرایش/تأیید و انتشار/رد + صفحهٔ بررسی دوستونه با منبع اصلی و پرچم‌های کیفیت) / **منابع خبری** (CRUD + فعال/غیرفعال + تست منبع) / نتایج شاگردان / دسته‌بندی‌ها / تنظیمات (شامل بازهٔ خودکار ۶/12/24 ساعته)؛ انتشار فقط با تأیید مربی + اعتبارسنجی (منبع برای generated الزامی، بلاک تکراری)؛ همه تغییرات audit می‌شوند؛ same-origin ۴۰۳ |
 | Authentication | **IMPLEMENTED** `VERIFIED` (بازبینی 2026-09-08 — Task 25) | مربی: ایمیل+رمز+TOTP سه‌مرحله‌ای، نشست ۱۲ ساعته، قفل ۱۵ دقیقه‌ای پس از ۳ خطای کد یا ۵ خطای رمز، بازیابی رمز با لینک ۱۵ دقیقه‌ای • شاگرد: scrypt + سشن هش‌شده — دو مسیر کاملاً جدا. توکن مشترک قدیمی حذف شده (`/coach-access/*` = ۴۰۴) |
 | Access Control | **PARTIAL** | تک‌مربی محلی؛ جدول coaches/coach_students پایه‌گذاری شده اما UI چندمربی/نقش وجود ندارد `VERIFIED` |
 | Audit Logs | **IMPLEMENTED** `VERIFIED` | رویدادهای ساختاریافته (message.sent, workout.started/completed و...) |
@@ -271,7 +272,7 @@ T-14: انتقال کاتالوگ به DB (`training_system_catalog`) هنگام
 ## 12. Testing
 
 - **فریم‌ورک:** `node:assert/strict` + fetch — بدون وابستگی خارجی؛ **۱۹ سوئیت** در `npm test` + `tests/e2e-workflow.js`.
-- **انواع:** رگرسیون مایگریشن، UI-design (استاتیک روی سورس)، واژگانی، auth، سشن شاگرد، پروفایل ارزیابی، engagement، مدیریت شاگرد، **سایت عمومی/مجله** (`test:public-site` — Task 17: خودسرور روی پورت آزاد + DB موقت تازه + کل چرخه محتوایی + مرزهای امنیتی + audit)، و **e2e** (چرخه کامل دعوت→آنبوردینگ→ارزیابی→برنامه→تمرین→ماه دوم→ایزوله‌سازی + قرارداد جدید مسیر `/`).
+- **انواع:** رگرسیون مایگریشن، UI-design (استاتیک روی سورس)، واژگانی، auth، سشن شاگرد، پروفایل ارزیابی، engagement، مدیریت شاگرد، **سایت عمومی/مجله** (`test:public-site` — Task 17: خودسرور روی پورت آزاد + DB موقت تازه + کل چرخه محتوایی + مرزهای امنیتی + audit)، **خط সম্পاد مجله** (`test:magazine-discovery` — Task ۲۷: خودسرور + فید RSS/Atom آزمایشی محلی + کل چرخهٔ کشف→پیش‌نویس→بررسی→انتشار + scheduler + مرزهای امنیتی)، و **e2e** (چرخه کامل دعوت→آنبوردینگ→ارزیابی→برنامه→تمرین→ماه دوم→ایزوله‌سازی + قرارداد جدید مسیر `/`).
 - **دستور:** `npm test` (یا تک‌تک: `npm run test:public-site`، `npm run test:e2e` و…).
 - **شرط e2e:** سرور باید روی 3020 در حال اجرا باشد (`npm start`)، وگرنه ECONNREFUSED می‌گیرد — گارد نشده (KI-001).
 - **وضعیت آخرین اجرا (2026-09-19، سندباکس Agent):** ✅ `npm test` = **۱۹/۱۹ سوئیت PASS** (exit 0) + ✅ `npm run test:e2e` روی سرور زندهٔ 3020 = PASS — قبل از ثبت هر ادعای «پاس» باید واقعاً اجرا شده باشد.

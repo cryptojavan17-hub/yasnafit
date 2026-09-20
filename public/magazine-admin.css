@@ -173,3 +173,34 @@
   .magazine-admin .mag-table { min-width: 640px; }
   .mag-toolbar__actions { width: 100%; }
 }
+
+/* ---------- Editorial queue (T-17) ---------- */
+.mag-queue-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+.mag-queue-stats__card { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
+.mag-queue-stats__card b { font-size: 19px; color: var(--text); }
+.mag-queue-stats__card span { font-size: 11.5px; color: var(--text-muted); }
+.mag-badge--flag { color: var(--warning); background: var(--warning-surface); border-color: rgba(251, 191, 36, .3); cursor: help; }
+.mag-badge--dup { color: var(--danger); background: var(--danger-surface); border-color: var(--danger-border); margin-inline-start: 6px; }
+.mag-badge--published { color: var(--success); background: var(--success-surface); border-color: var(--success-border); }
+.mag-badge--draft { color: var(--text-muted); background: var(--surface-3); }
+.mag-action--review { color: var(--accent); border-color: var(--accent-border, rgba(34, 211, 238, .4)); }
+.mag-review { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.mag-review__main { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; }
+.mag-review__main h3 { margin: 0 0 12px; }
+.mag-review__side { background: var(--glass); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 16px; position: sticky; top: 90px; }
+.mag-review__side h3 { margin: 0 0 10px; font-size: 13.5px; }
+.mag-review__meta { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+.mag-review__meta dt { color: var(--text-muted); }
+.mag-review__meta dd { margin: 0; color: var(--text); word-break: break-word; }
+.mag-review__meta dd a { color: var(--accent); text-decoration: none; }
+.mag-review__warn { color: var(--warning); }
+.mag-review__flags { margin-top: 12px; border: 1px solid rgba(251, 191, 36, .35); background: var(--warning-surface); color: var(--warning); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12px; }
+.mag-review__flags ul { margin: 6px 0 0; padding-inline-start: 18px; }
+.mag-review__flags--dup { border-color: var(--danger-border); background: var(--danger-surface); color: var(--danger); }
+.mag-review__actions { flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.mag-review__actions .field { max-width: 210px; }
+@media (max-width: 900px) {
+  .mag-review { grid-template-columns: 1fr; }
+  .mag-review__side { position: static; }
+  .mag-queue-stats { grid-template-columns: repeat(2, 1fr); }
+}

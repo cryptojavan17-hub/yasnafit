@@ -219,6 +219,7 @@ const SITE_SETTINGS_DEFAULTS = {
   'site.contact_note': '',
   'magazine.auto_fetch': '0',
   'magazine.auto_publish': '0',
+  'magazine.fetch_interval': '12',
   'magazine.category_enabled.bodybuilding': '1',
   'magazine.category_enabled.sports-science': '1',
   'magazine.category_enabled.nutrition': '1',
@@ -243,6 +244,7 @@ function updateSiteSettings(db, input) {
     let value = String(input[key] ?? '').trim();
     if (key.startsWith('magazine.category_enabled.')) value = value === '1' ? '1' : '0';
     else if (key === 'magazine.auto_fetch' || key === 'magazine.auto_publish') value = value === '1' ? '1' : '0';
+    else if (key === 'magazine.fetch_interval') value = ['6','12','24'].includes(value) ? value : '12';
     else if (key.startsWith('site.contact_')) value = value.slice(0, 300);
     else if (key === 'site.telegram_bot_username') value = value.replace(/^@+/, '').trim().slice(0, 64);
     else if (key.startsWith('site.')) value = cleanPath(value) || '';

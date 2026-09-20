@@ -1449,6 +1449,56 @@ const migrations = [
         CREATE INDEX IF NOT EXISTS idx_telegram_bot_connections_student ON telegram_bot_connections(student_id);
       `);
     }
+  },
+  {
+    id: '033_magazine_discovery_pipeline',
+    description: 'Magazine editorial pipeline: configurable news sources, discovery/dedup log, editorial quality flags (AI discovers + drafts, coach approves & publishes)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS magazine_sources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          feed_url TEXT NOT NULL,
+          source_type TEXT NOT NULL DEFAULT 'rss' CHECK(source_type IN ('rss','atom','api')),
+          category_slug TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          fetch_interval_h INTEGER NOT NULL DEFAULT 12,
+          last_fetched_at TEXT,
+          last_success_at TEXT,
+          last_error TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_sources_active ON magazine_sources(is_active, deleted_at);
+        CREATE TABLE IF NOT EXISTS magazine_discoveries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          source_id INTEGER,
+          url TEXT NOT NULL,
+          url_hash TEXT NOT NULL,
+          fingerprint TEXT NOT NULL,
+          title_original TEXT NOT NULL DEFAULT '',
+          date_published TEXT,
+          category_slug TEXT,
+          summary_original TEXT NOT NULL DEFAULT '',
+          image_url TEXT,
+          status TEXT NOT NULL DEFAULT 'NEW' CHECK(status IN ('NEW','PROCESSING','DRAFTED','DUPLICATE','FAILED')),
+          article_id INTEGER,
+          quality_flags TEXT,
+          ai_meta TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          processed_at TEXT,
+          FOREIGN KEY(source_id) REFERENCES magazine_sources(id) ON DELETE SET NULL,
+          FOREIGN KEY(article_id) REFERENCES magazine_articles(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_discoveries_url ON magazine_discoveries(url_hash);
+        CREATE INDEX IF NOT EXISTS idx_magazine_discoveries_status ON magazine_discoveries(status, created_at);
+      `);
+      try { db.exec('ALTER TABLE magazine_articles ADD COLUMN quality_flags TEXT'); } catch (e) { /* column already exists */ }
+      try { db.exec('ALTER TABLE magazine_articles ADD COLUMN rejection_reason TEXT'); } catch (e) { /* column already exists */ }
+    }
   }
 ];
 
