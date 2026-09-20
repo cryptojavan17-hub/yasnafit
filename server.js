@@ -3080,18 +3080,26 @@ function sendPublicPage(req, res, { kind, path }) {
     : kind === 'article' ? articleBody(ctx)
     : contactBody(ctx);
   const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
-  // Task 24 — owner directive (2026-09-20): the whole old landing (full design
-  // image) was removed — "میخوام دوباره شروع کنم" (start over). Home is a
-  // minimal placeholder page in the normal header + footer shell until the
-  // owner provides the new design. The shared header (5 links + ثبت نام/ورود)
-  // and footer stay on all public pages.
+  // Task 25 (PART 1 of 4) — owner directive (2026-09-20): the landing rebuild
+  // starts with the HERO section only, visual reference = the owner's Hero.png.
+  // The photo is kept EXACTLY as provided (cropped from the reference, no text
+  // areas); logo/heading/lead are real HTML on the dark right zone. The fixed
+  // site header sits above the hero's dark top (main { padding-top: --header-h }).
+  // No buttons — the reference contains none. Parts 2–4 wait for the next
+  // section images from the owner.
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
-  <main id="main" class="home-placeholder">
-    <div>
-      <p class="home-placeholder__title">YASNAFIT</p>
-      <p class="home-placeholder__text">صفحهٔ اصلی در حال بازطراحی است.</p>
+  <main id="main" class="home-hero">
+    <div class="home-hero__inner">
+      <div class="home-hero__text">
+        <p class="home-hero__logo" dir="ltr">yasna<span>fit.ir</span></p>
+        <h1 class="home-hero__title">بدنی قوی‌تر، زندگی <span>بهتر</span></h1>
+        <p class="home-hero__lead">با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. من اینجا هستم تا در مسیر سلامت، قدرت و اعتماد به نفس به همراهت باشم.</p>
+      </div>
+      <figure class="home-hero__media">
+        <img src="/images/landing/hero-photo.jpg" alt="تصویر مربی YASNAFIT" fetchpriority="high">
+      </figure>
     </div>
   </main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}

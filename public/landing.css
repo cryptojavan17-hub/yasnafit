@@ -1243,8 +1243,28 @@ main { padding-top: var(--header-h); }
   .service-card:hover, .story-card:hover, .article-card:hover, .contact-card:hover,
   .btn--primary:hover, .btn--ghost:hover { transform: none; }
 }
-/* Task 24 — minimal home placeholder: the old full-image landing was removed
-   (owner directive 2026-09-20, "start over"); the landing is being rebuilt. */
-.home-placeholder { display: flex; align-items: center; justify-content: center; min-height: 62vh; padding: 48px 20px; text-align: center; }
-.home-placeholder__title { margin: 0 0 12px; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.06em; color: var(--accent); }
-.home-placeholder__text { margin: 0; font-size: 1.05rem; color: var(--text-3); }
+/* Task 25 (PART 1 of 4) — home HERO, visual reference: owner's Hero.png
+   (2026-09-20). Photo = exact crop from the reference (hero-photo.jpg, no
+   text baked in); logo/title/lead are real HTML. Dark top space below the
+   fixed header (main { padding-top: var(--header-h) }). No buttons — the
+   reference has none. Desktop: photo LEFT ~44% / text RIGHT; mobile: photo
+   on top, text below. */
+.home-hero { background: var(--bg); }
+.home-hero__inner { display: grid; grid-template-columns: 1fr; }
+.home-hero__media { position: relative; margin: 0; order: -1; }
+.home-hero__media img { display: block; width: 100%; height: 46vh; min-height: 320px; object-fit: cover; object-position: 50% 30%; }
+.home-hero__media::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 56px; background: linear-gradient(to bottom, transparent, var(--bg)); }
+.home-hero__text { padding: 44px 20px 56px; }
+.home-hero__logo { margin: 0 0 18px; font-size: clamp(2rem, 5vw, 2.6rem); font-weight: 800; letter-spacing: 0.01em; color: var(--text); }
+.home-hero__logo span { color: var(--accent); }
+.home-hero__title { margin: 0 0 18px; font-size: clamp(1.9rem, 5.4vw, 2.6rem); font-weight: 800; line-height: 1.65; color: var(--text); }
+.home-hero__title span { color: var(--accent); }
+.home-hero__lead { margin: 0; font-size: clamp(1rem, 2.4vw, 1.15rem); line-height: 2.25; color: var(--text-2); max-width: 34rem; }
+@media (min-width: 901px) {
+  .home-hero__inner { grid-template-columns: 44fr 56fr; min-height: max(560px, calc(100vh - var(--header-h))); align-items: center; }
+  .home-hero__media { order: 0; height: 100%; }
+  .home-hero__media img { height: 100%; min-height: 0; }
+  .home-hero__media::before { display: none; }
+  .home-hero__media::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 88px; background: linear-gradient(to left, var(--bg), transparent); }
+  .home-hero__text { padding: 56px 0 56px 48px; margin-inline-end: clamp(24px, 16vw, 320px); }
+}

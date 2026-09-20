@@ -7,6 +7,14 @@
 ---
 
 ## 2026-09-20
+### Task 25 — بخش هیرو لندینگ (مرحلهٔ ۱ از ۴ — بر اساس Hero.png مالک)
+
+- **FILES CHANGED:** `server.js` (شعبهٔ home: placeholder → بخش هیرو) • `public/landing.css` (سبک‌های placeholder با سبک‌های هیرو جایگزین شد — توکن‌های طراحی موجود) • `public/images/landing/hero-photo.jpg` (جدید: برش دقیق ۷۳۱×۹۴۱ از Hero.png — فقط چهره + سالن، بدون هیچ متن) • `tests/public-site-regression.js` (گروه home: مارکرهای هیرو + عکس 200 + تصویر قدیمی 404)
+- **WHAT:** مالک Hero.png (۱۶۷۲×۹۴۱) را بارگذاری کرد: «فقط هیرو را بساز — بخش‌های دیگر بعداً» ⇒ هیرو = (1) عکس دقیقاً همان چیزی است که در تصویر هست (برش ۷۳۱×۹۴۱ از مرجع، بدون ناحیهٔ متن) در سمت چپ (~۴۴٪)؛ (2) ناحیهٔ راست روی پس‌زمینهٔ تیره: لوگوی «yasnafit.ir» (fit.ir فیروزه‌ای) + تیتر «بدنی قوی‌تر، زندگی بهتر» (کلمهٔ «بهتر» فیروزه‌ای) + متن لید سه‌خطی دقیقاً مطابق تصویر — همه HTML واقعی. **هیچ دکمه‌ای** (در تصویر نیست). هدر/فوتر مشترک دست‌نخورده؛ بالای هیرو فضای تیره است (هدر fixed روی آن می‌نشیند — padding-top همان main).
+- **Responsive:** دسکتاپ = دو ستون (عکس چپ / متن راست، min-height = 100vh − header)؛ موبایل = عکس بالا (46vh) + متن زیر آن.
+- **WHY:** مرحلهٔ ۱ از بازسازی چهارمرحله‌ای لندینگ به دستور مالک؛ مرجع پیکسلی = Hero.png.
+- **TESTS:** ۵۸ گروه test:public-site (گروه home به‌روزشده) + ۱۹/۱۹ npm test + smoke زنده (home = هیرو + هدر + فوتر؛ hero-photo.jpg = 200 jpeg؛ /about /magazine /results = 200).
+- **COMPAT / عوارض شناخته‌شده:** hero-woman.jpg + cta-woman.jpg فعلاً بدون مصرف (برای بخش‌های بعدی نگه‌داشته شده)؛ landing2.png همچنان 404؛ بقیهٔ بخش‌های لندینگ (مرحله‌های ۲–۴) منتظر تصویرهای دیگر مالک.
 ### Task 24 — حذف کامل لندینگ قبلی (شروع از نو)
 
 - **FILES CHANGED:** `server.js` (شعبهٔ home در `sendPublicPage`: رندر تصویر کامل طرح → صفحهٔ placeholder مینیمال در پوستهٔ هدر+فوتر معمولی) • `public/landing.css` (حذف `landing-full`/landing-full__img، افزودن سبک‌های `home-placeholder`) • `public/images/landing/landing2.png` (حذف‌شده) • `tests/public-site-regression.js` (گروه home: placeholder + هدر + فوتر + نبود تصویر + ۴۰۴)
