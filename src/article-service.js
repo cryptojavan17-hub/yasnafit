@@ -279,6 +279,7 @@ function listAdminArticles(db, { status = '', category_id = '', search = '', lim
   }
   const rows = db.prepare(`
     SELECT a.id, a.slug, a.title, a.summary, a.status, a.content_origin, a.category_id,
+           a.cover_image, a.source_name, a.source_url,
            c.name_fa AS category_name, a.reading_time, a.published_at, a.created_at, a.updated_at
     FROM magazine_articles a
     LEFT JOIN magazine_categories c ON c.id=a.category_id

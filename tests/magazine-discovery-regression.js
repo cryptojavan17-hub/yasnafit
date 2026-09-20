@@ -145,6 +145,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   r=await j('/api/magazine/admin/queue');
   const qImg=r.data.queue.find(q=>q.source_url===STORY2_URL);
   check('og:image attached from original article page (secure_url key + http->https upgrade)', qImg && qImg.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
+  // The news card reads the LIST endpoint (not /queue): it must carry cover_image + source fields
   // backfill: a pre-existing draft without a cover must get the source image on the next run
   {
     const body='بررسی شواهد مربوط به تغذیه قبل از تمرین و تأثیر آن بر عملکرد ورزشی؛ این متن صرفاً برای آزمایش بازسازی تصویر کاور نوشته شده و طول کافی برای اعتبارسنجی ایجاد مقاله دارد.';
@@ -154,6 +155,9 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
     const af=await j('/api/magazine/admin/articles/'+backfillId);
     check('image backfill: old draft now has source og:image (https)', af.data && af.data.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', af.data?JSON.stringify(af.data.cover_image):'missing');
+  r=await j('/api/magazine/admin/articles');
+  const listStory2=r.data.items.filter(a=>a.source_url===STORY2_URL);
+  check('admin LIST API returns cover_image + source_name + source_url (news card image)', listStory2.length>=2 && listStory2.every(a=>a.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg' && typeof a.source_name==='string' && a.source_name.length>0), JSON.stringify(listStory2.map(a=>({c:a.cover_image,s:a.source_name}))));
   }
   // batch cap + image priority (isolated in-memory db + local feed C)
   {
