@@ -239,3 +239,8 @@
 }
 .mag-review__coverpreview { margin-top: 8px; border-radius: var(--radius-md); overflow: hidden; max-height: 220px; background: var(--surface-3); }
 .mag-review__coverpreview img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
+.mag-progress { margin: 4px 0 16px; background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+.mag-progress__bar { height: 10px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.mag-progress__fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #34d399); transition: width .8s ease; }
+.mag-progress__status { margin-top: 10px; font-size: 13px; font-weight: 700; }
+.mag-progress__counts { margin-top: 4px; font-size: 12px; color: var(--text-muted); }

@@ -58,7 +58,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const feedPort=await freePort();
   const STORY2_URL='http://127.0.0.1:'+feedPort+'/story2.html';
   const RSS_A2=RSS_A.replace('__STORY2_URL__',STORY2_URL);
-  const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image:secure_url" content="/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
+  const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image:secure_url" content="http://127.0.0.1:'+feedPort+'/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
   const feedServer=http.createServer((req,res)=>{
     if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
     if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
@@ -93,6 +93,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('queue anonymous → 401', r.status===401, 'got '+r.status);
   r=await fetch(BASE+'/api/magazine/admin/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   check('sources create anonymous → 401', r.status===401, 'got '+r.status);
+  r=await fetch(BASE+'/api/magazine/admin/discover/progress');
+  check('progress endpoint anonymous → 401', r.status===401, 'got '+r.status);
+  r=await j('/api/magazine/admin/discover/progress');
+  check('progress endpoint (coach): idle state with phase/counts', r.status===200 && r.data.phase==='idle' && r.data.running===false && typeof r.data.sources_total==='number' && Array.isArray(r.data.error_sources), JSON.stringify(r.data));
 
   // built-in world sources (migration 034): seeded & active by default; zero-setup flow
   r=await j('/api/magazine/admin/sources');
@@ -128,7 +132,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // og:image retrieval: the local article page image must be attached
   r=await j('/api/magazine/admin/queue');
   const qImg=r.data.queue.find(q=>q.source_url===STORY2_URL);
-  check('og:image attached from original article page (secure_url key)', qImg && qImg.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
+  check('og:image attached from original article page (secure_url key + http->https upgrade)', qImg && qImg.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
   // backfill: a pre-existing draft without a cover must get the source image on the next run
   {
     const body='بررسی شواهد مربوط به تغذیه قبل از تمرین و تأثیر آن بر عملکرد ورزشی؛ این متن صرفاً برای آزمایش بازسازی تصویر کاور نوشته شده و طول کافی برای اعتبارسنجی ایجاد مقاله دارد.';
@@ -137,7 +141,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     check('test draft created without cover image', r.status===201 && backfillId && !r.data.cover_image, 'status='+r.status);
     r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
     const af=await j('/api/magazine/admin/articles/'+backfillId);
-    check('image backfill: old draft now has source og:image', af.data && af.data.cover_image==='http://127.0.0.1:'+feedPort+'/img-2.jpg', af.data?JSON.stringify(af.data.cover_image):'missing');
+    check('image backfill: old draft now has source og:image (https)', af.data && af.data.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', af.data?JSON.stringify(af.data.cover_image):'missing');
   }
   r=await j('/api/magazine/admin/queue');
   check('queue has 4 pending drafts (3 discovered + 1 backfill test)', r.data.queue.length===4, 'got '+r.data.queue.length);
@@ -235,6 +239,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('UI: news inbox tab present', ui.includes("['news', 'اخبار و مطالب جدید']"));
   check('UI: technical sources tab hidden from coach tabs', !ui.match(/const tabs = \[\s*\n(?:\s*\['[a-z]+',[^\n]*\n)*?\s*\['sources'[^\n]*\n/));
   check('UI: editorial inbox card + image modal present', ui.includes('function newsCard') && ui.includes('function imageModal') && ui.includes('mag-news-grid'));
+  check('UI: live progress bar + progress endpoint + image referrer fix', ui.includes('mag-progress__fill') && ui.includes('/api/magazine/admin/discover/progress') && ui.includes('referrerpolicy="no-referrer"') && ui.includes("referrerPolicy = 'no-referrer'"));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
 
   // ---- scheduler (in-process, same db as the server's data dir) ----

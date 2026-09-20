@@ -447,7 +447,8 @@ async function fetchOgImage(pageUrl) {
         if (!val) continue;
         try {
           const u = new URL(val, pageUrl);
-          if (!/^https?:$/i.test(u.protocol)) return '';
+          if (u.protocol === 'http:') u.protocol = 'https:'; // prefer https so https sites never hit mixed-content
+          if (!/^https:$/i.test(u.protocol)) return '';
           return u.toString();
         } catch (e) { return ''; }
       }
@@ -547,12 +548,41 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
   }
 }
 
+// ---------- live progress (shown in the coach UI; plain status, no internals) ----------
+const progressState = {
+  running: false, phase: 'idle', current_source: '',
+  sources_total: 0, sources_done: 0,
+  items_total: 0, items_done: 0, items_found: 0,
+  images_total: 0, images_done: 0,
+  drafted: 0, duplicates: 0, failed: 0, skipped: 0,
+  error_sources: [], started_at: null, finished_at: null, last_result: null
+};
+function getDiscoveryProgress() {
+  return { ...progressState, error_sources: [...progressState.error_sources] };
+}
+function syncProgressFromSummary(summary) {
+  progressState.drafted = summary.drafted;
+  progressState.duplicates = summary.duplicates;
+  progressState.failed = summary.failed;
+  progressState.skipped = summary.skipped;
+  progressState.items_found = summary.fetched;
+}
+
 async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
+  Object.assign(progressState, {
+    running: true, phase: 'sources', current_source: '',
+    sources_total: 0, sources_done: 0, items_total: 0, items_done: 0, items_found: 0,
+    images_total: 0, images_done: 0, drafted: 0, duplicates: 0, failed: 0, skipped: 0,
+    error_sources: [], started_at: Date.now(), finished_at: null, last_result: null
+  });
   const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, sources: 0, errors: [] };
+  try {
   const sources = listSources(db).filter(s => s.is_active);
   summary.sources = sources.length;
+  progressState.sources_total = sources.length;
   let actionable = 0;
   for (const source of sources) {
+    progressState.current_source = source.name;
     let items = [];
     let fetchError = null;
     try {
@@ -560,9 +590,12 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     } catch (e) {
       fetchError = String(e.message || e).slice(0, 300);
       summary.errors.push(`${source.name}: ${fetchError}`);
+      progressState.error_sources.push(source.name);
     }
     setSourceFetchResult(db, source.id, { ok: !fetchError, error: fetchError });
+    progressState.sources_done += 1;
     summary.fetched += items.length;
+    syncProgressFromSummary(summary);
     for (const item of items) {
       const url = normalizeUrl(item.url);
       if (!url || !item.title) continue;
@@ -576,6 +609,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
         continue;
       }
       summary.newItems += 1;
+      progressState.items_total += 1;
       const info = db.prepare(`
         INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, status)
         VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW')
@@ -588,6 +622,8 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
         summary.failed += 1;
         summary.errors.push(`پردازش: ${e.message || e}`);
       }
+      progressState.items_done += 1;
+      syncProgressFromSummary(summary);
     }
   }
   // Notification only when the coach has actionable review items (section 17).
@@ -603,6 +639,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
   }
   // Backfill: drafts discovered before image support (or whose og fetch
   // failed) get another chance to receive their own source image.
+  progressState.phase = 'images';
   let imgFixed = 0;
   const needImage = db.prepare(`
     SELECT id, source_url FROM magazine_articles
@@ -611,12 +648,14 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
       AND source_url IS NOT NULL AND source_url != ''
     ORDER BY updated_at DESC LIMIT 15
   `).all();
+  progressState.images_total = needImage.length;
   for (const row of needImage) {
     const img = await fetchOgImage(row.source_url);
     if (img) {
       db.prepare('UPDATE magazine_articles SET cover_image=? WHERE id=?').run(img, row.id);
       imgFixed += 1;
     }
+    progressState.images_done += 1;
   }
   db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.last_run_at', ?)").run(new Date().toISOString());
   const audit = require('./audit-service');
@@ -626,7 +665,19 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     entityType: 'magazine_discovery',
     metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, failed: summary.failed, skipped: summary.skipped, images_backfilled: imgFixed }
   });
-  return { ...summary, images_backfilled: imgFixed };
+  const result = { ...summary, images_backfilled: imgFixed };
+  progressState.running = false;
+  progressState.finished_at = Date.now();
+  progressState.phase = summary.errors.length ? 'done_with_errors' : 'done';
+  progressState.last_result = { drafted: summary.drafted, duplicates: summary.duplicates, failed: summary.failed, skipped: summary.skipped, fetched: summary.fetched, error_count: summary.errors.length, images_backfilled: imgFixed };
+  return result;
+  } catch (e) {
+    progressState.running = false;
+    progressState.finished_at = Date.now();
+    progressState.phase = 'error';
+    progressState.last_result = { error: true };
+    throw e;
+  }
 }
 
 // ---------- scheduler (in-process; mirrors the app's in-memory patterns) ----------
@@ -740,6 +791,7 @@ function queueStats(db) {
 }
 
 module.exports = {
+  getDiscoveryProgress,
   fetchOgImage,
   fetchSourceItems,
   setSourceFetchResult,

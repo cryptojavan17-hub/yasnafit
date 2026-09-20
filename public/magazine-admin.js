@@ -34,6 +34,7 @@
     review: null,
     queue: [],
     newsStats: {},
+    progress: { running: false, phase: 'idle' },
     discoverRunning: false,
     sources: [],
     editingSource: null
@@ -815,7 +816,7 @@
     return `
     <article class="mag-news-card" data-id="${item.id}">
       <div class="mag-news-card__media">
-        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy">` : `<div class="mag-news-card__noimg"><span>🖼️ بدون تصویر</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
+        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>🖼️ بدون تصویر</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
       </div>
       <div class="mag-news-card__head">
         <span class="mag-news-cat">${emoji} ${esc(catName)}</span>
@@ -837,6 +838,31 @@
     </article>`;
   }
 
+  function newsProgressMarkup() {
+    const p = state.progress || {};
+    let pct = 4;
+    if (p.phase === 'sources') pct = p.sources_total ? Math.round((p.sources_done / p.sources_total) * 55) : 8;
+    else if (p.phase === 'draft') pct = 55 + (p.items_total ? Math.round((p.items_done / p.items_total) * 35) : 20);
+    else if (p.phase === 'images') pct = 90 + (p.images_total ? Math.round((p.images_done / p.images_total) * 10) : 5);
+    else if (p.phase === 'done' || p.phase === 'done_with_errors') pct = 100;
+    const phaseText = {
+      sources: p.sources_total ? `در حال بررسی منابع روز دنیا… ${faDigits(p.sources_done)} از ${faDigits(p.sources_total)}` : 'در حال آماده‌سازی…',
+      draft: p.items_total ? `در حال آماده‌سازی گزارش فارسی… ${faDigits(p.items_done || 0)} از ${faDigits(p.items_total)}` : 'در حال آماده‌سازی گزارش فارسی…',
+      images: 'در حال به‌روزرسانی تصویرها…',
+      done: 'تمام شد',
+      done_with_errors: 'تمام شد — برخی منابع در دسترس نبود',
+      error: 'خطا در بررسی'
+    }[p.phase] || 'در حال بررسی…';
+    const errCount = p.error_sources ? p.error_sources.length : 0;
+    return `
+      <div class="mag-progress" role="status">
+        <div class="mag-progress__bar"><div class="mag-progress__fill" style="width:${pct}%"></div></div>
+        <div class="mag-progress__status">${phaseText}${p.current_source ? ' — <b>' + esc(p.current_source) + '</b>' : ''}</div>
+        <div class="mag-progress__counts">${p.items_found ? faDigits(p.items_found) + ' مطلب پیدا شد · ' : ''}${p.drafted ? faDigits(p.drafted) + ' گزارش آماده' : ''}${errCount ? ' · ' + faDigits(errCount) + ' منبع در دسترس نبود' : ''}</div>
+      </div>
+    `;
+  }
+
   function newsMarkup() {
     const st = state.newsStats || {};
     const n = state.queue.length;
@@ -850,6 +876,7 @@
           <button type="button" class="primary mag-news-run" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : '🔍 بررسی مطالب جدید'}</button>
         </div>
       </div>
+      ${state.discoverRunning ? newsProgressMarkup() : ''}
       ${state.queue.length ? `<div class="mag-news-grid">${state.queue.map(newsCard).join('')}</div>` : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — سیستم از منابع معتبر روز دنیا جستجو می‌کند، فارسی می‌کند و گزارش آماده می‌سازد.</div>'}
     `;
   }
@@ -882,6 +909,7 @@
       const img = document.createElement('img');
       img.src = input.value;
       img.alt = '';
+      img.referrerPolicy = 'no-referrer';
       img.addEventListener('error', () => { prev.innerHTML = ''; const p = document.createElement('p'); p.className = 'mag-toolbar__note'; p.textContent = 'پیش‌نمایش در دسترس نیست.'; prev.append(p); });
       prev.append(img);
     };
@@ -903,14 +931,29 @@
     const discoverBtn = pane.querySelector('#magRunDiscover');
     if (discoverBtn) discoverBtn.addEventListener('click', async () => {
       state.discoverRunning = true;
-      discoverBtn.disabled = true;
-      discoverBtn.textContent = 'در حال بررسی…';
+      state.progress = { running: true, phase: 'sources' };
+      renderPane();
+      let stopped = false;
+      const timer = setInterval(async () => {
+        if (stopped) return;
+        try {
+          const p = await api('/api/magazine/admin/discover/progress');
+          state.progress = p;
+          if (!p.running && (p.phase === 'done' || p.phase === 'done_with_errors' || p.phase === 'error')) { stopped = true; clearInterval(timer); }
+          if (state.discoverRunning) renderPane();
+        } catch (e) { /* keep the last known state */ }
+      }, 1500);
       try {
         const result = await api('/api/magazine/admin/discover', { method: 'POST', body: '{}' });
-        toast(result.drafted ? `${faDigits(result.drafted)} مطلب جدید پیدا شد` : 'مطلب جدیدی پیدا نشد');
-        await renderPane();
+        const found = result.drafted ? `📰 ${faDigits(result.drafted)} مطلب جدید پیدا شد — در کارت‌ها بررسی کنید` : 'مطلب جدیدی پیدا نشد — همه منابع بررسی شد';
+        if (result.errors && result.errors.length) toast(found + ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم)`, true);
+        else toast(found);
       } catch (error) {
-        toast(error.message, true);
+        toast('بررسی خطا کرد: ' + error.message, true);
+      } finally {
+        stopped = true;
+        clearInterval(timer);
+        state.discoverRunning = false;
         await renderPane();
       }
     });
@@ -1080,6 +1123,7 @@
         const img = document.createElement('img');
         img.src = revCover.value;
         img.alt = '';
+        img.referrerPolicy = 'no-referrer';
         img.addEventListener('error', () => {
           revPrev.innerHTML = '';
           const p = document.createElement('p');

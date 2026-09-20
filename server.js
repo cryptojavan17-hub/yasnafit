@@ -3192,6 +3192,9 @@ async function handleMagazineAdmin(req,res,url){
       return send(res,200,result);
     }catch(error){ return sendCaughtError(res,error); }
   }
+  if(p==='/api/magazine/admin/discover/progress' && req.method==='GET'){
+    return send(res,200,magazineDiscovery.getDiscoveryProgress());
+  }
   // ----- News sources (magazine_sources) -----
   if(p==='/api/magazine/admin/sources' && req.method==='GET'){
     return send(res,200,{sources:magazineDiscovery.listSources(db)});
