@@ -8,6 +8,11 @@
 
 ## 2026-09-20
 
+### Task 27 (اصلاح ۸ — «تصویر بارگذاری نشد»: رفع بلاک CSP برای تصاویر og بیرونی)
+- **FILES CHANGED:** `src/request-security.js` (CSP سراسری: `img-src` از «self + data + blob» به «self + data + blob + https») • `server.js` (همان تغییر در CSP صفحات اپ) • `src/magazine-discovery-service.js` (تصویرهای خودِ فید با پروتکل http هم مثل og به https ارتقا داده می‌شوند تا همهٔ کاورها https باشند) • تست‌ها (+۲: CSP صفحهٔ اپ باید https اجازه بدهد؛ تصویر http فید در دیتابیس به‌صورت https ذخیره شود).
+- **WHAT:** علت ریشه‌ای «🖼️ تصویر بارگذاری نشد»: تصویر og در دیتابیس و API درست بود، ولی **Content-Security-Policy** سراسری سایت `img-src «self» data: blob:` داشت ⇒ مرورگر هر تصویر بیرونی (og) را **قبل از دانلود** مسدود می‌کرد و onerror کارت «تصویر بارگذاری نشد» نشان می‌داد. حالا `img-src` شامل `https:` است (فقط https؛ همهٔ کاورها — og و تصویر فید — https ذخیره می‌شوند). صفحات login/setup بدون تصویر بیرونی با CSP قبلی دست‌نخورده ماندند.
+- **TESTS:** ۷۱ چک `test:magazine-discovery` سبز + npm test کامل + e2e (schema ۳۶).
+
 ### Task 27 (اصلاح ۷ — رفع «عکس خبر نمایش داده نمی‌شود»)
 - **FILES CHANGED:** `src/article-service.js` (SELECT لیست مدیریت: افزودن `a.cover_image, a.source_name, a.source_url`) • `tests/magazine-discovery-regression.js` (+۱ چک: پاسخ API لیست باید cover_image/og + نام منبع را برگرداند).
 - **WHAT:** علت ریشه‌ای: تصویر og به‌درستی در دیتابیس ذخیره می‌شد (`magazine_articles.cover_image`)، ولی **API لیست** (`GET /api/magazine/admin/articles`) فقط `id/slug/title/summary/…` برمی‌گرداند و ستون تصویر/منبع را **اصلاً SELECT نمی‌کرد** ⇒ کارت‌های تب «اخبار و مطالب جدید» هیچ دادهٔ تصویری دریافت نمی‌کردند و همیشه «بدون تصویر» نشان می‌دادند (همچنین «منبع: …» و لینک «مشاهده منبع اصلی»). با اضافه شدن سه ستون، تصویر og/فید + نام منبع + لینک منبع اصلی در کارت نمایش داده می‌شوند (بدون تغییر UI؛ onerror fallback و «انتخاب تصویر» بی‌دست‌نخورده). دیتابیس‌های موجود نیازی به بازسازی ندارند؛ پیش‌نویس‌های قدیمیِ بدون کاور در اولین «بررسی مطالب جدید» بعدی با backfill موجود تصویر می‌گیرند.

@@ -514,6 +514,10 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
   // original article page (the source's own image, with source attribution
   // kept in the article). Never a random image service.
   let cover = item.imageUrl || '';
+  if (cover) {
+    // Keep every stored cover https so it survives the page CSP (img-src https:)
+    try { const cu = new URL(cover); if (cu.protocol === 'http:') { cu.protocol = 'https:'; cover = cu.toString(); } } catch (e) { cover = ''; }
+  }
   if (!cover) cover = await fetchOgImage(item.url);
   try {
     const article = articleService.createArticle(db, {

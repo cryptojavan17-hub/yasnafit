@@ -22,7 +22,7 @@ const RSS_B=`<?xml version="1.0" encoding="UTF-8"?>
 // 25-item feed: items 1-5 carry their own feed image (priority test)
 const entriesC=Array.from({length:25},(_,i)=>{
   const n=String(i+1).padStart(2,'0');
-  const img=i<5?'<media:content url="https://img-c.example.com/c'+n+'.jpg" medium="image"/>':'';
+  const img=(i<4)?'<media:content url="https://img-c.example.com/c'+n+'.jpg" medium="image"/>':(i===4?'<media:content url="http://img-c.example.com/c05.jpg" medium="image"/>':'');
   return '<entry><title>Item C-'+n+'</title><link href="https://c.example.com/story-'+n+'"/><updated>2026-09-18T08:'+n+':00Z</updated><summary>Summary '+n+'.</summary>'+img+'</entry>';
 }).join('');
 const RSS_C='<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"><title>Feed C</title>'+entriesC+'</feed>';
@@ -46,7 +46,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('feed-provided image parsed (media:content)', b3 && b3.imageUrl==='https://img.example.com/b3.jpg', b3?JSON.stringify(b3.imageUrl):'missing item');
   check('parseFeed Atom: 2 entries (malformed summary tolerated)', itemsB.length===2, 'got '+itemsB.length);
   const itemsC=discovery.parseFeed(RSS_C);
-  check('parseFeed C: 25 items, first 5 with feed images', itemsC.length===25 && itemsC.slice(0,5).every((x,i)=>x.imageUrl==='https://img-c.example.com/c'+String(i+1).padStart(2,'0')+'.jpg') && !itemsC[5].imageUrl, 'got '+itemsC.length);
+  check('parseFeed C: 25 items, 5 feed images (item 5 intentionally http for upgrade test)', itemsC.length===25 && itemsC.slice(0,4).every((x,i)=>x.imageUrl==='https://img-c.example.com/c'+String(i+1).padStart(2,'0')+'.jpg') && itemsC[4].imageUrl==='http://img-c.example.com/c05.jpg' && !itemsC[5].imageUrl, 'got '+itemsC.length);
   check('titleSimilarity same', discovery.titleSimilarity('پژوهش جدید دربارهٔ تمرینات مقاومتی','پژوهش جدید درباره تمرینات مقاومتی')>0.86);
   check('titleSimilarity different', discovery.titleSimilarity('تغذیه قبل از تمرین','سلامت قلب و عروق')<0.86);
   check('sha1 stable', discovery.sha1('x')===discovery.sha1('x'));
@@ -159,6 +159,11 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const listStory2=r.data.items.filter(a=>a.source_url===STORY2_URL);
   check('admin LIST API returns cover_image + source_name + source_url (news card image)', listStory2.length>=2 && listStory2.every(a=>a.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg' && typeof a.source_name==='string' && a.source_name.length>0), JSON.stringify(listStory2.map(a=>({c:a.cover_image,s:a.source_name}))));
   }
+  {
+    const h=await fetch(BASE+'/coach/magazine',{headers:{Cookie:ck}});
+    const csp=h.headers.get('content-security-policy');
+    check('app page CSP allows https og images (img-src includes https:)', csp && csp.includes("img-src 'self' data: blob: https:"), csp||'no csp header, status='+h.status);
+  }
   // batch cap + image priority (isolated in-memory db + local feed C)
   {
     const { runMigrations } = require('../src/migrations');
@@ -176,6 +181,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
       if(!mem.prepare('SELECT id FROM magazine_articles WHERE source_url=?').get(u)) allImgs=false;
     }
     check('priority: all 5 feed-image items drafted in the first batch', allImgs);
+    const c5=mem.prepare('SELECT a.cover_image FROM magazine_articles a WHERE a.source_url=?').get('https://c.example.com/story-05');
+    check('upgrade: feed http image stored as https (CSP-safe cover)', c5 && c5.cover_image==='https://img-c.example.com/c05.jpg', c5?JSON.stringify(c5.cover_image):'missing');
     const r2 = await discovery.runDiscovery(mem, { notifyAudience: 'none' });
     check('batch: second run (جستجو بیشتر) drafts the remaining 5', r2.drafted === 5, 'drafted='+r2.drafted);
     check('batch: second run not stopped at cap', r2.stopped_at_cap === false, 'new='+r2.newItems);
