@@ -2581,6 +2581,16 @@ const PUBLIC_NAV = [
   ['تماس', '/contact']
 ];
 
+// Owner header spec (2026-09-20, T-19 round 1): exactly these five links +
+// ثبت نام/ورود buttons. PUBLIC_NAV (with تماس) remains for the footer nav.
+const HEADER_NAV = [
+  ['خانه', '/'],
+  ['درباره من', '/about'],
+  ['خدمات', '/services'],
+  ['مجله', '/magazine'],
+  ['نتایج', '/results']
+];
+
 const ICONS = {
   dumbbell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
   analytics: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',
@@ -2617,13 +2627,14 @@ function brandMarkup() {
 }
 
 function headerMarkup(path, coachAuthorized) {
-  const links = PUBLIC_NAV.map(([label, href]) => {
+  const links = HEADER_NAV.map(([label, href]) => {
     const active = (href === '/' ? path === '/' : path.startsWith(href)) ? ' is-active' : '';
     return `<a class="site-nav__link${active}" href="${href}" data-nav="${href}">${label}</a>`;
   }).join('');
   const action = coachAuthorized
     ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
-    : `<a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
+    : `<a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
+      <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
   return `<header class="site-header" id="siteHeader">
   <div class="site-header__inner">
     ${brandMarkup()}
@@ -3069,13 +3080,15 @@ function sendPublicPage(req, res, { kind, path }) {
     : kind === 'article' ? articleBody(ctx)
     : contactBody(ctx);
   const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
-  // Task 21 — owner directive (2026-09-20): the landing page is the FULL reference
-  // design image (landing2.png) — «همین تصویر مرجع رو کامل استفاده کن». Real
-  // interactive elements (header/buttons/links) will be positioned on top later,
-  // once the owner marks their places (T-19). All other public pages keep the
-  // normal header/footer shell.
+  // Task 22 — owner directive (2026-09-20, T-19 round 1): the landing is the
+  // full reference design image (landing2.png) with the REAL header on top
+  // (خانه/درباره من/خدمات/مجله/نتایج + ثبت نام + ورود). All other public pages
+  // keep the normal header/footer shell.
   const bodyHtml = kind === 'home'
-    ? `<main id="main" class="landing-full"><img class="landing-full__img" src="/images/landing/landing2.png" alt="طراحی کامل صفحهٔ اصلی YASNAFIT" fetchpriority="high" /></main>`
+    ? `<a class="skip-link" href="#main">پرش به محتوا</a>
+  ${headerMarkup(path, coachAuthorized)}
+  <main id="main" class="landing-full"><img class="landing-full__img" src="/images/landing/landing2.png" alt="طراحی کامل صفحهٔ اصلی YASNAFIT" fetchpriority="high" /></main>
+  <script src="/landing.js" defer></script>`
     : `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
   <main id="main">${body}</main>

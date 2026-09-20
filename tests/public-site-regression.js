@@ -134,9 +134,17 @@ async function waitForServer(timeoutMs = 15000) {
     assert.doesNotMatch(home, /هوش مصنوعی/);
     assert.doesNotMatch(home, /AI-?generated|تولیدشده توسط/);
     check('home: full reference image + head/meta/canonical, no inline scripts, no AI wording');
-    // The previous structural landing (hero/features/stats/sample cards/header/footer)
-    // must be gone from the page shell.
-    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|site-footer|class="brand"|magazine-filters--home/);
+    // Owner header spec (T-19 round 1): exactly these five links + ثبت نام + ورود buttons.
+    assert.match(home, /class="brand"/, 'header: brand present');
+    for (const nav of ['/', '/about', '/services', '/magazine', '/results']) {
+      assert.ok(home.includes(`data-nav="${nav}"`), `header nav link ${nav}`);
+    }
+    assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
+    assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
+    check('home: owner header (5 links + ثبت نام/ورود)');
+    // The previous structural landing (hero/features/stats/sample cards) must be
+    // gone from the page shell (header + image only; footer lives on other pages).
+    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|site-footer|magazine-filters--home/);
     const designImg = await request('/images/landing/landing2.png');
     assert.equal(designImg.response.status, 200, 'design image served');
     assert.match(designImg.response.headers.get('content-type') || '', /image\/png/);
@@ -519,9 +527,8 @@ async function waitForServer(timeoutMs = 15000) {
   }
 
   // ---------- 12. Root is the public landing page for EVERYONE (owner decision 2026-09-19) ----------
-  // The landing is the site's front door; a logged-in coach reaches the panel at
-  // /coach/dashboard (Task 21: the full-image landing has no header until T-19
-  // places the real controls on top of the design image).
+  // The landing is the site front door; a logged-in coach reaches the panel at
+  // /coach/dashboard (the landing header shows پنل مربی for authed coaches — T-19 round 1).
   console.log('· root always serves the public landing page');
   {
     const anon = await request('/');
@@ -536,8 +543,8 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(res.data.includes('id="main"'), 'authed coach still gets the landing page on /');
     assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /');
     assert.ok(res.data.includes('data-coach-session="1"'), 'authed landing marks the coach session');
-    // Task 21: the full-image landing has no header — the coach reaches the panel at /coach/dashboard.
-    assert.ok(!res.data.includes('class="brand"'), 'full-image landing has no header; panel lives at /coach/dashboard');
+    assert.ok(res.data.includes('class="brand"'), 'authed landing keeps the public header');
+    assert.ok(res.data.includes('پنل مربی'), 'authed landing header offers the پنل مربی button');
     check('GET / (coach session) → public landing page with panel button');
 
     const dash = await request('/coach/dashboard', { cookie: coachCookie });
