@@ -3080,27 +3080,15 @@ function sendPublicPage(req, res, { kind, path }) {
     : kind === 'article' ? articleBody(ctx)
     : contactBody(ctx);
   const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
-  // Task 25 (PART 1 of 4) — owner directive (2026-09-20): the landing rebuild
-  // starts with the HERO section only, visual reference = the owner's Hero.png.
-  // The photo is kept EXACTLY as provided (cropped from the reference, no text
-  // areas); logo/heading/lead are real HTML on the dark right zone. The fixed
-  // site header sits above the hero's dark top (main { padding-top: --header-h }).
-  // No buttons — the reference contains none. Parts 2–4 wait for the next
-  // section images from the owner.
+  // Task 25 (PART 1 of 4 — FINAL per owner 2026-09-20): the hero IS the
+  // owner's Hero.png, shown in FULL — exact file from main, no crop, no gap,
+  // no deletion of anything (text/logo are part of the image; no HTML text
+  // overlay that would duplicate them). Full width, natural ratio, responsive.
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
   <main id="main" class="home-hero">
-    <div class="home-hero__inner">
-      <div class="home-hero__text">
-        <p class="home-hero__logo" dir="ltr">yasna<span>fit.ir</span></p>
-        <h1 class="home-hero__title">بدنی قوی‌تر، زندگی <span>بهتر</span></h1>
-        <p class="home-hero__lead">با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. من اینجا هستم تا در مسیر سلامت، قدرت و اعتماد به نفس به همراهت باشم.</p>
-      </div>
-      <figure class="home-hero__media">
-        <img src="/images/landing/hero-photo.png" alt="تصویر مربی YASNAFIT" fetchpriority="high">
-      </figure>
-    </div>
+    <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
   </main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
   <script src="/jalali.js" defer></script>
