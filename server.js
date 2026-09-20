@@ -2633,7 +2633,8 @@ function headerMarkup(path, coachAuthorized) {
   }).join('');
   const action = coachAuthorized
     ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
-    : `<a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
+    : `<a class="btn btn--ghost btn--sm" href="/student/profile" data-telegram-bot="true" aria-label="ربات تلگرام"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</a>
+      <a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
       <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
   return `<header class="site-header" id="siteHeader">
   <div class="site-header__inner">

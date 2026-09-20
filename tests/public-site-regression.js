@@ -146,6 +146,12 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
     assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
     check('home: owner header (5 links + ثبت نام/ورود)');
+    // Owner directive (2026-09-20): a «ربات تلگرام» button with a telegram
+    // icon next to ثبت نام/ورود, connected to the student telegram section.
+    assert.ok(home.includes('data-telegram-bot="true"'), 'header: ربات تلگرام button present');
+    assert.match(home, /data-telegram-bot="true"[^>]*>[\s\S]*?ربات تلگرام<\/a>/, 'header: ربات تلگرام with telegram icon → student section');
+    assert.ok(home.includes('href="/student/profile"'), 'header: ربات تلگرام → student profile (telegram bot section)');
+    check('home: header ربات تلگرام button (telegram icon, next to ثبت نام/ورود)');
     // The previous structural landing AND the full-image landing must be gone;
     // home now uses the same header + footer shell as the other public pages.
     assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|magazine-filters--home|landing-full|home-placeholder/);
