@@ -8,6 +8,14 @@
 
 ## 2026-09-20
 
+### Task 25 (مرحلهٔ ۲ از ۴ — درباره من) — بخش جدید = کل About Me.png + حذف کامل صفحهٔ قدیمی /about
+
+- **FILES CHANGED:** `public/images/landing/about-me.png` (جدید — **دقیقاً کل فایل About Me.png اصلی مالک از main**، ۱۰۲۵×۱۲۸۴، byte-identical) • `server.js` (حذف aboutBody + ۵ تابع کمکی (statsMarkup، coachImageMarkup، statsBandMarkup، HOME_ABOUT_BADGES، aboutBadgesMarkup) = ۱۳۴ خط؛ حذف about از meta + sitemap؛ `/about` → ۳۰۲ → `/#about`؛ home: هیرو داخل `div.home-hero` + بخش جدید `section#about.home-about` با تصویر کامل) • `public/landing.css` (بلاک about جدید با ۲ قانون و همان اندازه‌بندی هیرو: `max-width: ۹۴۱px; margin: 0 auto` + `width:100%; height:auto`؛ حذف ~۲۳۰ خط CSS قدیمی about (about-page/about-preview/coach-frame/stat-strip/about-badges/cert-list/timeline/chip-list/placeholder + قوانین موبایل)) • `tests/public-site-regression.js`.
+- **WHAT:** مالک (بخش ۲ از ۴): صفحهٔ قدیمی About Me را کامل حذف کن + بخش تمیز جدید دقیقاً بر اساس About Me.png ⇒ بخش جدید زیر هیرو = **دقیقاً کل About Me.png** (بدون برش، بدون تکرار متن HTML — همهٔ متن داخل تصویر است) با همان قاعدهٔ اندازه‌بندی تأییدشدهٔ هیرو (سقف عرض ۹۴۱px + وسط‌چین؛ موبایل تمام‌عرض). صفحهٔ قدیمی /about (بیو + «فلسفه مربیگری» + «در انتظار تکمیل» + گواهی‌نامه‌ها) **کاملاً حذف شد** → ۳۰۲ به `/#about`. لینک هدر «درباره من» (قانون ۵ لینک مالک) نگه داشته شد و حالا به همان بخش می‌رسد.
+- **WHY:** قاعدهٔ صریح مالک (از بخش ۱): تصویر مرجع = دقیقاً همان فایل بدون هیچ حذفی + همان اندازه‌بندی دقیق.
+- **TESTS:** ۵۹ گروه سبز + smoke زنده (about-me.png = 200 image/png با ۱۷۵۸۳۹۳ بایت؛ /about = 302 → /#about؛ sitemap بدون /about؛ بقیهٔ صفحات عمومی 200؛ محتوای قدیمی about = ۰ ارجاع در HTML/CSS).
+- **COMPAT / عوارض شناخته‌شده:** API پروفایل مربی (PUT/GET /api/coach-profile) دست‌نخورده (پنل مربی کار می‌کند)؛ متن‌های آزاد پروفیل دیگر در سایت عمومی رندر نمی‌شوند (بخش about = تصویر ثابت مرجع مالک)؛ auth/پنل مربی/پرتال شاگرد تغییر نکرده؛ بخش‌های ۳–۴ منتظر تصویرهای دیگر مالک.
+
 ### Task 25 (اصلاح ۴) — کوچک‌کردن تصویر هیرو (سقف عرض 941px + وسط‌چین)
 
 - **FILES CHANGED:** فقط `public/landing.css` (یک قانون: `max-width: 941px; margin: 0 auto` روی `home-hero__img`).

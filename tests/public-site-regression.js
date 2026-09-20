@@ -158,6 +158,16 @@ async function waitForServer(timeoutMs = 15000) {
     const designImg = await request('/images/landing/landing2.png');
     assert.equal(designImg.response.status, 404, 'old design image no longer served');
     check('home: old structures removed, footer present, full hero image 200 (png), crops 404');
+    // Task 25 (PART 2): the About Me section sits below the hero — the owner's
+    // About Me.png served complete (no crop, no HTML text duplication), same
+    // sizing rule as the hero image.
+    assert.match(home, /<section id="about" class="home-about">/, 'about section present below the hero');
+    assert.match(home, /class="home-about__img" src="\/images\/landing\/about-me\.png"/, 'about section uses the full About Me.png');
+    const aboutImg = await request('/images/landing/about-me.png');
+    assert.equal(aboutImg.response.status, 200, 'about image served');
+    assert.match(aboutImg.response.headers.get('content-type') || '', /image\/png/);
+    assert.doesNotMatch(home, /hero-woman|cta-woman|about-woman/, 'home: no orphaned placeholder photos referenced');
+    check('home: about section = full About Me.png below the hero');
 
     const homeRes = await request('/');
     const csp = homeRes.response.headers.get('content-security-policy') || '';
@@ -166,7 +176,6 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: CSP script-src self');
 
     for (const [route, markers] of [
-      ['/about', ['فلسفه مربیگری', 'در انتظار تکمیل', 'گواهی‌نامه‌ها']],
       ['/services', ['برنامه تمرینی اختصاصی', 'ارزیابی بدن', 'مربیگری آنلاین']],
       ['/results', ['نتایج', 'تبدیلات واقعی']],
       ['/contact', ['شروع همکاری']],
@@ -187,10 +196,17 @@ async function waitForServer(timeoutMs = 15000) {
     await expectStatus(404, '/magazine/this-slug-does-not-exist');
     check('/magazine/<unknown> → 404 JSON');
 
+    // PART 2: the standalone /about page was fully removed → 302 to the
+    // landing page section (/#about); the old page content is gone.
+    const aboutRedirect = await request('/about');
+    assert.equal(aboutRedirect.response.status, 302, 'old /about page no longer served');
+    assert.equal(aboutRedirect.response.headers.get('location'), '/#about', '/about redirects to the landing section');
+    check('/about → 302 /#about (old page removed)');
+
     const sitemap = await request('/sitemap.xml');
     assert.equal(sitemap.response.status, 200);
     assert.match(sitemap.data, /<urlset/);
-    assert.match(sitemap.data, /\/about/);
+    assert.doesNotMatch(sitemap.data, /about/, 'sitemap: /about removed');
     const robots = await request('/robots.txt');
     assert.match(robots.data, /Sitemap:/);
     check('sitemap.xml + robots.txt');
@@ -436,18 +452,18 @@ async function waitForServer(timeoutMs = 15000) {
 
     // Footer social icons render ONLY when the owner configures a real URL.
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '@yasnafit_sample' } });
-    // Footer social icons render ONLY when the owner configures a real URL (footer is
-    // on every public page except the full-image home — verified on /about).
-    const aboutWithSocial = await html('/about');
-    assert.ok(aboutWithSocial.includes('site-footer__social') && aboutWithSocial.includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
+    // Footer social icons render ONLY when the owner configures a real URL (footer
+    // is on every public page — verified on /services).
+    const servicesWithSocial = await html('/services');
+    assert.ok(servicesWithSocial.includes('site-footer__social') && servicesWithSocial.includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '', 'site.cta_image': '' } });
-    const aboutNoSocial = await html('/about');
-    assert.ok(!aboutNoSocial.includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
+    const servicesNoSocial = await html('/services');
+    assert.ok(!servicesNoSocial.includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
     check('footer: social icon only when a real URL is configured');
     check('unknown settings keys ignored, known keys applied');
   }
 
-  // ---------- 8. Coach profile → public about page ----------
+  // ---------- 8. Coach profile → public site (old /about SSR removed) ----------
   console.log('· coach profile → public site');
   {
     const bio = 'مربی با رویکرد داده‌محور؛ این متن آزمایشی است و باید در صفحه درباره من دیده شود.';
@@ -469,10 +485,13 @@ async function waitForServer(timeoutMs = 15000) {
     assert.equal(publicProfile.bio, bio);
     assert.equal(publicProfile.specialties.length, 2);
 
-    const about = await html('/about');
-    assert.ok(about.includes(bio), 'about page shows the bio');
-    assert.ok(about.includes('گواهی آزمایشی'), 'about page shows certification');
-    check('coach profile PUT → /api/coach-profile + /about SSR');
+    // PART 2: the old /about SSR page was fully removed — /about redirects to the
+    // landing section, and the landing no longer renders free-text profile data.
+    const aboutAfter = await request('/about');
+    assert.equal(aboutAfter.response.status, 302, 'old /about SSR page removed');
+    const homeAfter = await html('/');
+    assert.ok(!homeAfter.includes(bio), 'landing does not render free-text profile data');
+    check('coach profile PUT → /api/coach-profile (old /about SSR removed)');
   }
 
   // ---------- 9. Success stories + consent privacy guard ----------

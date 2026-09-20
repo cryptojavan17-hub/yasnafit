@@ -2742,139 +2742,6 @@ function emptyResultsMarkup() {
 </div>`;
 }
 
-function statsMarkup(profile) {
-  const configured = Array.isArray(profile.stats) ? profile.stats.filter(s => s && (s.label || s.title) && (s.value || s.text)) : [];
-  const items = configured.length
-    ? configured.slice(0, 4)
-    : [
-      { label: 'برنامه اختصاصی', value: 'متناسب با هدف تو' },
-      { label: 'ارزیابی چندمرحله‌ای', value: 'پرونده کامل از روز اول' },
-      { label: 'پیگیری دوره‌ای', value: 'اصلاح مسیر با داده' },
-      { label: 'مربیگری آنلاین', value: 'همراهی مستمر' }
-    ];
-  const icons = ['program', 'star', 'tracking', 'heart'];
-  return `<ul class="stat-strip">${items.map((s, i) => `<li><span class="stat-strip__icon" aria-hidden="true">${ICONS[icons[i]]}</span><div class="stat-strip__text"><b>${escHtml(s.value || s.text || '')}</b><span>${escHtml(s.label || s.title || '')}</span></div></li>`).join('')}</ul>`;
-}
-
-function coachImageMarkup(src, alt, cropClass) {
-  const image = src || '/images/landing/coach-placeholder.svg';
-  return `<img class="coach-img ${cropClass}" src="${escHtml(image)}" alt="${escHtml(alt)}" loading="lazy" data-fallback="/images/landing/coach-placeholder.svg">`;
-}
-
-// ---------- Page bodies ----------
-
-// Wireframe note (newlanding.png): desktop places the hero/about/CTA images on
-// the LEFT and the text on the RIGHT. In an RTL DOM the first child is the
-// rightmost column, so text blocks are emitted before image blocks.
-const HOME_STAT_ICONS = ['heart', 'star', 'user', 'dumbbell'];
-
-function statsBandMarkup(profile) {
-  const configured = Array.isArray(profile.stats) ? profile.stats.filter(s => s && (s.label || s.title) && (s.value || s.text)) : [];
-  const items = configured.length
-    ? configured.slice(0, 4)
-        : [
-      { label: 'شاگرد موفق', value: '۵۰۰+' },
-      { label: 'سال تجربه', value: '۷۰+' },
-      { label: 'برنامه اختصاصی', value: '۱۲۰+' },
-      { label: 'رضایت شاگردان', value: '۹۸٪' }
-    ];
-  return `<section class="stats" aria-label="آمار YASNAFIT">
-  <div class="stats__inner">
-    ${items.map((s, i) => `
-    <div class="stats__item">
-      <div class="stats__icon" aria-hidden="true">${ICONS[HOME_STAT_ICONS[i]]}</div>
-      <b class="stats__value">${escHtml(s.value || s.text || '')}</b>
-      <span class="stats__label">${escHtml(s.label || s.title || '')}</span>
-    </div>`).join('')}
-  </div>
-</section>`;
-}
-
-// Wireframe (newlanding.png section 4): the four bordered credential badges
-// under the about bio — verbatim wireframe copy. The coach's real credentials
-// remain configured for the /about page through the coach profile.
-const HOME_ABOUT_BADGES = [
-  { icon: 'heart', text: 'پشتیبانی از تغذیه و ورزش' },
-  { icon: 'user', text: 'تخصیص بدنسازی بانوان' },
-  { icon: 'cap', text: 'مدرک بین‌المللی IFBB' },
-  { icon: 'calendar', text: '۷ سال تجربه مربیگری' }
-];
-function aboutBadgesMarkup() {
-  return '<ul class="about-badges" aria-label="نمایهٔ مربیگری">'
-    + HOME_ABOUT_BADGES.map(b => '<li class="about-badge"><span class="about-badge__icon" aria-hidden="true">' + ICONS[b.icon] + '</span><span class="about-badge__text">' + b.text + '</span></li>').join('')
-    + '</ul>';
-}
-
-
-function aboutBody(ctx) {
-  const { site, profile } = ctx;
-  const hasBio = Boolean(profile.bio);
-  const photo = profile.photo || site.about_image;
-  const placeholder = label => `<div class="about-placeholder" role="note"><span class="about-placeholder__badge">در انتظار تکمیل</span><p>${escHtml(label)}</p></div>`;
-  const timelineItems = Array.isArray(profile.timeline) ? profile.timeline.filter(t => t && (t.title || t.text)) : [];
-  const specialties = Array.isArray(profile.specialties) ? profile.specialties.filter(s => String(s).trim()) : [];
-  const certs = Array.isArray(profile.certifications) ? profile.certifications.filter(c => c && (c.name || c.title || (typeof c === 'string' && c.trim()))) : [];
-  return `
-<section class="page-hero">
-  <div class="page-hero__inner">
-    <p class="section-eyebrow">YASNAFIT</p>
-    <h1 class="page-hero__title">${escHtml(profile.display_name || 'درباره من')}</h1>
-    <p class="page-hero__lead">${escHtml(profile.title || profile.highlight || 'مربی فیتنس — برنامه‌ریزی، تغذیه و پیگیری مستمر')}</p>
-  </div>
-</section>
-
-<section class="about-page">
-  <div class="about-page__layout">
-    <div class="about-page__media">
-      <div class="coach-frame coach-frame--lg">${coachImageMarkup(photo, 'تصویر مربی', 'hero__img--crop-about')}</div>
-    </div>
-    <div class="about-page__content">
-      <h2 class="section-title">معرفی</h2>
-      ${hasBio ? `<p class="about-bio">${escHtml(profile.bio)}</p>` : placeholder('بیوگرافی و معرفی مربی به‌زودی اینجا درج می‌شود.')}
-      ${profile.highlight ? `<p class="about-preview__highlight">«${escHtml(profile.highlight)}»</p>` : ''}
-      ${statsMarkup(profile)}
-      <a class="btn btn--primary" href="/student/register">شروع همکاری</a>
-    </div>
-  </div>
-
-  <div class="about-page__grid">
-    <article class="about-block">
-      <h3>فلسفه مربیگری</h3>
-      ${profile.philosophy ? `<p>${escHtml(profile.philosophy)}</p>` : placeholder('فلسفه مربیگری به‌زودی تکمیل می‌شود.')}
-    </article>
-    <article class="about-block">
-      <h3>روش کار</h3>
-      ${profile.methodology ? `<p>${escHtml(profile.methodology)}</p>` : placeholder('روش کار (ارزیابی، برنامه‌ریزی، پیگیری) به‌زودی تکمیل می‌شود.')}
-    </article>
-    <article class="about-block">
-      <h3>حوزه‌های تخصص</h3>
-      ${specialties.length ? `<ul class="chip-list">${specialties.slice(0, 12).map(s => `<li>${escHtml(s.name || s.title || s)}</li>`).join('')}</ul>` : placeholder('حوزه‌های تخصصی به‌زودی تکمیل می‌شود.')}
-    </article>
-    <article class="about-block">
-      <h3>گواهی‌نامه‌ها</h3>
-      ${certs.length ? `<ul class="cert-list">${certs.slice(0, 12).map(c => {
-        const name = c.name || c.title || c;
-        const issuer = c.issuer || c.org || '';
-        return `<li><b>${escHtml(name)}</b>${issuer ? `<span>${escHtml(issuer)}</span>` : ''}</li>`;
-      }).join('')}</ul>` : placeholder('گواهی‌نامه‌ها به‌زودی تکمیل می‌شود.')}
-    </article>
-  </div>
-
-  ${timelineItems.length ? `<article class="about-block about-block--full">
-    <h3>سابقه حرفه‌ای</h3>
-    <ol class="timeline">${timelineItems.slice(0, 12).map(t => `<li>
-      ${t.period || t.date ? `<span class="timeline__period">${escHtml(t.period || t.date)}</span>` : ''}
-      <div><b>${escHtml(t.title || '')}</b>${t.text ? `<p>${escHtml(t.text)}</p>` : ''}</div>
-    </li>`).join('')}</ol>
-  </article>` : ''}
-</section>
-
-<section class="cta-band">
-  <h2>بیا با هم شروع کنیم</h2>
-  <p>اولین جلسه با ارزیابی کامل بدنت شروع می‌شود.</p>
-  <a class="btn btn--primary" href="/student/register">شروع مسیر من</a>
-</section>`;
-}
 
 function servicesBody(ctx) {
   return `
@@ -3019,7 +2886,6 @@ function publicMetaFor(kind, path, ctx) {
   }
   const map = {
     home: { title: 'YASNAFIT | بدنی قوی‌تر، زندگی بهتر', description: 'با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. مربیگری فیتنس بانوان: برنامه اختصاصی، تغذیه، ارزیابی و پیگیری مستمر.' },
-    about: { title: 'درباره من | YASNAFIT', description: 'معرفی، فلسفه مربیگری و روش کار در YASNAFIT.' },
     services: { title: 'خدمات | YASNAFIT', description: 'برنامه تمرینی اختصاصی، برنامه غذایی، ارزیابی بدن، پیگیری پیشرفت و مربیگری آنلاین.' },
     results: { title: 'نتایج | YASNAFIT', description: 'تبدیلات واقعی شاگردان YASNAFIT با اجازهٔ خودشان.' },
     magazine: { title: 'YASNAFIT Magazine | علم، ورزش و سبک زندگی', description: 'مجلهٔ YASNAFIT: مقالات علمی و کاربری دربارهٔ بدنسازی، علم ورزش، تغذیه، سلامت و اخبار ورزشی.' },
@@ -3073,7 +2939,6 @@ function sendPublicPage(req, res, { kind, path }) {
   const ogImage = meta.ogImage ? (meta.ogImage.startsWith('http') ? meta.ogImage : `${base}${meta.ogImage}`) : (ctx.site.og_image ? `${base}${ctx.site.og_image}` : '');
   const coachAuthorized = isCoachAuthorized(req);
   const body = kind === 'home' ? ''
-    : kind === 'about' ? aboutBody(ctx)
     : kind === 'services' ? servicesBody(ctx)
     : kind === 'results' ? resultsBody(ctx)
     : kind === 'magazine' ? magazineBody(ctx)
@@ -3087,8 +2952,13 @@ function sendPublicPage(req, res, { kind, path }) {
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
-  <main id="main" class="home-hero">
-    <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
+  <main id="main">
+    <div class="home-hero">
+      <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
+    </div>
+    <section id="about" class="home-about">
+      <img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT" loading="lazy">
+    </section>
   </main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
   <script src="/jalali.js" defer></script>
@@ -3145,7 +3015,7 @@ function sendPublicPage(req, res, { kind, path }) {
 function sendSitemap(req, res) {
   const base = publicBaseUrl(req);
   const urls = [
-    { loc: '/', priority: '1.0' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
+    { loc: '/', priority: '1.0' }, { loc: '/services', priority: '0.7' },
     { loc: '/results', priority: '0.7' }, { loc: '/magazine', priority: '0.8' }, { loc: '/contact', priority: '0.7' }
   ];
   for (const article of articleService.listPublicArticles(db, { limit: 500 })) {
@@ -3627,8 +3497,11 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/robots.txt' && isSafeMethod) return sendRobots(req,res);
     const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,200}$/);
     if(publicArticlePage) return sendPublicPage(req,res,{kind:'article',path:url.pathname});
+    // Task 25 (PART 2) — owner directive (2026-09-20): the standalone /about page
+    // was fully removed; About Me is now a section on the landing page.
+    if(url.pathname==='/about' && isSafeMethod){ res.writeHead(302,{'Location':'/#about'}); return res.end(); }
     const isPublicPageRoute = isSafeMethod && (
-      url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||
+      url.pathname==='/services' || url.pathname==='/results' ||
       url.pathname==='/magazine' || url.pathname==='/contact' ||
       url.pathname==='/'
     );
