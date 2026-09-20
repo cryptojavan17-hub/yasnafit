@@ -121,9 +121,9 @@
 - **NEXT ACTION:** TODO T-17.
 
 ## KI-018 | تصاویر برند سایت عمومی فعلاً crop از `auth-hero.jpg` است
-- **SEVERITY:** Low (بصری) • **STATUS:** OPEN (در انتظار فایل مالک — Task 17/18)
+- **SEVERITY:** Low (بصری) • **STATUS:** **CLOSED** (Task 20 — 2026-09-20: هیرو/درباره/CTA + ۴ تصویر کارت مجله از طراحی مالک `landing2.png`؛ باقی‌مانده: فقط OG ⇒ T-18 PARTIAL)
 - **DESCRIPTION:** هیرو صفحه اصلی، تصویر «درباره من» و تصویر CTA پایانی فعلاً همان تصویر برند موجود (`public/images/auth-hero.jpg`) با برش CSS متفاوت (`object-position: 26% 26%` هیرو / `26% 30%` درباره و CTA) رندر می‌شوند تا تصاویر تصادفی/غیربرند استفاده نشود (Task 18). اگر مسیر `site.hero_image`/`site.about_image`/`site.cta_image` خالی باشد، fallback به `public/images/landing/coach-placeholder.svg` (پلاسی‌هولدهای برند‌شده، مسیر مستند) می‌رود. `og:image` پیش‌فرض `/login-hero.png` است. همه از پنل مجله (تنظیمات سایت → تصاویر) قابل تغییر‌اند.
-- **NEXT ACTION:** TODO T-18 (رسیدن عکس نهایی مالک → کپی به `public/images/landing/` + ست مسیرهای هیرو/درباره/CTA/OG از «تنظیمات سایت»).
+- **NEXT ACTION:** — (انجام‌شده در Task 20؛ تصویرهای برند جایگزین شدند. باقی‌مانده: فقط تصویر OG نهایی مالک، اختیاری ⇒ TODO T-18).
 ## تاریخچه FIXED (نگه‌داشته‌شده)
 
 ### KI-009 (FIXED) | ویرایش نخست مستندات شامل «اصطلاح ممنوع پروژه» بود

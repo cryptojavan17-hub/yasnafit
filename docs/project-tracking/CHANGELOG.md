@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-09-20
+
+### Task 20 — تصویرهای اصلی برند لندینگ از طراحی مالک (`landing2.png`) — فقط عکس‌ها
+
+- **FILES CHANGED:** ۷ تصویر جدید در `public/images/landing/` (`hero-woman.jpg`, `about-woman.jpg`, `cta-woman.jpg`, `cover-bodybuilding.jpg`, `cover-nutrition.jpg`, `cover-sports-science.jpg`, `cover-health.jpg` — برش‌خورده از طراحی مالک `landing2.png`)، `src/public-content-service.js` (پیش‌فرض‌های `site.hero_image`/`site.about_image`/`site.cta_image` → مسیرهای جدید)، `server.js` (src تصویر ۴ کارت نمونه مجله → `cover-{slug}.jpg`)
+- **WHAT:** مالک طراحی جدید لندینگ (`landing2.png`) را با دستور صریح «فقط عکس‌ها رو عوض کن. هیچ چیز دیگه‌ای رو تغییر نده» فرستاد. تطبیق تصویرها:
+  1. **هیرو:** زن با کلاه مشکی (دست‌به‌سینه، سالن تاریک) — `hero-woman.jpg`
+  2. **درباره من:** همان زن (با امضای «yasna» روی تصویر) — `about-woman.jpg`
+  3. **CTA پایانی:** نمای پشت در سالن — `cta-woman.jpg`
+  4. **کارت‌های مجله:** ۴ تصویر مطابق دسته‌بندی طرح — بدنسازی = زن با دمبل (`cover-bodybuilding.jpg`)، تغذیه = کاسهٔ غذا (`cover-nutrition.jpg`)، علم ورزش = دونده (`cover-sports-science.jpg`)، سلامت = زن در خواب (`cover-health.jpg`)؛ بج‌های دسته‌بندی HTML دست‌نخورده ماندند
+- **WHY:** فقط src تصویرها عوض شد؛ **هیچ** تغییری در ساختار/ترتیب بخش‌ها/متن‌ها/دکمه‌ها/فیلترها/آمار/فاصله‌ها/رنگ‌ها/چیدمان (قاعدهٔ صریح مالک: «چیدمان رو به هیچ وجه تغییر نده»).
+- **TESTS:** `npm run test:public-site` ✅ **۵۷ گروه** (بدون تغییر assertها — خروجی ساختاری دست‌نخورده) • `npm test` کامل = **۱۹/۱۹ PASS** • smoke زنده روی 3020: ۷ تصویر = 200، ۴ کارت نمونه با src جدید، بدون 404
+- **COMPAT / عوارض شناخته‌شده:** بدون مایگریشن/schema/API. اگر مالک قبلاً `site.*_image` را در پنل ست کرده باشد، مقدار پنل بر پیش‌فرض اولویت دارد (رفتار قبل). `site.og_image` دست‌نخورده (تصویر OG باقی‌ماندهٔ T-18 — اختیاری).
+
 ## 2026-09-19
 
 ### Task 19 — بازسازی کامل صفحهٔ اصلی دقیقاً طبق wireframe (re-spec مالک)

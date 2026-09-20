@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-19** (توسط Agent جلسهٔ `arena/01a0b993-yasnafit` — **Task 17 (شماره‌گذاری docs/project-tracking): سایت عمومی YASNAFIT (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine`** ، **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png` + افزونهٔ Task 18: «/» همیشه لندینگ (پنل مربی به `/coach/dashboard`)** و **Task 19: بازسازی کامل صفحهٔ اصلی دقیقاً طبق wireframe (متن‌های verbatim، ۴ کارت نمونه مجله، بج/آمار/CTA/فوتر، socials سه‌گانه)** — همه کامل، تست‌شده و **کاملاً بدون کامیت** (منتظر تصمیم مالک). جلسهٔ قبل: `arena/01a0817f-yasnafit` — Task 25/26).
+> آخرین به‌روزرسانی: **2026-09-20** (توسط Agent جلسهٔ `arena/01a0b993-yasnafit` — **Task 20 (شماره‌گذاری docs/project-tracking): تصویرهای اصلی برند لندینگ از طراحی مالک `landing2.png` — فقط عکس‌ها عوض شدند (هیرو/درباره/CTA + ۴ کارت مجله)؛ چیدمان/متن/دکمه/فیلتر/آمار دست‌نخورده**. قبل‌تر: Task 17/18/19 (همه committed + push شده). جلسهٔ قبل: `arena/01a0817f-yasnafit` — Task 25/26).
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -47,9 +47,9 @@
 * **GitHub:** `https://github.com/cryptojavan17-hub/yasnafit`
 * **مسیر لوکال (مهدی):** `C:\Users\MAHDI\Desktop\yasnafit-git`
 * **شاخه‌های مهم:** `main` — الان **`607587f`** (merge PR #5 = Task 24، 2026-09-03 18:41:45Z)؛ قبل‌تر از ۲۰۲۶-۰۹-۰۲ **`50aaa53` = اپ کامل** (PR #2 merge شد؛ قبلاً فقط `README.md` + `login-hero.png` بود، و آن تصویر با `R100` به `public/login-hero.png` منتقل شد). `086f3e0` («Add exact login hero image - do not change face») پدر آن است
-* **شاخهٔ کاری جلسه (فعلاً):** `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. ⚠️ **کل کار Task 17/18 (سایت عمومی + wireframe) در working tree این شاخه است و هنوز کامیت نشده** (13 فایل changed + 9 فایل/دایرکتوری جدید). `origin/main` از 2026-09-19 = `8b693cb`. شاخهٔ قبلی: `arena/01a0817f-yasnafit`. شاخه‌های آرشیو: `arena/01a06884-yasnafit` (tip `8abd85c` = docs بعد از merge PR #5؛ کامیت کد Task 24 = `ab2a8a9`)، `arena/01a0671e-yasnafit` (`58615d4` = Task 23)، `arena/01a066e6-yasnafit` (`6e79fd9`). ⚠️ **سه کامیت docs پایانی جلسهٔ `arena/01a06884-yasnafit` (`a8132ae` + `57ea75c` + `5c61866`) هرگز push نشدند و با بازسازی سندباکس از دست رفتند** ⇒ در این جلسه محتوایشان از گزارش مالک بازسازی شد؛ کامیت push‌شدهٔ `8abd85c` روی origin بود و با cherry-pick به `583af1b` روی شاخهٔ این جلسه برگشت (بدون force-push). نکتهٔ قدیمی‌تر: جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` هم هیچ کامیت/pushی نداشت و Task 24 از نو ساخته شد.
+* **شاخهٔ کاری جلسه (فعلاً):** `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) — همهٔ کارها فقط روی همین شاخه، push فقط به همین شاخه. ✅ **همهٔ کارهای Task 17–20 (سایت عمومی + wireframe + بازسازی کامل + launcher + تصویرهای برند) committed + push شده (2026-09-20).** `origin/main` از 2026-09-19 = `8b693cb`. شاخهٔ قبلی: `arena/01a0817f-yasnafit`. شاخه‌های آرشیو: `arena/01a06884-yasnafit` (tip `8abd85c` = docs بعد از merge PR #5؛ کامیت کد Task 24 = `ab2a8a9`)، `arena/01a0671e-yasnafit` (`58615d4` = Task 23)، `arena/01a066e6-yasnafit` (`6e79fd9`). ⚠️ **سه کامیت docs پایانی جلسهٔ `arena/01a06884-yasnafit` (`a8132ae` + `57ea75c` + `5c61866`) هرگز push نشدند و با بازسازی سندباکس از دست رفتند** ⇒ در این جلسه محتوایشان از گزارش مالک بازسازی شد؛ کامیت push‌شدهٔ `8abd85c` روی origin بود و با cherry-pick به `583af1b` روی شاخهٔ این جلسه برگشت (بدون force-push). نکتهٔ قدیمی‌تر: جلسهٔ کوتاه‌شدهٔ `arena/01a0686c-yasnafit` هم هیچ کامیت/pushی نداشت و Task 24 از نو ساخته شد.
 * **مستندات ریشه (حذفشان ممنوع):** `README.md`, `ARCHITECTURE.md`, `DATABASE_SCHEMA.md`, `CHANGELOG.md` (محصولی/نسخه‌ها), `EXERCISE_MANAGEMENT.md`, **`DEPLOYMENT.md` (جدید)**.
-* **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…18)، `KNOWN-ISSUES.md` (KI-001…KI-018)، `TODO.md` (T-01…T-18)، `TECHNICAL-DECISIONS.md` (TD-1…TD-20)، `archive/`.
+* **مستندات پیگیری:** `docs/project-tracking/` → `PROJECT-CONTEXT.md` (کسب‌وکار + قواعد)، `CHANGELOG.md` (توسعه/تسک‌ها — Task 1…20)، `KNOWN-ISSUES.md` (KI-001…KI-018)، `TODO.md` (T-01…T-18)، `TECHNICAL-DECISIONS.md` (TD-1…TD-23)، `archive/`.
 
 ---
 
@@ -58,11 +58,11 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) |
-| آخرین کامیت | `6301712` (مبنا) — **هیچ کامیتی برای Task 17/18 نشده است** |
-| working tree | **کثیف — کل سایت عمومی (Task 17) + تطبیق wireframe (Task 18) + بازسازی کامل صفحهٔ اصلی (Task 19) بدون کامیت**: ۱۳ فایل changed (server.js +۹۶۷، src/migrations.js +۱۰۵، package.json، public/app.js+core.js+index.html، ۵ مستند پیگیری، tests/e2e+migration-regression) + ۹ آیتم جدید (public/landing.css, landing.js, magazine-admin.css, magazine-admin.js, public/images/landing/, src/article-service.js, src/public-content-service.js, tests/public-site-regression.js) |
-| local vs origin | شاخهٔ جلسه هنوز push نشده (با base هم‌خوان است)؛ `origin/main` از 2026-09-19 = `8b693cb` (جلوتر از base ما — merge‌های جدید، بی‌ربط به این شاخه) |
+| آخرین کامیت | Task 17–20 همه committed (آخرین = کامیت Task 20) — مبنا `6301712` |
+| working tree | **تمیز** — همهٔ Task 17–20 (سایت عمومی + wireframe + بازسازی کامل + launcher + تصویرهای برند) committed روی `arena/01a0b993-yasnafit` و push شده (2026-09-20) |
+| local vs origin | شاخهٔ جلسه با origin هم‌خوان است (push شده 2026-09-20)؛ `origin/main` از 2026-09-19 = `8b693cb` (merge‌های جلسات دیگر، بی‌ربط به این شاخه) |
 | PR | **هنوز ساخته نشده** — فقط با تأیید صریح مالک |
-| اقدامات باز | (۱) **مالک: تصمیم commit/PR** برای Task 17+18 (حکم ممیزی: SAFE TO COMMIT) (۲) بعد از commit: push + PR + merge ⇒ auto-deploy (ریست uptime ملاک) + تست چشمی (۳) T-17 (auto-fetch) و T-18 (عکس نهایی برند) فقط با تأیید مالک (۴) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل هنوز بی‌پاسخ است |
+| اقدامات باز | (۱) مالک: apply/merge شاخهٔ جلسه (روش معمول خودش) (۲) T-17 (auto-fetch) فقط با تأیید مالک (۳) T-18 باقی‌مانده: فقط تصویر OG (اختیاری) (۴) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل هنوز بی‌پاسخ است |
 | هشدار Arena | همان درس‌های قبل: بلافاصله بعد از هر کامیت **push کنید** (کامیت local می‌سوزد)؛ قبل از هر کاری `git status` + قضاوت با محتوا نه هش. ⚠️ در این session فایل `data/` چندین بار پاک/بازسازی شده (سندباکس) ⇒ DB فعلی = تازه + داده e2e؛ **هیچ ربطی به DB لوکال/production مالک ندارد** |
 
 ## 6. Railway Deployment
@@ -150,6 +150,7 @@
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
+* **2026-09-20** — **Task 20 (همین جلسه/شاخه — تصویرهای اصلی برند لندینگ از طراحی مالک `landing2.png`):** مالک: «فقط عکس‌ها رو عوض کن. هیچ چیز دیگه‌ای رو تغییر نده» ⇒ هیرو = زن با کلاه مشکی (دست‌به‌سینه)، درباره = همان زن، CTA = نمای پشت، + ۴ تصویر کارت مجله (بدنسازی/تغذیه/علم ورزش/سلامت) — ۷ تصویر برش‌خورده در `public/images/landing/` + پیش‌فرض‌های `site.hero_image`/`site.about_image`/`site.cta_image` + src کارت‌های نمونه (`server.js`)؛ **هیچ** تغییر ساختار/متن/دکمه/فیلتر/آمار/چیدمان/رنگ؛ ۵۷ گروه test:public-site + ۱۹/۱۹ npm test + smoke زنده. KI-018 بسته شد؛ T-18 → PARTIAL (فقط OG).
 * **افزونه (2026-09-19، درخواست مالک):** launcher (گزینه 1/2) به‌جای /coach/login حالا صفحه اصلی (لندینگ) را باز می‌کند — «نمیخوام این صفحه باز بشه اول، صفحه لندینگ بزار صفحه اصلی». `:OPEN_DASHBOARD` ⇒ `:OPEN_SITE` (URL `http://localhost:%PORT%/`)؛ منو همچنان 5 گزینه‌ای (گاردهای تست دست‌نخورده). ورود مربی از دکمه «ورود» هدر لندینگ یا مستقیم /coach/login. هم‌چنین ردیف راستی‌آزمایی deploy در DEPLOYMENT.md اصلاح شد (=/ = 200 لندینگ، نه 303). تست‌ها: ui-design + student-credentials + deployment + public-site سبز.
 * **2026-09-19** — **Task 19 (همین جلسه/شاخه — بازسازی کامل صفحهٔ اصلی دقیقاً طبق wireframe `newlanding.png`):** مالک خروجی Task 18 را «کاملاً اشتباهه و شبیه طرح نیست» دید و خواست «از اول طبق newlanding.png بساز — نه شبیهش، دقیقاً همون ساختار و چیدمان». تغییرات: (1) ترتیب دقیق بخش‌ها از بالا به پایین (هیدر → هیرو → ۳ ویژگی → درباره → مجله → آمار → CTA → فوتر) — در تست assert شده. (2) ردیف ۳ ویژگی به ترتیب RTL طرح: مربیگری حرفه‌ای (دمبل) | ارزیابی و پیگیری (نمودار) | برنامه اختصاصی (کلیپ‌بورد). (3) درباره: جملهٔ فیروزه‌ای + بیو verbatim طرح + ۴ بج (پشتیبانی از تغذیه و ورزش / تخصیص بدنسازی بانوان / مدرک بین‌المللی IFBB / ۷ سال تجربه مربیگری) + «مشاهده رزومه». (4) مجله: وقتی مقالهٔ منتشرشده‌ای نیست، همیشه ۴ کارت نمونه (متن‌های طرح verbatim + تاریخ ۱۴۰۵/۶/۲۷ + «۵ دقیقه») — نسخهٔ قبلی empty-state بود؛ همهٔ کارت‌ها به `/magazine` واقعی لینک دارند؛ رنگ badge بدنسازی (بنفش‌آبی) / علم ورزش (آبی) جابجا شد. (5) آمار: اعداد دقیق طرح ۵۰۰+ شاگرد موفق / ۷۰+ سال تجربه / ۱۲۰+ برنامه اختصاصی / ۹۸٪ رضایت شاگردان (آیکون در دایرهٔ خطی) — پیش‌فرض تا مالک عدد واقعی از پنل بزند (data از `profile.stats` اولویت دارد). (6) ساب‌لاین CTA verbatim: «همین حالا مسیر تغییر را شروع کن. من در کارت هستم.» (7) فوتر: ۳ آیکون اجتماعی (اینستاگرام/تلیگرام/فیسبوک) — با ست‌شدن، لینک واقعی (کلید جدید `site.contact_facebook` در جدول `settings` موجود + فیلد در تب تماس پنل)؛ تا آن وقت placeholder تزئینی (نه لینک مرده)؛ «ورود مربی» از فوتر حذف شد (روت `/coach/login` مستقیماً کار می‌کند؛ پنل از دکمهٔ هدر — TD-21)؛ copyright وسط‌چین `YASNAFIT © 2026 | تمامی حقوق محفوظ است.` (سال گریگوری خودکار). فایل‌ها: `server.js` (SSR home + آیکون‌های جدید cap/image/facebook)، `public/landing.css` (label دو‌رنگ، pill فعال، رنگ badge، .about-badges، مدیای نمونه، فوتر)، `src/public-content-service.js` (کلید facebook)، `public/magazine-admin.js` (فیلد facebook)، `tests/public-site-regression.js` (گروه home بازنویسی). **۵۷ گروه** `test:public-site` + **۱۹/۱۹** `npm test` + smoke زندهٔ 3020 (۸ URL = 200؛ `/coach/dashboard` ناشناس → 303؛ `/` با کوکی جعلی → 200 لندینگ `data-coach-session="0"`). **بدون کامیت.**
 * **2026-09-19** — **Task 18 (جلسهٔ `arena/01a0b993-yasnafit` — شماره‌گذاری docs — تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`):** صفحهٔ `/` عمومی دقیقاً ۸ بخش به ترتیب `هیدر → هیرو → ۳ ویژگی → درباره → مجله → آمار → CTA پایانی → فوتر` با ترکیب عمداً **تصویر چپ / متن راست** (DOM RTL، بدون آینه‌سازی — TD-20). هیرو: eyebrow YASNAFIT + تیتر دوخطی (خط دوم cyan) + «شروع مسیر من»/«آشنایی با من» + تصویر با `object-fit:cover` و `object-position: 26% 26%`. نوار ۳ ویژگی (برنامه اختصاصی / ارزیابی و پیگیری / مربیگری حرفه‌ای). درباره: تصویر چپ + متن راست + ۴ کارت آیکون‌دار + «مشاهده رزومه» → `/about`. مجله: «YASNAFIT MAGAZINE» + ۶ pill که **لینک** به فیلتر موجود `/magazine?category=…`‌اند (سیستم دوم نساخته شد) + «مشاهده همه مقالات»؛ کارت مقاله با badge رنگی دسته (۵ رنگ پیش‌فرض)، meta با آیکون تاریخ/ساعت + «۵ دقیقه» + CTA «مطالعه مقاله». نوار آمار ۴ ستونه **داده‌محور** (`profile.stats` یا ۴ عبارت کیفی — آمار ساختگی منتشر نمی‌شود). CTA پایانی: چیدمان دو‌ستونه + تنظیم جدید `site.cta_image` (جدول `settings` موجود، بدون مایگریشن). فوتر یک‌ردیفه (brand | nav | socials فقط با آیدی واقعی). بخش‌های services/results از home خارج شدند (صفحاتشان دست‌نخورده). `tests/public-site-regression.js` ⇒ **۵۴ گروه**؛ `npm test` = **۱۹/۱۹**؛ e2e سبز؛ smoke زنده ۱۶/۱۶ URL ۲۰. **بدون کامیت.**
@@ -198,7 +199,7 @@
 | KI-013 | آیتم «رمز ورود» منوی ⋮ مرده بود | Medium | **FIXED** (Task 13) | `public/students.js` | — |
 | — | ✅ **بسته شد (Task 25 — ۲۰۲۶-۰۹-۰۸):** `docs/project-tracking/PROJECT-CONTEXT.md` مکانیزم احراز هویت قدیمی را «VERIFIED/فعلی» می‌دانست (خطوط ۵۷/۶۳/۲۵۲) | Low (مستندات) | **FIXED** (Task 25 — بازنویسی §3/§6/§11 از روی کد، با ارجاع به Task 16) | `docs/project-tracking/PROJECT-CONTEXT.md` | — |
 | KI-017 | موتور auto-fetch مقالات (RSS/وب) در تنظیمات مجله خاموش است و پیاده نشده | Low (P2) | OPEN (T-17) | `src/public-content-service.js` | فقط با تأیید مالک |
-| KI-018 | تصاویر برند سایت عمومی (هیرو/درباره/CTA/OG) فعلاً CSS-crop از `public/images/auth-hero.jpg` + fallback برند‌شده | Low (بصری) | OPEN (T-18 — در انتظار فایل مالک) | `server.js`, `src/public-content-service.js`, `public/landing.css` | رسیدن عکس نهایی مالک → `public/images/landing/` + ست از «تنظیمات سایت» |
+| KI-018 | تصاویر برند سایت عمومی (هیرو/درباره/CTA/OG) | Low (بصری) | **CLOSED** (Task 20 — 2026-09-20: ۷ تصویر از `landing2.png` مالک در `public/images/landing/` + پیش‌فرض‌های `site.*_image`) | `server.js`, `src/public-content-service.js` | باقی‌مانده: فقط OG ⇒ T-18 (PARTIAL، اختیاری) |
 
 ---
 
@@ -212,7 +213,7 @@
 * **تصمیم انتقال دادهٔ لوکال → Railway:** (الف) از صفر شروع کردن (پیشنهاد فعلی) یا (ب) افزودن endpoint ادمین «restore from upload» — گزینهٔ (ب) API جدید است و فقط با تأیید صریح مالک نوشته می‌شود.
 * (به‌روز ۲۰۲۶-۰۹-۰۸) **اعمال تغییرات روی لوکال مهدی:** بلوک bat §17 با شاخهٔ `arena/01a0817f-yasnafit` + ری‌استارت لانچر + `Ctrl+Shift+R`. ⚠️ تغییرات این جلسه **فقط مستندات** است ⇒ رفتار برنامه عوض نمی‌شود و ری‌استارت سرور لازم نیست (رفرش مرورگر کافی است). DB لوکال دست‌نخورده می‌ماند.
 * (جدید، فقط با تأیید مالک) **`KI-016` — اختلاف ۲۷۲۴ ↔ ۲٬۷۰۷ حرکت:** بررسی **کاملاً خواندنی** (یافتن متن دقیق پیام لاگ در کد + گزارش تفکیکی شمارش `exercises`)؛ بدون نوشتار روی DB، بدون ساخت/حذف حرکت.
-* (به‌روز ۲۰۲۶-۰۹-۱۹ — شماره‌گذاری docs) **T-17: موتور auto-fetch مقالات** (P2 — فقط با تأیید مالک) • **T-18: تصاویر نهایی برند سایت عمومی** (P2 — در انتظار فایل مالک؛ فعلاً crop برند + fallback، KI-018).
+* (به‌روز ۲۰۲۶-۰۹-۲۰ — Task 20) **T-17: موتور auto-fetch مقالات** (P2 — فقط با تأیید مالک) • **T-18: تصاویر نهایی برند سایت عمومی** (PARTIAL — هیرو/درباره/CTA + ۴ کارت مجله DONE از طراحی مالک؛ فقط تصویر OG باقی است؛ KI-018 بسته شد).
 
 ### Medium Priority
 * T-14 کاتالوگ ۱۲ سیستم به DB (هنگام سینک) • T-02 پخش ویدیوی حرکات در UI • T-03 آپلود عکس حرکت از UI • T-04 پرکردن `equipment/difficulty/description/name_en` • T-05 پاکسازی داده تستی e2e • T-06 سرنوشت جداول legacy • T-07 طراحی لایهٔ سینک • T-15 افزودن `tool/smoke-*.js` به زنجیرهٔ `npm test` • T-11 مقاوم‌سازی harness تست.
@@ -231,6 +232,7 @@
 * **وضعیت نهایی:** ✅ **انجام شد و مستند شد — کاملاً بدون کامیت** (5 مستند پیگیری + حافظه این فایل به‌روز؛ commit/PR منتظر تأیید مالک).
 * **افزونه (۲۰۲۶-۰۹-۱۹، درخواست مالک):** «/» قبل دوقلو بود (مربی نشست‌دار ⇒ داشبورد) ⇒ حالا «/» همیشه لندینگ عمومی است؛ پنل مربی از دکمهٔ «پنل مربی» هدر یا `/coach/dashboard` (TD-21). تست‌ها ۵۷ گروه + ۱۹/۱۹.
 * **افزونه (2026-09-19، درخواست مالک — Task 19):** صفحهٔ اصلی طبق ۷ دستور صریح مالک (ترتیب دقیق بخش‌ها و حذف/جابجایی ممنوع، کپی verbatim همهٔ متن‌ها از طراحی — حتی متن نمونهٔ مقالات، رنگ مشکی/آبی تیره + فیروزه‌ای، فونت فارسی با وزن‌های مختلف، RTL کامل، حفظ تصاویر placeholder فقط ساختار/چیدمان) از اول و دقیقاً طبق `newlanding.png` بازسازی شد — TD-22. خروجی قبلی (Task 18) به‌عنوان «کاملاً اشتباهه و شبیه طرح نیست» رد شد. ۵۷ گروه + ۱۹/۱۹ + smoke زنده سبز. **بدون کامیت.**
+* **Task 20 (2026-09-20، درخواست مالک — تصویرهای برند):** «فقط عکس‌ها رو عوض کن. هیچ چیز دیگه‌ای رو تغییر نده» ⇒ ۷ تصویر از `landing2.png` (هیرو/درباره/CTA + ۴ کارت مجله) در `public/images/landing/` + پیش‌فرض‌های `site.*_image` + src کارت‌ها؛ چیدمان/متن/دکمه/فیلتر/آمار کاملاً دست‌نخورده (قاعدهٔ صریح مالک). ✅ ۵۷ گروه + ۱۹/۱۹ + smoke زنده؛ committed + push شده.
 
 
 ## 14. Last Session Handoff
@@ -242,7 +244,7 @@
 4. **مستندات:** ۵ فایل `docs/project-tracking/` (Task 17/18 در CHANGELOG، TD-20، KI-017/018، T-17/18، PROJECT-CONTEXT) + همین حافظه.
 5. **افزونهٔ Task 18 (ریشه):** با درخواست مالک «فقط لندینگ را خواستم ارتقا بدم؛ الان میره تو صفحهٔ مربی» ⇒ «/» برای همه (از جمله مربی نشست‌دار) لندینگ عمومی شد؛ ورودی پنل «/coach/dashboard» (gate + redirect ورود از قبل همین بود) — TD-21 + addendum CHANGELOG + بازنویسی گروه ۱۲ تست.
 
-### What changed (همگی بدون کامیت)
+### What changed (همه committed + push شده — 2026-09-20)
 **کد:** `server.js` (+۹۶۷ — homeBody/stats/CTA/footer/articleCard/header + ۱۳ آیکن SVG)، `src/migrations.js` (+۱۰۵)، `src/article-service.js` (جدید)، `src/public-content-service.js` (جدید)، `public/landing.css` (جدید — تمام sectionها + responsive 1180/960/640)، `public/landing.js` (جدید — pill guard)، `public/magazine-admin.css/js` (جدید — پنل مجله + فیلد `site.cta_image`)، `public/images/landing/` (SVG placeholderها)، `public/app.js`+`core.js`+`index.html` (لینک «ورود» به `/student/login` + assetهای CSP)، `package.json` (سوئیت جدید)، `tests/e2e-workflow.js`+`migration-regression.js` (assert 031).
 **مستندات:** ۵ فایل docs/project-tracking + `mahdi hellp.md`. **هیچ مایگریشن مخرب/اضافی، هیچ API جدید خارج از docs، `version` = 0.9.1 دست‌نخورده.**
 
@@ -257,15 +259,15 @@
 * (تجربه) `pkill -f "node server.js"` پوستهٔ فراخواننده را هم می‌کشد ⇒ از PID یا `-xf` استفاده کنید.
 
 ### What remains
-1. **مالک: تصمیم commit + PR** (Task 17+18 در یک working tree) — حکم ممیزی: SAFE TO COMMIT (تغییر روی خطوط موجود فقط `studentScoped`).
+1. ~~**مالک: تصمیم commit + PR**~~ ✅ انجام شد — Task 17–20 committed + push روی `arena/01a0b993-yasnafit` (2026-09-20؛ طبق قاعدهٔ مالک **بدون PR**).
 2. بعد از merge: auto-deploy ⇒ ریست uptime + تست چشمی مالک (هیرو/درباره/CTA، pillها، فوتر، پنل مجله).
-3. **T-18:** عکس نهایی برند مالک (هیرو/درباره/CTA/OG) → `public/images/landing/` + ست از «تنظیمات سایت» (KI-018).
+3. **T-18 (باقی‌مانده):** فقط تصویر OG نهایی مالک (اختیاری) → `public/images/landing/` + ست `site.og_image` از «تنظیمات سایت» (KI-018 بسته شد؛ بقیهٔ تصاویر در Task 20 DONE).
 4. **T-17:** موتور auto-fetch (P2، فقط با تأیید مالک).
 5. تصمیم باز «غیرفعال‌کردن گوگل‌اتنتیکاتور» (جلسهٔ قبل) هنوز بی‌پاسخ.
 
 ### Exact next step for the next Agent
-1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: ۱۳ changed + ۹ untracked روی `arena/01a0b993-yasnafit`، مبنا `6301712`). اگر سندباکس بازسازی شده: `data/` تازه است و کار بدون‌کامیت اگر push نشده بود از دست رفته ⇒ با محتوا (نه هش) قضاوت کن.
-2. اگر مالک commit/PR تأیید کرد: commit روی همین شاخه + **push فوری** + PR به main.
+1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: تمیز روی `arena/01a0b993-yasnafit` — همهٔ کارهای Task 17–20 committed + push شده است).
+2. کار بعدی فقط با درخواست مالک (کارهای باز فعلی: T-17/P2 و T-18-OG اختیاری — هر دو فقط با تأیید مالک).
 3. پایان هر تسک: به‌روزرسانی همین فایل + commit + push + گزارش فارسی + بلوک `bat` §17 با نام شاخهٔ جلسه.
 
 

@@ -2806,7 +2806,7 @@ const HOME_SAMPLE_CARDS = [
 function sampleArticleCardMarkup(slug, name) {
   return `<article class="article-card article-card--sample">
   <div class="article-card__media article-card__media--sample" aria-hidden="true">
-    <span class="article-card__placeholder">${ICONS.image}</span>
+    <img loading="lazy" src="/images/landing/cover-${slug}.jpg" alt="" data-fallback="/images/landing/cover-default.svg">
     <span class="article-card__badge article-card__badge--${slug}">${name}</span>
   </div>
   <div class="article-card__body">

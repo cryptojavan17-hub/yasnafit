@@ -207,9 +207,9 @@ function updateCoachProfile(db, input) {
 // ---------- Public site settings (key/value in the shared settings table) ----------
 
 const SITE_SETTINGS_DEFAULTS = {
-  'site.hero_image': '/images/auth-hero.jpg',
-  'site.about_image': '/images/auth-hero.jpg',
-  'site.cta_image': '/images/auth-hero.jpg',
+  'site.hero_image': '/images/landing/hero-woman.jpg',
+  'site.about_image': '/images/landing/about-woman.jpg',
+  'site.cta_image': '/images/landing/cta-woman.jpg',
   'site.og_image': '/login-hero.png',
   'site.contact_telegram': '',
   'site.contact_instagram': '',
