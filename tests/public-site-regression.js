@@ -176,6 +176,7 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: CSP script-src self');
 
     for (const [route, markers] of [
+      ['/about', ['home-about', 'about-me.png']],
       ['/services', ['برنامه تمرینی اختصاصی', 'ارزیابی بدن', 'مربیگری آنلاین']],
       ['/results', ['نتایج', 'تبدیلات واقعی']],
       ['/contact', ['شروع همکاری']],
@@ -196,17 +197,19 @@ async function waitForServer(timeoutMs = 15000) {
     await expectStatus(404, '/magazine/this-slug-does-not-exist');
     check('/magazine/<unknown> → 404 JSON');
 
-    // PART 2: the standalone /about page was fully removed → 302 to the
-    // landing page section (/#about); the old page content is gone.
-    const aboutRedirect = await request('/about');
-    assert.equal(aboutRedirect.response.status, 302, 'old /about page no longer served');
-    assert.equal(aboutRedirect.response.headers.get('location'), '/#about', '/about redirects to the landing section');
-    check('/about → 302 /#about (old page removed)');
+    // PART 2 (owner clarification): /about is the NEW about page — the full
+    // About Me.png reference below the shared header; ALL old page content
+    // (فلسفه مربیگری / در انتظار تکمیل / گواهی‌نامه‌ها) must be gone.
+    const aboutPage = await html('/about');
+    assert.match(aboutPage, /<section id="about" class="home-about">/, '/about: new about section rendered');
+    assert.match(aboutPage, /class="home-about__img" src="\/images\/landing\/about-me\.png"/, '/about: full About Me.png used');
+    assert.doesNotMatch(aboutPage, /فلسفه مربیگری|در انتظار تکمیل|گواهی‌نامه|about-page|about-block/, '/about: no old page content');
+    check('/about: new page = full About Me.png, all old content gone');
 
     const sitemap = await request('/sitemap.xml');
     assert.equal(sitemap.response.status, 200);
     assert.match(sitemap.data, /<urlset/);
-    assert.doesNotMatch(sitemap.data, /about/, 'sitemap: /about removed');
+    assert.match(sitemap.data, /\/about/);
     const robots = await request('/robots.txt');
     assert.match(robots.data, /Sitemap:/);
     check('sitemap.xml + robots.txt');
@@ -485,13 +488,11 @@ async function waitForServer(timeoutMs = 15000) {
     assert.equal(publicProfile.bio, bio);
     assert.equal(publicProfile.specialties.length, 2);
 
-    // PART 2: the old /about SSR page was fully removed — /about redirects to the
-    // landing section, and the landing no longer renders free-text profile data.
-    const aboutAfter = await request('/about');
-    assert.equal(aboutAfter.response.status, 302, 'old /about SSR page removed');
-    const homeAfter = await html('/');
-    assert.ok(!homeAfter.includes(bio), 'landing does not render free-text profile data');
-    check('coach profile PUT → /api/coach-profile (old /about SSR removed)');
+    // The old /about SSR page is gone: /about now renders the new static
+    // about page (full About Me.png) and must not show free-text profile data.
+    const aboutAfter = await html('/about');
+    assert.ok(!aboutAfter.includes(bio), 'new /about page does not render free-text profile data');
+    check('coach profile PUT → /api/coach-profile (new /about is the static reference page)');
   }
 
   // ---------- 9. Success stories + consent privacy guard ----------

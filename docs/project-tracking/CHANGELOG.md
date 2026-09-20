@@ -8,6 +8,13 @@
 
 ## 2026-09-20
 
+### Task 25 (اصلاح مرحلهٔ ۲ از ۴ — درباره من) — /about = صفحهٔ جداگانهٔ «درباره من» جدید
+
+- **FILES CHANGED:** `server.js` (حذف ریدایرکت 302؛ `/about` دوباره روت عمومی → رندر همان بخش about جدید (کل About Me.png) درون شل مشترک هدر/فوتر؛ برگشت entry meta و sitemap درباره) • `tests/public-site-regression.js` (گروه /about حالا صفحهٔ جدید را تأیید می‌کند: 200 + تصویر کامل + صفر محتوای قدیمی؛ تست پروفایل مربی: بدون متن آزاد در /about).
+- **WHAT:** مالک: «روی درباره من کلیک میکنم باید صفحه جدید درباره من باز بشه» ⇒ لینک هدر «درباره من» → `/about` = **صفحهٔ جداگانهٔ جدید**: هدر مشترک + **دقیقاً کل About Me.png** (همان قاعدهٔ سقف عرض ۹۴۱px هیرو) + فوتر مشترک — محتوای قدیمی همچنان صفر ارجاع. بخش about روی لندینگ (زیر هیرو) هم دست‌نخورده باقی ماند.
+- **TESTS:** ۶۰ گروه سبز + smoke زنده (/about = 200 با title «درباره من»، تصویر کامل، هدر/فوتر، ۰ محتوای قدیمی؛ بخش لندینگ سالم؛ /about در sitemap).
+- **COMPAT:** auth/پنل مربی/پرتال شاگرد دست‌نخورده.
+
 ### Task 25 (مرحلهٔ ۲ از ۴ — درباره من) — بخش جدید = کل About Me.png + حذف کامل صفحهٔ قدیمی /about
 
 - **FILES CHANGED:** `public/images/landing/about-me.png` (جدید — **دقیقاً کل فایل About Me.png اصلی مالک از main**، ۱۰۲۵×۱۲۸۴، byte-identical) • `server.js` (حذف aboutBody + ۵ تابع کمکی (statsMarkup، coachImageMarkup، statsBandMarkup، HOME_ABOUT_BADGES، aboutBadgesMarkup) = ۱۳۴ خط؛ حذف about از meta + sitemap؛ `/about` → ۳۰۲ → `/#about`؛ home: هیرو داخل `div.home-hero` + بخش جدید `section#about.home-about` با تصویر کامل) • `public/landing.css` (بلاک about جدید با ۲ قانون و همان اندازه‌بندی هیرو: `max-width: ۹۴۱px; margin: 0 auto` + `width:100%; height:auto`؛ حذف ~۲۳۰ خط CSS قدیمی about (about-page/about-preview/coach-frame/stat-strip/about-badges/cert-list/timeline/chip-list/placeholder + قوانین موبایل)) • `tests/public-site-regression.js`.

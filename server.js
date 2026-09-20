@@ -2886,6 +2886,7 @@ function publicMetaFor(kind, path, ctx) {
   }
   const map = {
     home: { title: 'YASNAFIT | بدنی قوی‌تر، زندگی بهتر', description: 'با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. مربیگری فیتنس بانوان: برنامه اختصاصی، تغذیه، ارزیابی و پیگیری مستمر.' },
+    about: { title: 'درباره من | YASNAFIT', description: 'معرفی و سوابق کاری مربی در YASNAFIT.' },
     services: { title: 'خدمات | YASNAFIT', description: 'برنامه تمرینی اختصاصی، برنامه غذایی، ارزیابی بدن، پیگیری پیشرفت و مربیگری آنلاین.' },
     results: { title: 'نتایج | YASNAFIT', description: 'تبدیلات واقعی شاگردان YASNAFIT با اجازهٔ خودشان.' },
     magazine: { title: 'YASNAFIT Magazine | علم، ورزش و سبک زندگی', description: 'مجلهٔ YASNAFIT: مقالات علمی و کاربری دربارهٔ بدنسازی، علم ورزش، تغذیه، سلامت و اخبار ورزشی.' },
@@ -2938,7 +2939,12 @@ function sendPublicPage(req, res, { kind, path }) {
   const canonical = `${base}${path}${kind === 'magazine' && ctx.activeCategory ? `?category=${encodeURIComponent(ctx.activeCategory)}` : ''}`;
   const ogImage = meta.ogImage ? (meta.ogImage.startsWith('http') ? meta.ogImage : `${base}${meta.ogImage}`) : (ctx.site.og_image ? `${base}${ctx.site.og_image}` : '');
   const coachAuthorized = isCoachAuthorized(req);
+  // Task 25 (PART 2 — owner clarification 2026-09-20): the /about page is the
+  // NEW about page — the complete About Me.png reference (no crop, no HTML text
+  // duplication, same sizing rule as the hero/landing section).
+  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT"></section>';
   const body = kind === 'home' ? ''
+    : kind === 'about' ? aboutBody
     : kind === 'services' ? servicesBody(ctx)
     : kind === 'results' ? resultsBody(ctx)
     : kind === 'magazine' ? magazineBody(ctx)
@@ -3015,7 +3021,7 @@ function sendPublicPage(req, res, { kind, path }) {
 function sendSitemap(req, res) {
   const base = publicBaseUrl(req);
   const urls = [
-    { loc: '/', priority: '1.0' }, { loc: '/services', priority: '0.7' },
+    { loc: '/', priority: '1.0' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
     { loc: '/results', priority: '0.7' }, { loc: '/magazine', priority: '0.8' }, { loc: '/contact', priority: '0.7' }
   ];
   for (const article of articleService.listPublicArticles(db, { limit: 500 })) {
@@ -3497,11 +3503,8 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/robots.txt' && isSafeMethod) return sendRobots(req,res);
     const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,200}$/);
     if(publicArticlePage) return sendPublicPage(req,res,{kind:'article',path:url.pathname});
-    // Task 25 (PART 2) — owner directive (2026-09-20): the standalone /about page
-    // was fully removed; About Me is now a section on the landing page.
-    if(url.pathname==='/about' && isSafeMethod){ res.writeHead(302,{'Location':'/#about'}); return res.end(); }
     const isPublicPageRoute = isSafeMethod && (
-      url.pathname==='/services' || url.pathname==='/results' ||
+      url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||
       url.pathname==='/magazine' || url.pathname==='/contact' ||
       url.pathname==='/'
     );
