@@ -121,10 +121,12 @@ async function waitForServer(timeoutMs = 15000) {
   console.log('· public SSR pages');
   {
     const home = await html('/');
-    // Task 21 — owner directive (2026-09-20): the landing is the FULL reference
-    // design image (landing2.png); real interactive elements are placed later (T-19).
+    // Task 24 — owner directive (2026-09-20): the whole old landing (full design
+    // image) was removed so it can be rebuilt from scratch — home is a minimal
+    // placeholder page in the normal header + footer shell.
     assert.match(home, /<html[^>]+lang="fa"[^>]+dir="rtl"/);
-    assert.match(home, /<img[^>]+src="\/images\/landing\/landing2\.png"/, 'home: full reference design image');
+    assert.match(home, /home-placeholder/, 'home: placeholder page present');
+    assert.doesNotMatch(home, /landing2\.png/, 'home: full design image removed');
     assert.match(home, /<title>YASNAFIT \| بدنی قوی‌تر، زندگی بهتر<\/title>/);
     assert.match(home, /rel="canonical"/);
     assert.match(home, /property="og:title"/);
@@ -133,7 +135,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.match(inlineScripts(home).join(''), /^$/);
     assert.doesNotMatch(home, /هوش مصنوعی/);
     assert.doesNotMatch(home, /AI-?generated|تولیدشده توسط/);
-    check('home: full reference image + head/meta/canonical, no inline scripts, no AI wording');
+    check('home: placeholder shell + head/meta/canonical, no design image, no inline scripts, no AI wording');
     // Owner header spec (T-19 round 1): exactly these five links + ثبت نام + ورود buttons.
     assert.match(home, /class="brand"/, 'header: brand present');
     for (const nav of ['/', '/about', '/services', '/magazine', '/results']) {
@@ -142,13 +144,13 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
     assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
     check('home: owner header (5 links + ثبت نام/ورود)');
-    // The previous structural landing (hero/features/stats/sample cards) must be
-    // gone from the page shell (header + image only; footer lives on other pages).
-    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|site-footer|magazine-filters--home/);
+    // The previous structural landing AND the full-image landing must be gone;
+    // home now uses the same header + footer shell as the other public pages.
+    assert.doesNotMatch(home, /hero__content|features__item|stats__value|article-card--sample|magazine-filters--home|landing-full/);
+    assert.match(home, /class="site-footer"/, 'home: footer shell like the other public pages');
     const designImg = await request('/images/landing/landing2.png');
-    assert.equal(designImg.response.status, 200, 'design image served');
-    assert.match(designImg.response.headers.get('content-type') || '', /image\/png/);
-    check('home: old structure removed + design image 200 (image/png)');
+    assert.equal(designImg.response.status, 404, 'design image no longer served');
+    check('home: old + full-image structure removed, footer present, design image 404');
 
     const homeRes = await request('/');
     const csp = homeRes.response.headers.get('content-security-policy') || '';

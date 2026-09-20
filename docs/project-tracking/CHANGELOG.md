@@ -7,6 +7,14 @@
 ---
 
 ## 2026-09-20
+### Task 24 — حذف کامل لندینگ قبلی (شروع از نو)
+
+- **FILES CHANGED:** `server.js` (شعبهٔ home در `sendPublicPage`: رندر تصویر کامل طرح → صفحهٔ placeholder مینیمال در پوستهٔ هدر+فوتر معمولی) • `public/landing.css` (حذف `landing-full`/landing-full__img، افزودن سبک‌های `home-placeholder`) • `public/images/landing/landing2.png` (حذف‌شده) • `tests/public-site-regression.js` (گروه home: placeholder + هدر + فوتر + نبود تصویر + ۴۰۴)
+- **WHAT:** مالک: «تمام قسمت‌های لندینگ رو حذف کن — میخوام دوباره شروع کنم» ⇒ کل لندینگ تصویر‌محور (Tasks 21–23) از کد و assets حذف شد؛ «/» فعلاً یک صفحهٔ placeholder ساده است (YASNAFIT + «صفحهٔ اصلی در حال بازطراحی است.») با همین هدر واقعی (۵ لینک + ثبت نام + ورود) و فوتر معمولی — آمادهٔ ساخت لندینگ جدید از نو.
+- **چه چیزی دست‌نخورده ماند:** هدر/فوتر مشترک همهٔ صفحات عمومی، صفحات /about /services /results /magazine /contact، تصاویر برش‌خوردهٔ در حال سرو برای /about و /results و مجله (hero/about/cta-woman + cover-* + پیش‌فرض‌های site.*_image در DB)، همهٔ API/ورود/پنل مربی/پورتال شاگرد. تصویر اصلی دست‌نخورده در main (ریشهٔ ریپو) و `.refwork/landing2.png` باقی است.
+- **WHY:** مالک خواست لندینگ را از اول بسازد؛ زیرساخت تکراری/خوابیده نباید در مسیر طرح جدید بماند.
+- **TESTS:** ۵۸ گروه test:public-site (گروه home جدید: placeholder + head/meta + هدر مالک + فوتر + ۴۰۴ تصویر) + ۱۹/۱۹ npm test + smoke زنده (home = placeholder/هدر/فوتر؛ landing2.png = ۴۰۴؛ صفحات دیگر + تصاویر woman = ۲۰۰).
+- **COMPAT / عوارض شناخته‌شده:** صفحهٔ «/» تا ارائهٔ طرح جدید توسط مالک، placeholder است (هدفمند، نه نقص).
 ### Task 23 — برش هدرِ خودِ تصویر طراحی (بعد از جا‌اندازی هدر واقعی)
 
 - **FILES CHANGED:** فقط `public/images/landing/landing2.png` (برش ۹۴۱×۱۶۷۲ → ۹۴۱×۱۶۱۰ — نوار بالای تصویر، ۶۲px = هدر خودِ طرح (لوگو YASNAFIT + منو + شعار + دکمهٔ ورود) که با هدر واقعی صفحه تکراری شده بود، حذف شد) — **هیچ کد/CSS/HTML تغییر نکرد** (مسیر تصویر ثابت)

@@ -3080,14 +3080,22 @@ function sendPublicPage(req, res, { kind, path }) {
     : kind === 'article' ? articleBody(ctx)
     : contactBody(ctx);
   const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
-  // Task 22 — owner directive (2026-09-20, T-19 round 1): the landing is the
-  // full reference design image (landing2.png) with the REAL header on top
-  // (خانه/درباره من/خدمات/مجله/نتایج + ثبت نام + ورود). All other public pages
-  // keep the normal header/footer shell.
+  // Task 24 — owner directive (2026-09-20): the whole old landing (full design
+  // image) was removed — "میخوام دوباره شروع کنم" (start over). Home is a
+  // minimal placeholder page in the normal header + footer shell until the
+  // owner provides the new design. The shared header (5 links + ثبت نام/ورود)
+  // and footer stay on all public pages.
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
-  <main id="main" class="landing-full"><img class="landing-full__img" src="/images/landing/landing2.png" alt="طراحی کامل صفحهٔ اصلی YASNAFIT" fetchpriority="high" /></main>
+  <main id="main" class="home-placeholder">
+    <div>
+      <p class="home-placeholder__title">YASNAFIT</p>
+      <p class="home-placeholder__text">صفحهٔ اصلی در حال بازطراحی است.</p>
+    </div>
+  </main>
+  ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
+  <script src="/jalali.js" defer></script>
   <script src="/landing.js" defer></script>`
     : `<a class="skip-link" href="#main">پرش به محتوا</a>
   ${headerMarkup(path, coachAuthorized)}
