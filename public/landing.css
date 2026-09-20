@@ -1243,10 +1243,10 @@ main { padding-top: var(--header-h); }
   .service-card:hover, .story-card:hover, .article-card:hover, .contact-card:hover,
   .btn--primary:hover, .btn--ghost:hover { transform: none; }
 }
-/* Task 25 (PART 1 of 4 — FINAL per owner 2026-09-20): the hero is the owner's
-   Hero.png shown in FULL — exact file, no crop, no gap, no deletion, no
-   duplicated HTML text (logo/title/lead are part of the image). Full width,
-   natural 1672:941 ratio, responsive; the fixed header sits above the image's
+/* Task 25 (PART 1 of 4 — SIZING per owner 2026-09-20): the hero is the owner's
+   Hero.png shown in FULL (no crop, no deletion, no duplicated HTML text),
+   capped at its natural width 941px and centered — compact on desktop,
+   full-width (responsive) on mobile. The fixed header sits above the image's
    dark top (main { padding-top: var(--header-h) }). */
 .home-hero { background: var(--bg); }
-.home-hero__img { display: block; width: 100%; height: auto; }
+.home-hero__img { display: block; width: 100%; height: auto; max-width: 941px; margin: 0 auto; }
