@@ -823,7 +823,7 @@
     return `
       ${queueStatsMarkup()}
       <div class="mag-toolbar">
-        <p class="mag-toolbar__note">مطالب کشف‌شده از منابع خبری اینجا برای بازبینی شما آماده می‌شوند. انتشار فقط با تأیید شما انجام می‌شود.</p>
+        <p class="mag-toolbar__note">سیستم به‌صورت خودکار منابع معتبر روز دنیا (PubMed + رسانه‌های علمی و ورزشی) را برای ورزش، تغذیه، بدنسازی و به‌ویژه سلامت زنان جستجو می‌کند، به فارسی ترجمه/ویراستاری می‌کند و برای بازبینی شما آماده می‌سازد. انتشار فقط با تأیید شما انجام می‌شود.</p>
         <div class="mag-toolbar__actions">
           <button type="button" class="primary" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : 'بررسی مطالب جدید'}</button>
         </div>
@@ -964,7 +964,7 @@
       discoverBtn.textContent = 'در حال بررسی…';
       try {
         const result = await api('/api/magazine/admin/discover', { method: 'POST' });
-        toast(`بررسی انجام شد: ${faDigits(result.drafted)} پیش‌نویس جدید، ${faDigits(result.duplicates)} تکراری، ${faDigits(result.failed)} خطا`);
+        toast(result.drafted ? `بررسی انجام شد: ${faDigits(result.drafted)} مطلب جدید از منابع روز دنیا آمادهٔ بازبینی شماست` : `بررسی انجام شد: مطلب جدیدی پیدا نشد (تکراری: ${faDigits(result.duplicates)})`);
         await renderPane();
       } catch (error) {
         toast(error.message, true);
@@ -1086,7 +1086,7 @@
         </div>
       </div>` : `
       <div class="mag-toolbar">
-        <p class="mag-toolbar__note">فیدهای عمومی RSS/Atom خبری و علمی. کشف فقط پیش‌نویس می‌سازد؛ انتشار همیشه دستی و از طرف شماست.</p>
+        <p class="mag-toolbar__note">منابع پیش‌فرض روز دنیا (PubMed + رسانه‌های علمی/ورزشی) از قبل فعال هستند — نیازی به افزودن منبع نیست. این تب فقط برای تغییرات پیشرفته است (غیرفعال‌کردن/افزودن/تغییر بازه). کشف فقط پیش‌نویس می‌سازد؛ انتشار همیشه دستی و از طرف شماست.</p>
         <div class="mag-toolbar__actions"><button type="button" class="primary" id="srcAddNew">＋ افزودن منبع</button></div>
       </div>`}
       <div class="table-wrap">

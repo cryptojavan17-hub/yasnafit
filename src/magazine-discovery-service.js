@@ -123,6 +123,13 @@ function parseFeed(xml) {
     if (url && !/^(https?:|mailto:)/i.test(url)) url = '';
     const publishedAt = pick(block, 'pubDate', 'published', 'updated', 'dc:date') || null;
     const rawSummary = pick(block, 'description', 'summary', 'content', 'content:encoded');
+    // Google News feeds: the item <link> is a redirect; the real article URL is
+    // the first anchor inside the decoded description.
+    let realUrl = '';
+    if (/news\.google\.com\/?rss/i.test(url)) {
+      const anchor = rawSummary.match(/<a[^>]+href\s*=\s*["']([^"']+)["']/i);
+      if (anchor) realUrl = anchor[1];
+    }
     const summary = rawSummary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
     let imageUrl = pickAttr(block, 'enclosure', 'url') || pickAttr(block, 'media:content', 'url') || pickAttr(block, 'media:thumbnail', 'url');
     if (!imageUrl) {
@@ -131,8 +138,10 @@ function parseFeed(xml) {
     }
     if (imageUrl && !/^https?:/i.test(imageUrl)) imageUrl = '';
     const author = pick(block, 'author', 'dc:creator', 'name') || '';
-    if (!title || !url) continue;
-    items.push({ title: title.slice(0, 300), url, publishedAt, summary, imageUrl, author });
+    const outlet = pick(block, 'source') || '';
+    const finalUrl = realUrl || url;
+    if (!title || !finalUrl) continue;
+    items.push({ title: title.slice(0, 300), url: finalUrl, publishedAt, summary, imageUrl, author: outlet || author, outlet });
   }
   return items;
 }
@@ -314,13 +323,14 @@ function qualityChecks({ item, categorySlug }) {
 // must be strict JSON.
 
 const EDITORIAL_SYSTEM_PROMPT = [
-  'شما ویراستار خبری-علمی مجلهٔ YASNAFIT هستید. شما فقط با محتوایی که در پیام کاربر داده می‌شود کار می‌کنید.',
+  'شما ویراستار خبری-علمی مجلهٔ YASNAFIT هستید (خوانندگان اصلی: زنان ورزشکار و مربی‌زنان). شما فقط با محتوایی که در پیام کاربر داده می‌شود کار می‌کنید.',
   'قوانین سخت‌گیرانه:',
   '1) هیچ حقیقت، مطالعه، آمار، نقل‌قول، شخص، رویداد یا منبع جدیدی اختراع نکنید. فقط بازنویسی/خلاصه‌سازی محتوای منبع.',
   '2) اطلاعات مبهم یا ناقص را به‌صورت محتاطانه بیان کنید (مثلاً «طبق گزارش منبع»).',
-  '3) خروجی فقط JSON معتبر با همین کلیدها باشد: title, summary, content_html, claims[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1).',
-  '4) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی و ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
-  '5) اگر منبع علمی است، نام پژوهش/موسسه را فقط در حدی که در متن منبع آمده در references بنویسید.'
+  '3) اگر متن منبع به انگلیسی یا زبان دیگری است، آن را روان و حرفه‌ای به فارسی ترجمه/بازنویسی کنید (ترجمهٔ تحت‌اللفظی نه).',
+  '4) خروجی فقط JSON معتبر با همین کلیدها باشد: title, summary, content_html, claims[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1).',
+  '5) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی و ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
+  '6) اگر منبع علمی است، نام پژوهش/موسسه را فقط در حدی که در متن منبع آمده در references بنویسید.'
 ].join('\n');
 
 function editorialUserPrompt(item, sourceName) {

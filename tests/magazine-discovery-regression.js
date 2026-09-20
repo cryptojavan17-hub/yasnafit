@@ -38,6 +38,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('titleSimilarity different', discovery.titleSimilarity('تغذیه قبل از تمرین','سلامت قلب و عروق')<0.86);
   check('sha1 stable', discovery.sha1('x')===discovery.sha1('x'));
   check('normalizeUrl invalid', discovery.normalizeUrl('javascript:alert(1)')==='');
+  const GOOGLE_NEWS_FIXTURE = '<rss><channel><item><title>New study on womens strength — The Guardian</title><link>https://news.google.com/rss/articles/CBMiabc123?hl=en</link><pubDate>Mon, 21 Sep 2026 06:00:00 GMT</pubDate><description>&lt;a href=&quot;https://www.theguardian.com/sport/2026/sep/21/study-women-strength&quot;&gt;New study on womens strength&lt;/a&gt; — &lt;div&gt;&lt;span&gt;The Guardian&lt;/span&gt;&lt;/div&gt;</description><source url="https://www.theguardian.com/">The Guardian</source></item></channel></rss>';
+  const itemsG=discovery.parseFeed(GOOGLE_NEWS_FIXTURE);
+  check('parseFeed Google News: real URL resolved from redirect', itemsG.length===1 && itemsG[0].url==='https://www.theguardian.com/sport/2026/sep/21/study-women-strength', JSON.stringify(itemsG.map(i=>i.url)));
+  check('parseFeed Google News: outlet name captured', itemsG[0] && itemsG[0].outlet==='The Guardian', itemsG[0]?itemsG[0].outlet:'none');
 
   // ---- server + fake feeds ----
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-t37-'));
@@ -82,6 +86,13 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('queue anonymous → 401', r.status===401, 'got '+r.status);
   r=await fetch(BASE+'/api/magazine/admin/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   check('sources create anonymous → 401', r.status===401, 'got '+r.status);
+
+  // built-in world sources (migration 034): seeded & active by default; zero-setup flow
+  r=await j('/api/magazine/admin/sources');
+  check('built-in world sources seeded (6, all active)', r.data.sources.length===6 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
+  for(const b of r.data.sources){ await j(`/api/magazine/admin/sources/${b.id}`,{method:'PUT',body:JSON.stringify({is_active:false})}); }
+  r=await j('/api/magazine/admin/sources');
+  check('built-ins can be toggled off (advanced)', r.data.sources.length===6 && r.data.sources.every(x=>!x.is_active));
 
   // sources CRUD
   r=await j('/api/magazine/admin/sources',{method:'POST',body:JSON.stringify({name:'منبع نامعتبر',feed_url:'ftp://bad.example/x'})});

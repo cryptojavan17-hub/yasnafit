@@ -1499,6 +1499,22 @@ const migrations = [
       try { db.exec('ALTER TABLE magazine_articles ADD COLUMN quality_flags TEXT'); } catch (e) { /* column already exists */ }
       try { db.exec('ALTER TABLE magazine_articles ADD COLUMN rejection_reason TEXT'); } catch (e) { /* column already exists */ }
     }
+  },
+  {
+    id: '034_magazine_builtin_world_sources',
+    description: 'Magazine: pre-configured trusted world sources (PubMed + world science/sports media) for sports, nutrition, bodybuilding and women\'s health — zero setup for the coach',
+    up(db) {
+      const builtins = [
+        ['builtin-pubmed-women-strength', 'PubMed — تمرینات مقاومتی زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+strength+training&format=rss', 'rss', 'bodybuilding'],
+        ['builtin-pubmed-sports-nutrition', 'PubMed — تغذیه ورزشی', 'https://pubmed.ncbi.nlm.nih.gov/?term=sports+nutrition&format=rss', 'rss', 'nutrition'],
+        ['builtin-pubmed-women-exercise', 'PubMed — ورزش و سلامت زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+exercise+health&format=rss', 'rss', 'health'],
+        ['builtin-gnews-sports-science', 'روز دنیا: علم ورزش', 'https://news.google.com/rss/search?q=sports+science+strength+training&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-women-fitness', 'روز دنیا: تمرین و تناسب‌اندام زنان', 'https://news.google.com/rss/search?q=women+fitness+training+health&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-nutrition-science', 'روز دنیا: علم تغذیه', 'https://news.google.com/rss/search?q=nutrition+science+research&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
   }
 ];
 
