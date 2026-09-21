@@ -43,6 +43,13 @@ const entriesC=Array.from({length:25},(_,i)=>{
 }).join('');
 const RSS_C='<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"><title>Feed C</title>'+entriesC+'</feed>';
 
+// rev10 feed D: redirect-to-canonical story / twitter:image-only story / AI-failure story
+const RSS_D='<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom"><title>Feed D</title>'
+  +'<entry><title>مورد حوالهٔ اصلی</title><link href="http://127.0.0.1:__IMGPORT__/redirector/x"/><updated>2026-09-21T08:00:00Z</updated><summary>موردی که باید به انتشارکنندۀ اصلی و canonical حل شود.</summary></entry>'
+  +'<entry><title>مورد تصویر توییتر</title><link href="http://127.0.0.1:__IMGPORT__/img-twitter.html"/><updated>2026-09-21T08:10:00Z</updated><summary>موردی که صفحهٔ آن فقط twitter:image دارد.</summary></entry>'
+  +'<entry><title>FAILAI مورد ناموفق</title><link href="http://127.0.0.1:__IMGPORT__/fail-ai.html"/><updated>2026-09-21T08:20:00Z</updated><summary>پردازش هوش مصنوعی روی این مورد خطا می‌دهد.</summary></entry>'
+  +'</feed>';
+
 let failures=0;
 function check(label, ok, extra='') {
   console.log((ok?'PASS':'FAIL')+' — '+label+(extra?' ('+extra+')':''));
@@ -97,7 +104,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const feedPort=await freePort();
   const STORY2_URL='http://127.0.0.1:'+feedPort+'/story2.html';
   const RSS_A2=RSS_A.split('__STORY2_URL__').join(STORY2_URL).split('__IMGPORT__').join(String(feedPort)).split('__GNEWS_ID1__').join(gnewsId(GNEWS_REAL)).split('__GNEWS_ID2__').join(gnewsId(GNEWS_REAL,'other'));
+  const RSS_D2=RSS_D.split('__IMGPORT__').join(String(feedPort));
   const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image:secure_url" content="http://127.0.0.1:'+feedPort+'/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
+  const STORY4_PAGE='<html><head><title>Canonical story</title><link rel="canonical" href="https://publisher4.example.com/canon-1"><meta property="og:site_name" content="Site Four"><meta property="og:image" content="https://img4.example.com/main.jpg"></head><body><article>متن اصلی مقالهٔ چهارم: این صفحه برای تست حل‌شوندگی canonical، نام انتشارکننده (og:site_name) و تصویر og استفاده می‌شود و باید متن کافی برای ویراستار هوش مصنوعی داشته باشد تا خروجی معتبر شود و به صف بررسی برود.</article></body></html>';
+  const TWITTER_PAGE='<html><head><title>TW story</title><meta name="twitter:image" content="https://img-tw.example.com/tw.jpg"></head><body><article>متن مورد تصویر توییتر: این صفحه فقط تصویر twitter:image دارد (بدون og:image) و زنجیرهٔ تصویر باید به twitter برسد؛ متن کافی برای ویراستار دارد.</article></body></html>';
   const SHARED_OG_PAGE=ogUrl=>'<html><head><meta property="og:image" content="'+ogUrl+'"></head><body>article</body></html>';
   const AI_CONTENT='<p>این متن آزمایشی برای بررسی خط لولهٔ ویراستاری است. طبق گزارش منبع، تمرینات مقاومتی منظم می‌تواند بر سلامت استخوان‌ها و عضلات زنان اثر مثبت بگذارد و باید با تغذیهٔ کافی همراه باشد. این پاراگراف طول کافی برای اعتبارسنجی دارد.</p><p>بخش دوم: نتایج منبع نشان می‌دهد افزایش تدریجی بار تمرین همراه با ریکاوری مناسب، بهترین نتیجه را دارد.</p>';
   const aiReply=(prompt)=>{
@@ -120,14 +130,19 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     };
   };
   const feedServer=http.createServer((req,res)=>{
+    if(req.url.startsWith('/redirector/x')){res.statusCode=302;res.setHeader('Location','http://127.0.0.1:'+feedPort+'/story4.html');res.end('');return;}
+    if(req.url.startsWith('/story4.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(STORY4_PAGE);return;}
+    if(req.url.startsWith('/img-twitter.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(TWITTER_PAGE);return;}
+    if(req.url.startsWith('/fail-ai.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<html><head><title>Fail</title></head><body><article>متن مورد ناموفق که پردازش هوش مصنوعی روی آن خطا می‌دهد و باید «نیازمند پردازش مجدد» بماند و هرگز به صف آماده‌بررسی نرود.</article></body></html>');return;}
     if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
     if(req.url.startsWith('/page-a.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
     if(req.url.startsWith('/page-b.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
     if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
     if(req.url.startsWith('/ai/models')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({models:['mock-model'],default_combo:'mock-model'}));return;}
-    if(req.url.startsWith('/ai/chat/completions')){let body='';req.on('data',c=>body+=c);req.on('end',()=>{try{const p=JSON.parse(body);const prompt=(p.messages||[]).map(m=>m.content).join('\n');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(aiReply(prompt))+'\n```'}}]}));}catch(e){res.statusCode=500;res.end('bad');}});return;}
+    if(req.url.startsWith('/ai/chat/completions')){let body='';req.on('data',c=>body+=c);req.on('end',()=>{try{const p=JSON.parse(body);const prompt=(p.messages||[]).map(m=>m.content).join('\n');if(prompt.includes('FAILAI مورد ناموفق')){res.setHeader('Content-Type','text/plain');res.end('not-json: the mock AI exploded for this story');return;}res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(aiReply(prompt))+'\n```'}}]}));}catch(e){res.statusCode=500;res.end('bad');}});return;}
     res.setHeader('Content-Type','application/xml; charset=utf-8');
     if(req.url.startsWith('/a.xml'))res.end(RSS_A2);
+    else if(req.url.startsWith('/d.xml'))res.end(RSS_D2);
     else if(req.url.startsWith('/b.xml'))res.end(RSS_B);
     else if(req.url.startsWith('/c.xml')){res.end(RSS_C);return;}
     else {res.statusCode=404;res.end('not found');}
@@ -191,6 +206,20 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // point the AI at the local mock editor (so every candidate is AI-prepared)
   r=await j('/api/ai/settings',{method:'PUT',body:JSON.stringify({api_key:'test-mock-key',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'})});
   check('AI settings pointed at local mock editor', r.status===200 && r.data.has_api_key===true, JSON.stringify(r.data));
+  // rev10: article page inspection (canonical / publisher name / image chain / text)
+  {
+    const page4=await discovery.fetchArticlePage('http://127.0.0.1:'+feedPort+'/story4.html');
+    check('rev10 fetchArticlePage: canonical URL extracted', page4.ok && page4.canonical==='https://publisher4.example.com/canon-1', JSON.stringify({ok:page4.ok,c:page4.canonical}));
+    check('rev10 fetchArticlePage: og:site_name = original publisher', page4.siteName==='Site Four', page4.siteName);
+    check('rev10 fetchArticlePage: og:image found', page4.ogImage==='https://img4.example.com/main.jpg', page4.ogImage);
+    check('rev10 fetchArticlePage: article main text extracted (feeds AI draft)', page4.text.length>60, 'len='+(page4.text||'').length);
+    const pageTw=await discovery.fetchArticlePage('http://127.0.0.1:'+feedPort+'/img-twitter.html');
+    check('rev10 image chain: twitter:image used when og missing', discovery.pageImageChain(pageTw)==='https://img-tw.example.com/tw.jpg', discovery.pageImageChain(pageTw));
+    check('rev10 validImageUrl: http image upgraded to https', discovery.validImageUrl('http://img.example.com/a.jpg')==='https://img.example.com/a.jpg');
+    check('rev10 validImageUrl: generic google-hosted assets blocked', discovery.validImageUrl('https://encrypted-tbn0.gstatic.com/images?q=abc')==='');
+    check('rev10 validImageUrl: logo/icon paths blocked', discovery.validImageUrl('https://site.example.com/static/logo-2026.png')==='');
+    check('rev10 fetchArticlePage: google pages never scraped', (await discovery.fetchArticlePage('https://news.google.com/rss/articles/abc')).ok===false);
+  }
 
   // discover #1: 14 items = 8 drafted + 1 rejected (aged, not evergreen) +
   // 2 duplicates (cross-source story + two google-redirects of one story) +
@@ -256,6 +285,14 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const csp=h.headers.get('content-security-policy');
     check('app page CSP allows https og images (img-src includes https:)', csp && csp.includes("img-src 'self' data: blob: https:"), csp||'no csp header, status='+h.status);
   }
+  // rev10: coach UI wording — separate, clearly explained counts + card labels
+  {
+    const ui=(await (await fetch(BASE+'/magazine-admin.js')).text());
+    check('rev10 UI: «آماده است» vs «نیازمند پردازش مجدد» explained separately', ui.includes('مطلب برای بررسی آماده است') && ui.includes('نیازمند پردازش مجدد') && ui.includes('در شمارش «آماده بررسی» نیست'), 'missing wording');
+    check('rev10 UI: scan toast = «پیدا شد» (new finds) + ready count', ui.includes('در این بررسی') && ui.includes('مطلب جدید پیدا شد'), 'missing toast wording');
+    check('rev10 UI: card labels per spec (عنوان اصلی / تاریخ انتشار / چرا این مطلب مهم است؟ / نکات کلیدی / تصویر پیدا نشد)', ui.includes('عنوان اصلی:') && ui.includes('تاریخ انتشار:') && ui.includes('چرا این مطلب مهم است؟') && ui.includes('نکات کلیدی:') && ui.includes('تصویر برای این مطلب پیدا نشد') && ui.includes('آماده بررسی'), 'missing label');
+    check('rev10 UI: no misleading «این بار N مورد آماده شد» claim', !ui.includes('مورد آماده شد — برای ادامه'), 'still present');
+  }
   // batch cap + image priority (isolated in-memory db + local feed C)
   {
     const { runMigrations } = require('../src/migrations');
@@ -292,6 +329,54 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     check('AI unavailable: zero articles created', mem2.prepare('SELECT COUNT(*) c FROM magazine_articles').get().c===0);
     mem2.close();
   }
+  // rev10: original URL resolution (redirect → canonical), publisher name, image
+  // chain, and AI failure = «نیازمند پردازش مجدد» (never enters the ready queue)
+  {
+    const mem3=new DatabaseSync(':memory:'); runMigrations(mem3);
+    mem3.prepare('UPDATE magazine_sources SET is_active=0').run();
+    mem3.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-d','Test D','http://127.0.0.1:'+feedPort+'/d.xml','rss','sports-science');
+    require('/home/user/yasnafit/src/ai-service').saveSettings(mem3,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
+    const rD=await discovery.runDiscovery(mem3,{notifyAudience:'none'});
+    check('rev10: 3 candidates → 2 drafted (FA), 1 not-prepared (AI failed)', rD.drafted===2 && rD.not_prepared===1, JSON.stringify(rD));
+    const redir=mem3.prepare('SELECT a.* FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%حوالهٔ اصلی%');
+    check('rev10: redirect resolved → canonical publisher URL (final source, never discovery link)', redir && redir.source_url==='https://publisher4.example.com/canon-1', redir?JSON.stringify(redir.source_url):'missing');
+    check('rev10: coach-facing source = og:site_name of the original page', redir && redir.source_name==='Site Four', redir?redir.source_name:'missing');
+    check('rev10: article image = its own og:image', redir && redir.cover_image==='https://img4.example.com/main.jpg', redir?redir.cover_image:'missing');
+    const twItem=mem3.prepare('SELECT a.cover_image FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%تصویر توییتر%');
+    check('rev10: twitter:image used when og missing', twItem && twItem.cover_image==='https://img-tw.example.com/tw.jpg', twItem?twItem.cover_image:'missing');
+    const failRow=mem3.prepare("SELECT * FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%'").get();
+    let fMeta={}; try{fMeta=JSON.parse(failRow&&failRow.ai_meta||'{}');}catch(e){}
+    check('rev10: AI failure → FAILED + internal mark «نیازمند پردازش مجدد»', failRow && failRow.status==='FAILED' && fMeta.needs_reprocess===true && String(failRow.quality_flags||'').includes('نیازمند پردازش مجدد'), JSON.stringify({s:failRow&&failRow.status,meta:fMeta,flags:failRow&&failRow.quality_flags}));
+    check('rev10: failed-AI item has NO article (excluded from ready queue)', mem3.prepare("SELECT COUNT(*) c FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%' AND article_id IS NOT NULL").get().c===0);
+    const stD=discovery.queueStats(mem3);
+    check('rev10: queue stats split — 2 ready, 0 parked (ready count never includes failed)', stD.drafts===2 && stD.needs_reprocess===0, JSON.stringify(stD));
+    const qD=discovery.queueView(mem3);
+    check('rev10: queue rows carry audit_reasons (empty for clean drafts)', qD.length===2 && qD.every(q=>Array.isArray(q.audit_reasons) && q.audit_reasons.length===0), JSON.stringify(qD.map(q=>q.audit_reasons)));
+    // Legacy (pre-rev10) drafts must be cleaned on the next run:
+    // (1) a 2020 English-titled draft with a Google News source → rejected (stale)
+    // (2) a FA-titled fresh draft still pointing at a Google News link → re-resolved
+    const legOldId=mem3.prepare("INSERT INTO magazine_articles (stable_id, slug, title, summary, content, status, content_origin, source_name, source_url, created_at, updated_at) VALUES (?,?,?,?,?,?, 'generated', 'Google News', 'https://news.google.com/rss/articles/OLDLEGACY1', '2020-03-01 09:00:00', '2020-03-01 09:00:00')").run('legacy-stable-old','legacy-2020','Legacy English Title from 2020','legacy summary','<p>legacy content that must not survive the freshness audit and should be rejected with a clear internal reason.</p>'.repeat(3),'DRAFT').lastInsertRowid;
+    const leg2Id=mem3.prepare("INSERT INTO magazine_articles (stable_id, slug, title, summary, content, status, content_origin, source_name, source_url, created_at, updated_at) VALUES (?,?,?,?,?,?, 'generated', 'Google News', 'https://news.google.com/rss/articles/OLDLEGACY2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run('legacy-stable-gnews','legacy-gnews','مطلب فارسی با منبع گوگل‌نیوز','خلاصهٔ فارسی','<p>متن فارسی قدیمی با منبع گوگل‌نیوز که باید در بازرسی بعدی به انتشارکنندۀ اصلی حل شود و در صف آماده‌بررسی نماند.</p>'.repeat(3),'DRAFT').lastInsertRowid;
+    mem3.prepare("INSERT INTO magazine_discoveries (stable_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, publisher, status, article_id, ai_meta) VALUES (?,?,?,?,?,?,?,?,?, 'DRAFTED', ?, ?)").run('leg-old','https://news.google.com/rss/articles/OLDLEGACY1','h-leg-old','fp-leg-old','Legacy English Title from 2020','2020-03-01 09:00:00','sports-science','legacy','Google News',legOldId,null);
+    mem3.prepare("INSERT INTO magazine_discoveries (stable_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, publisher, status, article_id, ai_meta) VALUES (?,?,?,?,?,?,?,?,?, 'DRAFTED', ?, ?)").run('leg-gnews','https://news.google.com/rss/articles/'+gnewsId('https://legacy2.example.com/x'),'h-leg-gnews','fp-leg-gnews','مطلب فارسی با منبع گوگل‌نیوز','2026-09-21 08:00:00','sports-science','legacy','Google News',leg2Id,null);
+    let stBefore=discovery.queueStats(mem3);
+    check('rev10 audit: legacy drafts parked (ready 2 → 0… both flagged)', stBefore.needs_reprocess===2, JSON.stringify(stBefore));
+    const rp=await discovery.reprocessStaleDrafts(mem3);
+    check('rev10 reprocess: stale legacy rejected + gnews legacy re-resolved', rp.rejected===1 && rp.reprocessed===1, JSON.stringify(rp));
+    const oldRow=mem3.prepare('SELECT * FROM magazine_articles WHERE id=?').get(legOldId);
+    check('rev10 reprocess: 2020 draft REJECTED with freshness reason (never «new» again)', String(oldRow.status)==='REJECTED' && String(oldRow.rejection_reason||'').includes('تازگی'), JSON.stringify({s:oldRow.status,r:oldRow.rejection_reason}));
+    const leg2=mem3.prepare('SELECT * FROM magazine_articles WHERE id=?').get(leg2Id);
+    check('rev10 reprocess: gnews source resolved to original publisher (article updated in place)', String(leg2.source_url).startsWith('https://legacy2.example.com/') && /\p{Script=Arabic}/u.test(leg2.title), JSON.stringify({u:leg2.source_url,t:leg2.title.slice(0,30)}));
+    const stAfter=discovery.queueStats(mem3);
+    check('rev10 reprocess: ready queue clean again (3 ready incl. re-resolved one, 0 parked)', stAfter.drafts===3 && stAfter.needs_reprocess===0, JSON.stringify(stAfter));
+    // The parked FAILAI candidate: retried at most 3 times, then stops (no loop)
+    for(let i=0;i<3;i++){ await discovery.reprocessStaleDrafts(mem3); }
+    let fcRaw=mem3.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%'").get().ai_meta;
+    let fcJ={}; try{fcJ=JSON.parse(fcRaw);}catch(e){}
+    check('rev10: reprocess attempts capped at 3 (no infinite retry loop)', fcJ.reprocess_count===3, JSON.stringify(fcJ));
+    check('rev10: still no article after the retry cap', mem3.prepare("SELECT COUNT(*) c FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%' AND article_id IS NOT NULL").get().c===0);
+    mem3.close();
+  }
   r=await j('/api/magazine/admin/queue');
   check('queue has 9 pending drafts (8 discovered + 1 backfill test)', r.data.queue.length===9, 'got '+r.data.queue.length);
   const q1=r.data.queue.find(q=>q.title.includes('پژوهش جدید'));
@@ -323,6 +408,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   pub=await fetch(BASE+'/magazine/'+art1.slug);
   const artText=await pub.text();
   check('published article public 200', pub.status===200 && artText.includes('پژوهش جدید دربارهٔ تمرینات مقاومتی (ویرایش مربی)'), 'got '+pub.status);
+  check('rev10: published body is the Persian AI editorial draft (not raw English) + original source link', artText.includes('این متن آزمایشی برای بررسی خط لولهٔ ویراستاری است') && artText.includes('منبع اصلی'), 'FA draft missing from public page');
   pub=await fetch(BASE+'/magazine');
   check('/magazine lists published article', (await pub.text()).includes(art1.slug));
   pub=await fetch(BASE+'/');
@@ -391,8 +477,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('UI: live progress bar + progress endpoint + image referrer fix', ui.includes('mag-progress__fill') && ui.includes('/api/magazine/admin/discover/progress') && ui.includes('referrerpolicy="no-referrer"') && ui.includes("referrerPolicy = 'no-referrer'"));
   check('UI: search-more button + in-place progress (no full re-render per tick) + batch cap flag', ui.includes('magSearchMore') && ui.includes('جستجو بیشتر') && ui.includes('mag-progress-host') && ui.includes('stopped_at_cap'));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
-  check('UI: card empty-image says «تصویر موجود نیست»', ui.includes('تصویر موجود نیست'));
-  check('UI: run toasts distinguish found / more + filters + AI-unavailable', ui.includes('مطلب جدید برای بررسی پیدا شد') && ui.includes('مطلب جدید دیگر پیدا شد') && ui.includes('not_prepared'));
+  check('UI: card empty-image says «تصویر برای این مطلب پیدا نشد» + «انتخاب تصویر»', ui.includes('تصویر برای این مطلب پیدا نشد') && ui.includes('انتخاب تصویر'));
+  check('UI: run toasts distinguish found-this-scan vs ready queue + «نیازمند پردازش مجدد»', ui.includes('در این بررسی') && ui.includes('مطلب جدید پیدا شد') && ui.includes('مطلب برای بررسی آماده است') && ui.includes('نیازمند پردازش مجدد'));
   check('UI: internal AI confidence/provider errors removed from review detail', !ui.includes('اعتماد پردازش') && !ui.includes('ai.ai_failed'));
   check('UI: queue count wording (ready for review, not «AI found N»)', ui.includes('مطلب برای بررسی آماده است') && !ui.includes('مطلب جدید پیدا کرده است'));
   check('UI: evergreen reference badge for old-but-important items', ui.includes('mag-news-cat--evergreen'));

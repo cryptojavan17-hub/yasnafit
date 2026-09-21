@@ -247,3 +247,15 @@
 .mag-news-more-note { margin: 10px 0 0; font-size: 12.5px; }
 .mag-toolbar__actions .secondary.mag-news-run { min-height: 44px; padding: 0 18px; font-size: 13px; font-weight: 700; }
 .mag-news-cat--evergreen { background: rgba(125, 211, 252, .10); color: #7dd3fc; border: 1px solid rgba(125, 211, 252, .35); }
+/* rev10: review card — ready badge, original-title label, key-points label, parked items */
+.mag-badge--ready { color: #86efac; background: rgba(134, 239, 172, .12); border: 1px solid rgba(134, 239, 172, .35); }
+.mag-news-orig__label { opacity: .7; }
+.mag-news-points-wrap { margin-top: 6px; }
+.mag-news-points-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
+.mag-news-reprocess { color: #fcd34d; font-size: 12.5px; }
+.mag-news-reprocess-list { margin-top: 10px; border: 1px dashed rgba(252, 211, 77, .35); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; }
+.mag-news-reprocess-list summary { cursor: pointer; color: #fcd34d; font-weight: 600; }
+.mag-news-reprocess-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.mag-news-reprocess-item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mag-news-reprocess-item small { color: var(--text-muted); max-width: 45%; }
+.mag-news-card__media { margin-top: 10px; }

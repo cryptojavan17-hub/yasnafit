@@ -430,13 +430,13 @@ const EDITORIAL_SYSTEM_PROMPT = [
   '6) category فقط یکی از اینها: bodybuilding / sports-science / nutrition / health / sports-news.',
   '7) relevance: امتیاز 0 تا 10 برای مرتبط بودن مطلب با محوریت YASNAFIT: تمرین مقاومتی و بدنسازی زنان، رشد عضلانی، فیزیولوژی ورزش، تغذیهٔ ورزشی، پروتئین، کراتین و مکمل‌های دارای شواهد، ریکاوری و خواب، سلامت ورزشکاران زن، انرژی در دسترس و RED-S، سلامت استخوان، پیشگیری از آسیب، عملکرد ورزشی و اخبار مهم بدنسازی. مطلب بی‌ربط، کلیک‌بیت یا کم‌اعتبار: useful=false یا relevance کمتر از ۴.',
   '8) evergreen_reference: فقط true اگر مطلب از نظر تازگی قدیمی است ولی یک مرجع مهم و پایدار محسوب می‌شود (مثلاً position stand رسمی یا مرور سیستماتیک بنیادین). برای مطالب عادی همیشه false.',
-  '9) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی با ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
+  '9) content_html یک پیش‌نویس ویرایشی کامل (۲ تا ۶ بند) برای مجلهٔ YASNAFIT است — نه صرفاً خلاصهٔ خبر؛ با ادبیات خبری-علمیِ طبیعی و حرفه‌ای فارسی (نه ترجمهٔ تحت‌اللفظی)؛ اصطلاحات علمی انگلیسی در صورت کفایت می‌توانند در پرانتز بمانند؛ فقط برچسب‌های p, h2, ul, li, strong, em, a؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
   '10) شواهد: به مرورهای سیستماتیک، متاآنالیزها، کارآزمایی‌های تصادفی‌سازی‌شده و بیانیه‌های اجماعی وزن بیشتری بدهید. هرگز یک مطالعهٔ تکی را به‌عنوان «حقیقت اثبات‌شده» ارائه نکنید (بنویسید «این مطالعه نشان داد…»).',
   '11) اعتبار منابع: سطح ۱: PubMed/NCBI، ACSM، NSCA، British Journal of Sports Medicine، Sports Medicine، JSCR، ISSN و مجلات همتای علمی ورزشی/تغذیه‌ای؛ سطح ۲: نشریات معتبر پزشکی، تغذیه و علوم ورزشی و فدراسیون‌های بزرگ؛ سطح ۳: رسانه‌های عمومی. محتوای سلبریتی/لایف‌استایل فقط در صورت داشتن ارزش علمی یا کاربردی واقعی پذیرفته می‌شود، وگرنه useful=false.',
   '12) هر پیشنهاد باید نام منبع اصلی و تاریخ انتشار آن را در references حفظ کند (قانون ثابت: منبع اصلی + تاریخ). خروجی فقط JSON معتبر با همین کلیدها: title, summary, content_html, key_points[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1), relevance(0-10), evergreen_reference(true/false), category, why_it_matters, useful.'
 ].join('\n');
 
-function editorialUserPrompt(item, sourceName, { ageDays, needsEvergreen, limitDays } = {}) {
+function editorialUserPrompt(item, sourceName, { ageDays, needsEvergreen, limitDays, text } = {}) {
   const lines = [
     'محتوای خبر/مقالهٔ منبع زیر را برای مجلهٔ YASNAFIT آماده کنید:',
     `منبع اصلی: ${sourceName || 'نامشخص'}`,
@@ -446,6 +446,7 @@ function editorialUserPrompt(item, sourceName, { ageDays, needsEvergreen, limitD
     `نویسنده/سازمان: ${item.author || 'نامشخص'}`,
     `خلاصهٔ منبع: ${item.summary || 'در دسترس نیست'}`
   ];
+  if (text) lines.push('متن اصلی مقاله (از صفحهٔ انتشارکنندۀ اصلی): ' + String(text).slice(0, 6000));
   if (ageDays != null) lines.push(`سابقهٔ مطلب: این مطلب حدود ${Math.round(ageDays)} روز پیش منتشر شده است.`);
   if (needsEvergreen) lines.push(`توجه: این مطلب از ${limitDays} روز پیش‌تر است. فقط در صورتی که واقعاً یک مرجع مهم و پایدار (evergreen reference) باشد evergreen_reference را true بگذارید؛ در غیر این صورت false.`);
   return lines.join('\n') + '\n';
@@ -514,18 +515,36 @@ function draftFromAi(parsed, item, sourceName) {
   };
 }
 
-// ---------- image retrieval (og:image from the original article page) ----------
-// Only reads the article's own page metadata (like a browser preview would).
-// No random image services, no downloads from search engines.
-async function fetchOgImage(pageUrl) {
+// ---------- article page inspection (canonical URL + images + article text) ----------
+// A single fetch of the ORIGINAL publisher page (like a browser preview):
+// canonical URL, publisher name (og:site_name), the image chain
+// (og:image → twitter:image → JSON-LD image → main <img>) and the article's
+// main text, which feeds the AI Persian editorial draft. Google's own pages
+// are never scraped — their images are generic shared assets.
+const IMG_BLOCK_HOSTS = /(^|\.)google\.com(\.[a-z]{2,3})?|(^|\.)googleusercontent\.com$|(^|\.)gstatic\.com$/i;
+const IMG_BLOCK_PATH = /(logo|favicon|icon[-/]|avatar|sprite|pixel|1x1|badge|noimage|no-image|placeholder|default[-_]?image|blank|spacer|transparent|emoji)/i;
+
+function validImageUrl(raw, baseHref) {
+  const rawStr = String(raw == null ? '' : raw).trim();
+  if (!rawStr || rawStr === 'undefined' || rawStr === 'null') return '';
   try {
-    // Never scrape Google's own redirect pages: their og:image is a generic
-    // Google asset (how unrelated articles shared one identical image).
-    if (OG_BLOCK_HOSTS.test(hostOf(pageUrl))) return '';
+    const u = new URL(rawStr, baseHref || 'https://placeholder.invalid');
+    if (u.protocol === 'http:') u.protocol = 'https:';
+    if (!/^https:$/i.test(u.protocol)) return '';
+    if (IMG_BLOCK_HOSTS.test(u.hostname.replace(/^www\./, ''))) return '';
+    if (IMG_BLOCK_PATH.test(u.pathname + u.search)) return '';
+    return u.toString();
+  } catch (e) { return ''; }
+}
+
+async function fetchArticlePage(url) {
+  const out = { ok: false, finalUrl: '', canonical: '', siteName: '', ogImage: '', twitterImage: '', ldImage: '', mainImage: '', pageTitle: '', text: '' };
+  try {
+    if (!url || IMG_BLOCK_HOSTS.test(hostOf(url))) return out;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetch(pageUrl, {
+      const response = await fetch(url, {
         signal: controller.signal,
         redirect: 'follow',
         headers: {
@@ -534,34 +553,80 @@ async function fetchOgImage(pageUrl) {
           'Accept-Language': 'en-US,en;q=0.9'
         }
       });
-      if (!response.ok) return '';
+      if (!response.ok) return out;
       const html = (await response.text()).slice(0, 2000000);
-      const tags = [...html.matchAll(/<meta[^>]+>/gi)].map(m => m[0]);
-      for (const tag of tags) {
-        const key = (tag.match(/(?:property|name)\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
-        if (!/^(og:image|og:image:url|og:image:secure_url|twitter:image|twitter:image:src)$/i.test(key)) continue;
-        const val = (tag.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
-        if (!val) continue;
-        try {
-          const u = new URL(val, pageUrl);
-          if (u.protocol === 'http:') u.protocol = 'https:'; // prefer https so https sites never hit mixed-content
-          if (!/^https:$/i.test(u.protocol)) return '';
-          if (OG_BLOCK_HOSTS.test(u.hostname.replace(/^www\./, ''))) return '';
-          return u.toString();
-        } catch (e) { return ''; }
+      out.ok = true;
+      try { out.finalUrl = new URL(response.url || url).toString(); } catch (e) { out.finalUrl = url; }
+      const canon = html.match(/<link[^>]+rel=["']?canonical["']?[^>]+href=["']([^"']+)["']/i) || html.match(/<link[^>]+href=["']([^"']+)["'][^>]*rel=["']?canonical["']?[^>]*>/i);
+      if (canon) out.canonical = String(canon[1]).trim();
+      const meta = {};
+      for (const m of html.matchAll(/<meta[^>]+>/gi)) {
+        const key = (m[0].match(/(?:property|name)\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+        const val = (m[0].match(/content\s*=\s*["']([^"']*)["']/i) || [])[1] || '';
+        if (key && val && !(key in meta)) meta[key] = val;
       }
-      return '';
+      out.siteName = meta['og:site_name'] ? String(meta['og:site_name']).trim().slice(0, 120) : '';
+      out.ogImage = validImageUrl(meta['og:image'] || meta['og:image:url'] || meta['og:image:secure_url'], url);
+      out.twitterImage = validImageUrl(meta['twitter:image'] || meta['twitter:image:src'], url);
+      for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+        let data = null;
+        try { data = JSON.parse(m[1]); } catch (e) { continue; }
+        const nodes = Array.isArray(data) ? data : (data && Array.isArray(data['@graph']) ? data['@graph'] : [data]);
+        for (const node of nodes) {
+          if (!node || typeof node !== 'object' || !/^(Article|NewsArticle|BlogArticle|WebPage|Report|WebArticle)$/i.test(node['@type'] || '')) continue;
+          let img = node.image;
+          if (Array.isArray(img)) img = img[0];
+          if (img && typeof img === 'object') img = img.url || img.contentUrl;
+          if (typeof img === 'string') { const v = validImageUrl(img, url); if (v) { out.ldImage = v; break; } }
+        }
+        if (out.ldImage) break;
+      }
+      out.pageTitle = (meta['og:title'] || meta['twitter:title'] || (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').toString().replace(/\s+/g, ' ').trim().slice(0, 300);
+      for (const m of html.matchAll(/<img[^>]+>/gi)) {
+        const src = (m[0].match(/src\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+        if (!src || src.startsWith('data:')) continue;
+        const v = validImageUrl(src, url);
+        if (v) { out.mainImage = v; break; }
+      }
+      let scope = html;
+      const art = html.match(/<article[\s\S]*?<\/article>/i) || html.match(/<main[\s\S]*?<\/main>/i);
+      if (art) scope = art[0];
+      out.text = scope
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+        .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 8000);
     } finally {
       clearTimeout(timer);
     }
   } catch (e) {
-    return '';
+    // A network failure is not fatal: the candidate continues without page data.
   }
+  return out;
+}
+
+// Owner image order: og:image → twitter:image → article JSON-LD image → main
+// article image. (The feed's own thumbnail is applied last, only when it is a
+// real content image — see processDiscovery.)
+function pageImageChain(page) {
+  if (!page) return '';
+  return page.ogImage || page.twitterImage || page.ldImage || page.mainImage || '';
+}
+
+// Kept for compatibility (backfill + tests): the article's best own image.
+async function fetchOgImage(pageUrl) {
+  const page = await fetchArticlePage(pageUrl);
+  return pageImageChain(page);
 }
 
 // ---------- run the pipeline ----------
 
-async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = new Set() } = {}) {
+async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = new Set(), existingArticleId = null } = {}) {
   const d = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(discovery.id);
   const source = d.source_id ? sourceView(db, d.source_id) : null;
   db.prepare("UPDATE magazine_discoveries SET status='PROCESSING' WHERE id=?").run(d.id);
@@ -579,17 +644,53 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
   const ageDays = ageDaysOf(d.date_published);
   const gate = freshnessGate({ ageDays, scientific });
   const flags = qualityChecks({ item, categorySlug: d.category_slug });
-  const fail = (meta, flag) => {
+  const fail = (meta, flag, opts = {}) => {
     const f = flag ? flags.concat([flag]) : flags;
+    let prev = null;
+    try { prev = JSON.parse(d.ai_meta || 'null'); } catch (e) { prev = null; }
+    const metaFull = { ...(prev && typeof prev === 'object' ? prev : {}), ...meta };
     db.prepare("UPDATE magazine_discoveries SET status='FAILED', quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?")
-      .run(JSON.stringify(f), JSON.stringify(meta), d.id);
+      .run(JSON.stringify(f), JSON.stringify(metaFull), d.id);
+    if (existingArticleId && opts.rejectArticle) {
+      db.prepare("UPDATE magazine_articles SET status='REJECTED', rejection_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL")
+        .run(String(flag || 'پردازش ناموفق بود').slice(0, 300), existingArticleId);
+    }
     return f;
   };
   // Hard freshness re-check (defense in depth; pass 1 already filters).
   if (gate.accept === false) {
-    fail({ filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) }, 'مطلب قدیمی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود');
+    fail({ filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) }, 'مطلب قدیمی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
+  // --- Original URL resolution (owner architecture): discovery link →
+  // ORIGINAL publisher page → canonical URL. A Google News link is NEVER the
+  // final source: first the id is decoded offline, then (production) the
+  // redirect is followed live, then the page's canonical link wins.
+  let page = null;
+  let finalUrl = item.url;
+  if (/(^|\.)google\.com$/i.test(hostOf(item.url))) {
+    const gid = String(item.url).split('/').filter(Boolean).pop() || '';
+    const decoded = gid ? extractUrlFromGoogleNewsId(gid) : '';
+    if (decoded && !/(^|\.)google\.com$/i.test(hostOf(decoded))) finalUrl = decoded;
+    page = await fetchArticlePage(finalUrl);
+    if (!page.ok || /google\.com$/i.test(hostOf(page.finalUrl || ''))) {
+      const viaRedirect = await fetchArticlePage(item.url);
+      if (viaRedirect.ok && viaRedirect.finalUrl && !/(^|\.)google\.com$/i.test(hostOf(viaRedirect.finalUrl))) {
+        finalUrl = viaRedirect.finalUrl;
+        page = await fetchArticlePage(finalUrl);
+      } else if (viaRedirect.ok) page = viaRedirect;
+    }
+  } else {
+    page = await fetchArticlePage(item.url);
+  }
+  if (page && page.canonical && !/(^|\.)google\.com$/i.test(hostOf(page.canonical))) finalUrl = page.canonical;
+  const siteName = page && page.siteName ? page.siteName : '';
+  const resolvedPublisher = siteName || String(d.publisher || '') || publisherOf({ ...item, url: finalUrl }, source);
+  if (/(^|\.)google\.com$/i.test(hostOf(finalUrl))) {
+    fail({ needs_reprocess: true, reason: 'original-url-unresolved' }, 'منبع اصلی هنوز به انتشارکنندۀ اصلی حل نشده است — نیازمند پردازش مجدد');
+    return { notPrepared: true, aiFailed: 'منبع اصلی حل نشد' };
+  }
+  db.prepare('UPDATE magazine_discoveries SET url=?, publisher=? WHERE id=?').run(finalUrl, resolvedPublisher, d.id);
   let draft = null;
   let aiFailed = null;
   if (aiEnabled) {
@@ -599,7 +700,7 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
         const reply = await chatCompletion(db, {
           messages: [
             { role: 'system', content: EDITORIAL_SYSTEM_PROMPT },
-            { role: 'user', content: editorialUserPrompt(item, publisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS }) }
+            { role: 'user', content: editorialUserPrompt({ ...item, url: finalUrl }, resolvedPublisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS, text: page ? page.text : '' }) }
           ],
           tools: false,
           temperature: 0.4,
@@ -619,46 +720,53 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
     aiFailed = 'پردازش هوش مصنوعی غیرفعال است';
   }
   if (!draft) {
-    // Owner rule: every candidate must be AI-translated & summarized BEFORE it
-    // reaches the review inbox. No AI draft → the candidate is NOT shown.
-    fail({ ai_failed: aiFailed, age_days: ageDays == null ? null : Math.round(ageDays) }, 'محتوا هنوز آماده‌سازی ویرایشی (ترجمه/خلاصه) نشده است');
+    // Owner rule (rev10): every candidate must be AI-translated & summarized
+    // BEFORE it reaches the review inbox. No AI draft → the candidate is NOT
+    // shown; it is marked internally «نیازمند پردازش مجدد» and retried on a
+    // later run (it never counts as ready).
+    fail({ ai_failed: aiFailed, needs_reprocess: true, age_days: ageDays == null ? null : Math.round(ageDays) }, 'نیازمند پردازش مجدد — پردازش AI ناموفق بود');
     return { notPrepared: true, aiFailed };
   }
   if (draft.useful === false) {
-    fail({ skipped: 'not useful', relevance: draft.relevance }, 'محتوا برای مخاطب YASNAFIT مناسب نیست');
+    fail({ skipped: 'not useful', needs_reprocess: false, relevance: draft.relevance }, 'محتوا برای مخاطب YASNAFIT مناسب نیست', { rejectArticle: true });
     return { skipped: true, reason: 'useless' };
   }
   if (draft.relevance != null && draft.relevance < 4) {
-    fail({ skipped: 'low relevance', relevance: draft.relevance }, 'ارتباط مطلب با محوریت YASNAFIT کم است');
+    fail({ skipped: 'low relevance', needs_reprocess: false, relevance: draft.relevance }, 'ارتباط مطلب با محوریت YASNAFIT کم است', { rejectArticle: true });
     return { skipped: true, reason: 'relevance' };
   }
   if (gate.accept === 'evergreen' && !draft.evergreen_reference) {
-    fail({ skipped: 'old not evergreen', age_days: Math.round(ageDays) }, 'مطلب قدیمی است و مرجع مهم (evergreen) شناخته نشد');
+    fail({ skipped: 'old not evergreen', needs_reprocess: false, age_days: Math.round(ageDays) }, 'مطلب قدیمی است و مرجع مهم (evergreen) شناخته نشد', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
-  // Image: the feed's own image first, then the article's og:image — fetched
-  // from the ORIGINAL publisher page (never a Google page, never a random image
-  // service). One image per run: if another candidate already owns this exact
-  // image, this article keeps no cover instead of sharing a duplicate.
-  let cover = item.imageUrl || '';
-  if (cover) {
-    // Keep every stored cover https so it survives the page CSP (img-src https:)
-    try { const cu = new URL(cover); if (cu.protocol === 'http:') { cu.protocol = 'https:'; cover = cu.toString(); } } catch (e) { cover = ''; }
-  }
-  if (!cover) cover = await fetchOgImage(item.url);
+  // Image (owner order): the article's own og:image → twitter:image →
+  // JSON-LD image → main article image — all read from the ORIGINAL publisher
+  // page (never a Google page, never a random image service, never an AI image).
+  // The feed's own thumbnail is a LAST resort and only when it is a real
+  // content image. One image per story: if another candidate already owns this
+  // exact image, this article gets no cover instead of sharing a duplicate.
+  let cover = pageImageChain(page);
+  if (!cover) cover = validImageUrl(item.imageUrl, finalUrl);
   if (cover && usedImages.has(cover)) cover = '';
   try {
-    const article = articleService.createArticle(db, {
+    const articleInput = {
       title: draft.title,
       summary: draft.summary,
       content: draft.content,
       category: draft.category || d.category_slug || undefined,
       cover_image: cover || null,
       content_origin: 'generated',
-      source_name: publisher || null,
-      source_url: item.url,
-      sources: draft.references.length ? draft.references : (item.url ? [{ name: publisher || 'منبع خبر', url: item.url }] : [])
-    }, 'discovery-engine');
+      source_name: resolvedPublisher || null,
+      source_url: finalUrl,
+      sources: [{ name: resolvedPublisher || 'منبع خبر', url: finalUrl }, ...draft.references.filter(r => r.url && r.url !== finalUrl)].slice(0, 6)
+    };
+    let article;
+    if (existingArticleId) {
+      try { article = articleService.updateArticle(db, existingArticleId, articleInput); }
+      catch (e) { article = articleService.createArticle(db, articleInput, 'discovery-engine'); }
+    } else {
+      article = articleService.createArticle(db, articleInput, 'discovery-engine');
+    }
     if (cover) usedImages.add(cover);
     // Persist editorial metadata for the review screen.
     const meta = {
@@ -682,6 +790,95 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
     db.prepare('UPDATE magazine_discoveries SET ai_meta=? WHERE id=?').run(JSON.stringify({ error: String(e.message || e).slice(0, 300) }), d.id);
     throw e;
   }
+}
+
+// ---------- rev10: audit of existing drafts (live queue cleanup) ----------
+// A draft that no longer satisfies the editorial contract is NOT counted as
+// ready-for-review: no Persian title (AI prep never completed), older than the
+// scientific freshness cap without an evergreen mark, still pointing at a
+// Google News link, or flagged by the AI step as needs-reprocess. Such drafts
+// are parked, retried on a later discovery run, and finally rejected if they
+// cannot be fixed (3 attempts) — old 2017/2020-style items never stay "new".
+const ARABIC_SCRIPT = /\p{Script=Arabic}/u;
+const REPROCESS_MAX_ATTEMPTS = 3;
+
+function auditDraftForReprocess(row, discovery) {
+  const reasons = [];
+  if (!row.title || !ARABIC_SCRIPT.test(row.title)) reasons.push('عنوان فارسی ندارد — پردازش AI کامل نشده است');
+  let aiMeta = null;
+  try { aiMeta = JSON.parse((discovery && discovery.ai_meta) || 'null'); } catch (e) { aiMeta = null; }
+  const ageDays = ageDaysOf(discovery ? discovery.date_published : null);
+  if (ageDays != null && ageDays > FRESH_SCIENCE_DAYS && !(aiMeta && aiMeta.freshness === 'evergreen')) {
+    reasons.push('تازگی: کهن‌تر از سقف مجاز و مرجع دائمی شناخته نشده است');
+  }
+  if (row.source_url && /google\.com$/i.test(hostOf(row.source_url)) && /rss\/articles/i.test(row.source_url)) {
+    reasons.push('منبع هنوز لینک گوگل‌نیوز است — باید به انتشارکنندۀ اصلی حل شود');
+  }
+  if (aiMeta && aiMeta.needs_reprocess) reasons.push('پردازش AI ناموفق بود — نیازمند پردازش مجدد');
+  return { reasons, ageDays, aiMeta };
+}
+
+async function reprocessStaleDrafts(db, { usedImages = new Set() } = {}) {
+  const result = { reprocessed: 0, rejected: 0, kept: 0 };
+  const rows = db.prepare(`
+    SELECT a.id AS aid, a.title AS title, a.source_url AS source_url
+    FROM magazine_articles a
+    WHERE a.deleted_at IS NULL AND a.status='DRAFT'
+    ORDER BY a.updated_at DESC LIMIT 50
+  `).all();
+  for (const row of rows) {
+    const discovery = db.prepare('SELECT * FROM magazine_discoveries WHERE article_id=? ORDER BY id DESC LIMIT 1').get(row.aid);
+    const { reasons, aiMeta } = auditDraftForReprocess(row, discovery);
+    if (!reasons.length) { result.kept += 1; continue; }
+    const attempts = Number((aiMeta && aiMeta.reprocess_count) || 0);
+    const stale = reasons.some(r => r.startsWith('تازگی'));
+    if (stale || attempts >= REPROCESS_MAX_ATTEMPTS) {
+      db.prepare("UPDATE magazine_articles SET status='REJECTED', rejection_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL")
+        .run(reasons.join('؛ ').slice(0, 300), row.aid);
+      if (discovery) db.prepare("UPDATE magazine_discoveries SET status='FAILED', ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?")
+        .run(JSON.stringify({ ...(aiMeta || {}), needs_reprocess: false, audit_rejected: reasons }), discovery.id);
+      result.rejected += 1;
+      continue;
+    }
+    if (!discovery) {
+      db.prepare("UPDATE magazine_articles SET status='REJECTED', rejection_reason=? WHERE id=?")
+        .run(reasons.join('؛ ').slice(0, 300), row.aid);
+      result.rejected += 1;
+      continue;
+    }
+    try {
+      db.prepare("UPDATE magazine_discoveries SET status='PROCESSING', ai_meta=? WHERE id=?")
+        .run(JSON.stringify({ ...(aiMeta || {}), reprocess_count: attempts + 1 }), discovery.id);
+      const res = await processDiscovery(db, { id: discovery.id }, { usedImages, existingArticleId: row.aid });
+      if (res && res.article) result.reprocessed += 1;
+      else if (res && res.notPrepared) result.kept += 1; // still parked; retried next run
+      else result.rejected += 1;
+    } catch (e) {
+      // Leave parked; the attempt counter is already raised for the next run.
+    }
+  }
+  // Candidates that never became drafts (parked FAILED rows, e.g. unresolved
+  // Google News redirects) get up to REPROCESS_MAX_ATTEMPTS retries too.
+  const parked = db.prepare(`
+    SELECT id FROM magazine_discoveries
+    WHERE status='FAILED' AND article_id IS NULL
+      AND ai_meta LIKE '%needs_reprocess%' AND ai_meta NOT LIKE '%\"needs_reprocess\":false%'
+      AND date(created_at) > date('now', '-14 days')
+    ORDER BY id DESC LIMIT 10
+  `).all();
+  for (const p of parked) {
+    const r = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(p.id);
+    let am = null;
+    try { am = JSON.parse(r.ai_meta || 'null'); } catch (e) { am = null; }
+    if (Number((am && am.reprocess_count) || 0) >= REPROCESS_MAX_ATTEMPTS) continue;
+    db.prepare("UPDATE magazine_discoveries SET status='PROCESSING', ai_meta=? WHERE id=?")
+      .run(JSON.stringify({ ...(am || {}), reprocess_count: Number((am && am.reprocess_count) || 0) + 1 }), p.id);
+    try {
+      const res = await processDiscovery(db, { id: p.id }, { usedImages });
+      if (res && res.article) result.reprocessed += 1;
+    } catch (e) { /* stays parked */ }
+  }
+  return result;
 }
 
 // How many NEW items one discovery run turns into drafts. The coach UI shows
@@ -720,7 +917,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     filtered: 0, rejected: 0, not_prepared: 0,
     error_sources: [], started_at: Date.now(), finished_at: null, last_result: null
   });
-  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, filtered: 0, rejected: 0, not_prepared: 0, filtered_breakdown: {}, sources: 0, errors: [], stopped_at_cap: false };
+  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, filtered: 0, rejected: 0, not_prepared: 0, filtered_breakdown: {}, sources: 0, errors: [], stopped_at_cap: false, reprocessed: 0, audit_rejected: 0 };
   try {
   const sources = listSources(db).filter(s => s.is_active);
   summary.sources = sources.length;
@@ -791,6 +988,16 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
       candidates.push({ source, item, url, discoveryId: Number(info.lastInsertRowid), tier, date: cleanDate(item.publishedAt) || '' });
     }
     syncProgressFromSummary(summary);
+  }
+  // Rev10: before processing new candidates, reprocess the parked drafts from
+  // previous runs (AI failures, legacy English titles, unresolved Google News
+  // sources) so the live review queue actually cleans itself.
+  try {
+    const rp = await reprocessStaleDrafts(db, {});
+    summary.reprocessed = rp.reprocessed;
+    summary.audit_rejected = rp.rejected;
+  } catch (e) {
+    summary.errors.push(`بازپردازش: ${e.message || e}`);
   }
   summary.newItems = candidates.length;
   // Rank: scientific/professional sources first (owner quality tiers), then
@@ -872,9 +1079,9 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     actorType: 'system',
     action: 'discovery.completed',
     entityType: 'magazine_discovery',
-    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, rejected: summary.rejected, filtered: summary.filtered, filtered_breakdown: summary.filtered_breakdown, not_prepared: summary.not_prepared, failed: summary.failed, images_backfilled: imgFixed }
+    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, rejected: summary.rejected, filtered: summary.filtered, filtered_breakdown: summary.filtered_breakdown, not_prepared: summary.not_prepared, failed: summary.failed, images_backfilled: imgFixed, reprocessed: summary.reprocessed, audit_rejected: summary.audit_rejected }
   });
-  const result = { ...summary, images_backfilled: imgFixed };
+  const result = { ...summary, images_backfilled: imgFixed, ready_review: queueStats(db).drafts };
   progressState.running = false;
   progressState.finished_at = Date.now();
   progressState.phase = summary.errors.length ? 'done_with_errors' : 'done';
@@ -981,7 +1188,8 @@ function queueView(db, { status = '' } = {}) {
       discovered_at: discovery ? discovery.created_at : null,
       original_title: discovery ? discovery.title_original : null,
       source_published_at: discovery ? discovery.date_published : null,
-      duplicate_warning: discovery && discovery.status === 'DUPLICATE' ? true : false
+      duplicate_warning: discovery && discovery.status === 'DUPLICATE' ? true : false,
+      audit_reasons: auditDraftForReprocess(row, discovery).reasons
     };
   });
 }
@@ -993,10 +1201,16 @@ function queueStats(db) {
   const lastRunResultRow = db.prepare("SELECT value FROM settings WHERE key='magazine.last_run_result'").get();
   let lastRunResult = null;
   if (lastRunResultRow) { try { lastRunResult = JSON.parse(lastRunResultRow.value); } catch (e) { lastRunResult = null; } }
+  // rev10: "آماده بررسی" counts ONLY drafts that pass the editorial audit;
+  // parked ones (stale / not-Persian / unresolved Google News / AI-retry) are
+  // reported separately so the two numbers can never be confused.
+  const draftRows = queueView(db, { status: 'DRAFT' });
+  const needsReprocess = draftRows.filter(r => r.audit_reasons.length > 0).length;
   return {
     published: count('PUBLISHED'),
     pending_review: count('PENDING_REVIEW'),
-    drafts: count('DRAFT'),
+    drafts: draftRows.length - needsReprocess,
+    needs_reprocess: needsReprocess,
     rejected: count('REJECTED'),
     new_today: newToday,
     last_run_at: lastRun ? lastRun.value : null,
@@ -1016,6 +1230,11 @@ module.exports = {
   freshnessGate,
   extractUrlFromGoogleNewsId,
   resolveGoogleNewsUrl,
+  fetchArticlePage,
+  pageImageChain,
+  validImageUrl,
+  auditDraftForReprocess,
+  reprocessStaleDrafts,
   domainToName,
   publisherOf,
   getDiscoveryProgress,
