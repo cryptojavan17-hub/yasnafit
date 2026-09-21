@@ -8,6 +8,13 @@
 
 ## 2026-09-21
 
+### Correction 14 (T-17 — internal article reading, no public original-source referral)
+- Home/magazine SSR and client-rendered card CTA now reads «مطالعه کامل مطلب» and keeps the internal `/magazine/:slug` destination. The article page displays the stored editor body; no external redirect is introduced.
+- Public article/list projections omit source metadata and the public sources footer is removed. Exact legacy auto-generated «مطالعهٔ کامل مطلب در منبع اصلی» paragraphs are suppressed on public reads, including malformed older stored anchors. Coach content and provenance are preserved in storage/admin; validation and dedup still use them. New discovered drafts no longer append this outbound CTA.
+- Fixed sanitizer handling of closing anchor tags. Regression covers stored coach body preservation, legacy referral suppression in public HTML/API, internal CTA, retained admin sources, publication/image/auth behavior. `npm test`: all 21 suites passed.
+- Scope limit: no third-party full article was copied from the supplied Fitamin URL. Imported excerpts are not expanded into fabricated “full text”; full owned/provided publishable text can be supplied through the existing editor. No new schema or migration.
+
+
 ### Correction 13 (T-17 — replace Google with direct Persian publishers)
 - Migration 039 preserves/disables all six Persian Google queries and adds four direct endpoints: `https://www.elmevarzesh.com/category/sports-physiology/exercise-science/feed/`, `https://www.iranbadan.com/category/bodybuilding-fitness/feed/`, `https://badanfit.ir/blog.html`, `https://fitamin.ir/mag/`. Existing source table gains only `fetch_format` (`feed`/`html`); no parallel article/source system.
 - Small non-executing HTML listing reader extracts same-publisher title/link/image/date, merges duplicate image/title anchors, excludes navigation/category links, supports lazy images and reuses the existing Jalali converter. WordPress `content:encoded` image fallback and article publication-date metadata are supported.

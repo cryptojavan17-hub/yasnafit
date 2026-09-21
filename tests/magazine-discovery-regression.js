@@ -360,7 +360,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const rA=await discovery.runDiscovery(mem2,{notifyAudience:'none'});
     check('rev11: AI NOT required — all 20 drafted even with AI completely unavailable', rA.drafted===20 && rA.not_prepared===0, JSON.stringify({d:rA.drafted,np:rA.not_prepared}));
     const firstC=mem2.prepare('SELECT content, title FROM magazine_articles ORDER BY id LIMIT 1').get();
-    check('rev11: article content = original Persian title + summary + original link (no AI text)', firstC && /مطالعهٔ کامل مطلب در منبع اصلی/.test(firstC.content) && /\p{Script=Arabic}/u.test(firstC.title), JSON.stringify({t:firstC&&firstC.title.slice(0,20)}));
+    check('rev11: article content = original Persian title + excerpt, no auto-generated source CTA', firstC && !/مطالعهٔ کامل مطلب در منبع اصلی/.test(firstC.content) && /\p{Script=Arabic}/u.test(firstC.title), JSON.stringify({t:firstC&&firstC.title.slice(0,20)}));
     mem2.close();
   }
   // rev10: original URL resolution (redirect → canonical), publisher name, image
@@ -462,7 +462,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   pub=await fetch(BASE+'/magazine/'+art1.slug);
   const artText=await pub.text();
   check('published article public 200', pub.status===200 && artText.includes('پژوهش جدید دربارهٔ تمرینات مقاومتی (ویرایش مربی)'), 'got '+pub.status);
-  check('rev11: published body = feed summary + «مطالعهٔ کامل مطلب در منبع اصلی» (no AI text)', artText.includes('یک مطالعهٔ جدید نشان می‌دهد تمرینات مقاومتی اثر مثبت بر سلامت است') && artText.includes('مطالعهٔ کامل مطلب در منبع اصلی'), 'summary/link missing from public page');
+  check('rev11: published body preserves coach text without original-source referral', artText.includes('یک مطالعهٔ جدید نشان می‌دهد تمرینات مقاومتی اثر مثبت بر سلامت است') && !artText.includes('مطالعهٔ کامل مطلب در منبع اصلی') && artText.includes('بخش افزوده‌شده توسط مربی') && !artText.includes('article-sources'), 'summary/link missing from public page');
   // rev11: the extracted article image is the published hero image
   {
     const qNow=await j('/api/magazine/admin/queue');
@@ -471,7 +471,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
       await j(`/api/magazine/admin/articles/${imgDraft.id}/publish`,{method:'POST',body:'{}'});
       const hp=await fetch(BASE+'/magazine/'+imgDraft.slug);
       const htext=await hp.text();
-      check('rev11: published article hero = extracted og image + original source link', hp.status===200 && htext.includes('/img-2.jpg') && htext.includes('story2.html'), 'status='+hp.status+' hero='+(htext.includes('/img-2.jpg')?'ok':'NO')+' src='+(htext.includes('story2.html')?'ok':'NO'));
+      check('rev11: published article hero retained, original-source link hidden', hp.status===200 && htext.includes('/img-2.jpg') && !htext.includes('story2.html'), 'status='+hp.status+' hero='+(htext.includes('/img-2.jpg')?'ok':'NO')+' src='+(htext.includes('story2.html')?'ok':'NO'));
     } else { check('rev11: published article hero = extracted og image (draft found)', false, 'story2 draft missing'); }
   }
   pub=await fetch(BASE+'/magazine');

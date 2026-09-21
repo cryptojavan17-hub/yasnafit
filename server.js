@@ -2702,7 +2702,7 @@ function articleCardMarkup(article) {
       <span class="article-card__meta-item" aria-hidden="true">${ICONS.clock}</span>
       <span>${toFaDigits(article.reading_time || 1)} دقیقه مطالعه</span>
     </div>
-    <a class="article-card__cta" href="/magazine/${escHtml(article.slug)}">مطالعه مقاله <span class="article-card__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
+    <a class="article-card__cta" href="/magazine/${escHtml(article.slug)}">مطالعه کامل مطلب <span class="article-card__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
   </div>
 </article>`;
 }
@@ -2807,7 +2807,6 @@ function magazineBody(ctx) {
 
 function articleBody(ctx) {
   const { article } = ctx;
-  const sources = (article.sources || []).filter(s => s.source_name || s.source_url);
   const related = (article.related || []).filter(r => r.slug && r.slug !== article.slug).slice(0, 3);
   return `
 <section class="article-page">
@@ -2829,10 +2828,6 @@ function articleBody(ctx) {
   </header>
   ${article.cover_image ? `<img class="article-cover" src="${escHtml(article.cover_image)}" alt="تصویر اصلی مقاله: ${escHtml(article.title)}" data-fallback="/images/landing/cover-default.svg">` : ''}
   <div class="article-body">${articleService.sanitizeRichText(article.content)}</div>
-  ${sources.length ? `<section class="article-sources" aria-label="منابع">
-    <h2>منابع</h2>
-    <ul>${sources.map(s => `<li>${s.source_url ? `<a href="${escHtml(s.source_url)}" rel="noopener noreferrer" target="_blank">${escHtml(s.source_name || s.source_url)}</a>` : escHtml(s.source_name || '')}${s.note ? `<span class="article-sources__note"> — ${escHtml(s.note)}</span>` : ''}</li>`).join('')}</ul>
-  </section>` : ''}
   ${related.length ? `<section class="article-related" aria-label="مقالات مرتبط">
     <h2>مقالات مرتبط</h2>
     <div class="magazine-grid magazine-grid--related">${related.map(articleCardMarkup).join('')}</div>

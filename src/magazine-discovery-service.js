@@ -672,13 +672,12 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
   if (cover && usedImages.has(cover)) cover = '';
   // NO AI (owner rev11): the card shows the original Persian title, the real
   // image, source name, date and the short feed summary. The article body is
-  // that summary + a link to the original article; the coach can expand it in
+  // the available excerpt; the coach supplies their publishable body in
   // «ویرایش» before publishing.
   const summaryText = String(item.summary || '').trim().slice(0, 300);
-  const content = [
-    summaryText ? `<p>${htmlEscape(summaryText)}</p>` : '',
-    `<p><a href="${htmlEscape(finalUrl)}" rel="noopener noreferrer">مطالعهٔ کامل مطلب در منبع اصلی</a></p>`
-  ].filter(Boolean).join('\n');
+  // Import only the feed excerpt, not a third-party full article. The coach
+  // supplies the publishable article body through the existing editor.
+  const content = summaryText ? `<p>${htmlEscape(summaryText)}</p>` : '';
   try {
     const articleInput = {
       title: item.title.slice(0, 200),

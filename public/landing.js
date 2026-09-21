@@ -92,7 +92,7 @@
       <span class="article-card__dot" aria-hidden="true">•</span>
       <span>${faDigits(article.reading_time || 1)} دقیقه مطالعه</span>
     </div>
-    <a class="article-card__cta" href="/magazine/${esc(article.slug)}">مطالعه مقاله</a>
+    <a class="article-card__cta" href="/magazine/${esc(article.slug)}">مطالعه کامل مطلب</a>
   </div>
 </article>`;
   }

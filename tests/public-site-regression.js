@@ -369,9 +369,32 @@ async function waitForServer(timeoutMs = 15000) {
 
     const fullArticle = await ok(`/api/magazine/${articleSlug}`);
     assert.equal(fullArticle.title, 'اصول تغذیه در دوران برش');
-    assert.equal(fullArticle.sources.length, 2);
+    assert.equal(fullArticle.sources, undefined);
+    assert.equal(fullArticle.source_url, undefined);
+    assert.equal(publicList.articles[0].source_name, undefined);
+    assert.doesNotMatch(articlePage, /article-sources/);
     assert.ok(Array.isArray(fullArticle.related));
-    check('GET /api/magazine/:slug: full article + sources + related');
+    check('GET /api/magazine/:slug: editor body + related, source metadata admin-only');
+
+    // Old stored auto-referral disappears immediately without a destructive migration.
+    const legacyBody = '<p>متن کامل نوشته‌شده توسط مربی در همین سایت</p><p><a href="https://publisher.example/original">مطالعهٔ کامل مطلب در منبع اصلی</a></p><h2>بخش پایانی متن مربی</h2>';
+    await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { content: legacyBody } });
+    const legacyPublic = await ok(`/api/magazine/${articleSlug}`);
+    assert.match(legacyPublic.content, /متن کامل نوشته‌شده توسط مربی/);
+    assert.match(legacyPublic.content, /بخش پایانی متن مربی/);
+    assert.doesNotMatch(legacyPublic.content, /publisher\.example|منبع اصلی/);
+    const legacyPage = await html(`/magazine/${articleSlug}`);
+    assert.doesNotMatch(legacyPage, /publisher\.example|منبع اصلی|article-sources/);
+    const legacyAdmin = await ok(`/api/magazine/admin/articles/${articleId}`, { cookie: coachCookie });
+    assert.match(legacyAdmin.content, /publisher\.example/);
+    assert.equal(legacyAdmin.sources.length, 2);
+    const listing = await html('/magazine');
+    assert.match(listing, /مطالعه کامل مطلب/);
+    assert.ok(listing.includes(`/magazine/${articleSlug}`));
+    // Older sanitizer dropped closing anchor tags; those persisted bodies also work.
+    await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { content: legacyBody.replace('</a>', '') } });
+    assert.doesNotMatch((await ok(`/api/magazine/${articleSlug}`)).content, /publisher\.example|منبع اصلی/);
+    check('internal full-article CTA, editor text preserved, legacy source CTA hidden without deleting admin provenance');
 
     // Category assignment + filtering.
     const categories = await ok('/api/magazine/admin/categories', { cookie: coachCookie });

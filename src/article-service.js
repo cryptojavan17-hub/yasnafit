@@ -115,6 +115,7 @@ function sanitizeRichText(html) {
     if (!ALLOWED_TAGS.has(name)) continue; // drop unknown tags, keep their text
     const attrs = parseAttrs(rawAttrs);
     let rendered = '';
+    if (name === 'A' && closing) { out += '</a>'; continue; }
     if (name === 'A') {
       const href = safeUrl(attrs.href);
       if (!href) continue;
@@ -160,6 +161,15 @@ function listPublicSiteArticles(db, { category = '', limit = 24, enabledSlugs = 
   return rows.filter(a => !a.category || enabledSlugs.has(a.category));
 }
 
+// Hide only the legacy auto-generated outbound CTA. Keep the stored/editor
+// body intact, including coach-authored paragraphs and ordinary editorial links.
+function publicArticleContent(content) {
+  return sanitizeRichText(content)
+    .replace(/<p>\s*(?:<a\b[^>]*>)?\s*مطالعه[ٔ\s]*کامل\s+مطلب\s+در\s+منبع\s+اصلی\s*(?:<\/a>)?\s*<\/p>/gu, '')
+    .replace(/<a\b[^>]*>\s*مطالعه[ٔ\s]*کامل\s+مطلب\s+در\s+منبع\s+اصلی\s*<\/a>/gu, '')
+    .replace(/<p>\s*<\/p>/gi, '');
+}
+
 function publicArticleView(row) {
   return {
     slug: row.slug,
@@ -169,9 +179,7 @@ function publicArticleView(row) {
     category_name: row.category_name || null,
     cover_image: row.cover_image || null,
     reading_time: row.reading_time || 0,
-    published_at: row.published_at || null,
-    source_name: row.source_name || null,
-    source_url: row.source_url || null
+    published_at: row.published_at || null
   };
 }
 
@@ -200,10 +208,6 @@ function getPublicArticle(db, slug) {
     WHERE a.slug=? AND a.status='PUBLISHED' AND a.deleted_at IS NULL
   `).get(safe);
   if (!row) return null;
-  const sources = db.prepare(`
-    SELECT source_name, source_url, note FROM magazine_article_sources
-    WHERE article_id=? ORDER BY sort_order, id
-  `).all(row.id);
   const related = db.prepare(`
     SELECT a.slug, a.title, a.summary, a.cover_image, a.reading_time, a.published_at,
            c.name_fa AS category_name
@@ -217,15 +221,12 @@ function getPublicArticle(db, slug) {
     slug: row.slug,
     title: row.title,
     summary: row.summary,
-    content: row.content,
+    content: publicArticleContent(row.content),
     category: row.category_slug || null,
     category_name: row.category_name || null,
     cover_image: row.cover_image || null,
     reading_time: row.reading_time || 0,
     published_at: row.published_at || null,
-    source_name: row.source_name || null,
-    source_url: row.source_url || null,
-    sources: sources.filter(s => s.source_name || s.source_url),
     related: related.map(r => ({ slug: r.slug, title: r.title, summary: r.summary, cover_image: r.cover_image || null, reading_time: r.reading_time || 0, published_at: r.published_at || null, category_name: r.category_name || null }))
   };
 }
