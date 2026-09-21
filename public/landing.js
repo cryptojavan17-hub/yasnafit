@@ -61,8 +61,9 @@
   const markActive = () => {
     const path = location.pathname;
     document.querySelectorAll('.site-nav__link').forEach(link => {
-      const target = link.getAttribute('data-nav') || '/';
-      const active = target === '/' ? path === '/' : path === target || path.startsWith(target + '/') || (target === '/magazine' && path.startsWith('/magazine/'));
+      const target = link.getAttribute('data-nav') || '/home';
+      // «خانه» is the landing on /home (the domain root is the student entry page).
+      const active = target === '/home' ? path === '/home' : path === target || path.startsWith(target + '/') || (target === '/magazine' && path.startsWith('/magazine/'));
       link.classList.toggle('is-active', active);
     });
   };

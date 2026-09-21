@@ -99,9 +99,20 @@ assert.ok(programBuilderSrc.includes('<option value="">۱ × ۱۲ (پیش‌فر
 const quickAddIdx = programBuilderSrc.indexOf('id="drawerQuickAdd"');
 const setsBarIdx = programBuilderSrc.indexOf('id="drawerSetPreset"');
 assert.ok(quickAddIdx > -1 && setsBarIdx > quickAddIdx, 'the sets bar must be rendered BELOW the manual-add panel');
-assert.ok(programBuilderSrc.includes('function setsForNewMovement'), 'the auto-apply helper must exist');
-assert.equal((programBuilderSrc.match(/setsForNewMovement\(\)/g) || []).length, 3, 'both add paths (manual add + bank pick) must take their sets from the picker');
-assert.ok(programBuilderSrc.includes('presetBar.hidden=false'), 'the sets bar must become visible while a system is being filled');
+assert.doesNotMatch(programBuilderSrc, /function setsForNewMovement/, 'no automatic set generator — sets exist only by explicit coach command');
+assert.match(programBuilderSrc, /movementHash: genHash\(\),\s*description: '',\s*\/\/ سیاست مالک[^\n]*\n[^\n]*\n\s*sets: \[\]/, 'bank picks must open with an empty set list; the movement modal then forces an explicit choice');
+assert.doesNotMatch(programBuilderSrc, /presetBar\.hidden=false/, 'the sets bar must NOT auto-show while a system is being filled (accordion: reveals only after a manual add)');
+assert.ok(programBuilderSrc.includes('drawerSetPresetToggle'), 'the sets bar must be an accordion with a header toggle');
+assert.ok(programBuilderSrc.includes('function revealDrawerSets'), 'the sets accordion must reveal once a manual movement is registered');
+
+// 6ب. توضیحات مربی باید روی کارت حرکت هم نمایش داده شود — نه فقط داخل مودال
+assert.ok(programBuilderSrc.includes('class="mov-desc-line"'), 'the movement card must render a description line when the coach wrote one');
+assert.match(programBuilderSrc, /mov\.description&&String\(mov\.description\)\.trim\(\)\?`<small class="mov-desc-line"/, 'the description line must appear only when a non-empty description exists');
+assert.match(programBuilderSrc, /title="\$\{esc\(mov\.description\)\}"/, 'the full description must stay available via the tooltip');
+assert.match(builderCss, /\.mov-desc-line \{[^}]*text-overflow: ellipsis/, 'the card description line must truncate cleanly');
+assert.match(programBuilderSrc, /descEl\.oninput=\(\)=>\{mov\.description=descEl\.value;setDirty\(true\);renderDays\(\);\}/, 'typing a description must live-update the day card behind the modal');
+assert.match(programBuilderSrc, /function closeMovementModal\(\)\{\s*const m=document\.getElementById\('movementModal'\); if\(!m\)return;/, 'closing the modal must still re-render so saved descriptions appear on the card');
+assert.match(programBuilderSrc, /هنوز هیچ ست ندارد\. حرکت از برنامه حذف شود/, 'an empty-set movement must never silently linger — close either removes it (confirm) or stays open (cancel)');
 
 // 7. Manual-add panel must be readable and tappable (owner: "usually not visible, painful on mobile")
 assert.match(builderCss, /\.quickadd-submit \{[^}]*min-height: var\(--component-control-height\)/, 'the register button must use the shared control height');

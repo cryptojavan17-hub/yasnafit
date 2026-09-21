@@ -306,11 +306,93 @@
 
   let activeDayIdx=0;
   const expandedMovements={};
-  function setDirty(value){ dirty=value; refreshDirtyUI(); }
-  function refreshDirtyUI(){
+  /* ─── ذخیرهٔ خودکار: لوکال‌استوریج (فوری) + پیش‌نویس سرور (بی‌صدا) ─── */
+  let autosaveTimer=null, serverDraftTimer=null, autosaveInterval=null, lastSaveState='idle', saveStateResetTimer=null;
+  // کلید پیش‌نویس یک بار از URL محاسبه می‌شود و در طول عمر صفحه ثابت است —
+  // وگرنه بعد از اولین سینک سرور (رسیدن id) پیش‌نویس سینک‌شده به کلید دیگری می‌رود.
+  let draftKey='yasnafit_program_draft_new';
+  function computeDraftKey(){
+    const params=new URLSearchParams(location.search);
+    const id=params.get('id');
+    const sid=Number(params.get('student_id'))||null;
+    const aid=Number(params.get('assessment_id'))||null;
+    draftKey='yasnafit_program_draft_'+(id?('id'+id):(sid?('s'+sid+(aid?('a'+aid):'')):'new'));
+    return draftKey;
+  }
+  function stashKey(){return draftKey;}
+  function stashPayload(synced){
+    return JSON.stringify({program:currentProgram,meta:{saved_at:new Date().toISOString(),synced:!!synced}});
+  }
+  function readStash(key){
+    try{
+      const raw=localStorage.getItem(key);
+      if(!raw)return null;
+      const parsed=JSON.parse(raw);
+      return (parsed&&parsed.program)?parsed:null;
+    }catch(e){return null;}
+  }
+  function setSaveState(state,message=''){
+    lastSaveState=state;
+    const copy={
+      saving:{text:'⏳ در حال ذخیره…',tone:'saving'},
+      saved:{text:'✓ ذخیره شد',tone:'saved'},
+      local:{text:'✓ ذخیره موقت (بدون اتصال)',tone:'local'},
+      restored:{text:'↩ پیش‌نویس بازیابی شد',tone:'restored'},
+      error:{text:'⚠ ذخیره نشد — دوباره تلاش کنید',tone:'error'},
+    }[state]||null;
     const badge=document.getElementById('dirtyBadge'),inline=document.getElementById('dirtyInline');
-    if(badge)badge.hidden=!dirty;
-    if(inline)inline.hidden=!dirty;
+    for(const el of [badge,inline]){
+      if(!el)continue;
+      if(!copy){el.hidden=true;el.dataset.state='idle';continue;}
+      el.hidden=false;
+      el.dataset.state=copy.tone;
+      el.textContent=copy.text+(message&&state==='error'?(' — '+message):'');
+    }
+    clearTimeout(saveStateResetTimer);
+    if(state==='saved'||state==='restored'){
+      saveStateResetTimer=setTimeout(()=>{for(const el of [document.getElementById('dirtyBadge'),document.getElementById('dirtyInline')]){if(el){el.hidden=true;el.dataset.state='idle';}}},3200);
+    }
+  }
+  function scheduleAutosave(){
+    setSaveState('saving');
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(runAutosave,500);
+  }
+  function runAutosave(){
+    autosaveTimer=null;
+    if(!currentProgram)return;
+    syncFormToProgram();
+    try{localStorage.setItem(stashKey(),stashPayload(false));}catch(e){setSaveState('error','حافظهٔ مرورگر');return;}
+    clearTimeout(serverDraftTimer);
+    serverDraftTimer=setTimeout(autoServerDraft,1200);
+  }
+  async function autoServerDraft(){
+    serverDraftTimer=null;
+    if(!currentProgram)return;
+    syncFormToProgram();
+    const title=(currentProgram.title||'').trim();
+    if(!title){setSaveState('saved');setDirtyValue(false);return;}
+    try{
+      const body={title,coach_note:currentProgram.coach_note||'',status:'DRAFT',start_date:currentProgram.start_date,end_date:currentProgram.end_date,student_id:currentProgram.student_id||null,assessment_id:currentProgram.assessment_id||null,program_data:currentProgram};
+      let res;
+      if(currentProgram.id)res=await api('/api/training-programs/'+currentProgram.id,{method:'PUT',body:JSON.stringify(body)});
+      else{res=await api('/api/training-programs',{method:'POST',body:JSON.stringify(body)});currentProgram.id=res.id;}
+      try{localStorage.setItem(stashKey(),stashPayload(true));}catch(e){}
+      setDirtyValue(false);
+      setSaveState('saved');
+    }catch(e){
+      setSaveState('local');
+    }
+  }
+  function cancelAutosaveTimers(){
+    clearTimeout(autosaveTimer);clearTimeout(serverDraftTimer);clearTimeout(saveStateResetTimer);
+    autosaveTimer=null;serverDraftTimer=null;saveStateResetTimer=null;
+  }
+  function setDirtyValue(value){ dirty=value; }
+  function setDirty(value){
+    dirty=value;
+    if(value)scheduleAutosave();
+    else if(lastSaveState==='saving'||lastSaveState==='error')setSaveState('saved');
   }
   function closeAllMenus(){
     document.querySelectorAll('.builder-menu').forEach(menu=>{
@@ -413,7 +495,7 @@
           <h2 class="topbar-title" id="topbarTitle">${esc(currentProgram?.title||'برنامه جدید')}</h2>
           <small class="topbar-sub" id="topbarSub">${vol.totalDays} روز • ${vol.totalMovs} حرکت • ${vol.totalSets} ست</small>
         </div>
-        <span class="dirty-badge" id="dirtyBadge" hidden>⚠️ تغییرات ذخیره نشده</span>
+        <span class="save-state-badge" id="dirtyBadge" data-state="idle" hidden></span>
         <div class="topbar-actions">
           <button class="btn btn-primary btn-small" id="btnAiGenerateDraft" type="button" style="font-weight:800;display:inline-flex;align-items:center;gap:5px;" title="ساخت خودکار پیش‌نویس برنامه تمرینی با هوش مصنوعی بر اساس ارزیابی شاگرد">
             🤖 تولید پیش‌نویس هوشمند
@@ -492,7 +574,7 @@
       </section>
 
       <div class="bottom-toolbar">
-        <span class="dirty-inline" id="dirtyInline" hidden>⚠️ ذخیره نشده</span>
+        <span class="dirty-inline" id="dirtyInline" data-state="idle" hidden></span>
         <span class="volume-badge" id="volBadge">${vol.totalSets} ست • ${vol.totalMovs} حرکت • ${vol.totalDays} روز</span>
         <div class="spacer"></div>
         <button class="btn btn-secondary" id="btnExportPDF" type="button" title="پیش‌نمایش و چاپ نسخه PDF">📄 خروجی PDF</button>
@@ -553,6 +635,7 @@
             <div class="drawer-context" id="drawerContext" hidden></div>
           </div>
           <div class="drawer-header-actions">
+            <button class="btn btn-secondary btn-small" id="drawerManualToggleTop" type="button" title="افزودن حرکت دلخواه به بانک — همیشه بالای صفحه">＋ افزودن دستی</button>
             <button class="btn btn-primary btn-small" id="drawerDone" type="button" hidden>اتمام و بستن</button>
             <button class="btn-icon" id="closeDrawer" title="بستن">×</button>
           </div>
@@ -596,14 +679,26 @@
             </div>
           </div>
           <div class="drawer-setpreset" id="drawerSetPreset" hidden>
-            <div class="drawer-setpreset-head">
+            <button type="button" class="drawer-setpreset-toggle" id="drawerSetPresetToggle" aria-expanded="false" aria-controls="drawerSetPresetBody">
               <b>ست‌های حرکت</b>
-              <small>یک‌بار اینجا انتخاب کنید ⇒ روی هر حرکتی که از بانک (یا از افزودن دستی) اضافه می‌شود خودکار اعمال می‌شود؛ دیگر لازم نیست در کارت حرکت دوباره ست انتخاب کنید.</small>
+              <small id="drawerSetPresetSummary"></small>
+              <span class="drawer-setpreset-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="drawer-setpreset-body" id="drawerSetPresetBody">
+              <div class="drawer-setpreset-inner">
+                <small class="drawer-setpreset-hint">انتخاب شما فقط روی حرکات همین سیستم اعمال می‌شود؛ حرکت بعدی ست‌های خودش را جدا و فقط با دستور شما می‌گیرد.</small>
+                <div class="drawer-preset-row">
+                  <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
+                    <option value="">۱ × ۱۲ (پیش‌فرض)</option>
+                    ${setPresets.map((p,i)=>`<option value="${i}">${esc(p.label)}</option>`).join('')}
+                  </select>
+                  <button type="button" class="drawer-preset-repeat" id="drawerPresetRepeat" title="ست آخرِ انتخاب فعلی یک‌بار دیگر اضافه می‌شود">＋ تکرار ست</button>
+                </div>
+                <div class="drawer-set-chips" id="drawerSetChips" aria-label="ست‌های فعلی"></div>
+                <small class="drawer-preset-note" id="drawerPresetNote" hidden></small>
+                <button type="button" class="btn btn-primary drawer-sets-commit" id="drawerSetsCommit">ثبت و اضافه کردن به لیست</button>
+              </div>
             </div>
-            <select id="drawerPresetSelect" class="drawer-preset-select" aria-label="ست‌های پیشنهادی برای حرکت جدید">
-              <option value="">۱ × ۱۲ (پیش‌فرض)</option>
-              ${setPresets.map((p,i)=>`<option value="${i}">${esc(p.label)}</option>`).join('')}
-            </select>
           </div>
           <div class="drawer-list" id="drawerList"><div class="drawer-guidance">ابتدا محل تمرین را انتخاب کنید.</div></div>
         </div>
@@ -636,6 +731,7 @@
 
     const dayIdx=activeDayIdx, day=days[dayIdx];
     const isRest = day.isRestDay;
+    const dayIncomplete=(day.data||[]).some(s2=>{const m=systemById(s2.exercise_system_id)||systemById(1);return (s2.movement_list||[]).length<m.movements;});
     const vol = {movs:0, sets:0};
     (day.data||[]).forEach(sys=>{ vol.movs += (sys.movement_list||[]).length; (sys.movement_list||[]).forEach(m=> vol.sets += (m.sets||[]).length); });
 
@@ -673,7 +769,8 @@
               const remaining=sysMeta.movements-sysMovs;
               const full=remaining<=0;
               return `
-              <div class="system-card" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
+              <div class="system-card ${sysMeta.movements>1?'grouped':''} ${convertedFlash===`${dayIdx}-${sysIdx}`?'sys-flash':''}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
+                ${sysMeta.movements>1?`<div class="sys-group-badge">${sysMeta.icon} ${esc(sysMeta.label)}</div>`:''}
                 <div class="movements-list">
                   ${sysMovs===0 ? `<div class="empty-system">این سیستم به ${sysMeta.movements.toLocaleString('fa-IR')} حرکت نیاز دارد — «افزودن حرکات تمرینی» را بزنید.</div>` : ''}
                   ${(sys.movement_list||[]).map((mov, movIdx) => {
@@ -682,12 +779,14 @@
                     return `
                   <div class="movement-card" data-mov-idx="${movIdx}" data-sys-idx="${sysIdx}" data-day-idx="${dayIdx}">
                     <div class="movement-summary-row">
+                      <label class="mov-pick" title="انتخاب برای تبدیل گروهی به سیستم تمرینی"><input type="checkbox" data-pick-mov="${movKey}" ${selectedMovements.has(movKey)?'checked':''}></label>
                       <div class="movement-image">
                         <img src="${esc((mov.image_path&&mov.image_path.trim())?mov.image_path:(mov.original_exercise_id?`/api/exercise-image/${mov.original_exercise_id}`:'/blank-white.svg'))}" alt="" data-fallback="/blank-white.svg" loading="lazy">
                       </div>
                       <button type="button" class="movement-head" data-edit-mov="${movKey}" title="ویرایش حرکت و ست‌ها">
                         <div class="mov-name-group">
                           <span class="mov-name-title">نام حرکت: <b>${esc(mov.nameFa||mov.name||'حرکت بدون نام')}</b></span>
+                          ${mov.description&&String(mov.description).trim()?`<small class="mov-desc-line" title="${esc(mov.description)}">📝 ${esc(mov.description)}</small>`:''}
                         </div>
                         <div class="mov-system-group">
                           <span class="mov-system-pill">${sysMeta.icon} ${esc(sysMeta.label)}</span>
@@ -730,7 +829,8 @@
                 </div>
               </div>
               `;}).join('')}
-            <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}">＋ افزودن سیستم تمرینی</button>
+            <button class="btn btn-secondary btn-small" data-add-sys="${dayIdx}" ${dayIncomplete?`disabled title="ابتدا سیستم جاری را تکمیل کنید، بعد سیستم جدید اضافه کنید"`:''}>＋ افزودن سیستم تمرینی</button>
+            ${renderConvertBar(dayIdx)}
           </div>
         </div>
         `}
@@ -740,6 +840,7 @@
     bindDayEvents();
     updateVolume();
     updateTopbar();
+    convertedFlash=null;
   }
 
   function updateVolume(){
@@ -887,6 +988,18 @@
         alert('💡 پیشنهاد جایگزین: بر اساس عضله هدف، حرکات مشابه پیشنهاد می‌شود (در نسخه کامل با AI)');
       };
     });
+    document.querySelectorAll('[data-pick-mov]').forEach(cb=>{
+      cb.onchange=()=>{
+        const key=cb.dataset.pickMov;
+        if(cb.checked)selectedMovements.add(key);else selectedMovements.delete(key);
+        updateConvertBar(activeDayIdx);
+      };
+    });
+    document.querySelectorAll('[data-convert-to]').forEach(b=>{
+      b.onclick=()=>convertSelection(activeDayIdx,Number(b.dataset.convertTo));
+    });
+    const splitNormalButton=document.querySelector('[data-split-normal]');
+    if(splitNormalButton)splitNormalButton.onclick=()=>splitSelectionToNormal(activeDayIdx);
     document.querySelectorAll('[data-del-mov]').forEach(b=>{
       b.onclick=()=>{
         const [dayIdx, sysIdx, movIdx]=b.dataset.delMov.split('-').map(Number);
@@ -997,8 +1110,19 @@
 
   // Drawer
   let drawerSearchTimeout,drawerCategoryRequest=0,currentDrawerCat=null,currentDrawerSub=null,currentDrawerLocation=null;
+  let drawerSetsRevealed=false; // اکاردیون ست‌ها تا وقتی یک حرکتِ دستی ثبت نشود پنهان می‌ماند
+  const selectedMovements=new Set(); // کلیدهای «روز-سیستم-حرکت» تیک‌خورده برای تبدیل گروهی
+  let convertedFlash=null; // کلید سیستم تازه‌تبدیل‌شده برای انیمیشن نرم
   function resetDrawerBankFlow(){
     drawerCategoryRequest+=1;currentDrawerCat=null;currentDrawerSub=null;currentDrawerLocation=null;
+    resetDrawerSetNote();
+    drawerSetsRevealed=false;
+    const presetBarReset=document.getElementById('drawerSetPreset');
+    if(presetBarReset){
+      presetBarReset.classList.remove('open','flash');
+      const toggleReset=document.getElementById('drawerSetPresetToggle');
+      if(toggleReset)toggleReset.setAttribute('aria-expanded','false');
+    }
     document.querySelectorAll('[data-bank-location]').forEach(button=>{button.classList.remove('active');button.disabled=false;});
     const filter=document.getElementById('drawerFilterStep'),search=document.getElementById('drawerSearch'),searchSection=document.getElementById('drawerSearchSection'),categorySection=document.getElementById('drawerCategorySection'),list=document.getElementById('drawerList');
     if(filter){filter.hidden=true;filter.classList.add('locked');}if(search)search.value='';
@@ -1024,19 +1148,34 @@
       host.innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     }catch(error){}
   }
+  // با باز شدن «افزودن دستی»، ردیف دکمهٔ «ثبت حرکت» باید داخل دید بیاید — دیگر چیزی بریده نمی‌شود
+  function revealQuickAddActions(){
+    const tab=document.getElementById('drawerTabAdd'),panel=document.getElementById('drawerQuickAdd');
+    if(!tab||!panel||panel.hidden)return;
+    const actions=panel.querySelector('.quickadd-actions');
+    if(!actions)return;
+    const tabRect=tab.getBoundingClientRect(),actionsRect=actions.getBoundingClientRect();
+    const delta=actionsRect.bottom-tabRect.bottom+12;
+    if(delta>0)tab.scrollTo({top:tab.scrollTop+delta,behavior:'smooth'});
+  }
+  const quickAddDefaultHint='حرکت ثبت‌شده هم به بانک اضافه می‌شود و هم با ست‌های انتخابیِ پایین، داخل برنامه می‌نشیند.';
   function toggleQuickAddPanel(force){
-    const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle');
+    const panel=document.getElementById('drawerQuickAdd'),button=document.getElementById('drawerManualToggle'),topButton=document.getElementById('drawerManualToggleTop');
     if(!panel)return;
     panel.hidden=force!==undefined?!force:!panel.hidden;
     if(button)button.textContent=panel.hidden?'＋ افزودن حرکت دستی':'× بستن افزودن دستی';
+    if(topButton)topButton.textContent=panel.hidden?'＋ افزودن دستی':'× بستن افزودن دستی';
     const closeX = document.getElementById('quickAddCloseX');
     if (closeX && !closeX._bound) {
       closeX._bound = true;
       closeX.onclick = () => toggleQuickAddPanel(false);
     }
     if(!panel.hidden){
+      const hint=panel.querySelector('.quickadd-hint');
+      if(hint)hint.textContent=quickAddDefaultHint;
       refreshQuickAddCategories();
-      document.getElementById('quickAddName')?.focus();
+      document.getElementById('quickAddName')?.focus({preventScroll:true});
+      revealQuickAddActions();
     }
   }
   async function submitQuickAddExercise(){
@@ -1047,15 +1186,14 @@
     if(!category)return alert('دسته‌بندی را انتخاب کنید');
     try{
       const created=await api('/api/exercises',{method:'POST',body:JSON.stringify({name_fa:name,location,category_id:category,target_muscles:[],priority:5})});
-      alert('✅ حرکت «'+name+'» به بانک اضافه شد');
       document.getElementById('quickAddName').value='';
-      toggleQuickAddPanel(false);
-      // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن
+      // اگر سیستمی در حال تکمیل است و جا دارد، حرکت جدید را همان‌جا اضافه کن — و چک کن چند حرکت مانده
+      let added=false, remaining=0, sysMeta=null;
       if(selectedSystemForAdd){
         const {dayIdx,sysIdx}=selectedSystemForAdd;
         const sys=currentProgram.days[dayIdx].data[sysIdx];
-        const meta=systemById(sys.exercise_system_id)||systemById(1);
-        if((sys.movement_list||[]).length<meta.movements){
+        sysMeta=systemById(sys.exercise_system_id)||systemById(1);
+        if((sys.movement_list||[]).length<sysMeta.movements){
           sys.movement_list.push({
             exercise_id:created.id,
             exerciseId:created.id,
@@ -1066,11 +1204,33 @@
             movementHash:genHash(),
             description:'',
             target_muscles:[],
-            sets:setsForNewMovement()
+            // انتخاب تعداد ست‌ها بعد از ثبت، در اکاردیون «ست‌های حرکت» اجباری می‌شود
+            sets:[]
           });
           expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
           setDirty(true);renderDays();refreshDrawerContext();
+          // حرکت دستی ثبت شد ⇒ اکاردیون «ست‌های حرکت» ظاهر و باز می‌شود — انتخاب ست الزامی است
+          revealDrawerSets(true);
+          remaining=sysMeta.movements-(sys.movement_list||[]).length;
+          added=true;
         }
+      }
+      if(added&&remaining>0){
+        // سیستم چندحرکته هنوز کامل نیست — پنل برای ثبت حرکت بعدی باز می‌ماند
+        alert(`✅ حرکت «${name}» ثبت شد — «${sysMeta.label}» ${remaining.toLocaleString('fa-IR')} حرکت دیگر لازم دارد`);
+        toggleQuickAddPanel(true);
+        const hint=document.querySelector('#drawerQuickAdd .quickadd-hint');
+        if(hint)hint.textContent=`«${sysMeta.label}»: ${remaining.toLocaleString('fa-IR')} حرکت دیگر از ${sysMeta.movements.toLocaleString('fa-IR')} لازم است — حرکت بعدی را همین‌جا ثبت کنید.`;
+        revealQuickAddActions();
+      }else if(added){
+        alert(`✅ حرکت «${name}» ثبت شد و گروه «${sysMeta.label}» کامل شد 🎉`);
+        toggleQuickAddPanel(false);
+      }else if(selectedSystemForAdd){
+        alert(`گروه «${(sysMeta||systemById(1)).label}» جای خالی ندارد — حرکت فقط به بانک اضافه شد`);
+        toggleQuickAddPanel(false);
+      }else{
+        alert('✅ حرکت «'+name+'» به بانک اضافه شد');
+        toggleQuickAddPanel(false);
       }
       loadDrawerExercises(null,null,document.getElementById('drawerSearch')?.value||'');
     }catch(error){alert('خطا در ثبت حرکت: '+error.message);}
@@ -1087,7 +1247,8 @@
     const selected=(sys.movement_list||[]).length;
     const full=selected>=meta.movements;
     ctx.hidden=false;
-    if(presetBar)presetBar.hidden=false;
+    if(presetBar)presetBar.hidden=!drawerSetsRevealed;
+    if(drawerSetsRevealed){renderDrawerSetChips();updateDrawerPresetNote();}
     ctx.innerHTML=`<b>${meta.icon} ${esc(meta.label)}</b><span class="drawer-progress ${full?'done':''}">حرکات انتخاب شده: ${selected.toLocaleString('fa-IR')} از ${meta.movements.toLocaleString('fa-IR')}</span>${full?'<span class="drawer-full-note">تکمیل شد — حرکت بیشتری برای این سیستم قابل افزودن نیست</span>':`<span class="drawer-remaining">${(meta.movements-selected).toLocaleString('fa-IR')} حرکت باقی‌مانده</span>`}`;
     if(list)list.classList.toggle('full',full);
   }
@@ -1104,8 +1265,140 @@
     const done=drawer.querySelector('#drawerDone');
     if(done)done.hidden=false;
     resetDrawerBankFlow();drawer.classList.add('open');refreshDrawerContext();
+    // با «افزودن حرکت تمرینی»، مربی باید مستقیم سیستم «افزودن حرکت دستی» را ببیند
+    toggleQuickAddPanel(true);
+  }
+  // ===== تبدیل گروهی: تیک حرکات ⇒ ادغام در سیستم تمرینی یا تفکیک به حرکات معمولی =====
+  function daySelectedKeys(dayIdx){
+    return [...selectedMovements].filter(k=>k.startsWith(dayIdx+'-'));
+  }
+  function selectionGroups(dayIdx){
+    const day=currentProgram.days[dayIdx];
+    if(!day)return [];
+    const map=new Map();
+    daySelectedKeys(dayIdx).forEach(k=>{
+      const [,s,m]=k.split('-').map(Number);
+      const arr=map.get(s)||[];
+      arr.push(m);
+      map.set(s,arr);
+    });
+    return [...map.entries()].map(([s,ms])=>{
+      ms.sort((a,b)=>a-b);
+      return {s,ms,len:(day.data[s]?.movement_list||[]).length};
+    });
+  }
+  function selectionComplete(dayIdx){
+    const gs=selectionGroups(dayIdx);
+    return gs.length>0&&gs.every(g=>g.ms.length===g.len&&g.ms.every((v,i)=>v===i));
+  }
+  function splitAllowed(dayIdx){
+    return selectionGroups(dayIdx).every(g=>g.len>1&&g.ms.length===g.len);
+  }
+  function renderConvertBar(dayIdx){
+    const k=daySelectedKeys(dayIdx).length;
+    return `<div class="convert-bar" id="convertBar" ${k?'':'hidden'}>
+      <b id="convertCount">${k.toLocaleString('fa-IR')} حرکت انتخاب شده</b>
+      <div class="builder-menu-wrap">
+        <button class="btn btn-primary btn-small" type="button" data-menu title="تبدیل انتخاب‌ها به سیستم تمرینی">🔁 تبدیل به سیستم تمرینی ▾</button>
+        <div class="builder-menu" hidden>
+          ${systemTypes.map(t=>`<button type="button" data-convert-to="${t.id}" ${t.movements===k?'':'disabled'} title="${t.movements===k?'آمادهٔ تبدیل':`${t.movements.toLocaleString('fa-IR')} حرکت لازم دارد`}">${t.icon} ${esc(t.label)} — ${t.movements.toLocaleString('fa-IR')} حرکت</button>`).join('')}
+          <div class="menu-sep"></div>
+          <button type="button" data-split-normal ${splitAllowed(dayIdx)?'':'disabled'}>↩️ تفکیک به حرکات معمولی</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  function updateConvertBar(dayIdx){
+    // کلیدهای ته‌افتاده (بعد از تغییر ساختار) پاک می‌شوند
+    const valid=new Set();
+    document.querySelectorAll('[data-pick-mov]').forEach(cb=>valid.add(cb.dataset.pickMov));
+    [...selectedMovements].forEach(k=>{if(!valid.has(k))selectedMovements.delete(k);});
+    const bar=document.getElementById('convertBar');
+    if(!bar)return;
+    const k=daySelectedKeys(dayIdx).length;
+    bar.hidden=k===0;
+    const count=document.getElementById('convertCount');
+    if(count)count.textContent=`${k.toLocaleString('fa-IR')} حرکت انتخاب شده`;
+    bar.querySelectorAll('[data-convert-to]').forEach(b=>{
+      const t=systemById(Number(b.dataset.convertTo));
+      b.disabled=!t||t.movements!==k;
+    });
+    const split=bar.querySelector('[data-split-normal]');
+    if(split)split.disabled=!splitAllowed(dayIdx);
+  }
+  function convertSelection(dayIdx,targetId){
+    const target=systemById(targetId);
+    if(!target)return;
+    const day=currentProgram.days[dayIdx];
+    if(!day)return;
+    const groups=selectionGroups(dayIdx);
+    if(!groups.length)return;
+    if(!selectionComplete(dayIdx)){
+      alert('برای تبدیل، همهٔ حرکات هر سیستمِ انتخاب‌شده را کامل تیک بزنید (یک گروه ناقص است).');
+      return;
+    }
+    const total=groups.reduce((n,g)=>n+g.ms.length,0);
+    if(target.movements!==total){
+      alert(`«${target.label}» دقیقاً ${target.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ ${total.toLocaleString('fa-IR')} حرکت انتخاب شده است.`);
+      return;
+    }
+    const merged=[];
+    groups.forEach(g=>merged.push(...(day.data[g.s].movement_list||[])));
+    const first=groups[0].s;
+    day.data.splice(first,groups.length,{exercise_system_id:target.id,system_type:target.type,movement_list:merged});
+    selectedMovements.clear();
+    convertedFlash=`${dayIdx}-${first}`;
+    setDirty(true);
+    renderDays();
+  }
+  function splitSelectionToNormal(dayIdx){
+    const day=currentProgram.days[dayIdx];
+    if(!day)return;
+    const groups=selectionGroups(dayIdx);
+    if(!groups.length)return;
+    if(!selectionComplete(dayIdx)){
+      alert('برای تفکیک، همهٔ حرکات هر سیستمِ انتخاب‌شده را کامل تیک بزنید.');
+      return;
+    }
+    if(!splitAllowed(dayIdx)){
+      alert('تفکیک فقط برای گروه‌های چندحرکته (سوپرست، تری‌ست و…) کار می‌کند.');
+      return;
+    }
+    const replacement=[];
+    groups.forEach(g=>{
+      (day.data[g.s].movement_list||[]).forEach(mov=>replacement.push({exercise_system_id:1,system_type:'normal',movement_list:[mov]}));
+    });
+    day.data.splice(groups[0].s,groups.length,...replacement);
+    selectedMovements.clear();
+    convertedFlash=`${dayIdx}-${groups[0].s}`;
+    setDirty(true);
+    renderDays();
+  }
+  function activeSystemIncomplete(){
+    const sys=drawerActiveSystem();
+    if(!sys)return false;
+    const meta=systemById(sys.exercise_system_id)||systemById(1);
+    if(meta.movements<=1)return false;
+    const n=(sys.movement_list||[]).length;
+    return n>0&&n<meta.movements; // سیستم چندحرکتهٔ ناقص
   }
   function closeDrawer(){
+    // انتخاب ست‌ها اجباری است: با حرکتِ بدون ست، بانک بسته نمی‌شود
+    if(selectedSystemForAdd&&drawerSetsRevealed&&activeSystemHasEmptySets()){
+      revealDrawerSets(true);
+      const bar=document.getElementById('drawerSetPreset');
+      if(bar){bar.classList.remove('flash');void bar.offsetWidth;bar.classList.add('flash');}
+      alert('برای هر حرکت حداقل یک ست الزامی است — بخش «ست‌های حرکت» را تکمیل کنید.');
+      return;
+    }
+    // سیستم چندحرکته نباید ناقص بماند: دقیقاً همان تعداد حرکت باید ثبت شود
+    if(selectedSystemForAdd&&activeSystemIncomplete()){
+      const sys=drawerActiveSystem();
+      const meta=systemById(sys.exercise_system_id)||systemById(1);
+      const n=(sys.movement_list||[]).length;
+      alert(`سیستم «${meta.label}» دقیقاً ${meta.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ فعلاً ${n.toLocaleString('fa-IR')} حرکت ثبت شده — باقیمانده را از بانک اضافه کنید.`);
+      return;
+    }
     const drawer=document.getElementById('exerciseDrawer');
     if(drawer)drawer.classList.remove('open');
     const ctx=document.getElementById('drawerContext'),done=document.getElementById('drawerDone'),list=document.getElementById('drawerList');
@@ -1147,19 +1440,172 @@
   // ===== مودال ویرایش حرکت =====
   let mvCtx=null;
   function mvMovement(){ if(!mvCtx)return null; return currentProgram.days[mvCtx.dayIdx]?.data[mvCtx.sysIdx]?.movement_list?.[mvCtx.movIdx]||null; }
-  function closeMovementModal(){ const m=document.getElementById('movementModal'); if(m)m.hidden=true; mvCtx=null; }
+  function closeMovementModal(){
+    const m=document.getElementById('movementModal'); if(!m)return;
+    const mov=mvMovement();
+    // سیاست مالک: حرکت بدون ست در برنامه نمی‌ماند — یا ست می‌سازد (لغو) یا حرکت برمی‌گردد
+    if(mov&&Array.isArray(mov.sets)&&mov.sets.length===0){
+      if(!confirm('این حرکت هنوز هیچ ست ندارد. حرکت از برنامه حذف شود؟ (برای ماندن و افزودن ست، «لغو» را بزنید)'))return;
+      const {dayIdx,sysIdx,movIdx}=mvCtx;
+      const sys=currentProgram.days[dayIdx].data[sysIdx];
+      if(sys&&Array.isArray(sys.movement_list)){sys.movement_list.splice(movIdx,1);setDirty(true);}
+    }
+    m.hidden=true; mvCtx=null; renderDays();
+  }
   function applyPreset(mov,preset){
     mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
     setDirty(true);renderDays();
   }
-  // ست‌های حرکت تازه‌اضافه‌شده: از انتخابگر «ست‌های حرکت» در بانک (زیر افزودن دستی) خوانده می‌شود
-  // تا مربی یک‌بار انتخاب کند و مجبور نباشد همان را در کارت حرکت تکرار کند.
-  function setsForNewMovement(){
-    const select=document.getElementById('drawerPresetSelect');
-    const idx=select&&select.value!==''?Number(select.value):-1;
-    const preset=setPresets[idx];
-    if(preset)return preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
-    return [{type:'REPEAT',count:12,restSeconds:60,setHash:genHash()}];
+  function drawerActiveSystem(){
+    if(!selectedSystemForAdd)return null;
+    const {dayIdx,sysIdx}=selectedSystemForAdd;
+    return currentProgram?.days?.[dayIdx]?.data?.[sysIdx]||null;
+  }
+  function drawerNewestMovement(){
+    const sys=drawerActiveSystem();
+    const list=(sys&&sys.movement_list)||[];
+    return list.length?list[list.length-1]:null;
+  }
+  function renderDrawerSetChips(){
+    const host=document.getElementById('drawerSetChips');
+    if(!host)return;
+    const mov=drawerNewestMovement();
+    const sets=(mov&&Array.isArray(mov.sets))?mov.sets:[];
+    host.innerHTML=(sets.length?sets.map((st,i)=>{
+      const isFailure=st.type==='FAILURE';
+      const countValue=isFailure?'':esc(st.count??'');
+      const placeholder=isFailure?'—':(st.type==='TIME'?'۳۰':(st.type==='MINUTE'?'۱':'۱۲'));
+      const unitOptions=setUnits.map(u=>`<option value="${u.id}" ${st.type===u.id?'selected':''}>${esc(u.label)}</option>`).join('');
+      return `<div class="drawer-set-chip" data-chip="${i}">
+        <button type="button" class="drawer-set-chip-del" data-chip-del="${i}" title="حذف این ست">×</button>
+        <input type="text" class="drawer-set-chip-count" data-chip-count="${i}" value="${countValue}" placeholder="${placeholder}" ${isFailure?'disabled':''} inputmode="numeric" title="مقدار ست ${(i+1).toLocaleString('fa-IR')} — همان لحظه ویرایش می‌شود">
+        <select class="drawer-set-chip-unit" data-chip-unit="${i}" title="واحد ست ${(i+1).toLocaleString('fa-IR')}">${unitOptions}</select>
+      </div>`;
+    }).join(''):'<div class="drawer-set-chip drawer-set-chip-empty" title="هنوز ستی تعیین نشده است"><small>بدون ست</small></div>')+
+      '<button type="button" class="drawer-set-chip drawer-set-chip-add" data-chip-add title="ست جدید — کپی ست آخر">＋</button>';
+    host.querySelectorAll('[data-chip-count]').forEach(inp=>{
+      inp.oninput=()=>applyChipEdit(Number(inp.dataset.chipCount),'count',inp.value);
+    });
+    host.querySelectorAll('[data-chip-unit]').forEach(sel=>{
+      sel.onchange=()=>{applyChipEdit(Number(sel.dataset.chipUnit),'type',sel.value);renderDrawerSetChips();};
+    });
+    const summary=document.getElementById('drawerSetPresetSummary');
+    if(summary){
+      const sys=drawerActiveSystem();
+      const movs=((sys&&sys.movement_list)||[]).length;
+      summary.textContent=sets.length?`${sets.length.toLocaleString('fa-IR')} ست • ${movs.toLocaleString('fa-IR')} حرکت`:'ست‌ها هنوز انتخاب نشده‌اند';
+    }
+  }
+  // ویرایش آزاد ست‌ها: تعداد و واحد هر مربع همان‌لحظه روی حرکات سیستم اعمال می‌شود — محدودیتی در مقدار نیست
+  function applyChipEdit(idx,field,value){
+    const sys=drawerActiveSystem();
+    if(!sys)return;
+    (sys.movement_list||[]).forEach(mov=>{
+      if(!Array.isArray(mov.sets)||mov.sets[idx]===undefined)return;
+      const st=mov.sets[idx];
+      if(field==='type'){
+        st.type=value;
+        if(value==='FAILURE')st.count=null;
+        else if(st.count==null||st.count===''){
+          st.count=value==='TIME'?30:value==='MINUTE'?1:value==='DROPSET'?'12-10-8':12;
+        }
+      }else{
+        const val=String(value??'').trim();
+        st.count=val===''?null:(isNaN(Number(val))?val:Number(val));
+      }
+    });
+    setDirty(true);
+  }
+  function updateDrawerPresetNote(mode){
+    const note=document.getElementById('drawerPresetNote');
+    if(!note)return;
+    const mov=drawerNewestMovement();
+    const count=(mov&&Array.isArray(mov.sets))?mov.sets.length:0;
+    note.classList.toggle('warn',count===0);
+    note.hidden=false;
+    if(count===0){
+      note.textContent='⚠️ انتخاب ست‌ها برای این حرکت الزامی است — از منوی پیشنهادی انتخاب کنید یا با ＋ ست بسازید.';
+      return;
+    }
+    if(mode==='repeat'){
+      note.textContent=`✓ ست تکرار شد — به حرکات همین سیستم هم یک ست اضافه شد (الان: ${count.toLocaleString('fa-IR')} ست)`;
+      return;
+    }
+    if(mode==='preset'){
+      note.textContent=`✓ ست‌های پیشنهادی روی همهٔ حرکات این سیستم اعمال شد (${count.toLocaleString('fa-IR')} ست)`;
+      return;
+    }
+    if(mode==='removed'){
+      note.textContent=`✓ ست حذف شد (الان: ${count.toLocaleString('fa-IR')} ست)`;
+      return;
+    }
+    note.textContent=`✓ ${count.toLocaleString('fa-IR')} ست برای حرکت‌های این سیستم`;
+  }
+  function resetDrawerSetNote(){
+    const note=document.getElementById('drawerPresetNote');
+    if(note){note.hidden=true;note.textContent='';note.classList.remove('warn');}
+  }
+  // آشکار کردن اکاردیون ست‌ها — فقط بعد از ثبت یک حرکت دستی اتفاق می‌افتد
+  function revealDrawerSets(expand){
+    drawerSetsRevealed=true;
+    const bar=document.getElementById('drawerSetPreset');
+    if(!bar)return;
+    if(selectedSystemForAdd)bar.hidden=false;
+    if(expand){
+      bar.classList.add('open');
+      const toggle=document.getElementById('drawerSetPresetToggle');
+      if(toggle)toggle.setAttribute('aria-expanded','true');
+      if(bar.scrollIntoView)bar.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+    renderDrawerSetChips();
+    updateDrawerPresetNote();
+  }
+  function removeDrawerSetAtIndex(idx){
+    const sys=drawerActiveSystem();
+    if(!sys)return;
+    let changed=false;
+    (sys.movement_list||[]).forEach(mov=>{
+      if(Array.isArray(mov.sets)&&mov.sets[idx]!==undefined){mov.sets.splice(idx,1);changed=true;}
+    });
+    if(!changed)return;
+    setDirty(true);renderDays();
+    renderDrawerSetChips();updateDrawerPresetNote('removed');
+  }
+  function applyDrawerPresetToAll(preset){
+    const sys=drawerActiveSystem();
+    if(!sys||!preset)return;
+    (sys.movement_list||[]).forEach(mov=>{
+      mov.sets=preset.spec.map(item=>({type:item.type,count:item.count==null?null:item.count,restSeconds:60,setHash:genHash()}));
+    });
+    setDirty(true);renderDays();
+  }
+  function activeSystemHasEmptySets(){
+    const sys=drawerActiveSystem();
+    if(!sys)return false;
+    return (sys.movement_list||[]).some(mov=>!Array.isArray(mov.sets)||mov.sets.length===0);
+  }
+  // «＋ تکرار ست»: علاوه بر پیش‌فرضِ حرکت‌های بعدی، به حرکت‌هایی که همین حالا در سیستم هستند
+  // هم یک کپی از ست آخرشان اضافه می‌کند (مثلاً ۴×۱۰ ⇒ ۵×۱۰).
+  function repeatDrawerSet(){
+    let applied=false;
+    const sys=drawerActiveSystem();
+    if(sys){
+      (sys.movement_list||[]).forEach(mov=>{
+        if(!Array.isArray(mov.sets))mov.sets=[];
+        const last=mov.sets[mov.sets.length-1];
+        mov.sets.push({
+          type:(last&&last.type)||'REPEAT',
+          count:last?(last.count==null?null:last.count):12,
+          restSeconds:(last&&last.restSeconds)||60,
+          setHash:genHash()
+        });
+      });
+      setDirty(true);
+      renderDays();
+      applied=true;
+    }
+    if(drawerSetsRevealed)renderDrawerSetChips();
+    updateDrawerPresetNote(applied?'repeat':undefined);
   }
   function findMatchingPresetIndex(sets){
     if(!sets||!sets.length)return -1;
@@ -1268,7 +1714,7 @@
       renderDays();
     };
     const descEl=document.getElementById('mvDesc');
-    if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);};
+    if(descEl)descEl.oninput=()=>{mov.description=descEl.value;setDirty(true);renderDays();};
 
     const presetSelect=document.getElementById('mvPresetSelect');
     if(presetSelect){
@@ -1435,7 +1881,9 @@
           image_path: imgPath,
           movementHash: genHash(),
           description: '',
-          sets: setsForNewMovement()
+          // سیاست مالک: ست اضافی خودِ سیستم تولید نمی‌شود — هر حرکت بدون ست شروع می‌کند
+          // و ست‌هایش فقط با دستور صریح مربی ساخته می‌شوند (پیش‌فرض در مودال حرکت الزامی است).
+          sets: []
         });
         expandedMovements[`${dayIdx}-${sysIdx}-${sys.movement_list.length-1}`]=true;
         setDirty(true);
@@ -1527,7 +1975,7 @@
     assessmentContext=data;
     const details=data.assessment_details||{},sports=details.sports||{},medical=details.medical||{},goals=details.goals||[];
     currentProgram.student_id=data.student.id;currentProgram.assessment_id=data.assessment.id;
-    if(!currentProgram.id){currentProgram.title=`برنامه ۳۰ روزه ${data.student.full_name} - پرونده ${data.student.case_number}`;currentProgram.days=makeAssessmentDays(sports.sessions_per_week);}
+    if(!currentProgram.id&&(!String(currentProgram.title||'').trim()||currentProgram.title==='برنامه تمرینی جدید'||/^برنامه ماهانه - ارزیابی \d+$/.test(currentProgram.title||''))){currentProgram.title=`برنامه ۳۰ روزه ${data.student.full_name} - پرونده ${data.student.case_number}`;currentProgram.days=makeAssessmentDays(sports.sessions_per_week);}
     document.getElementById('progLevel').value=sports.practice_history?'Professional':'Beginner';
     document.getElementById('progLocation').value=(sports.practice_place||data.student.preferred_location)==='home'?'Home':'Gym';
     if(goals[0])document.getElementById('progTarget').value=goals[0];
@@ -1717,8 +2165,60 @@
     if(drawerDoneButton)drawerDoneButton.onclick=closeDrawer;
     const manualToggle=document.getElementById('drawerManualToggle');
     if(manualToggle)manualToggle.onclick=()=>toggleQuickAddPanel();
+    const manualToggleTop=document.getElementById('drawerManualToggleTop');
+    if(manualToggleTop)manualToggleTop.onclick=()=>toggleQuickAddPanel();
     const quickAddSubmitButton=document.getElementById('quickAddSubmit');
     if(quickAddSubmitButton)quickAddSubmitButton.onclick=submitQuickAddExercise;
+    const presetRepeatButton=document.getElementById('drawerPresetRepeat');
+    if(presetRepeatButton)presetRepeatButton.onclick=repeatDrawerSet;
+    const drawerPresetSelectEl=document.getElementById('drawerPresetSelect');
+    if(drawerPresetSelectEl)drawerPresetSelectEl.onchange=()=>{
+      resetDrawerSetNote();
+      if(drawerPresetSelectEl.value==='')return;
+      const preset=setPresets[Number(drawerPresetSelectEl.value)];
+      if(preset&&drawerSetsRevealed){
+        applyDrawerPresetToAll(preset);
+        renderDrawerSetChips();
+        updateDrawerPresetNote('preset');
+      }
+    };
+    const setPresetToggle=document.getElementById('drawerSetPresetToggle');
+    if(setPresetToggle)setPresetToggle.onclick=()=>{
+      const bar=document.getElementById('drawerSetPreset');
+      if(!bar||bar.hidden)return;
+      const open=bar.classList.toggle('open');
+      setPresetToggle.setAttribute('aria-expanded',open?'true':'false');
+    };
+    const drawerSetChipsHost=document.getElementById('drawerSetChips');
+    if(drawerSetChipsHost)drawerSetChipsHost.onclick=event=>{
+      const del=event.target.closest('[data-chip-del]');
+      if(del){removeDrawerSetAtIndex(Number(del.dataset.chipDel));return;}
+      if(event.target.closest('[data-chip-add]'))repeatDrawerSet();
+    };
+    const setsCommitButton=document.getElementById('drawerSetsCommit');
+    if(setsCommitButton)setsCommitButton.onclick=()=>{
+      if(!drawerSetsRevealed)return;
+      if(activeSystemHasEmptySets()){
+        const bar=document.getElementById('drawerSetPreset');
+        if(bar){bar.classList.remove('flash');void bar.offsetWidth;bar.classList.add('flash');}
+        updateDrawerPresetNote();
+        alert('برای هر حرکت حداقل یک ست الزامی است — تعداد ست‌ها را وارد کنید.');
+        return;
+      }
+      if(activeSystemIncomplete()){
+        const sys=drawerActiveSystem();
+        const meta=systemById(sys.exercise_system_id)||systemById(1);
+        const n=(sys.movement_list||[]).length;
+        alert(`سیستم «${meta.label}» دقیقاً ${meta.movements.toLocaleString('fa-IR')} حرکت لازم دارد؛ فعلاً ${n.toLocaleString('fa-IR')} حرکت ثبت شده — ابتدا باقیمانده را از بانک اضافه کنید.`);
+        return;
+      }
+      const mov=drawerNewestMovement();
+      const count=(mov&&Array.isArray(mov.sets))?mov.sets.length:0;
+      const name=(mov&&(mov.nameFa||mov.name))||'حرکت';
+      setDirty(true);renderDays();
+      closeDrawer();
+      alert('✅ «'+name+'» با '+count.toLocaleString('fa-IR')+' ست به لیست برنامه اضافه شد');
+    };
     document.querySelectorAll('[data-bank-location]').forEach(button=>button.onclick=()=>selectDrawerLocation(button.dataset.bankLocation));
     const globalSearch=document.getElementById('drawerGlobalSearch');
     if(globalSearch){
@@ -1758,22 +2258,23 @@
     document.getElementById('mvBackdrop').onclick=closeMovementModal;
 
 
-    // Dirty state warning
-    window.addEventListener('beforeunload', (e)=>{
-      if(dirty){
-        e.preventDefault();
-        e.returnValue = 'تغییرات ذخیره نشده دارید. آیا مطمئنید؟';
-      }
-    });
+    // هشدار پیش از خروج/رفرش + فلاش همزمان در حافظهٔ مرورگر (هیچ کلیدی از دست نمی‌رود)
+    if(!window.__yasnaProgUnloadBound){
+      window.__yasnaProgUnloadBound=true;
+      window.addEventListener('beforeunload', (e)=>{
+        if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null;try{syncFormToProgram();localStorage.setItem(stashKey(),stashPayload(false));}catch(err){}}
+        if(dirty){
+          e.preventDefault();
+          e.returnValue = 'تغییرات ذخیره نشده دارید. آیا مطمئنید؟';
+        }
+      });
+    }
 
-    // Autosave every 30 seconds
-    setInterval(()=>{
-      if(dirty && currentProgram && currentProgram.title){
-        console.log('Autosave triggered...');
-        // In real app, save to stash (localStorage)
-        localStorage.setItem('yasnafit_program_stash', JSON.stringify(currentProgram));
-      }
-    }, 30000);
+    // تور ایمنی: هر ۱۵ ثانیه اگر چیزی ذخیرهٔ معلق داشت، ذخیره شود
+    if(autosaveInterval)clearInterval(autosaveInterval);
+    autosaveInterval=setInterval(()=>{
+      if(dirty&&!autosaveTimer)runAutosave();
+    }, 15000);
   }
 
   function syncFormToProgram(){
@@ -1808,6 +2309,7 @@
     currentProgram.start_date=start;
     currentProgram.end_date=end;
     currentProgram.student_id=studentId?Number(studentId):null;
+    currentProgram.version=2; // قفل نسخهٔ سند؛ حتی پیش‌نویس محلیِ قدیمی هم ذخیره را نبندد
 
     try {
       let res;
@@ -1818,8 +2320,10 @@
         res=await api('/api/training-programs', {method:'POST', body: JSON.stringify({title, coach_note: coachNote, status:'DRAFT', start_date: start, end_date: end, student_id: studentId?Number(studentId):null, assessment_id:currentProgram.assessment_id||null, program_data: currentProgram})});
         currentProgram.id=res.id;
       }
-      setDirty(false);
-      localStorage.removeItem('yasnafit_program_stash');
+      cancelAutosaveTimers();
+      setDirtyValue(false);
+      try{localStorage.removeItem(stashKey());}catch(e){}
+      setSaveState('saved');
       if(!silent) alert(programStatus==='ACTIVE' ? '✅ برنامه با موفقیت ذخیره و به‌روزرسانی شد' : '✅ پیش‌نویس برنامه با موفقیت ذخیره شد');
       if(returnAfter) location.href='/templates/exercise/list';
       return true;
@@ -1834,6 +2338,7 @@
     const id=params.get('id');
     const sourceStudentId=Number(params.get('student_id'))||null;
     const sourceAssessmentId=Number(params.get('assessment_id'))||null;
+    const lookupKey=draftKey||computeDraftKey();
     if(id){
       try {
         const prog=await api(`/api/training-programs/${id}/full`);
@@ -1846,38 +2351,52 @@
           student_id: prog.student_id||null,
           assessment_id: prog.assessment_id||null,
           status: prog.status||'DRAFT',
-          version: prog.program_data?.version||2,
+          version: 2, // نسخهٔ سند ثابتِ سرور است؛ شمارندهٔ ردیف DB هرگز اینجا نمی‌آید
           days: prog.program_data?.days||[]
         };
         if(currentProgram.days.length===0){
           currentProgram.days = createEmptyProgram().days;
         }
+        // پیش‌نویس محلیِ سینک‌نشدهٔ هم‌زمینه تازه‌تر از سرور است — همان برمی‌گردد
+        const local=readStash(lookupKey);
+        if(local&&!local.meta.synced){
+          currentProgram=local.program;
+          currentProgram.id=prog.id;
+          if(prog.status==='ACTIVE')currentProgram.status='ACTIVE';
+          setSaveState('restored');
+        } else if(local&&local.meta.synced){
+          try{localStorage.removeItem(lookupKey);}catch(e){}
+        }
       } catch(e){
         console.error('Failed to load program', e);
-        // Try stash
-        const stash = localStorage.getItem('yasnafit_program_stash');
-        if(stash){
-          if(confirm('یک نسخه ذخیره موقت (stash) پیدا شد. بارگزاری شود؟')){
-            currentProgram = JSON.parse(stash);
-          } else {
-            currentProgram = createEmptyProgram();
-          }
+        const local=readStash(lookupKey);
+        if(local){
+          currentProgram=local.program;
+          setSaveState('restored');
         } else {
-          currentProgram = createEmptyProgram();
+          currentProgram=createEmptyProgram();
         }
       }
     } else if(sourceStudentId && sourceAssessmentId) {
-      // Starting from an approved assessment must never restore an unrelated stash.
-      currentProgram=createEmptyProgram();
-      currentProgram.student_id=sourceStudentId;
-      currentProgram.assessment_id=sourceAssessmentId;
-      currentProgram.title=`برنامه ماهانه - ارزیابی ${sourceAssessmentId}`;
+      // شروع از ارزیابی تاییدشده: فقط پیش‌نویس «همین شاگرد + همین ارزیابی» بازیابی می‌شود
+      const local=readStash(lookupKey);
+      if(local){
+        currentProgram=local.program;
+        currentProgram.student_id=sourceStudentId;
+        currentProgram.assessment_id=sourceAssessmentId;
+        setSaveState('restored');
+      } else {
+        currentProgram=createEmptyProgram();
+        currentProgram.student_id=sourceStudentId;
+        currentProgram.assessment_id=sourceAssessmentId;
+        currentProgram.title=`برنامه ماهانه - ارزیابی ${sourceAssessmentId}`;
+      }
     } else {
-      const stash = localStorage.getItem('yasnafit_program_stash');
-      if(stash){
-        if(confirm('یک برنامه ذخیره نشده از قبل وجود دارد (autosave). ادامه می‌دهید؟')) currentProgram = JSON.parse(stash);
-        else currentProgram = createEmptyProgram();
-      } else currentProgram = createEmptyProgram();
+      const local=readStash(lookupKey);
+      if(local){
+        currentProgram=local.program;
+        setSaveState('restored');
+      } else currentProgram=createEmptyProgram();
     }
 
     if(currentProgram.assessment_id)await loadAssessmentContext(currentProgram.assessment_id,currentProgram.student_id);
@@ -1890,7 +2409,7 @@
   }
 
   window.renderProgramBuilder = async (label, route) => {
-    window.current=route;currentProgram=null;assessmentContext=null;setDirty(false);activeDayIdx=0;Object.keys(expandedMovements).forEach(key=>delete expandedMovements[key]);
+    window.current=route;computeDraftKey();cancelAutosaveTimers();if(autosaveInterval){clearInterval(autosaveInterval);autosaveInterval=null;}currentProgram=null;assessmentContext=null;setDirty(false);activeDayIdx=0;Object.keys(expandedMovements).forEach(key=>delete expandedMovements[key]);
     document.querySelector('#breadcrumb').textContent=label;
     document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active', x.dataset.route===route));
     const previousDrawer=document.querySelector('body > #exerciseDrawer');

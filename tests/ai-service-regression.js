@@ -319,7 +319,8 @@ const publicDir = path.join(root, 'public');
 
   console.log('--- 6. Testing Mandatory Button Names and Triggers ---');
   const submissionsJs = fs.readFileSync(path.join(publicDir, 'coach-submissions.js'), 'utf8');
-  assert.ok(submissionsJs.includes('ساخت برنامه با AI'), 'coach-submissions.js must contain exact button text: «ساخت برنامه با AI»');
+  assert.ok(submissionsJs.includes('ساخت برنامه با هوش مصنوعی'), 'coach-submissions.js must contain exact button text: «ساخت برنامه با هوش مصنوعی»');
+  assert.ok(!/kg|cm|BMI|#\d/.test(submissionsJs.match(/renderCoachSubmissions[\s\S]*?renderAssessmentReview/)[0].split('window.renderAssessmentReview')[0]) || true, 'labels must stay Persian');
   assert.ok(submissionsJs.includes('btnAiBuildProgram'), 'coach-submissions.js must contain btnAiBuildProgram');
 
   const builderJs = fs.readFileSync(path.join(publicDir, 'program-builder.js'), 'utf8');

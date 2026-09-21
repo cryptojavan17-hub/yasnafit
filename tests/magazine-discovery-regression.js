@@ -4,7 +4,6 @@ const {spawn}=require('child_process');
 const {DatabaseSync}=require('node:sqlite');
 const {runMigrations}=require('/home/user/yasnafit/src/migrations');
 const auth=require('/home/user/yasnafit/src/coach-auth-service');
-const totp=require('/home/user/yasnafit/src/totp');
 const discovery=require('/home/user/yasnafit/src/magazine-discovery-service');
 
 // Build a news.google.com/rss/articles/<id> redirect whose base64 id carries
@@ -102,8 +101,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('migration 033 applied', Boolean(schemaVersion));
   check('migration 037 (source quality tiers) applied', Boolean(db.prepare("SELECT id FROM schema_migrations WHERE id='037_magazine_source_quality_tiers'").get()));
   check('migration 038 (Persian-only sources) applied', Boolean(db.prepare("SELECT id FROM schema_migrations WHERE id='038_magazine_persian_sources'").get()));
-  auth.setupCoach(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',displayName:'m'});
-  const totpSecret=auth.provisionCoachTotp(db).secret;
+  auth.setupCoach(db,{email:'mehdi.javan.64@gmail.com',password:'YasnafitCoach1',displayName:'m'});
   db.close();
 
   const feedPort=await freePort();
@@ -188,11 +186,9 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('server boots with migration 033', up);
   if(!up){server.kill('SIGKILL');feedServer.close();process.exit(1);}
 
-  const login=await fetch(BASE+'/api/coach/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'})});
-  const challengeCookie=(login.headers.get('set-cookie')||'').split(';')[0];
-  let verify=await fetch(BASE+'/api/coach/auth/verify',{method:'POST',headers:{'Content-Type':'application/json',Cookie:challengeCookie},body:JSON.stringify({code:totp.generate(totpSecret)})});
-  if(verify.status!==200)verify=await fetch(BASE+'/api/coach/auth/verify',{method:'POST',headers:{'Content-Type':'application/json',Cookie:challengeCookie},body:JSON.stringify({code:totp.generate(totpSecret,{now:Date.now()+30000})})});
-  const ck=(verify.headers.get('set-cookie')||'').split(';')[0];
+  // single-step coach login (email + password) since the 01a085de merge
+  const login=await fetch(BASE+'/api/coach/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'mehdi.javan.64@gmail.com',password:'YasnafitCoach1'})});
+  const ck=(login.headers.get('set-cookie')||'').split(';')[0];
   const H={'Content-Type':'application/json',Cookie:ck};
   const j=async(p,o={})=>{const r=await fetch(BASE+p,{...o,headers:{...H,...(o.headers||{})}});return {status:r.status,data:await r.json().catch(()=>({}))};};
 
@@ -476,7 +472,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   }
   pub=await fetch(BASE+'/magazine');
   check('/magazine lists published article', (await pub.text()).includes(art1.slug));
-  pub=await fetch(BASE+'/');
+  pub=await fetch(BASE+'/home'); // landing lives on /home (owner decision 2026-09-21)
   check('homepage shows published article', (await pub.text()).includes(art1.slug));
 
   // duplicate publish blocked: craft a second generated article w/ same source_url

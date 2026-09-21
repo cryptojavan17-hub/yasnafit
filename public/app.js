@@ -29,6 +29,8 @@ const sidebarMenu = [
   ]],
   ['سیستم',null,'📦',[
     ['پیکربندی هوش مصنوعی (AI)','/settings/ai'],
+    ['تنظیمات تلگرام','/settings/telegram'],
+    ['آمار بازدید','/coach/visits'],
     ['تنظیمات و پشتیبان','/coach/settings'],
     ['نسخه و تغییرات','/coach/releases']
   ]]
@@ -68,6 +70,8 @@ function renderRoute(label,route){
   if(((route.startsWith('/students/')&&route.includes('/timeline'))||/^\/coach\/students\/\d+\/assessments$/.test(route)) && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
   if((route==='/settings/ai' || route==='/coach/ai') && window.renderAISettings) return window.renderAISettings(label,route);
+  if(route==='/settings/telegram' && window.renderTelegramSettings) return window.renderTelegramSettings(label,route);
+  if(route==='/coach/visits' && window.renderVisitAnalytics) return window.renderVisitAnalytics(label,route);
   if(route==='/coach/releases' && window.renderReleaseHistory) return window.renderReleaseHistory(label,route);
   if(route==='/coach/magazine' && window.renderMagazineAdmin) return window.renderMagazineAdmin(label,route);
   if(window.renderCoreRoute)return window.renderCoreRoute(label,route);

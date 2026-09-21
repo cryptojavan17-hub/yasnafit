@@ -17,19 +17,17 @@ const { spawn } = require('node:child_process');
 const { DatabaseSync } = require('node:sqlite');
 const { runMigrations } = require('../src/migrations');
 const auth = require('../src/coach-auth-service');
-const totp = require('../src/totp');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yasnafit-public-site-'));
 const dataDir = path.join(dir, 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 const dbPath = path.join(dataDir, 'yasnafit.db');
 
-const COACH_EMAIL = 'crypto.javan17@gmail.com';
+const COACH_EMAIL = 'mehdi.javan.64@gmail.com'; // locked owner email (single-step coach login since the 01a085de merge)
 const COACH_PASSWORD = 'YasnafitCoach1';
 let BASE = '';
 let server = null;
 let coachCookie = '';
-let totpSecret = '';
 let passed = 0;
 const check = name => { passed += 1; console.log(`  ✓ ${name}`); };
 
@@ -110,17 +108,17 @@ async function waitForServer(timeoutMs = 15000) {
     }
     const seeded = db.prepare('SELECT slug FROM magazine_categories ORDER BY sort_order').all().map(r => r.slug);
     assert.deepEqual(seeded, ['bodybuilding', 'sports-science', 'nutrition', 'health', 'sports-news']);
-    // Coach account + TOTP so the HTTP login flow works end-to-end.
+    // Coach account so the HTTP login flow works end-to-end (email + password, no 2FA step).
     auth.setupCoach(db, { email: COACH_EMAIL, password: COACH_PASSWORD, displayName: 'مربی آزمایشی' });
-    totpSecret = auth.provisionCoachTotp(db).secret;
     db.close();
-    await bootServer(totpSecret);
+    await bootServer();
   }
 
   // ---------- 2. Public SSR pages ----------
   console.log('· public SSR pages');
   {
-    const home = await html('/');
+    // Owner decision 2026-09-21: «/» is the student entry page; the marketing landing lives on /home.
+    const home = await html('/home');
     // Task 25 (PART 1 of 4 — FINAL per owner 2026-09-20): the hero is the
     // owner's Hero.png shown in FULL (no crop, no gap, no deletion, no
     // duplicated HTML text).
@@ -140,7 +138,7 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: hero = full owner image + head/meta/canonical, no crops/old images, no inline scripts, no AI wording');
     // Owner header spec (T-19 round 1): exactly these five links + ثبت نام + ورود buttons.
     assert.match(home, /class="brand"/, 'header: brand present');
-    for (const nav of ['/', '/about', '/services', '/magazine', '/results']) {
+    for (const nav of ['/home', '/about', '/services', '/magazine', '/results']) {
       assert.ok(home.includes(`data-nav="${nav}"`), `header nav link ${nav}`);
     }
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
@@ -217,7 +215,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.doesNotMatch(home, /hero-woman|cta-woman|about-woman/, 'home: no orphaned placeholder photos referenced');
     check('home: about section = full About Me.png below the hero');
 
-    const homeRes = await request('/');
+    const homeRes = await request('/home');
     const csp = homeRes.response.headers.get('content-security-policy') || '';
     assert.match(csp, /script-src 'self'/);
     assert.match(csp, /default-src 'self'/);
@@ -258,6 +256,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.equal(sitemap.response.status, 200);
     assert.match(sitemap.data, /<urlset/);
     assert.match(sitemap.data, /\/about/);
+    assert.match(sitemap.data, /<loc>[^<]*\/home<\/loc>/, 'sitemap lists the landing on /home');
     const robots = await request('/robots.txt');
     assert.match(robots.data, /Sitemap:/);
     check('sitemap.xml + robots.txt');
@@ -298,23 +297,17 @@ async function waitForServer(timeoutMs = 15000) {
     check('admin APIs without session → 401');
   }
 
-  // ---------- 4. Coach login (existing TOTP flow) ----------
+  // ---------- 4. Coach login (single-step: email + password) ----------
   console.log('· coach login flow');
   {
-    const login = await ok('/api/coach/auth/login', { method: 'POST', body: { email: COACH_EMAIL, password: COACH_PASSWORD } });
-    assert.equal(login.next, '/coach/2fa');
-    const loginRes = await request('/api/coach/auth/login', { method: 'POST', body: { email: COACH_EMAIL, password: COACH_PASSWORD } });
-    assert.equal(loginRes.data.next, '/coach/2fa');
-    const challenge = namedCookie(loginRes.response, 'yasnafit_coach_challenge');
-    assert.match(challenge, /yasnafit_coach_challenge=/);
-    const wrong = await request('/api/coach/auth/verify', { method: 'POST', cookie: challenge, body: { code: '000000' } });
+    const wrong = await request('/api/coach/auth/login', { method: 'POST', body: { email: COACH_EMAIL, password: 'WrongPass1' } });
     assert.equal(wrong.response.status, 401);
-    let verify = await request('/api/coach/auth/verify', { method: 'POST', cookie: challenge, body: { code: totp.generate(totpSecret) } });
-    if (verify.response.status !== 200) verify = await request('/api/coach/auth/verify', { method: 'POST', cookie: challenge, body: { code: totp.generate(totpSecret, { now: Date.now() + 30000 }) } });
-    assert.equal(verify.response.status, 200, JSON.stringify(verify.data));
-    coachCookie = namedCookie(verify.response, 'yasnafit_coach_session');
+    const loginRes = await request('/api/coach/auth/login', { method: 'POST', body: { email: COACH_EMAIL, password: COACH_PASSWORD } });
+    assert.equal(loginRes.response.status, 200, JSON.stringify(loginRes.data));
+    assert.equal(loginRes.data.next, '/coach/dashboard');
+    coachCookie = namedCookie(loginRes.response, 'yasnafit_coach_session');
     assert.match(coachCookie, /yasnafit_coach_session=/);
-    check('login → 2FA challenge → verify → session cookie');
+    check('login (email + password) → session cookie');
   }
 
   // ---------- 5. Article lifecycle ----------
@@ -557,9 +550,9 @@ async function waitForServer(timeoutMs = 15000) {
     // username is saved, and falls back to the default bot otherwise — the
     // button must never point at a broken/missing target (owner spec 2026-09-21).
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '@yasnafit_smoke_bot' } });
-    assert.ok((await html('/')).includes('href="https://t.me/yasnafit_smoke_bot?start=landing"'), 'coach-configured bot username drives the landing link');
+    assert.ok((await html('/home')).includes('href="https://t.me/yasnafit_smoke_bot?start=landing"'), 'coach-configured bot username drives the landing link');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': 'not a bot/url' } });
-    assert.ok((await html('/')).includes('href="https://t.me/yasnafitbot?start=landing"'), 'invalid stored username falls back to the default bot');
+    assert.ok((await html('/home')).includes('href="https://t.me/yasnafitbot?start=landing"'), 'invalid stored username falls back to the default bot');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '' } });
     check('landing bot link: configured username honoured, invalid value falls back to @yasnafitbot');
     check('unknown settings keys ignored, known keys applied');
@@ -654,26 +647,37 @@ async function waitForServer(timeoutMs = 15000) {
     check('audit events recorded for all mutation types');
   }
 
-  // ---------- 12. Root is the public landing page for EVERYONE (owner decision 2026-09-19) ----------
-  // The landing is the site front door; a logged-in coach reaches the panel at
-  // /coach/dashboard (the landing header shows پنل مربی for authed coaches — T-19 round 1).
-  console.log('· root always serves the public landing page');
+  // ---------- 12. Root = student entry page; landing on /home (owner decision 2026-09-21) ----------
+  // «/» opens the student login/register shell (with the small coach-login link and a
+  // «معرفی یسنا فیت» link to /home); the marketing landing moved to /home and keeps the
+  // public header for everyone (a logged-in coach sees پنل مربی there).
+  console.log('· root = student entry page, landing on /home');
   {
     const anon = await request('/');
     assert.equal(anon.response.status, 200);
-    assert.ok(anon.data.includes('id="main"'), 'anonymous visitor gets the landing shell');
+    assert.match(anon.response.headers.get('content-type') || '', /text\/html/);
+    assert.ok(anon.data.includes('student-app.js'), 'anonymous visitor gets the student entry shell on /');
     assert.ok(!anon.data.includes('id="content"'), 'anonymous visitor must not get the coach SPA shell');
-    assert.ok(anon.data.includes('data-coach-session="0"'), 'anonymous landing marks no coach session');
-    check('GET / (anonymous) → public landing page');
+    assert.ok(!anon.data.includes('class="home-hero"'), 'the landing is not rendered on / any more');
+    check('GET / (anonymous) → student entry page');
 
-    const res = await request('/', { cookie: coachCookie });
+    const studentApp = fs.readFileSync(path.join(__dirname, '..', 'public', 'student-app.js'), 'utf8');
+    assert.match(studentApp, /entry-site-link" href="\/home">معرفی یسنا فیت<\/a>/, 'the entry page links to the landing on /home');
+    assert.match(studentApp, /entry-coach-link" href="\/coach\/login">ورود مربی<\/a>/, 'the entry page keeps the small coach-login link');
+    check('entry page: «معرفی یسنا فیت» → /home + «ورود مربی» → /coach/login');
+
+    const landingAnon = await request('/home');
+    assert.equal(landingAnon.response.status, 200);
+    assert.ok(landingAnon.data.includes('id="main"') && landingAnon.data.includes('class="home-hero"'), 'anonymous visitor gets the landing on /home');
+    assert.ok(landingAnon.data.includes('data-coach-session="0"'), 'anonymous landing marks no coach session');
+    const res = await request('/home', { cookie: coachCookie });
     assert.equal(res.response.status, 200);
-    assert.ok(res.data.includes('id="main"'), 'authed coach still gets the landing page on /');
-    assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /');
+    assert.ok(res.data.includes('id="main"'), 'authed coach gets the landing page on /home');
+    assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /home');
     assert.ok(res.data.includes('data-coach-session="1"'), 'authed landing marks the coach session');
     assert.ok(res.data.includes('class="brand"'), 'authed landing keeps the public header');
     assert.ok(res.data.includes('پنل مربی'), 'authed landing header offers the پنل مربی button');
-    check('GET / (coach session) → public landing page with panel button');
+    check('GET /home (anonymous + coach session) → public landing page');
 
     const dash = await request('/coach/dashboard', { cookie: coachCookie });
     assert.equal(dash.response.status, 200);
@@ -695,7 +699,7 @@ async function waitForServer(timeoutMs = 15000) {
   process.exitCode = 1;
 });
 
-async function bootServer(totpSecret) {
+async function bootServer() {
   const port = await freePort();
   BASE = `http://127.0.0.1:${port}`;
   const logs = [];

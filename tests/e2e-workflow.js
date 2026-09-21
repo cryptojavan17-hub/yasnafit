@@ -65,10 +65,13 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  // Public site contract: unauthenticated / is the SSR marketing landing (200);
-  // the coach SPA gate now lives on /coach/dashboard → 303 /coach/login.
-  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,200);
-  const homeHtml=await home.text();assert.match(homeHtml,/بدنی قوی‌تر،/);assert.match(homeHtml,/lang="fa"/);assert.match(homeHtml,/dir="rtl"/);
+  // Owner decision 2026-09-21: the domain root is the student entry page (login/register,
+  // small coach-login link); the SSR marketing landing lives on /home; the coach SPA gate
+  // is /coach/dashboard → 303 /coach/login.
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,200);assert.match(home.headers.get('content-type'),/text\/html/);
+  const homeHtml=await home.text();assert.match(homeHtml,/student-app\.js/,'the domain root must open the student page');assert.doesNotMatch(homeHtml,/id="sidebar"/,'the domain root must not expose the coach shell');
+  const landing=await fetch(BASE+'/home',{redirect:'manual'});assert.equal(landing.status,200);
+  const landingHtml=await landing.text();assert.match(landingHtml,/بدنی قوی‌تر،/);assert.match(landingHtml,/lang="fa"/);assert.match(landingHtml,/dir="rtl"/);
   const coachDash=await fetch(BASE+'/coach/dashboard',{redirect:'manual'});assert.equal(coachDash.status,303);assert.equal(coachDash.headers.get('location'),'/coach/login');
   const loginPage=await fetch(BASE+'/coach/login');assert.equal(loginPage.status,200);
   const loginHtml=await loginPage.text();
@@ -76,14 +79,14 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.doesNotMatch(loginHtml,/coachOtpForm|فعال‌سازی|otpauth|qr_svg|secret_display/);
   const setupPage=await fetch(BASE+'/coach/setup');
   assert.ok(setupPage.status===200 || setupPage.status===404, `setup page ${setupPage.status}`);
-  const twoFaPage=await fetch(BASE+'/coach/2fa');assert.equal(twoFaPage.status,200);
-  const twoFaHtml=await twoFaPage.text();
-  assert.match(twoFaHtml,/تأیید هویت/);assert.match(twoFaHtml,/ورود به پنل/);
-  assert.doesNotMatch(twoFaHtml,/فعال‌سازی|otpauth|qr_svg|secret_display|coachTotpQr/);
+  // صفحهٔ کد ۶ رقمی حذف شده است: آدرس قدیمی باید به صفحهٔ ورود برگردد
+  const twoFaRedirect=await fetch(BASE+'/coach/2fa',{redirect:'manual'});
+  assert.equal(twoFaRedirect.status,303,'the deleted 2FA page must redirect, not render');
+  assert.equal(twoFaRedirect.headers.get('location'),'/coach/login');
   assert.equal((await fetch(BASE+'/coach/forgot')).status,200);assert.equal((await fetch(BASE+'/coach/reset')).status,200);assert.equal((await fetch(BASE+'/student/login')).status,200);await expectStatus(401,'/api/students');await expectStatus(401,'/student/dashboard');await expectStatus(401,'/api/student/me');
   await expectStatus(404,'/api/coach/auth/totp');
   await expectStatus(404,'/api/coach/auth/totp/confirm',{method:'POST',body:{code:'000000'}});
-  const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'crypto.javan17@gmail.com';
+  const coachEmail=process.env.YASNAFIT_COACH_EMAIL||'mehdi.javan.64@gmail.com';
   const coachPassword=process.env.YASNAFIT_COACH_PASSWORD||'YasnafitCoach1';
   const liveDbPath=path.join(__dirname,'..','data','yasnafit.db');
   const coachStatus=await request('/api/coach/auth/status');
@@ -97,55 +100,26 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   assert.equal(typeof statusAfterSetup.data.mail_configured,'boolean');
   assert.equal(statusAfterSetup.data.setup_required,false);
   // Once an account exists the one-time setup route must be unreachable.
-  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1'}});
+  await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:'mehdi.javan.64@gmail.com',password:'YasnafitCoach1'}});
   assert.equal((await fetch(BASE+'/coach/setup')).status,404);
   await expectStatus(404,'/api/coach/auth/setup',{method:'POST',body:{email:coachEmail,password:coachPassword}});
-  let totpSecret=null;
-  if(statusAfterSetup.data.totp_required){
-    const liveDb=new DatabaseSync(liveDbPath);
-    totpSecret=auth.provisionCoachTotp(liveDb).secret;
-    liveDb.close();
-  }else{
-    const liveDb=new DatabaseSync(liveDbPath,{readOnly:true});
-    totpSecret=liveDb.prepare('SELECT totp_secret FROM coaches WHERE id=1').get()?.totp_secret||null;
-    liveDb.close();
-  }
-  assert.ok(totpSecret,'coach TOTP secret is missing');
+  // ورود تک‌مرحله‌ای: ایمیل + رمز ⇒ نشست مستقیم (بدون چالش/کد ۶ رقمی)
   await expectStatus(401,'/api/coach/auth/login',{method:'POST',body:{email:'nobody@example.com',password:coachPassword}});
   await expectStatus(401,'/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:'WrongPass1'}});
-  const leftoverOtp=path.join(__dirname,'..','data','coach-otp-dev.txt');
-  if(fs.existsSync(leftoverOtp)) fs.unlinkSync(leftoverOtp);
   const coachLogin=await request('/api/coach/auth/login',{method:'POST',body:{email:coachEmail,password:coachPassword}});
   assert.equal(coachLogin.response.status,200,JSON.stringify(coachLogin.data));
-  assert.equal(coachLogin.data.next,'/coach/2fa');
-  assert.equal(coachLogin.data.challenge_id,undefined);
+  assert.equal(coachLogin.data.next,'/coach/dashboard');
+  assert.equal(coachLogin.data.two_factor_skipped,undefined,'the login response must not carry the removed skip flag');
   assert.equal(coachLogin.data.code,undefined);
   assert.equal(coachLogin.data.secret,undefined);
   assert.equal(coachLogin.data.qr_svg,undefined);
-  assert.equal(fs.existsSync(leftoverOtp),false);
-  const challengeSet=cookieLines(coachLogin.response).find(item=>item.includes('yasnafit_coach_challenge='))||'';
-  assert.match(challengeSet,/HttpOnly/);assert.match(challengeSet,/SameSite=Strict/);assert.match(challengeSet,/Max-Age=300/);
-  const challengeCookie=namedCookie(coachLogin.response,'yasnafit_coach_challenge');
-  assert.match(challengeCookie,/yasnafit_coach_challenge=/);
-  assert.equal((await request('/api/coach/auth/challenge')).data.pending,false);
-  const pending=await request('/api/coach/auth/challenge',{cookie:challengeCookie});
-  assert.equal(pending.data.pending,true);
-  assert.equal(pending.data.secret,undefined);
-  assert.equal(pending.data.challenge_id,undefined);
-  const refresh2fa=await request('/coach/2fa',{cookie:challengeCookie});
-  assert.equal(refresh2fa.response.status,200);
-  assert.match(refresh2fa.data.toString('utf8'),/تأیید هویت/);
-  const wrongTotp=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:'000000'}});
-  assert.equal(wrongTotp.response.status,401,JSON.stringify(wrongTotp.data));
-  let coachVerify=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:totp.generate(totpSecret)}});
-  if(coachVerify.response.status!==200){
-    coachVerify=await request('/api/coach/auth/verify',{method:'POST',cookie:challengeCookie,body:{code:totp.generate(totpSecret,{now:Date.now()+30000})}});
-  }
-  assert.equal(coachVerify.response.status,200,JSON.stringify(coachVerify.data));
-  const sessionSet=cookieLines(coachVerify.response).find(item=>item.includes('yasnafit_coach_session='))||'';
+  assert.equal(cookieLines(coachLogin.response).find(item=>item.includes('yasnafit_coach_challenge=')),undefined,'no challenge cookie may be issued');
+  const sessionSet=cookieLines(coachLogin.response).find(item=>item.includes('yasnafit_coach_session='))||'';
   assert.match(sessionSet,/HttpOnly/);assert.match(sessionSet,/SameSite=Strict/);
-  coachCookie=namedCookie(coachVerify.response,'yasnafit_coach_session');
+  coachCookie=namedCookie(coachLogin.response,'yasnafit_coach_session');
   assert.match(coachCookie,/yasnafit_coach_session=/);
+  await expectStatus(404,'/api/coach/auth/challenge');
+  await expectStatus(404,'/api/coach/auth/verify',{method:'POST',body:{code:'000000'}});
 
   await expectStatus(401,'/api/student/me',{coach:true});
   const bankCategories=await ok('/api/categories/grouped?location=gym',{coach:true});assert.ok(bankCategories.length>=1);assert.ok(bankCategories.every(category=>category.count>0));const homeCategories=await ok('/api/categories/grouped?location=home',{coach:true});assert.ok(homeCategories.length>=1);assert.ok(homeCategories.every(category=>category.count>0));const bankExercises=await ok(`/api/exercises?categoryId=${encodeURIComponent(bankCategories[0].id)}&location=gym&status=active&page=0&pageSize=5`,{coach:true});assert.ok(bankExercises.items.length>=1);assert.ok(bankExercises.items[0].id);assert.ok(bankExercises.items[0].name_fa);assert.ok(bankExercises.items.every(item=>['gym','both'].includes(item.location)));
@@ -168,7 +142,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
   await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,telegram_id:'@yasnafit_test',instagram_id:'@yasnafit.test',height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});const meA=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meA.student.telegram_id,'@yasnafit_test');assert.equal(meA.student.instagram_id,'@yasnafit.test');assert.equal(meA.student.case_number,a.case_number);/* Owner spec 2026-09-21: the public «ربات تلگرام» control is a plain deep link — it collects nothing, so the guest/student landing HTML carries the same link and the removed public write endpoints stay 404 (no typed username is stored as a connection). */
-  const homeWithBot=await request('/',{cookie:sessionA.cookie});assert.equal(homeWithBot.response.status,200);assert.match(homeWithBot.data.toString('utf8'),/href="https:\/\/t\.me\/[^"]+\?start=landing"[^>]*target="_blank" rel="noopener noreferrer"/,'public header: telegram bot deep link');await expectStatus(401,'/api/telegram-bot');await expectStatus(401,'/api/telegram-bot/connect',{method:'POST',cookie:sessionA.cookie,body:{telegram_id:'@yasnafit_e2e_bot'}});const meTg=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meTg.student.telegram_id,'@yasnafit_test','telegram id stays the profile contact value — the public link writes nothing');
+  const homeWithBot=await request('/home',{cookie:sessionA.cookie});assert.equal(homeWithBot.response.status,200);assert.match(homeWithBot.data.toString('utf8'),/href="https:\/\/t\.me\/[^"]+\?start=landing"[^>]*target="_blank" rel="noopener noreferrer"/,'public header: telegram bot deep link');await expectStatus(401,'/api/telegram-bot');await expectStatus(401,'/api/telegram-bot/connect',{method:'POST',cookie:sessionA.cookie,body:{telegram_id:'@yasnafit_e2e_bot'}});const meTg=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meTg.student.telegram_id,'@yasnafit_test','telegram id stays the profile contact value — the public link writes nothing');
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
   await completeStructuredAssessment(sessionA.cookie,'male');
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});

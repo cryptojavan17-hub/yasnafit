@@ -84,7 +84,7 @@ PORT=3020 YASNAFIT_HOST=127.0.0.1 YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=
 - `YASNAFIT_TRUST_PROXY=1` **فقط** وقتی که ترافیک حتماً از پروکسی می‌آید. تا این پرچم خاموش باشد، هدرهای `X-Forwarded-For/Host/Proto` نادیده گرفته می‌شوند تا کسی با جعل هدر، IP محدودیتِ ورود یا `Secure` بودنِ کوکی را بازی نزند.
 - `NODE_ENV=production` مسیر تستی `POST /api/test/reset-rate-limit` (پاک‌کردن شمارندهٔ تلاش ناموفق) را حذف می‌کند.
 - `data/` و `backups/` با مجوز `700` و `data/smtp.json` (App Password جیمیل) با `600` ساخته می‌شوند.
-- **ربات تلگرام `@yasnafitbot`:** با ست‌کردن `TELEGRAM_BOT_TOKEN` (فقط در محیط اجرا، هرگز در git) فعال می‌شود و به `/start` پیام خوش‌آمد + لینک ثبت‌نام می‌دهد. روی سرور `TELEGRAM_WEBHOOK_URL=https://yasnafit.ir` بگذارید تا webhook روی `/api/telegram/webhook` خودکار ثبت شود؛ بدون آن (لوکال) long polling می‌کند. جزئیات و عیب‌یابی: `DEPLOYMENT.md` §۱۰.
+- **ربات تلگرام `@yasnafitbot`:** با `TELEGRAM_BOT_TOKEN` (+ `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`, `YASNAFIT_PUBLIC_URL`) یا از پنل مربی → سیستم → تنظیمات تلگرام فعال می‌شود (توکن هرگز در git). مهمان با `/start` پیام خوش‌آمد + راهنمای ثبت‌نام می‌گیرد؛ شاگرد از «پروفایل من → اتصال تلگرام» وصل می‌شود و اعلان‌ها را در تلگرام می‌گیرد. پروداکشن = webhook روی `/api/telegram/webhook`؛ لوکال = `TELEGRAM_POLLING=1`. جزئیات: `DEPLOYMENT.md` §۱۰.
 
 نکته‌های کاربردی که قبلاً در `راهنمای_اجرا.md` بود و حالا همین‌جا جمع شده است:
 

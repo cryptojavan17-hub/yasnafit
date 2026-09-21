@@ -16,6 +16,30 @@ const dbPath = path.join(dataDir, 'yasnafit.db');
 for(const suffix of ['', '-wal', '-shm']){
   try{fs.chmodSync(dbPath + suffix, 0o600);}catch(e){/* file may not exist yet, Windows has no bits */}
 }
+/* بازیابی از پشتیبان: اگر فایل restore-pending در انتظار است، پیش از باز کردن دیتابیس
+   فایل فعلی به backups/pre-rotate می‌رود و نسخهٔ پشتیبان جای آن می‌نشیند. */
+const restoreMarker = path.join(dataDir, 'restore-pending.json');
+if(fs.existsSync(restoreMarker)){
+  try{
+    const info = JSON.parse(fs.readFileSync(restoreMarker, 'utf8'));
+    const pending = path.join(dataDir, String(info.file||'restore-pending.db'));
+    if(fs.existsSync(pending)){
+      const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+      if(fs.existsSync(dbPath)){
+        const rotated = path.join(backupDir, `pre-restore-${stamp}.db`);
+        fs.renameSync(dbPath, rotated);
+        console.log(`[Restore] نسخهٔ قبلی دیتابیس به ${path.basename(rotated)} منتقل شد`);
+      }
+      for(const suffix of ['-wal','-shm']){ try{ fs.unlinkSync(dbPath+suffix); }catch(e){} }
+      fs.copyFileSync(pending, dbPath);
+      fs.unlinkSync(pending);
+      console.log(`[Restore] دیتابیس از «${info.from||'پشتیبان'}» بازیابی شد`);
+    }
+    fs.unlinkSync(restoreMarker);
+  }catch(e){
+    console.error('[Restore] بازیابی هنگام راه‌اندازی ناموفق بود:', e.message);
+  }
+}
 const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 

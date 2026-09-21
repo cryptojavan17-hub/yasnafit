@@ -1330,6 +1330,191 @@ const migrations = [
     }
   },
   {
+    id: '031_telegram_integration',
+    description: 'Telegram bot integration: account linking, link tokens, notification preferences and delivery ledger',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL,
+          chat_id TEXT NOT NULL,
+          telegram_user_id TEXT,
+          telegram_username TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          linked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          unlinked_at TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_accounts_student
+          ON telegram_accounts(student_id, unlinked_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_accounts_active_chat
+          ON telegram_accounts(chat_id) WHERE unlinked_at IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_accounts_active_student
+          ON telegram_accounts(student_id) WHERE unlinked_at IS NULL;
+        CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL,
+          token_hash TEXT NOT NULL UNIQUE,
+          token_hint TEXT,
+          expires_at TEXT NOT NULL,
+          consumed_at TEXT,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_student
+          ON telegram_link_tokens(student_id, created_at);
+        CREATE TABLE IF NOT EXISTS notification_preferences (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL UNIQUE,
+          workout INTEGER NOT NULL DEFAULT 1,
+          nutrition INTEGER NOT NULL DEFAULT 1,
+          messages INTEGER NOT NULL DEFAULT 1,
+          reminders INTEGER NOT NULL DEFAULT 1,
+          system INTEGER NOT NULL DEFAULT 1,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS notification_deliveries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          student_id INTEGER NOT NULL,
+          channel TEXT NOT NULL DEFAULT 'telegram',
+          type TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT 'system',
+          title TEXT NOT NULL,
+          body TEXT,
+          dedup_key TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'pending',
+          attempts INTEGER NOT NULL DEFAULT 0,
+          max_attempts INTEGER NOT NULL DEFAULT 3,
+          next_attempt_at TEXT,
+          last_error TEXT,
+          account_status TEXT,
+          sent_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_queue
+          ON notification_deliveries(status, next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_student
+          ON notification_deliveries(student_id, created_at);
+      `);
+    }
+  },
+  {
+    id: '032_coach_telegram_accounts',
+    description: 'Coach Telegram account linking and coach-audience notification deliveries (ASSESSMENT_READY)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_coach_accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL DEFAULT 1,
+          chat_id TEXT NOT NULL,
+          telegram_user_id TEXT,
+          telegram_username TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          linked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          unlinked_at TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_coach_accounts_coach
+          ON telegram_coach_accounts(coach_id, unlinked_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_coach_accounts_active_chat
+          ON telegram_coach_accounts(chat_id) WHERE unlinked_at IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_coach_accounts_active_coach
+          ON telegram_coach_accounts(coach_id) WHERE unlinked_at IS NULL;
+        CREATE TABLE IF NOT EXISTS telegram_coach_link_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          coach_id INTEGER NOT NULL DEFAULT 1,
+          token_hash TEXT NOT NULL UNIQUE,
+          token_hint TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          consumed_at TEXT,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(coach_id) REFERENCES coaches(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_coach_link_tokens_coach
+          ON telegram_coach_link_tokens(coach_id, created_at);
+        ALTER TABLE notification_deliveries ADD COLUMN audience TEXT NOT NULL DEFAULT 'student';
+        ALTER TABLE notification_deliveries ADD COLUMN entity_type TEXT;
+        ALTER TABLE notification_deliveries ADD COLUMN entity_id INTEGER;
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_audience
+          ON notification_deliveries(audience, status);
+      `);
+    }
+  },
+  {
+    id: '033_coach_multi_telegram',
+    description: 'Coach multi-account telegram: several active coach chats allowed; delivery rows pin their target chat',
+    up(db) {
+      db.exec(`
+        DROP INDEX IF EXISTS idx_telegram_coach_accounts_active_coach;
+        ALTER TABLE notification_deliveries ADD COLUMN chat_id TEXT;
+        CREATE INDEX IF NOT EXISTS idx_notification_deliveries_chat
+          ON notification_deliveries(chat_id);
+      `);
+    }
+  },
+  {
+    id: '034_site_analytics',
+    description: 'Site visit analytics: visit log (device/browser/os/path) plus an IP-to-country cache',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS site_visits (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          visited_at TEXT NOT NULL,
+          ip TEXT,
+          country_code TEXT,
+          country_name TEXT,
+          device TEXT,
+          browser TEXT,
+          os TEXT,
+          path TEXT,
+          user_agent TEXT,
+          geo_attempts INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_site_visits_time ON site_visits(visited_at);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_ip ON site_visits(ip);
+        CREATE TABLE IF NOT EXISTS ip_geo_cache (
+          ip TEXT PRIMARY KEY,
+          country_code TEXT,
+          country_name TEXT,
+          resolved_at TEXT,
+          attempts INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+    }
+  },
+  {
+    id: '035_visitor_registration_events',
+    description: 'Registration provenance: which IP produced a student registration (for visit-to-signup tracking)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS registration_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          occurred_at TEXT NOT NULL,
+          ip TEXT,
+          kind TEXT NOT NULL DEFAULT 'student',
+          label TEXT,
+          student_id INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_registration_events_ip ON registration_events(ip);
+      `);
+    }
+  },
+  {
     // Public website content (landing + about + magazine + results).
     // Additive only: no existing table is touched. Content starts EMPTY on
     // purpose — no fabricated articles, sources or success stories. The five

@@ -17,7 +17,7 @@ const listenHost = String(process.env.YASNAFIT_HOST || process.env.HOST || '0.0.
 const publicDir = path.join(__dirname, 'public');
 const dataSourceDir = path.join(__dirname, 'data-source');
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
-// Coach access is email + password + Google Authenticator TOTP. No shared bearer token.
+// Coach access is email + password (the Google Authenticator step was removed). No shared bearer token.
 // --- Database & Services ---
 const { db, dbPath, backup, backupDir, log } = require('./src/database');
 const { runMigrations } = require('./src/migrations');
@@ -37,37 +37,18 @@ const studentAuthService = require('./src/student-auth-service');
 const coachAuthService = require('./src/coach-auth-service');
 const aiService = require('./src/ai-service');
 const requestSecurity = require('./src/request-security');
+const telegramService = require('./src/telegram-service');
+const notificationService = require('./src/notification-service');
+telegramService.setServices({ notificationService });
 const buildInfo = require('./src/build-info');
 const storagePaths = require('./src/storage-paths');
 const articleService = require('./src/article-service');
 const publicContentService = require('./src/public-content-service');
 const magazineDiscovery = require('./src/magazine-discovery-service');
-const telegramBotService = require('./src/telegram-bot-service');
-// @yasnafitbot auto-reply (/start → welcome + registration link). Enabled only when
-// TELEGRAM_BOT_TOKEN exists in the environment; the token itself is never logged.
-const telegramBot = telegramBotService.createBot({ logger: console });
-if(requestSecurity.ALLOW_2FA_SKIP){
-  console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
-}
+const analyticsService = require('./src/analytics-service');
 const coachBootstrap = coachAuthService.ensureLocalCoach(db);
 if(coachBootstrap.setup_required){
   console.log('[Coach Auth] Coach account is not provisioned. Open /coach/setup');
-}else{
-  const authenticator=coachAuthService.ensureCoachAuthenticator(db,path.dirname(dbPath));
-  if(authenticator.wrote_file){
-    console.log('[Coach Auth] Authenticator key written to data/coach-authenticator.txt');
-  }
-  if(requestSecurity.REVEAL_AUTHENTICATOR_KEY){
-    const enrollment=coachAuthService.currentAuthenticatorEnrollment(db);
-    if(enrollment?.secret){
-      console.log('[Coach Auth] ⚠ YASNAFIT_REVEAL_AUTHENTICATOR_KEY فعال است — کلید Google Authenticator این سرور:');
-      console.log(`[Coach Auth] Email: ${enrollment.email}`);
-      console.log(`[Coach Auth] Secret: ${enrollment.secret}`);
-      console.log('[Coach Auth] ⚠ همین الان متغیر را پاک کنید تا کلید دوباره در لاگ نماند.');
-    }else{
-      console.log('[Coach Auth] YASNAFIT_REVEAL_AUTHENTICATOR_KEY ست است ولی کلیدی ساخته نشده (ابتدا حساب مربی را بسازید).');
-    }
-  }
 }
 
 
@@ -77,6 +58,24 @@ try{
   storagePaths.ensureMediaDirs();
 }catch(error){
   console.log('[Media] ⚠ ساخت پوشه‌های مدیا روی Volume ممکن نشد:',error.message);
+}
+
+// --- Telegram (اختیاری و ایمن: بدون پیکربندی، برنامه عادی کار می‌کند) ---
+// پیکربندی: متغیرهای محیطی اولویت دارند؛ در غیر این صورت تنظیمات ذخیره‌شدهٔ پنل مربی (جدول settings)
+// --- تحلیل بازدید سایت (ثبت در نقاط سرو HTML؛ حل‌کنندهٔ جغرافیا پس‌زمینه) ---
+try{
+  analyticsService.cleanup(db);
+  analyticsService.startGeoResolver(db);
+}catch(error){ console.log('[Analytics] شروع سرویس تحلیل ناموفق:',error.message); }
+
+telegramService.applyDbSettings(db);
+if(telegramService.isConfigured()){
+  console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — منبع: ${telegramService.settingsView(db).source === 'env' ? 'متغیر محیطی' : 'تنظیمات پنل مربی'} | webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ رمز وب‌هوک تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
+  if(telegramService.config().polling) telegramService.startPolling(db);
+  telegramService.registerCommands().catch(()=>{});
+  notificationService.startRetryLoop(db);
+}else{
+  console.log('[Telegram] غیرفعال — برای فعال‌سازی: پنل مربی ← سیستم ← تنظیمات تلگرام (یا متغیرهای محیطی TELEGRAM_BOT_TOKEN/USERNAME).');
 }
 
 // --- MIME Types ---
@@ -214,7 +213,7 @@ function coachAuthError(res,code,fallbackMessage){
     TOTP_ALREADY_SET:[409,'تأیید دو مرحله‌ای قبلاً فعال شده است.'],
     SETUP_REQUIRED:[401,'ورود ممکن نیست.'],
     SETUP_CLOSED:[409,'اکانت مربی قبلاً ساخته شده است.'],
-    INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید crypto.javan17@gmail.com باشد.'],
+    INVALID_SETUP_EMAIL:[400,'ایمیل مربی باید mehdi.javan.64@gmail.com باشد.'],
     WEAK_PASSWORD:[400,'رمز عبور باید حداقل ۸ کاراکتر و ترکیبی از حرف و عدد باشد.'],
     INVALID_RESET:[400,'لینک بازیابی نامعتبر است.'],
     RESET_EXPIRED:[400,'لینک بازیابی منقضی شده است. دوباره درخواست کنید.'],
@@ -265,34 +264,12 @@ async function handleCoachAuth(req,res,url){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     if(!rateLimit(req,res,'coach-password-login',20,15*60*1000)) return true;
     const body=await readBody(req);
-    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:requestSecurity.ALLOW_2FA_SKIP});
+    // ورود تک‌مرحله‌ای: ایمیل + رمز ⇒ نشست (مرحلهٔ کد ۶ رقمی حذف شده است)
+    const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:true});
     if(result.error) return coachAuthError(res,result.error,result.message);
-    if(result.two_factor_skipped){
-      log('ورود مربی (۲FA موقتاً خاموش)', result.coach?.email||'');
-      return send(res,200,{ok:true,next:'/coach/dashboard',two_factor_skipped:true,coach:result.coach,expires_at:result.expires_at},{
-        'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
-      });
-    }
-    return send(res,200,{ok:true,next:'/coach/2fa',expires_at:result.expires_at},{
-      'Set-Cookie':coachAuthService.challengeCookie(req,result.challenge_id)
-    });
-  }
-  if(p==='/api/coach/auth/challenge' && req.method==='GET'){
-    if(!rateLimit(req,res,'coach-challenge',40,15*60*1000)) return true;
-    return send(res,200,coachAuthService.pendingChallenge(db,req));
-  }
-  if(p==='/api/coach/auth/verify' && req.method==='POST'){
-    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
-    if(!rateLimit(req,res,'coach-otp-verify',30,15*60*1000)) return true;
-    const body=await readBody(req);
-    const result=coachAuthService.verifyOtp(db,{code:body.code,req,dataDir:path.dirname(dbPath)});
-    if(result.error) return coachAuthError(res,result.error);
     log('ورود مربی', result.coach?.email||'');
-    return send(res,200,{success:true,coach:result.coach,expires_at:result.expires_at},{
-      'Set-Cookie':[
-        coachAuthService.sessionCookie(req,result.raw_session),
-        coachAuthService.clearChallengeCookie(req)
-      ]
+    return send(res,200,{ok:true,next:'/coach/dashboard',coach:result.coach,expires_at:result.expires_at},{
+      'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
     });
   }
   if(p==='/api/coach/auth/forgot' && req.method==='POST'){
@@ -493,8 +470,6 @@ async function handleHealth(req,res,{detailed=false}={}){
     students: totalStudents,
     programs: totalPrograms,
     schema_version: schemaVersion,
-    two_factor_skipped: requestSecurity.ALLOW_2FA_SKIP,
-    telegram_bot: telegramBot.status(),
     uptime: Math.round(process.uptime())
   });
 }
@@ -550,7 +525,7 @@ async function handleDashboard(req,res){
   rows(`SELECT ba.id assessment_id, ba.assessment_number, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
         WHERE ba.status IN ('SUBMITTED','PENDING_REVIEW') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 6`)
     .forEach(r=>attention.push({severity:'yellow',kind:'assessment_review',name:r.full_name,case_number:r.case_number,
-      text:`ارزیابی شماره ${r.assessment_number} آماده بررسی شماست`,sub:'برای تأیید یا درخواست تغییر، پرونده را باز کنید',
+      text:`ارزیابی شماره ${r.assessment_id} آماده بررسی شماست`,sub:'برای تأیید یا درخواست تغییر، پرونده را باز کنید',
       action:`/assessments/${r.assessment_id}`,action_label:'باز کردن ارزیابی'}));
   rows(`SELECT ba.id assessment_id, ba.status, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id
         WHERE ba.status IN ('PROFILE_INCOMPLETE','ASSESSMENT_PENDING','CHANGES_REQUESTED') AND ba.deleted_at IS NULL ORDER BY ba.id DESC LIMIT 5`)
@@ -598,7 +573,7 @@ async function handleDashboard(req,res){
   const events=[];
   rows('SELECT id, full_name, case_number, created_at FROM students WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5').forEach(r=>events.push({type:'student',name:r.full_name,text:'به سیستم اضافه شد',at:r.created_at,route:`/users-list/${r.case_number}`}));
   rows(`SELECT tp.id, tp.title, tp.status, tp.created_at, s.full_name, s.case_number FROM training_programs tp LEFT JOIN students s ON s.id=tp.student_id WHERE tp.deleted_at IS NULL ORDER BY tp.id DESC LIMIT 5`).forEach(r=>events.push({type:'program',name:r.full_name||r.title,text:`برنامه «${r.title}» ساخته شد`,at:r.created_at,route:r.case_number?`/users-list/${r.case_number}`:'/templates/exercise/list'}));
-  rows(`SELECT ba.id, ba.assessment_number, ba.submitted_at, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id WHERE ba.submitted_at IS NOT NULL AND ba.deleted_at IS NULL ORDER BY ba.submitted_at DESC LIMIT 4`).forEach(r=>events.push({type:'assessment',name:r.full_name,text:`ارزیابی شماره ${r.assessment_number} را ارسال کرد`,at:r.submitted_at,route:`/assessments/${r.id}`}));
+  rows(`SELECT ba.id, ba.assessment_number, ba.submitted_at, s.full_name, s.case_number FROM body_assessments ba JOIN students s ON s.id=ba.student_id WHERE ba.submitted_at IS NOT NULL AND ba.deleted_at IS NULL ORDER BY ba.submitted_at DESC LIMIT 4`).forEach(r=>events.push({type:'assessment',name:r.full_name,text:`ارزیابی شماره ${r.id} را ارسال کرد`,at:r.submitted_at,route:`/assessments/${r.id}`}));
   rows(`SELECT ws.id, ws.completed_at, s.full_name, s.case_number FROM workout_sessions ws JOIN students s ON s.id=ws.student_id WHERE ws.status='COMPLETED' AND ws.deleted_at IS NULL ORDER BY ws.completed_at DESC LIMIT 4`).forEach(r=>events.push({type:'workout',name:r.full_name,text:'جلسه تمرینی را تکمیل کرد',at:r.completed_at,route:`/users-list/${r.case_number}`}));
   events.sort((a,b)=>new Date(String(b.at).replace(' ','T')+(String(b.at).includes('Z')?'':'Z'))-new Date(String(a.at).replace(' ','T')+(String(a.at).includes('Z')?'':'Z')));
   const timeline=events.slice(0,8);
@@ -1225,6 +1200,8 @@ async function handleTrainingPrograms(req,res,url){
         : programService.transitionProgram(db,id,action==='complete'?'COMPLETED':'ARCHIVED');
       log(action==='activate'?'برنامه به شاگرد اختصاص یافت':'چرخه برنامه تغییر کرد', `program ${id}: ${updated.status}`);
       if(updated.student_id)engagementService.notify(db,{audienceType:'student',studentId:updated.student_id,type:`program_${action}`,title:action==='activate'?'برنامه جدید شما فعال شد':`وضعیت برنامه: ${updated.status}`,body:updated.title||'',entityType:'training_program',entityId:id});
+      if(updated.student_id&&action==='activate'){
+      }
       auditService.record(db,{actorType:'coach',action:`program.${action}`,entityType:'training_program',entityId:id,entityStableId:updated.stable_id,metadata:{student_id:updated.student_id,status:updated.status}});if(previousActive)auditService.record(db,{actorType:'system',action:'program.completed',entityType:'training_program',entityId:previousActive.id,entityStableId:previousActive.stable_id,metadata:{student_id:previousActive.student_id,replaced_by:id}});
       return send(res,200,updated);
     } catch(e){ return sendCaughtError(res,e); }
@@ -1270,6 +1247,8 @@ async function handleTrainingPrograms(req,res,url){
         // If program_data present, validate full program
         if(b.program_data){
           const progToValidate = typeof b.program_data === 'string' ? JSON.parse(b.program_data) : b.program_data;
+          // نسخهٔ سند (۱ یا ۲) ثابتِ سرور است؛ مقدار مخدوش از کلاینت (مثلاً شمارندهٔ ردیف) اصلاح می‌شود نه رد
+          progToValidate.version = [1,2].includes(Number(progToValidate.version)) ? Number(progToValidate.version) : 2;
           // Merge with existing title for validation if needed
           const existing = one('SELECT title FROM training_programs WHERE id=?', id);
           if(!progToValidate.title) progToValidate.title = b.title || existing?.title || 'برنامه';
@@ -1635,6 +1614,7 @@ async function handleStudentAuth(req,res,url){
     invitationId=consumed.invitation_id;
   }
   const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRecommended=authenticated.student.password_state!=='PERSONAL';
+  if(invitationId) analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id});
   auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_recommended:passwordChangeRecommended,via_invitation:Boolean(invitationId)}});
   return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
 }
@@ -1648,6 +1628,7 @@ async function handleStudentRegister(req,res,url){
     const body=await readBody(req);
     const created=studentAuthService.registerStudent(db,body);
     const session=studentSessionService.createStudentSession(db,created.id,null);
+    analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'student',label:created.full_name,studentId:created.id});
     log('ثبت‌نام شاگرد جدید آزاد',`${created.case_number} - ${created.full_name}`);
     auditService.record(db,{
       actorType:'student',
@@ -1780,6 +1761,43 @@ async function handleStudentSessionApi(req,res,url){
   const context=requireStudent(req,res);if(!context)return true;
   const studentId=context.student_id;
   const p=url.pathname;
+  if(p==='/api/student/telegram/link' && req.method==='POST'){
+    if(!telegramService.isConfigured())return sendError(res,503,'تلگرام فعلاً روی این سرور پیکربندی نشده است');
+    try{
+      const link=telegramService.createLinkToken(db,studentId);
+      auditService.record(db,{actorType:'student',actorId:studentId,action:'telegram.link_token_created',entityType:'telegram_account'});
+      return send(res,201,link);
+    }catch(error){return sendCaughtError(res,error);}
+  }
+  if(p==='/api/student/telegram/status' && req.method==='GET'){
+    const savedId=(one('SELECT telegram_id FROM students WHERE id=?',studentId)||{}).telegram_id||'';
+    return send(res,200,{telegram:telegramService.statusForStudent(db,studentId),preferences:telegramService.preferences(db,studentId),configured:telegramService.isConfigured(),telegram_id_saved:Boolean(savedId.trim())});
+  }
+  if(p==='/api/student/telegram/id' && req.method==='PUT'){
+    // اگر شاگرد موقع ثبت‌نام آیدی تلگرام نداده، از همین‌جا (کلیک روی آیکون تلگرام) دریافت می‌شود
+    const body=await readBody(req);
+    const raw=String((body||{}).telegram_id||'').trim().replace(/^@/,'');
+    if(!/^[A-Za-z0-9_]{5,32}$/.test(raw))return sendError(res,400,'آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi');
+    db.prepare('UPDATE students SET telegram_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(raw,studentId);
+    auditService.record(db,{actorType:'student',actorId:studentId,action:'telegram.id_saved',entityType:'student',entityId:studentId});
+    return send(res,200,{ok:true,telegram_id:raw});
+  }
+  if(p==='/api/student/telegram/unlink' && req.method==='POST'){
+    const account=telegramService.activeAccount(db,studentId);
+    if(!account)return sendError(res,404,'اتصال تلگرامی پیدا نشد');
+    // پیام خداحافظی قبل از قطع — بهترین تلاش
+    try{ await notificationService.emit(db,{type:'TELEGRAM_DISCONNECTED',studentId,dedupKey:`telegram_disconnected:${account.chat_id}:${Date.now()}`}); await new Promise(r=>setTimeout(r,400)); }catch(e){}
+    telegramService.unlinkAccount(db,account);
+    auditService.record(db,{actorType:'student',actorId:studentId,action:'telegram.unlinked',entityType:'telegram_account',entityStableId:account.stable_id});
+    return send(res,200,{success:true,telegram:telegramService.statusForStudent(db,studentId)});
+  }
+  if(p==='/api/student/telegram/preferences' && req.method==='PUT'){
+    try{
+      const body=await readBody(req);
+      const prefs=telegramService.setPreference(db,studentId,String(body.key||''),Boolean(body.enabled));
+      return send(res,200,{preferences:prefs});
+    }catch(error){return sendCaughtError(res,error,400);}
+  }
   if(p==='/api/student/logout' && req.method==='POST'){
     studentSessionService.revokeCurrentSession(db,req);
     return send(res,200,{success:true},{'Set-Cookie':studentSessionService.clearSessionCookie(req)});
@@ -1802,7 +1820,8 @@ async function handleStudentSessionApi(req,res,url){
   if(p==='/api/student/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'student',studentId)});
   const studentNotificationRead=p.match(/^\/api\/student\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(studentNotificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,studentNotificationRead[1],'student',studentId))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
   if(p==='/api/student/messages'&&req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'student')});
-  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'پیام جدید شاگرد',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}
+  if(p==='/api/student/messages'&&req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'student',(await readBody(req)).body);const smStudent=one('SELECT full_name,case_number,mobile FROM students WHERE id=?',studentId);
+engagementService.notify(db,{audienceType:'coach',studentId,type:'student_message',title:'💬 پیام جدید از شاگرد',body:`👤 شاگرد: ${smStudent?smStudent.full_name:'نامشخص'}\n🗂 پرونده: ${smStudent?smStudent.case_number:'—'}\n📱 موبایل: ${smStudent?smStudent.mobile:'—'}\n──────────\n💬 ${message.body}`,entityType:'conversation',entityId:message.stable_id});auditService.record(db,{actorType:'student',actorId:studentId,action:'message.sent',entityType:'conversation',metadata:{sender_type:'student'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}
   if(p==='/api/student/workouts'&&req.method==='GET')return send(res,200,{workouts:engagementService.listWorkouts(db,studentId),performance:engagementService.performance(db,studentId)});
   if(p==='/api/student/workouts'&&req.method==='POST'){try{const workout=engagementService.startWorkout(db,studentId,(await readBody(req)).day_ref);auditService.record(db,{actorType:'student',actorId:studentId,action:'workout.started',entityType:'workout_session',entityStableId:workout.stable_id});return send(res,201,{workout});}catch(error){return sendCaughtError(res,error);}}
   const workoutResults=p.match(/^\/api\/student\/workouts\/([A-Za-z0-9_-]+)\/results$/);if(workoutResults&&req.method==='PUT'){try{return send(res,200,{workout:engagementService.saveWorkoutResults(db,studentId,workoutResults[1],(await readBody(req)).results)});}catch(error){return sendCaughtError(res,error);}}
@@ -1871,7 +1890,15 @@ async function handleStudentSessionApi(req,res,url){
     if(completeness.length)return sendError(res,400,completeness[0],completeness);
     try{
       const submitted=studentService.submitAssessment(db,assessment.id);
-      engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.assessment_number} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
+      engagementService.notify(db,{audienceType:'coach',studentId,type:'assessment_submitted',title:'ارزیابی جدید ارسال شد',body:`ارزیابی #${submitted.id} آماده بررسی است`,entityType:'assessment',entityId:submitted.id});
+      try{
+        const tgStudent=one('SELECT full_name FROM students WHERE id=?',studentId);
+        const reviewLink=notificationService.portalLink(`/assessments/${submitted.id}`);
+        notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
+📝 ارزیابی: #${submitted.id}
+
+یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.${reviewLink?'\n\n🔗 لینک بررسی: '+reviewLink:''}`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
+      }catch(e){ console.log('[Telegram] emit ASSESSMENT_READY failed:',e.message); }
       auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
       return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});
     }catch(error){return sendCaughtError(res,error);}
@@ -2339,8 +2366,9 @@ async function handleAssessmentPhotos(req,res,url){
     const photo = uploadService.getPhotoFilePath(db, photoId);
     if(!photo) return sendError(res,404,'عکس پیدا نشد');
 
-    // Security: ensure path is inside data/assessments
-    const assessmentsRoot = path.resolve(path.join(__dirname, 'data', 'assessments'));
+    // Security: ensure path is inside the ACTIVE assessments root (repo data dir or the
+    // Railway volume — never a hardcoded repo path, which 403'd every volume photo).
+    const assessmentsRoot = path.resolve(storagePaths.assessmentsDir);
     if(!isSafePath(assessmentsRoot, photo.storage_path)){
       return sendError(res,403,'دسترسی غیرمجاز');
     }
@@ -2398,7 +2426,98 @@ async function handleLegacyPrograms(req,res,url){
   return null;
 }
 
+const RESTORE_MAX_BYTES = 524288000; // سقف ۵۰۰ مگابایت برای فایل بازیابی
+function readRawBody(req,maxBytes=RESTORE_MAX_BYTES){
+  return new Promise((resolve,reject)=>{
+    const chunks=[];let size=0;
+    req.on('data',c=>{size+=c.length;if(size>maxBytes){reject(Object.assign(new Error('حجم فایل پشتیبان بیش از حد مجاز است'),{statusCode:413}));req.destroy();return;}chunks.push(c);});
+    req.on('end',()=>resolve(Buffer.concat(chunks)));
+    req.on('error',reject);
+  });
+}
+function backupSafeName(value){
+  const base=path.basename(String(value||'').trim());
+  if(!base || base!==sanitizeFileName(base) || !base.endsWith('.db')) return null;
+  return base;
+}
+function validateRestoreCandidate(file){
+  try{
+    const fd=fs.openSync(file,'r');const header=Buffer.alloc(16);fs.readSync(fd,header,0,16,0);fs.closeSync(fd);
+    if(!header.toString('latin1').startsWith('SQLite format 3')) return 'فایل انتخابی یک دیتابیس SQLite معتبر نیست.';
+  }catch(e){ return 'خواندن فایل پشتیبان ممکن نشد.'; }
+  let probe;
+  try{ probe=new (require('node:sqlite').DatabaseSync)(file,{readOnly:true}); }catch(e){ return 'باز کردن فایل پشتیبان ممکن نشد.'; }
+  try{
+    const check=probe.prepare('PRAGMA integrity_check').get();
+    if(!check||check.integrity_check!=='ok') return 'فایل پشتیبان آسیب‌دیده است (integrity_check ناموفق).';
+    for(const table of ['schema_migrations','coaches','students','settings']){
+      const row=probe.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table);
+      if(!row) return 'این فایل پشتیبان یاسنا‌فیت نیست و بازیابی آن مجاز نیست.';
+    }
+    return null;
+  }finally{ try{probe.close();}catch(e){} }
+}
+function stageRestore(candidatePath,originLabel){
+  const error=validateRestoreCandidate(candidatePath);
+  if(error) return {error};
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  const safety=path.join(backupDir,`pre-restore-${stamp}.db`);
+  try{ db.exec(`VACUUM INTO '${safety.replace(/'/g,"''")}'`); }
+  catch(e){ return {error:'پشتیبان ایمنی از وضعیت فعلی ساخته نشد: '+e.message}; }
+  try{
+    fs.copyFileSync(candidatePath,path.join(path.dirname(dbPath),'restore-pending.db'));
+    fs.writeFileSync(path.join(path.dirname(dbPath),'restore-pending.json'),JSON.stringify({file:'restore-pending.db',from:originLabel,at:new Date().toISOString()}),'utf8');
+  }catch(e){ return {error:'آماده‌سازی فایل بازیابی ممکن نشد: '+e.message}; }
+  try{ db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); }catch(e){}
+  setTimeout(()=>{ console.log('[Restore] سرویس برای اعمال بازیابی ری‌استارت می‌شود'); process.exit(0); },900);
+  return {ok:true};
+}
 async function handleBackup(req,res,url){
+  if(requireCoach(req,res)) return true;
+  const p=url.pathname;
+  if(p==='/api/backup' && req.method==='GET'){
+    try{
+      const list=fs.readdirSync(backupDir).filter(f=>f.startsWith('yasnafit-')&&f.endsWith('.db')).map(f=>{
+        const full=path.join(backupDir,f);const st=fs.statSync(full);
+        return {name:f,size:st.size,size_mb:(st.size/1048576).toFixed(2),date:new Date(st.mtime).toLocaleString('fa-IR')};
+      }).sort((a,b)=>a.name<b.name?1:-1);
+      return send(res,200,{backups:list});
+    }catch(e){ return sendError(res,500,'خواندن پوشهٔ پشتیبان‌ها ناموفق بود.'); }
+  }
+  if(p==='/api/backup/download' && req.method==='GET'){
+    const name=backupSafeName(url.searchParams.get('name'));
+    if(!name) return sendError(res,400,'نام فایل پشتیبان معتبر نیست.');
+    const full=path.join(backupDir,name);
+    if(!isSafePath(backupDir,full)||!fs.existsSync(full)||!fs.statSync(full).isFile()) return sendError(res,404,'فایل پشتیبان پیدا نشد.');
+    const stat=fs.statSync(full);
+    res.writeHead(200,{'Content-Type':'application/x-sqlite3','Content-Length':stat.size,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'",'Content-Disposition':`attachment; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`});
+    fs.createReadStream(full).pipe(res);
+    return true;
+  }
+  if(p==='/api/backup/restore-server' && req.method==='POST'){
+    const body=await readBody(req);
+    const name=backupSafeName(body.name);
+    if(!name) return sendError(res,400,'نام فایل پشتیبان معتبر نیست.');
+    const full=path.join(backupDir,name);
+    if(!isSafePath(backupDir,full)||!fs.existsSync(full)) return sendError(res,404,'فایل پشتیبان پیدا نشد.');
+    const result=stageRestore(full,name);
+    if(result.error) return sendError(res,400,result.error);
+    log('بازیابی دیتابیس برنامه‌ریزی شد',name);
+    return send(res,200,{ok:true,restart_required:true,message:'بازیابی انجام شد. سرویس برای اعمال آن ری‌استارت می‌شود.'});
+  }
+  if(p==='/api/backup/restore' && req.method==='POST'){
+    let raw;
+    try{ raw=await readRawBody(req); }
+    catch(e){ return sendError(res,e.statusCode||400,e.message); }
+    if(!raw.length) return sendError(res,400,'فایلی برای بازیابی ارسال نشده است.');
+    const tmp=path.join(backupDir,`upload-restore-${new Date().toISOString().replace(/[:.]/g,'-')}.db`);
+    fs.writeFileSync(tmp,raw);
+    const result=stageRestore(tmp,'فایل آپلودشده');
+    try{ fs.unlinkSync(tmp); }catch(e){}
+    if(result.error) return sendError(res,400,result.error);
+    log('بازیابی دیتابیس از فایل آپلودشده برنامه‌ریزی شد');
+    return send(res,200,{ok:true,restart_required:true,message:'بازیابی انجام شد. سرویس برای اعمال آن ری‌استارت می‌شود.'});
+  }
   if(url.pathname==='/api/backup' && req.method==='POST'){
     try {
       // Before backup, checkpoint WAL
@@ -2490,6 +2609,70 @@ async function handleCoachEngagement(req,res,url){
   if(p==='/api/coach/notifications'&&req.method==='GET')return send(res,200,{notifications:engagementService.listNotifications(db,'coach',null,100)});
   if(p==='/api/coach/notifications'&&req.method==='DELETE'){if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');const cleared=engagementService.clearNotifications(db,'coach');auditService.record(db,{actorType:'coach',action:'notifications.cleared',entityType:'notification',metadata:{cleared_count:cleared}});return send(res,200,{success:true,cleared});}
   const notificationRead=p.match(/^\/api\/coach\/notifications\/([A-Za-z0-9_-]+)\/read$/);if(notificationRead&&req.method==='POST'){if(!engagementService.markNotificationRead(db,notificationRead[1],'coach'))return sendError(res,404,'اعلان پیدا نشد');return send(res,200,{success:true});}
+  const telegramMatch=p.match(/^\/api\/students\/(\d+)\/telegram$/);if(telegramMatch&&req.method==='GET'){const studentId=studentIdByReference(telegramMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{telegram:telegramService.statusForStudent(db,studentId),recent:notificationService.listForStudent(db,studentId,10)});}
+  if(p==='/api/coach/telegram' && req.method==='GET'){return send(res,200,notificationService.integrationStatus(db));}
+  if(p==='/api/coach/telegram/settings' && req.method==='GET'){
+    return send(res,200,telegramService.settingsView(db));
+  }
+  if(p==='/api/coach/telegram/settings' && req.method==='PUT'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      const body=await readBody(req);
+      const view=telegramService.saveCoachSettings(db,{bot_token:body.bot_token,bot_username:body.bot_username,webhook_secret:body.webhook_secret,public_url:body.public_url,polling:body.polling});
+      if(view.configured && view.polling) telegramService.startPolling(db);
+      auditService.record(db,{actorType:'coach',action:'telegram.settings_updated',entityType:'telegram_account',metadata:{source:view.source,configured:view.configured}});
+      log('تنظیمات تلگرام به‌روزرسانی شد',`منبع: ${view.source}${view.configured?'':' (ناقص — توکن تنظیم نشده)'}`);
+      return send(res,200,view);
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+  if(p==='/api/coach/telegram/connection' && req.method==='GET'){
+    return send(res,200,telegramService.coachStatus(db));
+  }
+  if(p==='/api/coach/telegram/link' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      if(!telegramService.isConfigured()) return sendError(res,503,'تلگرام پیکربندی نشده است');
+      const link=telegramService.createCoachLinkToken(db);
+      auditService.record(db,{actorType:'coach',action:'telegram.coach_link_token_created',entityType:'telegram_account'});
+      return send(res,201,link);
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+  if(p==='/api/coach/telegram/unlink' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    let body={}; try{ body=await readBody(req); }catch(error){}
+    const accounts=telegramService.coachActiveAccounts(db);
+    if(!accounts.length) return sendError(res,404,'اتصال تلگرامی برای مربی پیدا نشد');
+    const account=body.account_id?accounts.find(a=>Number(a.id)===Number(body.account_id)):(body.chat_id?accounts.find(a=>String(a.chat_id)===String(body.chat_id)):accounts[0]);
+    if(!account) return sendError(res,404,'این حساب تلگرام فعال نیست');
+    telegramService.coachUnlinkAccount(db,account);
+    auditService.record(db,{actorType:'coach',action:'telegram.coach_unlinked',entityType:'telegram_account',entityStableId:account.stable_id,metadata:{chat_id_masked:telegramService.maskChatId(account.chat_id)}});
+    return send(res,200,{success:true,telegram:telegramService.coachStatus(db)});
+  }
+  if(p==='/api/coach/telegram/test-message' && req.method==='POST'){
+    try{
+      if(!telegramService.isConfigured()) return sendError(res,503,'تلگرام پیکربندی نشده است');
+      const accounts=telegramService.coachActiveAccounts(db);
+      if(!accounts.length) return sendError(res,409,'اول تلگرام خود را از همین صفحه متصل کنید، بعد پیام آزمایشی بفرستید');
+      const text=`🔔 این یک پیام آزمایشی از یسنا فیت است.\n✅ اتصال و تحویل اعلان‌ها سالم است.\n🕒 ${new Date().toLocaleString('fa-IR')}`;
+      const results=[];
+      for(const account of accounts){
+        const result=await telegramService.sendMessage(db,account.chat_id,text);
+        results.push({ chat_id_masked:telegramService.maskChatId(account.chat_id), ok:Boolean(result.ok), description:result.description||null });
+      }
+      const sentTo=results.filter(r=>r.ok).length;
+      if(!sentTo) return sendError(res,502,'ارسال ناموفق بود: '+(results[0].description||'خطای نامشخص'));
+      auditService.record(db,{actorType:'coach',action:'telegram.test_message_sent',entityType:'telegram_account',metadata:{sent_to:sentTo,total:accounts.length}});
+      return send(res,200,{ok:true,sent:true,sent_to:sentTo,total:accounts.length,results});
+    }catch(e){
+      return sendCaughtError(res,e);
+    }
+  }
+
+  const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
   const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}}
   const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
   const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=studentIdByReference(auditMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
@@ -2578,8 +2761,11 @@ function publicBaseUrl(req) {
   return `${secure ? 'https' : 'http'}://${host}`;
 }
 
+// Owner decision 2026-09-21: the domain root («/») is the student entry page
+// (login/register + small coach link); the marketing landing lives on /home.
+const LANDING_PATH = '/home';
 const PUBLIC_NAV = [
-  ['خانه', '/'],
+  ['خانه', LANDING_PATH],
   ['درباره من', '/about'],
   ['خدمات', '/services'],
   ['مجله', '/magazine'],
@@ -2590,7 +2776,7 @@ const PUBLIC_NAV = [
 // Owner header spec (2026-09-20, T-19 round 1): exactly these five links +
 // ثبت نام/ورود buttons. PUBLIC_NAV (with تماس) remains for the footer nav.
 const HEADER_NAV = [
-  ['خانه', '/'],
+  ['خانه', LANDING_PATH],
   ['درباره من', '/about'],
   ['خدمات', '/services'],
   ['مجله', '/magazine'],
@@ -2604,8 +2790,14 @@ const HEADER_NAV = [
 // username; otherwise the default bot is used, so the link is never broken.
 const TELEGRAM_BOT_DEFAULT_USERNAME = 'yasnafitbot';
 function telegramBotLink(site) {
-  const configured = String((site && site.telegram_bot_username) || '').replace(/^@+/, '').trim();
-  const username = /^[A-Za-z0-9_]{4,32}$/.test(configured) ? configured : TELEGRAM_BOT_DEFAULT_USERNAME;
+  // Source of truth = the bot that actually runs (پنل مربی → سیستم → تنظیمات تلگرام, or
+  // TELEGRAM_BOT_USERNAME); the older site setting stays as a fallback.
+  const candidates = [
+    (() => { try { return telegramService.config().username; } catch (e) { return ''; } })(),
+    site && site.telegram_bot_username
+  ];
+  const configured = candidates.map(v => String(v || '').replace(/^@+/, '').trim()).find(v => /^[A-Za-z0-9_]{4,32}$/.test(v)) || '';
+  const username = configured || TELEGRAM_BOT_DEFAULT_USERNAME;
   // ?start=landing lets the bot recognise visitors who came from the landing page.
   return `https://t.me/${username}?start=landing`;
 }
@@ -2642,12 +2834,12 @@ const SERVICES = [
 ];
 
 function brandMarkup() {
-  return `<a class="brand" href="/" aria-label="YASNAFIT — صفحه اصلی"><span class="brand__mark" aria-hidden="true">Y</span><span class="brand__text">YASNA<span>FIT</span></span></a>`;
+  return `<a class="brand" href="${LANDING_PATH}" aria-label="YASNAFIT — صفحه اصلی"><span class="brand__mark" aria-hidden="true">Y</span><span class="brand__text">YASNA<span>FIT</span></span></a>`;
 }
 
 function headerMarkup(path, coachAuthorized, telegramUrl) {
   const links = HEADER_NAV.map(([label, href]) => {
-    const active = (href === '/' ? path === '/' : path.startsWith(href)) ? ' is-active' : '';
+    const active = (href === LANDING_PATH ? path === LANDING_PATH : path.startsWith(href)) ? ' is-active' : '';
     return `<a class="site-nav__link${active}" href="${href}" data-nav="${href}">${label}</a>`;
   }).join('');
   const action = coachAuthorized
@@ -2832,7 +3024,7 @@ function articleBody(ctx) {
   return `
 <section class="article-page">
   <nav class="breadcrumbs" aria-label="مسیر صفحه">
-    <a href="/">خانه</a><span aria-hidden="true">/</span>
+    <a href="${LANDING_PATH}">خانه</a><span aria-hidden="true">/</span>
     <a href="/magazine">مجله</a><span aria-hidden="true">/</span>
     ${article.category_name ? `<a href="/magazine?category=${escHtml(article.category)}">${escHtml(article.category_name)}</a><span aria-hidden="true">/</span>` : ''}
     <span aria-current="page">${escHtml(article.title)}</span>
@@ -3080,7 +3272,7 @@ function sendPublicPage(req, res, { kind, path }) {
 function sendSitemap(req, res) {
   const base = publicBaseUrl(req);
   const urls = [
-    { loc: '/', priority: '1.0' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
+    { loc: '/', priority: '1.0' }, { loc: LANDING_PATH, priority: '0.9' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
     { loc: '/results', priority: '0.7' }, { loc: '/magazine', priority: '0.8' }, { loc: '/contact', priority: '0.7' }
   ];
   for (const article of articleService.listPublicArticles(db, { limit: 500 })) {
@@ -3425,6 +3617,19 @@ async function api(req,res,url){
       rateBuckets.clear();
       return send(res, 200, { ok: true });
     }
+    if(p==='/api/telegram/webhook'){
+      // امنیت از طریق هدر مخفی تلگرام؛ تلگرام نیاز به کوکی/سشن ندارد
+      const verdict=telegramService.verifyWebhookSecret(req.headers['x-telegram-bot-api-secret-token']);
+      if(!telegramService.isConfigured())return sendError(res,503,'تلگرام پیکربندی نشده است');
+      if(!verdict.ok)return sendError(res,401,'امضای وب‌هوک تلگرام نامعتبر است');
+      if(req.method!=='POST')return send(res,200,{ok:true,hint:'POST Telegram updates here'});
+      let update;
+      try{ update=await readBody(req); }
+      catch(error){ return sendError(res,400,'بدنهٔ آپدیت نامعتبر است'); }
+      // پاسخ فوری به تلگرام؛ پردازش پس از پاسخ — جلوگیری از ارسال مجدد آپدیت توسط تلگرام
+      setImmediate(() => { telegramService.handleUpdate(db,update).catch(error => console.log('[Telegram] update failed:',error.message)); });
+      return send(res,200,{ok:true});
+    }
     if(p==='/api/health'){
       const detailed=url.searchParams.get('detailed')==='1';
       if(detailed&&!isCoachAuthorized(req)) return sendError(res,401,'برای نمایش آمار سامانه وارد شوید');
@@ -3450,18 +3655,14 @@ async function api(req,res,url){
     }
     if(p.startsWith('/api/student/'))return handleStudentSessionApi(req,res,url);
 
-    // ---- Telegram bot (owner spec 2026-09-21) ----
+    // ---- Telegram (public site side) ----
     // The guest «ربات تلگرام» control on the public site is a plain deep link to
-    // https://t.me/<bot>?start=landing (built by telegramBotLink). There is no
-    // public endpoint that accepts, stores or verifies a Telegram username any
-    // more — the old /api/telegram-bot and /api/telegram-bot/connect routes are
-    // gone (they stored typed usernames as if they were verified connections).
-    // The only bot route is Telegram's own webhook below: it is 404 unless the bot
-    // runs in webhook mode, and every call must carry the setWebhook secret header
-    // (src/telegram-bot-service.js). It stores nothing — it only answers /start.
-    if(p===telegramBotService.WEBHOOK_PATH){
-      return await telegramBot.handleWebhookRequest(req,res,{readBody,send});
-    }
+    // https://t.me/<bot>?start=landing (built by telegramBotLink). No public endpoint
+    // accepts, stores or verifies a Telegram username — the old /api/telegram-bot and
+    // /api/telegram-bot/connect routes are gone. The bot itself (src/telegram-service.js)
+    // receives updates on POST /api/telegram/webhook above (secret header) or by polling,
+    // and answers /start landing with the guest welcome; account linking uses one-time
+    // codes issued to a signed-in student/coach only.
     // ---- Public website content (no authentication; published data only) ----
     const isPublicContentPath = p==='/api/magazine' || p==='/api/results' || p==='/api/coach-profile' || p==='/api/site'
       || (p.startsWith('/api/magazine/') && !p.startsWith('/api/magazine/admin'));
@@ -3567,7 +3768,44 @@ async function api(req,res,url){
       if(r) return r;
     }
 
-    if(p==='/api/backup'){
+    // POST /api/students/:id/telegram-notify — «برنامهٔ شما آماده شد» با ربات، به چتِ وصل‌شدهٔ شاگرد
+    const tgNotifyMatch = p.match(/^\/api\/students\/(\d+)\/telegram-notify$/);
+    if(tgNotifyMatch && req.method==='POST'){
+      if(requireCoach(req,res)) return true;
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      if(!telegramService.isConfigured()) return sendError(res,503,'ربات تلگرام هنوز پیکربندی نشده است — از سیستم ← تنظیمات تلگرام توکن بات را ثبت کنید.');
+      const studentId=Number(tgNotifyMatch[1]);
+      const student=studentByReference(tgNotifyMatch[1]);
+      if(!student) return sendError(res,404,'شاگرد پیدا نشد');
+      const account=telegramService.activeAccount(db,studentId);
+      if(!account){
+        return sendError(res,409,'این شاگرد هنوز ربات را به حسابش وصل نکرده است؛ تلگرام اجازهٔ پیام به چت ناشناس نمی‌دهد. از او بخواهید در پروفایلش «اتصال تلگرام» را بزند و کد را برای ربات بفرستد.');
+      }
+      const program=one("SELECT title FROM training_programs WHERE student_id=? AND status='ACTIVE' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",studentId);
+      const result=notificationService.emit(db,{
+        type:'PROGRAM_ASSIGNED',studentId,audience:'student',
+        title:'🎉 برنامهٔ شما آماده شد!',
+        body:program?`مربی شما برنامهٔ «${program.title}» را آماده کرده است. همین حالا وارد شوید و تمرین امروز را ببینید.`:'مربی شما برنامهٔ شما را آماده کرده است. وارد یسنا فیت شوید تا برنامه را ببینید.',
+        entityType:'training_program',entityId:program?program.id:null,
+        dedupKey:`program_ready_ping:${studentId}:${Date.now()}`,
+      });
+      auditService.record(db,{actorType:'coach',action:'telegram.notify_program_ready',entityType:'student',entityId:studentId,entityStableId:student.stable_id,metadata:{chat_id:telegramService.maskChatId(account.chat_id),queued:result.queued||false,skipped:result.skipped||null}});
+      if(result.skipped==='preference_disabled'){
+        return send(res,200,{ok:true,delivered:false,reason:'preference_disabled',message:'شاگرد دریافت اعلان‌های تمرینی تلگرام را در تنظیماتش خاموش کرده است — پیام درون‌برنامه‌ای برایش ثبت شد.'});
+      }
+      return send(res,200,{ok:true,delivered:true,chat:telegramService.maskChatId(account.chat_id),message:`پیام «برنامهٔ شما آماده شد» برای شاگرد (${telegramService.maskChatId(account.chat_id)}) در صف ارسال ربات قرار گرفت.`});
+    }
+
+    if(p.startsWith('/api/analytics/')){
+      if(requireCoach(req,res)) return true;
+      if(p==='/api/analytics/visits' && req.method==='GET'){
+        const days=Math.min(365,Math.max(1,Number(url.searchParams.get('days'))||30));
+        return send(res,200,analyticsService.visitSummary(db,days));
+      }
+      return sendError(res,404,'مسیر API پیدا نشد');
+    }
+
+    if(p==='/api/backup'||p.startsWith('/api/backup/')){
       const r = await handleBackup(req,res,url);
       if(r) return r;
     }
@@ -3643,9 +3881,9 @@ const server=http.createServer(async(req,res)=>{
 
     if(url.pathname.startsWith('/api/')) return await api(req,res,url);
 
+    if(url.pathname==='/coach/2fa') return redirectCoachLogin(res); // صفحهٔ کد ۶ رقمی حذف شده است
     const coachAuthPages={
       '/coach/login':'coach-login.html',
-      '/coach/2fa':'coach-2fa.html',
       '/coach/forgot':'coach-forgot.html',
       '/coach/reset':'coach-reset.html',
       '/coach/mail':'coach-mail.html'
@@ -3660,6 +3898,7 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
     if(coachAuthPages[url.pathname] && req.method==='GET'){
@@ -3668,6 +3907,7 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
 
@@ -3680,13 +3920,23 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
+  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
-    // ---- Public website (landing / about / services / results / magazine / contact) ----
-    // "/" is the public home for EVERYONE, including an authenticated coach
-    // (owner decision 2026-09-19: the landing is the site's front door; the
-    // coach panel is reached from the header "پنل مربی" button → /coach/dashboard).
+    // دامنهٔ اصلی عمومی است: بازدیدکننده صفحهٔ شاگرد (ورود/ثبت‌نام) را می‌بیند؛
+    // ورود مربی از لینک کوچک پایین همین صفحه در دسترس است. داشبورد مربی /coach/dashboard.
+    if(url.pathname==='/'||url.pathname==='/index.html'){
+      const entryHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
+      res.writeHead(200,entryHeaders);
+      analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
+      return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
+    }
+
+    // ---- Public website (landing on /home / about / services / results / magazine / contact) ----
+    // Owner decision 2026-09-21: "/" is the student entry page (handled above); the
+    // marketing landing moved to /home and stays reachable from the public header.
+    // The coach panel is reached from the header "پنل مربی" button → /coach/dashboard.
     // HEAD mirrors GET (Node suppresses the response body automatically).
     const isSafeMethod = req.method==='GET' || req.method==='HEAD';
     if(url.pathname==='/sitemap.xml' && isSafeMethod) return sendSitemap(req,res);
@@ -3696,9 +3946,9 @@ const server=http.createServer(async(req,res)=>{
     const isPublicPageRoute = isSafeMethod && (
       url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||
       url.pathname==='/magazine' || url.pathname==='/contact' ||
-      url.pathname==='/'
+      url.pathname===LANDING_PATH
     );
-    if(isPublicPageRoute) return sendPublicPage(req,res,{kind:url.pathname==='/'?'home':url.pathname.slice(1),path:url.pathname});
+    if(isPublicPageRoute) return sendPublicPage(req,res,{kind:url.pathname===LANDING_PATH?'home':url.pathname.slice(1),path:url.pathname});
 
     // Coach SPA routes contain no public data, but the dashboard shell itself is also
     // private. Student routes use a separate HTML shell and student session.
@@ -3813,6 +4063,7 @@ const server=http.createServer(async(req,res)=>{
     }
     const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
     res.writeHead(200,spaHeaders);
+    analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
     console.error('[Server Error]', error);
@@ -3830,8 +4081,6 @@ server.listen(port,listenHost,()=>{
   if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
   try { magazineDiscovery.startDiscoveryScheduler(db); console.log('[Magazine Discovery] scheduler armed (settings-driven)'); } catch (e) { console.log('[Magazine Discovery] scheduler unavailable:', e.message); }
-  // Telegram bot: off without TELEGRAM_BOT_TOKEN; webhook or long polling otherwise. Never blocks startup.
-  telegramBot.start().catch(error => console.error('[Telegram] ✗ start failed:', telegramBotService.redact(error, telegramBot.config.token)));
   const repoImageCount = countFlatImages(path.join(publicDir,'assets','images','exercises','imported'));
   const volumeImageCount = countFlatImages(storagePaths.exerciseImagesDir);
   const mediaSummary = `[Media] تصاویر حرکات: ${repoImageCount+volumeImageCount} فایل (Volume: ${volumeImageCount} | ریپو: ${repoImageCount}) · ریشه: ${storagePaths.exerciseImagesDir}`;

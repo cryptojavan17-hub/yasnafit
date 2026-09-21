@@ -76,8 +76,7 @@
           email: document.getElementById('coachEmail').value,
           password: document.getElementById('coachPassword').value
         });
-        // 2FA is normally mandatory; only a skipped login (YASNAFIT_ALLOW_2FA_SKIP) sends another target.
-        location.replace(data.next || '/coach/2fa');
+        location.replace(data.next || '/coach/dashboard');
       } catch (error) {
         if (error.code === 'SETUP_REQUIRED') {
           location.replace('/coach/setup');
@@ -86,34 +85,6 @@
         showError(error.message);
       } finally {
         setBusy(submit, false, 'ادامه');
-      }
-    });
-    return;
-  }
-
-  if (path === '/coach/2fa') {
-    const form = document.getElementById('coachTotpForm');
-    const submit = document.getElementById('coachTotpSubmit');
-    api('/api/coach/auth/challenge', null, 'GET').then(status => {
-      if (!status.pending) location.replace('/coach/login');
-    }).catch(() => location.replace('/coach/login'));
-    form.addEventListener('submit', async event => {
-      event.preventDefault();
-      showError('');
-      setBusy(submit, true, 'در حال ورود…');
-      try {
-        await api('/api/coach/auth/verify', {
-          code: document.getElementById('coachTotpCode').value
-        });
-        location.replace('/coach/dashboard');
-      } catch (error) {
-        if (error.code === 'CODE_EXPIRED' || error.code === 'CHALLENGE_REQUIRED') {
-          location.replace('/coach/login');
-          return;
-        }
-        showError(error.message);
-      } finally {
-        setBusy(submit, false, 'ورود به پنل');
       }
     });
     return;
@@ -151,7 +122,7 @@
         await api('/api/coach/auth/mail', {
           app_password: document.getElementById('coachMailPassword').value
         });
-        showError('ایمیل آزمایشی به crypto.javan17@gmail.com ارسال شد. اینباکس و پوشه اسپم را بررسی کنید.', true);
+        showError('ایمیل آزمایشی به mehdi.javan.64@gmail.com ارسال شد. اینباکس و پوشه اسپم را بررسی کنید.', true);
         setTimeout(() => location.replace('/coach/login'), 1400);
       } catch (error) {
         showError(error.message || 'ارسال آزمایشی به جیمیل انجام نشد.');

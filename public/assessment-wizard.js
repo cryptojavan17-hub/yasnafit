@@ -9,6 +9,8 @@
   const number=value=>{const raw=String(value||'').trim();if(raw==='')return null;const normalized=normalize(raw);if(normalized===''||normalized==='-'||normalized==='.'||normalized==='-.')return null;const n=Number(normalized);return Number.isFinite(n)?n:null;};
   const bool=value=>value===undefined||value===null?null:value==='yes';
   const goalLabels={weight_loss:'کاهش وزن',weight_gain:'افزایش وزن',fitness:'فیتنس',maintenance:'تثبیت وزن',muscle_gain:'عضله‌سازی',fat_loss:'چربی‌سوزی',competition:'آمادگی مسابقه'};
+  const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
+  const THEME_TOGGLE_BTN=`<button class="theme-toggle" type="button" data-theme-toggle title="تغییر تم روشن/تاریک" aria-label="تغییر تم روشن/تاریک" aria-pressed="false">${THEME_TOGGLE_ICONS}</button>`;
   const photoLabels={front_flex:'جلو با حالت بازو',back_flex:'پشت با حالت بازو',side:'نمای بغل'};
   const steps=[
     {title:'اطلاعات شخصی',hint:'مشخصات پایه شما'},
@@ -103,6 +105,7 @@
             <header class="wizard-header">
               <a class="wizard-brand" href="/student/dashboard" aria-label="بازگشت به پنل"><span>Y</span><div><b>YASNAFIT</b><small>${assessment.assessment_type==='MONTHLY'?'ارزیابی ماهانه':'ارزیابی اولیه'}</small></div></a>
               <div class="assessment-case"><small>شماره پرونده</small><b>${esc(student.case_number||'------')}</b></div>
+              ${THEME_TOGGLE_BTN}
               <div class="save-state" id="saveState" aria-live="polite"><span></span><b>${state.lastSaved?'ذخیره شده':'آماده تکمیل'}</b><small id="lastSaved">${state.lastSaved?new Date(state.lastSaved).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}):'ذخیره خودکار فعال است'}</small></div>
             </header>
 

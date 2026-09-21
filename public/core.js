@@ -190,13 +190,49 @@ async function render(label,route){
       return;
     }
     if(route==='/coach/settings'||route==='/coach/profile'){
-      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>تنظیمات سامانه محلی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است و کپی پشتیبان در پوشه <code>backups</code> ذخیره می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><p id="backupResult"></p></section><section class="panel settings-card"><h2>تغییر رمز مربی</h2><p>پس از تغییر رمز، همه نشست‌های قبلی باطل می‌شوند و باید دوباره وارد شوید.</p><form id="coachPasswordChangeForm" class="form-grid"><label>رمز فعلی<input name="current_password" type="password" required minlength="8" maxlength="128"></label><label>رمز جدید<input name="new_password" type="password" required minlength="8" maxlength="128"></label><button class="primary" type="submit">ذخیره رمز جدید</button></form><p id="coachPasswordChangeResult"></p></section>`;
+      content.innerHTML=`${head.replace('＋ افزودن','ساخت نسخه پشتیبان')}<section class="panel settings-card"><h2>پشتیبان‌گیری و بازیابی</h2><p>دیتابیس در <code>data/yasnafit.db</code> است؛ نسخه‌های پشتیبان در پوشه <code>backups</code> نگهداری می‌شوند. بازیابی همهٔ داده‌ها (شاگردان، مربی، تنظیمات هوش مصنوعی، اتصال تلگرام و…) را با نسخهٔ انتخابی جایگزین می‌کند و سرویس یک بار ری‌استارت می‌شود.</p><button class="primary" id="backupBtn">ساخت نسخه پشتیبان SQLite</button><div class="restore-upload-row"><input type="file" id="restoreFile" accept=".db" aria-label="انتخاب فایل پشتیبان"><button class="secondary" id="restoreUploadBtn" disabled>بازیابی از فایل</button></div><p id="backupResult" class="backup-result"></p><div id="backupList" class="backup-list">در حال دریافت فهرست پشتیبان‌ها…</div></section><section class="panel settings-card"><h2>تغییر رمز مربی</h2><p>پس از تغییر رمز، همه نشست‌های قبلی باطل می‌شوند و باید دوباره وارد شوید.</p><form id="coachPasswordChangeForm" class="form-grid"><label>رمز فعلی<input name="current_password" type="password" required minlength="8" maxlength="128"></label><label>رمز جدید<input name="new_password" type="password" required minlength="8" maxlength="128"></label><button class="primary" type="submit">ذخیره رمز جدید</button></form><p id="coachPasswordChangeResult"></p></section>`;
+      const resultEl=document.querySelector('#backupResult');
       const back=async()=>{
-        const r=await api('/api/backup',{method:'POST'});
-        document.querySelector('#backupResult').textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
+        try{
+          const r=await api('/api/backup',{method:'POST'});
+          resultEl.textContent=`نسخه پشتیبان با نام ${r.file} ساخته شد.`;
+          await loadList();
+        }catch(error){resultEl.textContent='خطا در پشتیبان‌گیری: '+error.message;}
+      };
+      const restoreConfirm=(label,run)=>{
+        if(!confirm(`بازیابی ${label}: همهٔ اطلاعات فعلی با نسخهٔ انتخابی جایگزین می‌شود و سرویس ری‌استارت می‌شود. ادامه می‌دهید؟`))return;
+        resultEl.textContent='در حال آماده‌سازی بازیابی…';
+        run().then(()=>{
+          resultEl.textContent='✓ بازیابی انجام شد. سرویس در حال ری‌استارت است؛ چند ثانیه بعد صفحه به‌صورت خودکار باز می‌شود.';
+          setTimeout(()=>location.replace('/coach/dashboard'),7000);
+        }).catch(e=>{resultEl.textContent='خطا در بازیابی: '+e.message;});
+      };
+      const loadList=async()=>{
+        const host=document.querySelector('#backupList');
+        try{
+          const data=await api('/api/backup');
+          if(!data.backups.length){host.innerHTML='<p class="backup-empty">هنوز نسخه پشتیبانی ساخته نشده است.</p>';return;}
+          host.innerHTML='<table class="backup-table"><thead><tr><th>فایل پشتیبان</th><th>حجم</th><th>تاریخ</th><th>عملیات</th></tr></thead><tbody>'+data.backups.map(b=>`<tr><td class="backup-name">${esc(b.name)}</td><td>${b.size_mb} مگابایت</td><td>${esc(b.date)}</td><td class="backup-actions"><a class="btn-backup-dl" href="/api/backup/download?name=${encodeURIComponent(b.name)}">↧ دانلود</a><button type="button" class="btn-backup-rs" data-restore="${esc(b.name)}">↺ بازیابی</button></td></tr>`).join('')+'</tbody></table>';
+          host.querySelectorAll('[data-restore]').forEach(btn=>btn.onclick=()=>restoreConfirm(`نسخه «${btn.dataset.restore}»`,()=>api('/api/backup/restore-server',{method:'POST',body:JSON.stringify({name:btn.dataset.restore})})));
+        }catch(error){host.textContent='خطا در فهرست پشتیبان‌ها: '+error.message;}
+      };
+      const fileInput=document.querySelector('#restoreFile');
+      const uploadBtn=document.querySelector('#restoreUploadBtn');
+      fileInput.onchange=()=>{uploadBtn.disabled=!fileInput.files.length;};
+      uploadBtn.onclick=()=>{
+        const f=fileInput.files[0];
+        if(!f)return;
+        restoreConfirm(`فایل «${f.name}»`,async()=>{
+          const buffer=await f.arrayBuffer();
+          const r=await fetch('/api/backup/restore',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:buffer});
+          const d=await r.json().catch(()=>({}));
+          if(!r.ok)throw new Error(d.error||'بازیابی ناموفق بود.');
+          return d;
+        });
       };
       document.querySelector('#addBtn').onclick=back;
       document.querySelector('#backupBtn').onclick=back;
+      loadList();
       document.querySelector('#coachPasswordChangeForm').onsubmit=async event=>{
         event.preventDefault();
         const form=Object.fromEntries(new FormData(event.currentTarget));
@@ -215,6 +251,51 @@ async function render(label,route){
     content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
   }
 }
+// ── آمار بازدید سایت (بازدید صفحه‌ها، IP یکتا، کشور، دستگاه) ──
+window.renderVisitAnalytics=async function(label,route){
+  let days=30;
+  const render=async()=>{
+    updateSidebarActiveState(route);
+    crumb.textContent=label;
+    content.innerHTML='<div class="loading-state"><span class="spinner"></span><p>در حال بارگذاری آمار…</p></div>';
+    let data;
+    try{ data=await api(`/api/analytics/visits?days=${days}`); }
+    catch(error){ content.innerHTML=`<section class="panel"><h2>آمار بازدید</h2><p class="error">${esc(error.message)}</p></section>`; return; }
+    const s=data.summary;
+    const fa=n=>Number(n||0).toLocaleString('fa-IR');
+    const flag=code=>{ const cc=String(code||'').toUpperCase(); if(cc==='LN')return '🏠'; if(!/^[A-Z]{2}$/.test(cc))return '🌐'; return String.fromCodePoint(...[...cc].map(c=>127397+c.charCodeAt(0))); };
+    const deviceFa={mobile:'📱 موبایل',tablet:'💻 تبلت',desktop:'🖥 دسکتاپ',unknown:'نامشخص'};
+    const maxDaily=Math.max(1,...data.daily.map(d=>d.views));
+    const bars=data.daily.slice(-21).map(d=>`<div class="visit-bar" title="${esc(d.day)} — ${fa(d.views)} بازدید / ${fa(d.ips)} IP"><i style="height:${Math.round(d.views/maxDaily*100)}%"></i><small>${esc(d.day.slice(5))}</small></div>`).join('');
+    const countries=data.countries.length?`<table class="visit-table"><thead><tr><th>کشور</th><th>IP یکتا</th><th>بازدید</th></tr></thead><tbody>${data.countries.map(c=>`<tr><td>${flag(c.code)} ${esc(c.name)}</td><td>${fa(c.ips)}</td><td>${fa(c.views)}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const devices=data.devices.length?data.devices.map(d=>`<div class="visit-chip"><b>${deviceFa[d.device]||esc(d.device)}</b><span>${fa(d.views)} بازدید • ${fa(d.ips)} IP</span></div>`).join(''):'<p class="visit-empty">—</p>';
+    const browsers=data.browsers.length?data.browsers.map(b=>`<div class="visit-chip"><b>${esc(b.browser)}</b><span>${fa(b.views)}</span></div>`).join(''):'';
+    const oses=data.os.length?data.os.map(o=>`<div class="visit-chip"><b>${esc(o.os)}</b><span>${fa(o.views)}</span></div>`).join(''):'';
+    const recent=data.recent.length?`<table class="visit-table"><thead><tr><th>زمان</th><th>IP</th><th>کشور</th><th>دستگاه</th><th>صفحه</th></tr></thead><tbody>${data.recent.map(r=>`<tr><td class="visit-time">${new Date(r.visited_at).toLocaleString('fa-IR')}</td><td class="visit-ip">${esc(r.ip||'—')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}${r.browser&&r.browser!=='سایر'?' • '+esc(r.browser):''}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const visitors=(data.visitors||[]).length?`<table class="visit-table visit-visitors"><thead><tr><th>IP</th><th>کشور</th><th>دستگاه</th><th>بازدید</th><th>اولین ورود</th><th>آخرین فعالیت</th><th>مدت حضور</th><th>ثبت‌نام</th></tr></thead><tbody>${data.visitors.map(v=>`<tr class="${v.online?'visit-online':''}"><td class="visit-ip">${esc(v.ip||'—')}${v.online?' <span class="visit-live-dot" title="احتمالاً آنلاین"></span>':''}</td><td>${flag(v.country_code)} ${esc(v.country_name||'نامشخص')}</td><td>${deviceFa[v.device]||esc(v.device||'—')}${v.browser&&v.browser!=='سایر'?' • '+esc(v.browser):''}</td><td>${fa(v.views)}</td><td class="visit-time">${esc(v.first_fa)}</td><td class="visit-time">${esc(v.last_fa)}</td><td>${esc(v.duration_fa)}</td><td>${v.registrations>0?'<span class="visit-badge yes">✅ ثبت‌نام کرده</span>':'<span class="visit-badge no">❌ نه</span>'}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const geoNote=data.pending_geo?`<p class="visit-geo-note">🌍 ${fa(data.pending_geo)} IP در صف تعیین کشور است؛ در چند دقیقهٔ بعدی کامل می‌شود.</p>`:'';
+    content.innerHTML=`
+      <div class="page-head"><div><h1>آمار بازدید سایت</h1><p>بازدید صفحه‌ها، IPهای یکتا، کشور و دستگاه بازدیدکنندگان</p></div>
+        <div class="visit-ranges">${[7,30,90].map(d=>`<button class="secondary ${d===days?'active':''}" data-days="${d}">${d===7?'۷ روز':d===30?'۳۰ روز':'۹۰ روز'}</button>`).join('')}</div></div>
+      ${geoNote}
+      <div class="stat-grid visit-stats">
+        <article><span>امروز</span><strong>${fa(s.today_views)}</strong><small>${fa(s.today_ips)} IP یکتا</small></article>
+        <article><span>۷ روز اخیر</span><strong>${fa(s.day7_views)}</strong><small>${fa(s.day7_ips)} IP یکتا</small></article>
+        <article><span>۳۰ روز اخیر</span><strong>${fa(s.day30_views)}</strong><small>${fa(s.day30_ips)} IP یکتا</small></article>
+        <article><span>کل از ابتدا</span><strong>${fa(s.total_views)}</strong><small>${fa(s.total_ips)} IP یکتا</small></article>
+      </div>
+      <section class="panel"><h2>روند روزانه (۲۱ روز اخیر)</h2><div class="visit-bars">${bars||'<p class="visit-empty">—</p>'}</div></section>
+      <div class="split">
+        <section class="panel"><h2>کشورها (IP یکتا)</h2>${countries}</section>
+        <section class="panel"><h2>دستگاه‌ها</h2><div class="visit-chips">${devices}</div><h2 style="margin-top:16px">مرورگر</h2><div class="visit-chips">${browsers||'<p class="visit-empty">—</p>'}</div><h2 style="margin-top:16px">سیستم‌عامل</h2><div class="visit-chips">${oses||'<p class="visit-empty">—</p>'}</div></section>
+      </div>
+      <section class="panel"><h2>بازدیدکنندگان — هر IP با جزئیات</h2>${visitors}</section>
+      <section class="panel"><h2>آخرین بازدیدها (صفحه به صفحه)</h2>${recent}</section>`;
+    content.querySelectorAll('[data-days]').forEach(btn=>btn.onclick=()=>{days=Number(btn.dataset.days);render();});
+  };
+  await render();
+};
+
 window.renderCoreRoute=render;
 function coachNotificationTarget(item){
   if(item.entity_type==='assessment'&&item.entity_id)return `/assessments/${item.entity_id}`;
