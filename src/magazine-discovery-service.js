@@ -8,13 +8,9 @@
  * coach's explicit publish action (article-service transition) makes content
  * public. This service never calls publishArticle.
  *
- * Flow per run:
- *   active sources -> fetch feeds -> dedupe (url_hash / fingerprint / title
- *   similarity) -> quality checks -> AI editorial draft (when the configured
- *   AI provider is available; otherwise a clearly-flagged minimal draft from
- *   source metadata) -> articleService.createArticle(status=DRAFT,
- *   content_origin='generated') -> coach in-app notification when actionable
- *   review items exist.
+ * Flow per run: active feeds -> filters/dedupe -> original publisher metadata
+ * -> existing articleService.createArticle(DRAFT, content_origin='imported').
+ * No AI step. Only an explicit coach action can publish.
  */
 
 const crypto = require('crypto');
@@ -24,11 +20,8 @@ const DISCOVERY_FETCH_MS = 25000;
 const TITLE_SIMILARITY_THRESHOLD = 0.86;
 
 // ---------- freshness + source-quality gates (owner spec) ----------
-// "New content" must actually be new: general media within 30 days, scientific
-// / established sources within 90 days. Older items are only accepted when the
-// AI explicitly marks them as an evergreen reference — and nothing older than
-// the hard cap may ever appear as "new" (a 2017/2020 article never does).
-// rev11.1 (owner, 2026-09-21): relaxed for testing — accept up to 90 days for ALL sources.
+// Normal runs accept dated articles up to 90 days old. A coach-requested,
+// one-shot diagnostic may bypass age/host quality, but never auto-publishes.
 const FRESH_NEWS_DAYS = 90;
 const FRESH_SCIENCE_DAYS = 90;
 const EVERGREEN_HARD_CAP_DAYS = 365;
@@ -66,7 +59,8 @@ function freshnessGate({ ageDays, scientific }) {
 }
 
 // Extract the embedded publisher URL from a news.google.com/rss/articles/<id>
-// redirect: the id is base64 of a protobuf that carries the original URL.
+// LEGACY redirect only: some IDs embed the publisher URL; modern opaque
+// AU_yqL IDs do not. Never claim these have resolved just because they decode.
 function extractUrlFromGoogleNewsId(id) {
   try {
     let b64 = String(id || '').replace(/-/g, '+').replace(/_/g, '/');
@@ -180,7 +174,7 @@ function titleSimilarity(a, b) {
 
 // Minimal, tolerant RSS 2.0 / Atom item parser (no external dependency).
 // Returns [{title, url, publishedAt, summary, imageUrl, author}]
-function parseFeed(xml) {
+function parseFeed(xml, { includeInvalid = false } = {}) {
   const text = String(xml || '');
   const items = [];
   const entries = [];
@@ -237,7 +231,7 @@ function parseFeed(xml) {
     const author = pick(block, 'author', 'dc:creator', 'name') || '';
     const outlet = pick(block, 'source') || '';
     const finalUrl = realUrl || url;
-    if (!title || !finalUrl) continue;
+    if (!includeInvalid && (!title || !finalUrl)) continue;
     items.push({ title: title.slice(0, 300), url: finalUrl, publishedAt, summary, imageUrl, author: outlet || author, outlet });
   }
   return items;
@@ -364,9 +358,13 @@ function setSourceFetchResult(db, id, { ok, error }) {
   else db.prepare('UPDATE magazine_sources SET last_fetched_at=?, last_error=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(now, String(error || '').slice(0, 500), id);
 }
 
-async function fetchSourceItems(db, source) {
-  // rev11.1: one retry after a short pause — Google News search RSS can 403/timeout
-  // intermittently; a single retry recovers most «source unavailable» cases.
+function networkError(error) {
+  return [error.message || String(error), error.cause && error.cause.code, error.cause && error.cause.message].filter(Boolean).join(' | ').slice(0, 600);
+}
+
+async function fetchSourceItems(db, source, diagnostics = null) {
+  // One retry for transient transport failures. No guarantee of recovery:
+  // record the actual HTTP status, final locale and nested network error.
   const doFetch = async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DISCOVERY_FETCH_MS);
@@ -376,9 +374,23 @@ async function fetchSourceItems(db, source) {
         redirect: 'follow',
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
       });
+      if (diagnostics) Object.assign(diagnostics, {
+        http_status: response.status, final_url: response.url, reachable: response.ok,
+        content_type: response.headers.get('content-type'),
+        requested_locale: new URL(source.feed_url).searchParams.get('ceid'),
+        returned_locale: response.url ? new URL(response.url).searchParams.get('ceid') : null
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const text = await response.text();
-      return parseFeed(text).slice(0, 50);
+      const all = parseFeed(text, { includeInvalid: true });
+      if (diagnostics) Object.assign(diagnostics, {
+        parsed_items: all.length, processed_items: Math.min(all.length, 50),
+        feed_format_recognized: /<(rss|feed|rdf:RDF)[\s>]/i.test(text),
+        capped_entries: Math.max(0, all.length - 50),
+        feed_language: (text.match(/<language[^>]*>([^<]*)<\/language>/i) || [])[1] || null,
+        examples: all.slice(0, 3).map(i => ({ title: i.title, url: i.url, date: i.publishedAt, feed_image: i.imageUrl || null }))
+      });
+      return all.slice(0, 50);
     } finally {
       clearTimeout(timer);
     }
@@ -388,6 +400,7 @@ async function fetchSourceItems(db, source) {
     items = await doFetch();
   } catch (firstError) {
     await new Promise(r => setTimeout(r, 800));
+    if (diagnostics) diagnostics.first_error = networkError(firstError);
     items = await doFetch(); // throws the second error if it fails again
   }
   return items.map(item => ({ ...item, source }));
@@ -397,16 +410,16 @@ function findDuplicate(db, { url, title, sourceName }) {
   const urlHash = sha1(normalizeUrl(url));
   const fingerprint = fingerprintFor({ title, sourceName });
   if (urlHash) {
-    const byUrl = db.prepare(`SELECT id, status, article_id FROM magazine_discoveries WHERE url_hash=? LIMIT 1`).get(urlHash);
+    const byUrl = db.prepare(`SELECT id, status, article_id FROM magazine_discoveries WHERE url_hash=? AND (status IN ('NEW','PROCESSING','DRAFTED') OR article_id IS NOT NULL) LIMIT 1`).get(urlHash);
     if (byUrl) return { kind: 'url', record: byUrl };
     const articleByUrl = db.prepare('SELECT id, slug FROM magazine_articles WHERE deleted_at IS NULL AND source_url IS NOT NULL').all();
     for (const article of articleByUrl) {
       if (sha1(normalizeUrl(article.source_url)) === urlHash) return { kind: 'published-url', record: article };
     }
   }
-  const byFingerprint = db.prepare(`SELECT id, status, article_id FROM magazine_discoveries WHERE fingerprint=? LIMIT 1`).get(fingerprint);
+  const byFingerprint = db.prepare(`SELECT id, status, article_id FROM magazine_discoveries WHERE fingerprint=? AND (status IN ('NEW','PROCESSING','DRAFTED') OR article_id IS NOT NULL) LIMIT 1`).get(fingerprint);
   if (byFingerprint) return { kind: 'fingerprint', record: byFingerprint };
-  const recent = db.prepare(`SELECT id, title_original, fingerprint FROM magazine_discoveries WHERE status IN ('DRAFTED','DUPLICATE') ORDER BY id DESC LIMIT 200`).all();
+  const recent = db.prepare(`SELECT id, title_original, fingerprint FROM magazine_discoveries WHERE status='DRAFTED' ORDER BY id DESC LIMIT 200`).all();
   for (const row of recent) {
     if (titleSimilarity(row.title_original, title) >= TITLE_SIMILARITY_THRESHOLD) return { kind: 'similar-title', record: row };
   }
@@ -464,7 +477,7 @@ async function fetchArticlePage(url) {
           'Accept-Language': 'en-US,en;q=0.9'
         }
       });
-      if (!response.ok) return out;
+      if (!response.ok) { out.error = `HTTP ${response.status}`; return out; }
       const html = (await response.text()).slice(0, 2000000);
       out.ok = true;
       try { out.finalUrl = new URL(response.url || url).toString(); } catch (e) { out.finalUrl = url; }
@@ -516,6 +529,7 @@ async function fetchArticlePage(url) {
       clearTimeout(timer);
     }
   } catch (e) {
+    out.error = networkError(e);
     // A network failure is not fatal: the candidate continues without page data.
   }
   return out;
@@ -553,7 +567,7 @@ function htmlEscape(s) {
 //   4) keep the short summary from the feed + the publication date
 //   5) show a simple card; the coach reviews and publishes via the existing
 //      article system. The AI never runs and never publishes.
-async function processDiscovery(db, discovery, { usedImages = new Set(), existingArticleId = null } = {}) {
+async function processDiscovery(db, discovery, { usedImages = new Set(), existingArticleId = null, diagnosticUnfiltered = false } = {}) {
   const d = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(discovery.id);
   const source = d.source_id ? sourceView(db, d.source_id) : null;
   db.prepare("UPDATE magazine_discoveries SET status='PROCESSING' WHERE id=?").run(d.id);
@@ -585,11 +599,11 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
   // Older content is never presented as "new" (no AI evergreen mark exists in
   // the simplified flow). Missing date → cannot verify → filtered.
   const limitDays = tier <= 2 ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS;
-  if (ageDays == null) {
+  if (!diagnosticUnfiltered && ageDays == null) {
     fail({ filtered: 'no-date', needs_reprocess: false }, 'تاریخ انتشار مشخص نیست — تازگی قابل تأیید نیست', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
-  if (ageDays > limitDays) {
+  if (!diagnosticUnfiltered && ageDays > limitDays) {
     fail({ filtered: 'too-old', needs_reprocess: false, age_days: Math.round(ageDays) }, 'قدیمی‌تر از سقف تازگی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
@@ -661,7 +675,9 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
       article = articleService.createArticle(db, articleInput, 'discovery-engine');
     }
     if (cover) usedImages.add(cover);
-    const meta = { age_days: Math.round(ageDays), freshness: 'fresh', no_ai: true };
+    const meta = { age_days: ageDays == null ? null : Math.round(ageDays), freshness: diagnosticUnfiltered ? 'diagnostic-unfiltered' : 'fresh', no_ai: true,
+      diagnostic_unfiltered: diagnosticUnfiltered, page_reachable: Boolean(page && page.ok), page_error: page && page.error || null,
+      image_extracted: Boolean(cover) };
     db.prepare('UPDATE magazine_articles SET quality_flags=? WHERE id=?').run(JSON.stringify(flags), article.id);
     db.prepare('UPDATE magazine_discoveries SET status=\'DRAFTED\', article_id=?, quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?')
       .run(article.id, JSON.stringify(flags), JSON.stringify(meta), d.id);
@@ -684,17 +700,17 @@ const REPROCESS_MAX_ATTEMPTS = 3;
 
 function auditDraftForReprocess(row, discovery) {
   const reasons = [];
-  if (!row.title || !ARABIC_SCRIPT.test(row.title)) reasons.push('عنوان فارسی ندارد — پردازش AI کامل نشده است');
+  if (!row.title || !ARABIC_SCRIPT.test(row.title)) reasons.push('عنوان فارسی ندارد');
   let aiMeta = null;
   try { aiMeta = JSON.parse((discovery && discovery.ai_meta) || 'null'); } catch (e) { aiMeta = null; }
   const ageDays = ageDaysOf(discovery ? discovery.date_published : null);
-  if (ageDays != null && ageDays > FRESH_SCIENCE_DAYS) {
+  if (!(aiMeta && aiMeta.diagnostic_unfiltered) && ageDays != null && ageDays > FRESH_SCIENCE_DAYS) {
     reasons.push('تازگی: کهن‌تر از سقف مجاز است');
   }
   if (row.source_url && /google\.com$/i.test(hostOf(row.source_url)) && /rss\/articles/i.test(row.source_url)) {
     reasons.push('منبع هنوز لینک گوگل‌نیوز است — باید به انتشارکنندۀ اصلی حل شود');
   }
-  if (aiMeta && aiMeta.needs_reprocess) reasons.push('پردازش AI ناموفق بود — نیازمند پردازش مجدد');
+  if (aiMeta && aiMeta.needs_reprocess) reasons.push('منبع اصلی حل نشده است — نیازمند پردازش مجدد');
   return { reasons, ageDays, aiMeta };
 }
 
@@ -745,6 +761,10 @@ async function reprocessStaleDrafts(db, { usedImages = new Set() } = {}) {
     WHERE status='FAILED' AND article_id IS NULL
       AND ai_meta LIKE '%needs_reprocess%' AND ai_meta NOT LIKE '%\"needs_reprocess\":false%'
       AND date(created_at) > date('now', '-14 days')
+      -- A fresh feed candidate already owns this retry in the current run.
+      -- Do not process both the old parked row and its new candidate.
+      AND NOT EXISTS (SELECT 1 FROM magazine_discoveries n
+        WHERE n.status='NEW' AND (n.url_hash=magazine_discoveries.url_hash OR n.fingerprint=magazine_discoveries.fingerprint))
     ORDER BY id DESC LIMIT 10
   `).all();
   for (const p of parked) {
@@ -812,7 +832,24 @@ function syncProgressFromSummary(summary) {
   progressState.items_found = summary.fetched;
 }
 
-async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
+async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered = false } = {}) {
+  if (progressState.running) { const e = new Error('بررسی دیگری در حال اجراست'); e.statusCode = 409; throw e; }
+  // Request-local only: neither scheduler nor following normal runs inherit it.
+  diagnosticUnfiltered = diagnosticUnfiltered === true;
+  const report = { run_id: crypto.randomUUID(), started_at: new Date().toISOString(), mode: diagnosticUnfiltered ? 'unfiltered-once' : 'normal',
+    disabled_filters: diagnosticUnfiltered ? ['freshness', 'source-quality'] : [],
+    retained_rules: ['valid-url-and-title', 'Persian-title', 'deduplication', 'original-publisher-url', '20-item-processing-cap', 'coach-only-publication'],
+    sources: [], items: [] };
+  const writeReport = () => db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.last_diagnostics', ?)").run(JSON.stringify(report));
+  if (!db.prepare("SELECT 1 FROM settings WHERE key='magazine.legacy_diagnostics'").get()) {
+    const old = discoveryDiagnostics(db);
+    db.prepare("INSERT INTO settings (key,value) VALUES ('magazine.legacy_diagnostics',?)").run(JSON.stringify({
+      summary: old.legacy_last_run_summary, failures: old.historical_failures_without_run_attribution, note: old.legacy_note
+    }));
+  }
+  const prior = db.prepare("SELECT value FROM settings WHERE key='magazine.last_diagnostics'").get();
+  if (prior) db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.previous_diagnostics', ?)").run(prior.value);
+  writeReport();
   Object.assign(progressState, {
     running: true, phase: 'sources', current_source: '',
     sources_total: 0, sources_done: 0, items_total: 0, items_done: 0, items_found: 0,
@@ -831,21 +868,25 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
   const candidates = [];
   const seenInRun = [];
   const logRejected = (source, item, url, aiMeta) => {
-    db.prepare(`
+    const info = db.prepare(`
       INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, publisher, status, ai_meta)
       VALUES (?,?,?,?,?,?,?,?,?,?,?, 'FAILED', ?)
     `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }),
       item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500),
       item.imageUrl || null, publisherOf(item, source), JSON.stringify(aiMeta));
+    Object.assign(report.items[report.items.length - 1], { discovery_id: Number(info.lastInsertRowid), status: 'filtered', reason: aiMeta.filtered, metadata: aiMeta });
   };
   for (const source of sources) {
     progressState.current_source = source.name;
     let items = [];
     let fetchError = null;
+    const sourceReport = { id: source.id, name: source.name, url: source.feed_url, reachable: false, parsed_items: null, processed_items: 0, examples: [] };
+    report.sources.push(sourceReport);
     try {
-      items = await fetchSourceItems(db, source);
+      items = await fetchSourceItems(db, source, sourceReport);
     } catch (e) {
-      fetchError = String(e.message || e).slice(0, 300);
+      fetchError = networkError(e);
+      sourceReport.error = fetchError;
       summary.errors.push(`${source.name}: ${fetchError}`);
       progressState.error_sources.push(source.name);
     }
@@ -854,12 +895,15 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     summary.fetched += items.length;
     for (const item of items) {
       const url = normalizeUrl(item.url);
-      if (!url || !item.title) continue;
+      const itemReport = { source_id: source.id, title: item.title, url: item.url, published_at: item.publishedAt || null,
+        age_days: ageDaysOf(cleanDate(item.publishedAt)), status: 'found', reason: null };
+      report.items.push(itemReport);
+      if (!url || !item.title) { itemReport.status = 'invalid'; itemReport.reason = 'missing-valid-url-or-title'; continue; }
       // --- QUALITY filter: celebrity/lifestyle/SEO hosts never surface —
       // rev11.1: relaxed for PERSIAN sources (owner: «do not over-filter by
       // source quality for Persian sources»); the host list targets English
       // celebrity sites, Persian articles keep their own ranking by tier.
-      if (!ARABIC_SCRIPT.test(item.title) && LOW_QUALITY_HOSTS.test(hostOf(item.url))) {
+      if (!diagnosticUnfiltered && !ARABIC_SCRIPT.test(item.title) && LOW_QUALITY_HOSTS.test(hostOf(item.url))) {
         summary.filtered += 1;
         summary.filtered_breakdown['low-quality'] = (summary.filtered_breakdown['low-quality'] || 0) + 1;
         logRejected(source, item, url, { filtered: 'low-quality' });
@@ -871,7 +915,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
       const tier = Number(source.source_tier) || 3;
       const ageDays = ageDaysOf(cleanDate(item.publishedAt));
       const gate = freshnessGate({ ageDays, scientific: tier <= 2 });
-      if (gate.accept !== 'fresh') {
+      if (!diagnosticUnfiltered && gate.accept !== 'fresh') {
         summary.filtered += 1;
         summary.filtered_breakdown['freshness'] = (summary.filtered_breakdown['freshness'] || 0) + 1;
         logRejected(source, item, url, { filtered: gate.reason || 'too-old', age_days: ageDays == null ? null : Math.round(ageDays) });
@@ -888,6 +932,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
       const inRun = seenInRun.find(c => c.url === url || titleSimilarity(c.title, item.title) >= TITLE_SIMILARITY_THRESHOLD);
       const dup = inRun || findDuplicate(db, { url: item.url, title: item.title, sourceName: source.name });
       if (dup) {
+        Object.assign(itemReport, { status: 'duplicate', reason: inRun ? 'same-run-url-or-title' : dup.kind });
         summary.duplicates += 1;
         db.prepare(`
           INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, publisher, status)
@@ -901,15 +946,17 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
         VALUES (?,?,?,?,?,?,?,?,?,?,?, 'NEW')
       `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null, publisherOf(item, source));
       seenInRun.push({ url, title: item.title });
-      candidates.push({ source, item, url, discoveryId: Number(info.lastInsertRowid), tier, date: cleanDate(item.publishedAt) || '' });
+      itemReport.discovery_id = Number(info.lastInsertRowid);
+      candidates.push({ source, item, url, itemReport, discoveryId: Number(info.lastInsertRowid), tier, date: cleanDate(item.publishedAt) || '' });
     }
     syncProgressFromSummary(summary);
+    writeReport();
   }
   // Rev10: before processing new candidates, reprocess the parked drafts from
   // previous runs (AI failures, legacy English titles, unresolved Google News
   // sources) so the live review queue actually cleans itself.
   try {
-    const rp = await reprocessStaleDrafts(db, {});
+    const rp = diagnosticUnfiltered ? { reprocessed: 0, rejected: 0 } : await reprocessStaleDrafts(db, {});
     summary.reprocessed = rp.reprocessed;
     summary.audit_rejected = rp.rejected;
   } catch (e) {
@@ -927,26 +974,33 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
   summary.stopped_at_cap = ordered.length > DISCOVERY_BATCH_SIZE;
   // Items beyond the cap: release their reserved rows so the next run picks them up.
   for (const c of ordered.slice(DISCOVERY_BATCH_SIZE)) {
+    Object.assign(c.itemReport, { status: 'deferred', reason: '20-item-processing-cap' });
     db.prepare("DELETE FROM magazine_discoveries WHERE id=? AND status='NEW'").run(c.discoveryId);
   }
   progressState.items_total = toProcess.length;
   progressState.phase = 'draft';
-  // Pass 2: AI editorial preparation (translate → summarize → key points) and
-  // image extraction; then the draft enters the coach review inbox.
+  // Pass 2: original publisher metadata and image extraction, without AI.
   const usedImages = new Set();
   let actionable = 0;
   for (const c of toProcess) {
-    const { source, discoveryId } = c;
+    const { source, discoveryId, itemReport } = c;
     progressState.current_source = source.name;
     try {
-      const result = await processDiscovery(db, { id: discoveryId }, { usedImages });
+      const result = await processDiscovery(db, { id: discoveryId }, { usedImages, diagnosticUnfiltered });
       if (result && result.notPrepared) { summary.not_prepared += 1; }
       else if (result && result.skipped) { summary.rejected += 1; }
-      else { summary.drafted += 1; actionable += 1; }
+      else if (result && result.article) { summary.drafted += 1; actionable += 1; }
+      else { throw new Error('No persisted article returned by discovery'); }
     } catch (e) {
       summary.failed += 1;
       summary.errors.push(`پردازش: ${e.message || e}`);
+      itemReport.error = networkError(e);
     }
+    const persisted = db.prepare('SELECT status, article_id, ai_meta, quality_flags FROM magazine_discoveries WHERE id=?').get(discoveryId);
+    let meta = {}; try { meta = JSON.parse(persisted.ai_meta || '{}'); } catch (_) {}
+    Object.assign(itemReport, { status: persisted.status, article_id: persisted.article_id, metadata: meta,
+      reason: meta.filtered || meta.reason || meta.error || itemReport.error || null });
+    writeReport();
     progressState.items_done += 1;
     syncProgressFromSummary(summary);
   }
@@ -997,7 +1051,25 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     entityType: 'magazine_discovery',
     metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, rejected: summary.rejected, filtered: summary.filtered, filtered_breakdown: summary.filtered_breakdown, not_prepared: summary.not_prepared, failed: summary.failed, images_backfilled: imgFixed, reprocessed: summary.reprocessed, audit_rejected: summary.audit_rejected }
   });
-  const result = { ...summary, images_backfilled: imgFixed, ready_review: queueStats(db).drafts };
+  // Verify the very same projection consumed by GET /admin/queue and coach cards.
+  const queue = queueView(db);
+  for (const item of report.items.filter(i => i.article_id)) {
+    const row = queue.find(q => q.id === item.article_id);
+    item.queue_present = Boolean(row);
+    item.coach_card_visible = Boolean(row && !row.audit_reasons.length);
+    item.cover_image = row && row.cover_image || null;
+    item.source_url = row && row.source_url || null;
+    item.source_name = row && row.source_name || null;
+    if (diagnosticUnfiltered && item.cover_image) item.image_probe = await probeImage(item.cover_image);
+  }
+  report.queue = { total: queue.length, ready: queue.filter(q => !q.audit_reasons.length).length,
+    drafted_this_run: report.items.filter(i => i.status === 'DRAFTED').length,
+    visible_this_run: report.items.filter(i => i.coach_card_visible).length,
+    missing_article_ids: report.items.filter(i => i.status === 'DRAFTED' && !i.coach_card_visible).map(i => i.article_id) };
+  report.finished_at = new Date().toISOString();
+  report.summary = summary;
+  writeReport();
+  const result = { ...summary, images_backfilled: imgFixed, ready_review: queueStats(db).drafts, run_id: report.run_id, queue_verified: report.queue };
   progressState.running = false;
   progressState.finished_at = Date.now();
   progressState.phase = summary.errors.length ? 'done_with_errors' : 'done';
@@ -1007,6 +1079,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     progressState.running = false;
     progressState.finished_at = Date.now();
     progressState.phase = 'error';
+    report.error = networkError(e); report.finished_at = new Date().toISOString(); writeReport();
     progressState.last_result = { error: true };
     throw e;
   }
@@ -1134,7 +1207,34 @@ function queueStats(db) {
   };
 }
 
+async function probeImage(url) {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { Range: 'bytes=0-1023' } });
+    const type = r.headers.get('content-type') || '';
+    if (r.body) await r.body.cancel();
+    return { reachable: r.ok, http_status: r.status, content_type: type, image_response: r.ok && /^image\//i.test(type),
+      note: 'HTTP probe only; browser image rendering is not proven' };
+  } catch (e) { return { reachable: false, error: networkError(e) }; }
+}
+
+function discoveryDiagnostics(db) {
+  const read = key => { const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key); try { return row ? JSON.parse(row.value) : null; } catch (_) { return null; } };
+  const last = read('magazine.last_diagnostics');
+  return {
+    sources: listSources(db).filter(s => s.is_active),
+    last_run: last,
+    previous_run: read('magazine.previous_diagnostics'),
+    legacy_last_run_summary: read('magazine.last_run_result'),
+    before_diagnostics_were_available: read('magazine.legacy_diagnostics'),
+    legacy_note: 'Older versions did not store run IDs or per-run source responses. Historical failures below cannot be attributed exactly to the last run.',
+    historical_failures_without_run_attribution: last ? [] : db.prepare("SELECT id, source_id, title_original, url, date_published, status, ai_meta, quality_flags, created_at, processed_at FROM magazine_discoveries WHERE status='FAILED' ORDER BY id").all(),
+    queue: queueView(db), queue_stats: queueStats(db)
+  };
+}
+
 module.exports = {
+  discoveryDiagnostics,
+  probeImage,
   DISCOVERY_BATCH_SIZE,
   FRESH_NEWS_DAYS,
   FRESH_SCIENCE_DAYS,

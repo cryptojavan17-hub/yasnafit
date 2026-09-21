@@ -812,7 +812,7 @@
   // rev11 simple card: Persian title / image / source / date / short summary /
   // [مشاهده] [ویرایش] [✓ انتشار] [رد] — no AI fields, no technical data.
   function newsCard(item) {
-    const date = item.source_published_at || item.discovered_at || item.created_at;
+    const date = item.source_published_at;
     return `
     <article class="mag-news-card" data-id="${item.id}">
       <div class="mag-news-card__media">
@@ -821,6 +821,7 @@
       <h4 class="mag-news-title">${esc(item.title)}</h4>
       <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ: ${faDate(date)}</div>
       ${item.source_url ? `<div class="mag-news-url" dir="ltr" title="${esc(item.source_url)}">${esc(item.source_url)}</div>` : ''}
+      ${item.ai_meta && item.ai_meta.diagnostic_unfiltered ? '<p class="mag-toolbar__note">آزمایش بدون فیلتر سن و کیفیت؛ تازگی این مطلب تأیید نشده است.</p>' : ''}
       ${item.summary ? `<p class="mag-news-summary">${esc(item.summary)}</p>` : ''}
       <div class="mag-news-actions">
         ${item.source_url ? `<a class="mag-action mag-action--view" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده</a>` : ''}
@@ -877,8 +878,13 @@
         </div>
       </div>
       ${state.canSearchMore && !state.discoverRunning ? `<p class="mag-toolbar__note mag-news-more-note">این بررسی ${faDigits(state.lastDrafted || 0)} مطلب جدید آماده کرد؛ برای بررسیٔ موارد بعدی «جستجو بیشتر» را بزنید.</p>` : ''}
+      <details class="mag-news-reprocess-list"><summary>عیب‌یابی دریافت مطالب</summary>
+        <p class="mag-toolbar__note">این آزمایش فقط برای یک اجرا محدودیت سن و کیفیت منبع را کنار می‌گذارد؛ ممکن است مطلب قدیمی یا بدون تاریخ وارد صف شود. فارسی بودن عنوان، منبع اصلی، جلوگیری از تکرار و انتشار فقط با تأیید مربی حفظ می‌شود.</p>
+        <button type="button" class="secondary" id="magRunUnfiltered"${state.discoverRunning ? ' disabled' : ''}>آزمایش یک‌باره بدون فیلتر سن و کیفیت</button>
+        <a class="mag-action" href="/api/magazine/admin/discover/diagnostics" download="magazine-diagnostics.json">دریافت گزارش دقیق اجرا</a>
+      </details>
       ${state.discoverRunning ? newsProgressMarkup() : ''}
-      ${readyQueue.length ? `<div class="mag-news-grid">${readyQueue.map(newsCard).join('')}</div>` : reprocessQueue.length ? '' : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — سیستم از منابع معتبر روز دنیا جستجو می‌کند، فارسی می‌کند و گزارش آماده می‌سازد.</div>'}
+      ${readyQueue.length ? `<div class="mag-news-grid">${readyQueue.map(newsCard).join('')}</div>` : reprocessQueue.length ? '' : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — عنوان و تصویر مطالب فارسی از منابع دریافت می‌شود؛ ترجمه یا پردازش هوش مصنوعی لازم نیست.</div>'}
       ${reprocessQueue.length ? `<details class="mag-news-reprocess-list" open><summary>🔁 جزئیات ${faDigits(reprocessQueue.length)} مطلب نیازمند پردازش مجدد</summary>${reprocessQueue.map(q => `<div class="mag-news-reprocess-item"><span dir="auto">${esc(q.title || '—')}</span><small>${(q.audit_reasons || []).join('؛ ')}${q.ai_meta && q.ai_meta.reprocess_count ? ' · تلاش خودکار ' + faDigits(q.ai_meta.reprocess_count) + ' از ' + faDigits(3) : ''}</small><button type="button" class="mag-action" data-news-action="reprocess" data-id="${q.id}">🔄 پردازش مجدد</button><button type="button" class="mag-action mag-action--reject" data-news-action="reject" data-id="${q.id}">رد</button></div>`).join('')}</details>` : ''}
     `;
   }
@@ -930,7 +936,7 @@
   function bindNews() {
     const pane = document.getElementById('magazinePane');
     if (!pane) return;
-    const runDiscoverFlow = async (isMore) => {
+    const runDiscoverFlow = async (isMore, diagnosticUnfiltered = false) => {
       state.discoverRunning = true;
       state.progress = { running: true, phase: 'sources' };
       renderPane();
@@ -961,16 +967,16 @@
         } catch (e) { /* keep the last known state */ }
       }, 1500);
       try {
-        const result = await api('/api/magazine/admin/discover', { method: 'POST', body: '{}' });
+        const result = await api('/api/magazine/admin/discover', { method: 'POST', body: JSON.stringify({ diagnostic_unfiltered: diagnosticUnfiltered }) });
         state.canSearchMore = Boolean(result.stopped_at_cap);
         state.lastDrafted = Number(result.drafted) || 0;
-        const parts = [];
+        const parts = diagnosticUnfiltered ? ['آزمایش بدون فیلتر سن و کیفیت انجام شد؛ این نتیجه تأیید تازگی نیست.'] : [];
         // rev10 wording: "پیدا شد" = this scan's NEW finds; "آماده است" = the
         // existing pending review queue. The two numbers may differ on purpose.
         if (result.drafted) parts.push(`📰 در این بررسی ${faDigits(result.drafted)} ${isMore ? 'مطلب جدید فارسی دیگر پیدا شد' : 'مطلب جدید فارسی پیدا شد'}.`);
         else parts.push('در این بررسی مطلب جدیدی پیدا نشد — همهٔ منابع بررسی شد.');
         if (typeof result.ready_review === 'number') parts.push(faDigits(result.ready_review) + ' مطلب برای بررسی آماده است.');
-        if (result.filtered) parts.push(`${faDigits(result.filtered)} مطلب به‌خاطر تازگی/کیفیت منبع مطابق نبود و حذف شد.`);
+        if (result.filtered) parts.push(`${faDigits(result.filtered)} مطلب فیلتر شد؛ دلیل هر مورد در گزارش دقیق اجرا ثبت شده است.`);
         if (result.not_prepared) parts.push(`توجه: ${faDigits(result.not_prepared)} مطلب «نیازمند پردازش مجدد» است (منبع اصلی حل نشد — در بررسی بعدی دوباره امتحان می‌شود).`);
         let msg = parts.join(' ');
         if (result.stopped_at_cap) msg += ' برای ادامهٔ بررسی «جستجو بیشتر» را بزنید.';
@@ -987,6 +993,10 @@
     };
     const discoverBtn = pane.querySelector('#magRunDiscover');
     if (discoverBtn) discoverBtn.addEventListener('click', () => runDiscoverFlow(false));
+    const unfilteredBtn = pane.querySelector('#magRunUnfiltered');
+    if (unfilteredBtn) unfilteredBtn.addEventListener('click', () => {
+      if (window.confirm('فقط در این اجرا فیلتر سن و کیفیت کنار گذاشته شود؟ ممکن است مطالب قدیمی وارد صف شوند؛ هیچ مطلبی خودکار منتشر نمی‌شود.')) runDiscoverFlow(false, true);
+    });
     const moreBtn = pane.querySelector('#magSearchMore');
     if (moreBtn) moreBtn.addEventListener('click', () => runDiscoverFlow(true));
     pane.querySelectorAll('[data-news-action]').forEach(btn => {

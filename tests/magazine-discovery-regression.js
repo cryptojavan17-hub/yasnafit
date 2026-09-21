@@ -8,7 +8,7 @@ const totp=require('/home/user/yasnafit/src/totp');
 const discovery=require('/home/user/yasnafit/src/magazine-discovery-service');
 
 // Build a news.google.com/rss/articles/<id> redirect whose base64 id carries
-// the real publisher URL (new Google News link format).
+// the real publisher URL (legacy format only; NOT modern opaque IDs).
 const gnewsId=(url,junk='hello')=>{const b=Buffer.concat([Buffer.from([0x0a,junk.length]),Buffer.from(junk),Buffer.from([0x12,Buffer.byteLength(url)]),Buffer.from(url)]);return b.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
 const GNEWS_REAL='https://redirect-story.example.com/rs-1';
 
@@ -134,7 +134,25 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     };
   };
   let aiCalls=0;
+  const opaqueLiveId = 'CBMid0FVX3lxTE5oZE5DUm5jajVRaWZZbDk2X2IyQkN2elJVSWRTS01kUkRJQWRwUmJib1VTdTcyU0NDbF9QOTJTcTRHZTVBRE5USFh6dnBjLVBqcVBsYWMxb2R6aXhtX0lka0RsQ29CODBUcnBfWFFsQ2ZCcV9hVEVF';
+  check('live-observed opaque Google ID is NOT a legacy embedded URL', discovery.extractUrlFromGoogleNewsId(opaqueLiveId)==='');
   const feedServer=http.createServer((req,res)=>{
+    // Controlled regression only, NOT live-source acceptance evidence.
+    if(req.url==='/diagnostic.xml'){
+      res.setHeader('Content-Type','application/rss+xml');
+      const item=(title,url,date)=>`<item><title>${title}</title><link>${url}</link>${date?`<pubDate>${date}</pubDate>`:''}</item>`;
+      res.end('<rss><channel><language>fa</language>'
+        +item('حرکات اصلاحی ستون فقرات قدیمی','http://127.0.0.1:'+feedPort+'/diagnostic-old.html','2017-01-01')
+        +item('راهنمای کشش عضلات بدون تاریخ','http://127.0.0.1:'+feedPort+'/diagnostic-undated.html','')
+        +item('English celebrity example','https://tmz.com/diagnostic',new Date().toISOString())
+        +item('','http://127.0.0.1:'+feedPort+'/empty.html','')
+        +item('پیوند مبهم منبع گوگل','https://news.google.com/rss/articles/'+opaqueLiveId,new Date().toISOString())
+        +'</channel></rss>');return;
+    }
+    if(req.url.startsWith('/diagnostic-')){
+      res.setHeader('Content-Type','text/html');res.end('<html><head><meta property="og:site_name" content="منبع آزمایش واحد"><meta property="og:image" content="https://diagnostic-image.invalid/'+req.url.slice(1)+'.jpg"></head><body>test</body></html>');return;
+    }
+
     if(req.url.startsWith('/redirector/x')){res.statusCode=302;res.setHeader('Location','http://127.0.0.1:'+feedPort+'/story4.html');res.end('');return;}
     if(req.url.startsWith('/story4.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(STORY4_PAGE);return;}
     if(req.url.startsWith('/img-twitter.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(TWITTER_PAGE);return;}
@@ -543,6 +561,38 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('scheduler: interval gate blocks immediate second run', immediate===null);
   const schedEvents=dbS.prepare("SELECT action FROM audit_events WHERE action LIKE 'discovery.scheduled%'").all();
   check('scheduler: scheduled run audited', schedEvents.some(x=>x.action==='discovery.scheduled'), JSON.stringify(schedEvents.map(x=>x.action)));
+  // Diagnostic API regression: actual persisted rows + the exact HTTP queue
+  // endpoint. These fixtures prove code behavior, not live Persian delivery.
+  dbS.prepare("UPDATE magazine_sources SET is_active=0").run();
+  dbS.prepare("UPDATE settings SET value='0' WHERE key='magazine.auto_fetch'").run();
+  discovery.createSource(dbS,{name:'منبع آزمایش تشخیصی',feed_url:'http://127.0.0.1:'+feedPort+'/diagnostic.xml',category_slug:'health',is_active:true});
+  let normal=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
+  let diagnostic=await j('/api/magazine/admin/discover/diagnostics');
+  check('diagnostics normal run records each fetched item, including invalid', diagnostic.data.last_run.items.length===5);
+  const reasons=diagnostic.data.last_run.items.map(i=>i.reason);
+  check('diagnostics exact reasons: old, undated, quality, invalid, unresolved', ['too-old','no-date','low-quality','missing-valid-url-or-title','original-url-unresolved'].every(x=>reasons.includes(x)),JSON.stringify(reasons));
+  check('diagnostics source HTTP, final URL, language and item count stored', diagnostic.data.last_run.sources[0].http_status===200 && diagnostic.data.last_run.sources[0].parsed_items===5 && diagnostic.data.last_run.sources[0].feed_language==='fa');
+  const anonymous=await fetch(BASE+'/api/magazine/admin/discover/diagnostics');
+  check('diagnostics export requires coach session',anonymous.status===401);
+  const crossed=await j('/api/magazine/admin/discover',{method:'POST',headers:{Origin:'https://evil.invalid'},body:JSON.stringify({diagnostic_unfiltered:true})});
+  check('unfiltered diagnostic rejects foreign origin',crossed.status===403);
+  const raw=await j('/api/magazine/admin/discover',{method:'POST',body:JSON.stringify({diagnostic_unfiltered:true})});
+  diagnostic=await j('/api/magazine/admin/discover/diagnostics');
+  const report=diagnostic.data.last_run;
+  check('one-shot bypass drafts formerly FAILED old and undated entries',raw.status===200 && raw.data.drafted===2 && report.mode==='unfiltered-once',JSON.stringify(raw.data));
+  check('raw run retains Persian-only filter but bypasses host-quality',report.items.some(i=>i.reason==='non-persian') && !report.items.some(i=>i.reason==='low-quality'));
+  const actualQueue=(await j('/api/magazine/admin/queue')).data.queue;
+  const drafted=report.items.filter(i=>i.status==='DRAFTED');
+  check('each drafted ID really exists in authenticated queue and visible-card projection',drafted.length===2 && drafted.every(i=>actualQueue.some(q=>q.id===i.article_id && q.status==='DRAFT' && q.audit_reasons.length===0 && q.cover_image)));
+  check('raw items explicitly diagnostic, never marked fresh',drafted.every(i=>i.metadata.diagnostic_unfiltered && i.metadata.freshness==='diagnostic-unfiltered'));
+  check('image extraction is not falsely reported as successful HTTP loading',drafted.every(i=>i.cover_image && i.image_probe.reachable===false));
+  check('queue verification has actual visible IDs, not just draft counters',report.queue.visible_this_run===2 && report.queue.missing_article_ids.length===0);
+  check('previous normal run preserved across raw run',diagnostic.data.previous_run.mode==='normal' && diagnostic.data.previous_run.run_id===normal.data.run_id);
+  normal=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
+  diagnostic=await j('/api/magazine/admin/discover/diagnostics');
+  check('normal filters restored automatically for next request',diagnostic.data.last_run.mode==='normal' && normal.data.filtered===3);
+  check('diagnostic drafts remain visible, not silently rejected by later audit',drafted.every(i=>diagnostic.data.queue.some(q=>q.id===i.article_id && !q.audit_reasons.length)));
+  check('diagnostic run never publishes or calls AI',drafted.every(i=>dbS.prepare('SELECT status FROM magazine_articles WHERE id=?').get(i.article_id).status==='DRAFT') && aiCalls===0);
   dbS.close();
 
   console.log('\n'+(failures? `${failures} FAILURES` : 'ALL SMOKE CHECKS PASSED'));

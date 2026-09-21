@@ -3194,10 +3194,16 @@ async function handleMagazineAdmin(req,res,url){
       return send(res,200,out);
     }catch(error){ return sendCaughtError(res,error); }
   }
+  if(p==='/api/magazine/admin/discover/diagnostics' && req.method==='GET'){
+    res.setHeader('Content-Disposition', 'attachment; filename="magazine-diagnostics.json"');
+    res.setHeader('Cache-Control', 'no-store');
+    return send(res,200,magazineDiscovery.discoveryDiagnostics(db));
+  }
   if(p==='/api/magazine/admin/discover' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     try{
-      const result=await magazineDiscovery.runDiscovery(db);
+      const body=await readBody(req);
+      const result=await magazineDiscovery.runDiscovery(db,{diagnosticUnfiltered:body?.diagnostic_unfiltered===true});
       log('بررسی مطالب جدید مجله انجام شد', `${result.drafted} پیش‌نویس جدید / ${result.duplicates} تکراری`);
       return send(res,200,result);
     }catch(error){ return sendCaughtError(res,error); }
