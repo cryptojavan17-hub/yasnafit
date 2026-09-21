@@ -3663,7 +3663,7 @@ const server=http.createServer(async(req,res)=>{
     const isSafeMethod = req.method==='GET' || req.method==='HEAD';
     if(url.pathname==='/sitemap.xml' && isSafeMethod) return sendSitemap(req,res);
     if(url.pathname==='/robots.txt' && isSafeMethod) return sendRobots(req,res);
-    const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,200}$/);
+    const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,600}$/); // 600: percent-encoded Persian slugs can be long
     if(publicArticlePage) return sendPublicPage(req,res,{kind:'article',path:url.pathname});
     const isPublicPageRoute = isSafeMethod && (
       url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||

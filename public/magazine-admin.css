@@ -246,3 +246,4 @@
 .mag-progress__counts { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 .mag-news-more-note { margin: 10px 0 0; font-size: 12.5px; }
 .mag-toolbar__actions .secondary.mag-news-run { min-height: 44px; padding: 0 18px; font-size: 13px; font-weight: 700; }
+.mag-news-cat--evergreen { background: rgba(125, 211, 252, .10); color: #7dd3fc; border: 1px solid rgba(125, 211, 252, .35); }

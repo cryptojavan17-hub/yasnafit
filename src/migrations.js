@@ -1548,6 +1548,31 @@ const migrations = [
       const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
       for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
     }
+  },
+  {
+    id: '037_magazine_source_quality_tiers',
+    description: 'Magazine: source quality tiers (owner spec) — scientific/peer-reviewed sources rank above established publications and general media',
+    up(db) {
+      try { db.exec('ALTER TABLE magazine_sources ADD COLUMN source_tier INTEGER DEFAULT 3'); } catch (e) { /* column already exists */ }
+      // Coach-facing source name = the ORIGINAL publisher (never "Google News").
+      try { db.exec('ALTER TABLE magazine_discoveries ADD COLUMN publisher TEXT'); } catch (e) { /* column already exists */ }
+      // Tier 1 — peer-reviewed science & professional bodies (highest priority).
+      const tier1 = [
+        'builtin-pubmed-women-strength','builtin-pubmed-sports-nutrition','builtin-pubmed-women-exercise',
+        'builtin-pubmed-women-hypertrophy','builtin-pubmed-recovery-sleep','builtin-pubmed-supplements',
+        'builtin-gnews-bjsm','builtin-gnews-acsm','builtin-gnews-jscr','builtin-gnews-nsca','builtin-gnews-issn'
+      ];
+      const q1 = db.prepare('UPDATE magazine_sources SET source_tier=1 WHERE stable_id=?');
+      for (const id of tier1) q1.run(id);
+      // Tier 2 — established sports-science/nutrition topic coverage.
+      const tier2 = [
+        'builtin-gnews-sports-science','builtin-gnews-women-fitness','builtin-gnews-nutrition-science',
+        'builtin-gnews-womens-sports','builtin-gnews-reds','builtin-gnews-women-injury','builtin-gnews-protein-supps'
+      ];
+      const q2 = db.prepare('UPDATE magazine_sources SET source_tier=2 WHERE stable_id=?');
+      for (const id of tier2) q2.run(id);
+      // Tier 3 (default) — general media; lowest priority, filtered hardest.
+    }
   }
 ];
 

@@ -7,15 +7,31 @@ const auth=require('/home/user/yasnafit/src/coach-auth-service');
 const totp=require('/home/user/yasnafit/src/totp');
 const discovery=require('/home/user/yasnafit/src/magazine-discovery-service');
 
+// Build a news.google.com/rss/articles/<id> redirect whose base64 id carries
+// the real publisher URL (new Google News link format).
+const gnewsId=(url,junk='hello')=>{const b=Buffer.concat([Buffer.from([0x0a,junk.length]),Buffer.from(junk),Buffer.from([0x12,Buffer.byteLength(url)]),Buffer.from(url)]);return b.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
+const GNEWS_REAL='https://redirect-story.example.com/rs-1';
+
 const RSS_A=`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>Feed A</title>
 <item><title>پژوهش جدید دربارهٔ تمرینات مقاومتی</title><link>https://news.example.com/story-1?utm_source=rss</link><pubDate>Mon, 18 Sep 2026 09:00:00 GMT</pubDate><description>یک مطالعهٔ جدید نشان می‌دهد تمرینات مقاومتی اثر مثبت بر سلامت است.</description><author>editor@example.com</author></item>
-<item><title>تغذیه قبل از تمرین</title><link>__STORY2_URL__</link><pubDate>Mon, 18 Sep 2026 10:00:00 GMT</description>بررسی زمان‌بندی مصرف پروتئین.</description></item>
+<item><title>تغذیه قبل از تمرین</title><link>__STORY2_URL__</link><pubDate>Mon, 18 Sep 2026 10:00:00 GMT</pubDate><description>بررسی زمان‌بندی مصرف پروتئین.</description></item>
+<item><title>مقاله قدیمی از سال 2017</title><link>https://old.example.com/article-2017</link><pubDate>Wed, 15 Mar 2017 12:00:00 GMT</pubDate><description>یک مقالهٔ خیلی قدیمی که نباید به‌عنوان مطلب جدید بیاید.</description></item>
+<item><title>مقاله قدیمی از سال 2020</title><link>https://old.example.com/article-2020</link><pubDate>Sun, 10 May 2020 09:00:00 GMT</pubDate><description>یک مقالهٔ قدیمی دیگر.</description></item>
+<item><title>مطلب دو ماه پیش بدون مرجعیت</title><link>https://news.example.com/aged-60</link><pubDate>Fri, 24 Jul 2026 08:00:00 GMT</pubDate><description>مطلبی قدیمی‌تر از ۳۰ روز.</description></item>
+<item><title>مرجع پایدار دربارهٔ انرژی در دسترس EVERGREEN_OK</title><link>https://news.example.com/aged-60-evergreen</link><pubDate>Fri, 24 Jul 2026 09:00:00 GMT</pubDate><description>مطلب مرجعی قدیمی ولی مهم.</description></item>
+<item><title>مطلب جدید از Science Daily</title><link>https://sci-daily.example.com/women-resistance-training</link><pubDate>Mon, 21 Sep 2026 07:00:00 GMT</pubDate><description>تحقیق جدید دربارهٔ تمرین مقاومتی زنان.</description><source url="https://sci-daily.example.com">Science Daily</source></item>
+<item><title>بررسی جدید خواب و ریکاوری</title><link>http://127.0.0.1:__IMGPORT__/page-a.html</link><pubDate>Mon, 21 Sep 2026 08:00:00 GMT</pubDate><description>تست یکتایی تصویر.</description></item>
+<item><title>رشد عضلانی با پروتئین کافی</title><link>http://127.0.0.1:__IMGPORT__/page-b.html</link><pubDate>Mon, 21 Sep 2026 08:30:00 GMT</pubDate><description>تست یکتایی تصویر.</description></item>
+<item><title>خبر سلبریتی جدید</title><link>https://www.tmz.com/story-celebrity</link><pubDate>Mon, 21 Sep 2026 09:00:00 GMT</pubDate><description>اخبار سلبریتی.</description></item>
+<item><title>مطلب ریدایرکت گوگل یک</title><link>https://news.google.com/rss/articles/__GNEWS_ID1__</link><pubDate>Mon, 21 Sep 2026 10:00:00 GMT</pubDate><description>تست ریدایرکت جدید.</description><source url="https://redirect-story.example.com">Redirect Story</source></item>
+<item><title>مطلب ریدایرکت گوگل یک کپی</title><link>https://news.google.com/rss/articles/__GNEWS_ID2__</link><pubDate>Mon, 21 Sep 2026 10:05:00 GMT</pubDate><description>همان مطلب با ریدایرکت متفاوت.</description><source url="https://redirect-story.example.com">Redirect Story</source></item>
 </channel></rss>`;
+
 const RSS_B=`<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"><title>Feed B</title>
 <entry><title>پژوهش جدید درباره تمرینات مقاومتی</title><link href="https://www.other-news.example/story-1?gclid=abc&amp;utm_source=feed"/><updated>2026-09-18T09:30:00Z</updated><summary>همان خبر با عنوان کمی متفاوت از منبع دیگر.</summary></entry>
-<entry><title>خبر سوم دربارهٔ سلامتی</title><link href="https://www.other-news.example/story-3"/><updated>2026-09-18T11:00:00Z</summary>سلامتی.<media:content url="https://img.example.com/b3.jpg" medium="image"/><media:thumbnail url="https://img.example.com/b3t.jpg"/></entry></entry>
+<entry><title>خبر سوم دربارهٔ سلامتی</title><link href="https://www.other-news.example/story-3"/><updated>2026-09-18T11:00:00Z</updated><summary>سلامتی.<media:content url="https://img.example.com/b3.jpg" medium="image"/><media:thumbnail url="https://img.example.com/b3t.jpg"/></entry></entry>
 </feed>`;
 
 
@@ -38,7 +54,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 (async()=>{
   // ---- unit checks (no server) ----
   const itemsA=discovery.parseFeed(RSS_A.replace('__STORY2_URL__','http://127.0.0.1:1/story-2.html'));
-  check('parseFeed RSS 2.0: 2 items', itemsA.length===2, 'got '+itemsA.length);
+  check('parseFeed RSS 2.0: 12 items', itemsA.length===12, 'got '+itemsA.length);
   check('parseFeed strips utm from nothing (link kept raw)', /story-1/.test(itemsA[0].url));
   check('parseFeed normalizes url (utm stripped)', discovery.normalizeUrl('https://news.example.com/story-1?utm_source=rss')==='https://news.example.com/story-1');
   const itemsB=discovery.parseFeed(RSS_B);
@@ -55,6 +71,17 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const itemsG=discovery.parseFeed(GOOGLE_NEWS_FIXTURE);
   check('parseFeed Google News: real URL resolved from redirect', itemsG.length===1 && itemsG[0].url==='https://www.theguardian.com/sport/2026/sep/21/study-women-strength', JSON.stringify(itemsG.map(i=>i.url)));
   check('parseFeed Google News: outlet name captured', itemsG[0] && itemsG[0].outlet==='The Guardian', itemsG[0]?itemsG[0].outlet:'none');
+  // rev 9: google-news encoded redirect (new format), freshness gates, publisher
+  check('resolveGoogleNewsUrl: encoded redirect id -> original publisher URL', discovery.resolveGoogleNewsUrl('https://news.google.com/rss/articles/'+gnewsId('https://real.example.com/decoded-article'), '')==='https://real.example.com/decoded-article');
+  check('resolveGoogleNewsUrl: non-google URL passes through', discovery.resolveGoogleNewsUrl('https://plain.example.com/x','')==='https://plain.example.com/x');
+  check('freshnessGate: 10d general -> fresh', discovery.freshnessGate({ageDays:10,scientific:false}).accept==='fresh');
+  check('freshnessGate: 60d scientific -> fresh (90d limit)', discovery.freshnessGate({ageDays:60,scientific:true}).accept==='fresh');
+  check('freshnessGate: 60d general -> needs AI evergreen mark', discovery.freshnessGate({ageDays:60,scientific:false}).accept==='evergreen');
+  check('freshnessGate: 400d -> rejected (never "new")', discovery.freshnessGate({ageDays:400,scientific:true}).accept===false);
+  check('freshnessGate: missing date -> rejected (cannot verify freshness)', discovery.freshnessGate({ageDays:null,scientific:false}).accept===false);
+  check('publisherOf: <source> outlet wins', discovery.publisherOf({url:'https://redirect-story.example.com/rs-1',outlet:'Science Daily'},{name:'X'})==='Science Daily');
+  check('publisherOf: domain fallback (never "Google News")', discovery.publisherOf({url:'https://sci-daily.example.com/a',outlet:''},{name:'روز دنیا: علم ورزش'})==='Sci Daily');
+  check('LOW_QUALITY hosts: celebrity domain blocked, science domain allowed', discovery.LOW_QUALITY_HOSTS.test(discovery.hostOf('https://www.tmz.com/x'))===true && discovery.LOW_QUALITY_HOSTS.test(discovery.hostOf('https://pubmed.ncbi.nlm.nih.gov/x'))===false);
 
   // ---- server + fake feeds ----
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'yasnafit-t37-'));
@@ -62,17 +89,43 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const db=new DatabaseSync(path.join(dataDir,'yasnafit.db'));db.exec('PRAGMA foreign_keys=ON');runMigrations(db);
   const schemaVersion=db.prepare("SELECT id FROM schema_migrations WHERE id='033_magazine_discovery_pipeline'").get();
   check('migration 033 applied', Boolean(schemaVersion));
+  check('migration 037 (source quality tiers) applied', Boolean(db.prepare("SELECT id FROM schema_migrations WHERE id='037_magazine_source_quality_tiers'").get()));
   auth.setupCoach(db,{email:'crypto.javan17@gmail.com',password:'YasnafitCoach1',displayName:'m'});
   const totpSecret=auth.provisionCoachTotp(db).secret;
   db.close();
 
   const feedPort=await freePort();
   const STORY2_URL='http://127.0.0.1:'+feedPort+'/story2.html';
-  const RSS_A2=RSS_A.replace('__STORY2_URL__',STORY2_URL);
+  const RSS_A2=RSS_A.split('__STORY2_URL__').join(STORY2_URL).split('__IMGPORT__').join(String(feedPort)).split('__GNEWS_ID1__').join(gnewsId(GNEWS_REAL)).split('__GNEWS_ID2__').join(gnewsId(GNEWS_REAL,'other'));
   const ARTICLE_PAGE='<html><head><title>Pre-workout nutrition</title><meta property="og:image:secure_url" content="http://127.0.0.1:'+feedPort+'/img-2.jpg"></head><body><article>Pre-workout nutrition study.</article></body></html>';
+  const SHARED_OG_PAGE=ogUrl=>'<html><head><meta property="og:image" content="'+ogUrl+'"></head><body>article</body></html>';
+  const AI_CONTENT='<p>این متن آزمایشی برای بررسی خط لولهٔ ویراستاری است. طبق گزارش منبع، تمرینات مقاومتی منظم می‌تواند بر سلامت استخوان‌ها و عضلات زنان اثر مثبت بگذارد و باید با تغذیهٔ کافی همراه باشد. این پاراگراف طول کافی برای اعتبارسنجی دارد.</p><p>بخش دوم: نتایج منبع نشان می‌دهد افزایش تدریجی بار تمرین همراه با ریکاوری مناسب، بهترین نتیجه را دارد.</p>';
+  const aiReply=(prompt)=>{
+    const m=prompt.match(/عنوان اصلی: (.*)/);
+    const orig=m?m[1].trim():'مطلب آزمایشی';
+    return {
+      title:'ترجمهٔ فارسی: '+orig,
+      summary:'خلاصهٔ فارسی: طبق گزارش منبع، '+orig+' برای مخاطب YASNAFIT مهم است.',
+      content_html:AI_CONTENT,
+      key_points:['نکتهٔ اول: تمرین مقاومتی منظم اثر مثبت دارد','نکتهٔ دوم: تغذیهٔ کافی ضروری است','نکتهٔ سوم: افزایش تدریجی بار','نکتهٔ چهارم: ریکاوری مناسب'],
+      references:[{name:'منبع اصلی',url:'https://news.example.com/story-1'}],
+      related_keywords:['تمرین مقاومتی','تغذیه'],
+      sensitive_flags:[],
+      confidence:0.9,
+      relevance:8,
+      evergreen_reference:/EVERGREEN_OK/.test(prompt),
+      category:'sports-science',
+      why_it_matters:'برای زنان ورزشکار که دنبال تمرین مقاومتی هستند مفید است.',
+      useful:true
+    };
+  };
   const feedServer=http.createServer((req,res)=>{
     if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
+    if(req.url.startsWith('/page-a.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
+    if(req.url.startsWith('/page-b.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
     if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
+    if(req.url.startsWith('/ai/models')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({models:['mock-model'],default_combo:'mock-model'}));return;}
+    if(req.url.startsWith('/ai/chat/completions')){let body='';req.on('data',c=>body+=c);req.on('end',()=>{try{const p=JSON.parse(body);const prompt=(p.messages||[]).map(m=>m.content).join('\n');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(aiReply(prompt))+'\n```'}}]}));}catch(e){res.statusCode=500;res.end('bad');}});return;}
     res.setHeader('Content-Type','application/xml; charset=utf-8');
     if(req.url.startsWith('/a.xml'))res.end(RSS_A2);
     else if(req.url.startsWith('/b.xml'))res.end(RSS_B);
@@ -113,6 +166,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // built-in world sources (migration 034): seeded & active by default; zero-setup flow
   r=await j('/api/magazine/admin/sources');
   check('built-in world sources seeded (19, all active)', r.data.sources.length===19 && r.data.sources.every(x=>x.is_active), 'count='+(r.data.sources&&r.data.sources.length));
+  const t1=r.data.sources.find(x=>/PubMed/.test(x.name)); const t1b=r.data.sources.find(x=>/British Journal/.test(x.name)); const t3=r.data.sources.find(x=>/اخبار ورزشی/.test(x.name));
+  check('source quality tiers: scientific=1, professional=1, general media=3', t1 && t1b && t3 && t1.source_tier===1 && t1b.source_tier===1 && t3.source_tier===3, JSON.stringify({pubmed:t1&&t1.source_tier,bjsm:t1b&&t1b.source_tier,news:t3&&t3.source_tier}));
   for(const b of r.data.sources){ await j(`/api/magazine/admin/sources/${b.id}`,{method:'PUT',body:JSON.stringify({is_active:false})}); }
   r=await j('/api/magazine/admin/sources');
   check('built-ins can be toggled off (advanced)', r.data.sources.length===19 && r.data.sources.every(x=>!x.is_active));
@@ -131,21 +186,58 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // source test endpoint
   r=await j(`/api/magazine/admin/sources/${srcA.id}/test`,{method:'POST',body:'{}'});
-  check('source A test ok with 2 items', r.data.ok===true && r.data.item_count===2, JSON.stringify(r.data));
+  check('source A test ok with 12 items', r.data.ok===true && r.data.item_count===12, JSON.stringify(r.data));
 
-  // discover #1: 3 unique stories (story-1 from A, story-2 from A, story-3 from B) ; B's story-1 dup of A's
+  // point the AI at the local mock editor (so every candidate is AI-prepared)
+  r=await j('/api/ai/settings',{method:'PUT',body:JSON.stringify({api_key:'test-mock-key',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'})});
+  check('AI settings pointed at local mock editor', r.status===200 && r.data.has_api_key===true, JSON.stringify(r.data));
+
+  // discover #1: 14 items = 8 drafted + 1 rejected (aged, not evergreen) +
+  // 2 duplicates (cross-source story + two google-redirects of one story) +
+  // 3 filtered (2017 + 2020 too old, 1 celebrity host)
   r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
   const d1=r.data;
-  check('discover#1 fetched 4 items', d1.fetched===4, JSON.stringify(d1));
-  check('discover#1 drafted 3', d1.drafted===3, 'drafted='+d1.drafted);
-  check('discover#1 duplicate 1 (cross-source same story)', d1.duplicates===1, 'dups='+d1.duplicates);
+  check('discover#1 fetched 14 candidates', d1.fetched===14, JSON.stringify(d1));
+  check('discover#1 drafted 8 (AI-prepared, Persian)', d1.drafted===8, 'drafted='+d1.drafted+' np='+d1.not_prepared);
+  check('discover#1 duplicates 2 (cross-source + google-redirect same story)', d1.duplicates===2, 'dups='+d1.duplicates);
+  check('discover#1 filtered 3 (2 too-old + 1 low-quality host)', d1.filtered===3 && d1.filtered_breakdown && d1.filtered_breakdown['freshness']===2 && d1.filtered_breakdown['low-quality']===1, JSON.stringify(d1.filtered_breakdown));
+  check('discover#1 rejected 1 (aged item without evergreen mark)', d1.rejected===1, 'rejected='+d1.rejected);
+  check('discover#1 not_prepared 0 (mock AI works)', d1.not_prepared===0, 'np='+d1.not_prepared);
   check('discover#1 failed 0', d1.failed===0, JSON.stringify(d1.errors||[]));
+
 
   // og:image retrieval: the local article page image must be attached
   r=await j('/api/magazine/admin/queue');
   const qImg=r.data.queue.find(q=>q.source_url===STORY2_URL);
   check('og:image attached from original article page (secure_url key + http->https upgrade)', qImg && qImg.cover_image==='https://127.0.0.1:'+feedPort+'/img-2.jpg', qImg?JSON.stringify(qImg.cover_image):'missing item');
-  // The news card reads the LIST endpoint (not /queue): it must carry cover_image + source fields
+  // rev 9: freshness / quality / publisher / image-uniqueness verification
+  r=await j('/api/magazine/admin/queue');
+  const qAll=r.data.queue;
+  const arabic=/\p{Script=Arabic}/u;
+  check('inbox: every draft is AI-prepared (Persian title+summary, 3-6 key points)', qAll.length===8 && qAll.every(q=>arabic.test(q.title) && arabic.test(q.summary) && Array.isArray(q.key_points) && q.key_points.length>=3 && q.key_points.length<=6), JSON.stringify(qAll.map(q=>({t:String(q.title).slice(0,22),k:(q.key_points||[]).length}))));
+  check('inbox: source is the original publisher (never feed name / Google News)', qAll.every(q=>q.source_name && q.source_name.length>0 && !/google|روز دنیا|فید آزمایشی/i.test(q.source_name)), JSON.stringify(qAll.map(q=>q.source_name)));
+  const sciPub=qAll.find(q=>String(q.title).includes('Science Daily'));
+  check('source shown = original publisher (Science Daily) + original URL', sciPub && sciPub.source_name==='Science Daily' && sciPub.source_url==='https://sci-daily.example.com/women-resistance-training', sciPub?JSON.stringify({s:sciPub.source_name,u:sciPub.source_url}):'missing');
+  const gArt=qAll.find(q=>q.source_url===GNEWS_REAL);
+  check('google-news redirect resolved: source_url = original publisher URL', gArt && gArt.source_url===GNEWS_REAL && gArt.source_name==='Redirect Story', gArt?JSON.stringify({u:gArt.source_url,s:gArt.source_name}):'missing');
+  const everItem=qAll.find(q=>String(q.title).includes('EVERGREEN_OK'));
+  check('aged (60d) item accepted only via AI evergreen mark + flagged in inbox', everItem && everItem.evergreen===true, everItem?JSON.stringify({e:everItem.evergreen}):'missing');
+  check('inbox: no 2017/2020 article presented as new', !qAll.some(q=>/2017|2020/.test(String(q.title))));
+  const imgOnes=qAll.filter(q=>q.cover_image==='https://shared-img.example.com/shared.jpg');
+  check('image uniqueness: shared og image assigned to exactly one article', imgOnes.length===1, 'count='+imgOnes.length);
+  {
+    const dbQ=new DatabaseSync(path.join(dataDir,'yasnafit.db'));
+    const oldRows=dbQ.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%2017%' OR title_original LIKE '%2020%'").all();
+    check('2017/2020 items rejected with freshness reason (logged, not in inbox)', oldRows.length===2 && oldRows.every(x=>{try{return JSON.parse(x.ai_meta||'{}').filtered==='too-old';}catch(e){return false;}}), JSON.stringify(oldRows.map(x=>x.ai_meta)));
+    const lowRow=dbQ.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%سلبریتی%'").get();
+    check('celebrity/low-quality host filtered out', lowRow && JSON.parse(lowRow.ai_meta||'{}').filtered==='low-quality', lowRow?lowRow.ai_meta:'none');
+    const dupResolved=dbQ.prepare('SELECT COUNT(*) c FROM magazine_discoveries WHERE url_hash=?').get(discovery.sha1(discovery.normalizeUrl(GNEWS_REAL)));
+    check('near-duplicate via two google-redirects deduped (drafted + duplicate rows)', dupResolved.c===2, 'rows='+dupResolved.c);
+    check('AI never auto-publishes: zero PUBLISHED articles after discovery', dbQ.prepare("SELECT COUNT(*) c FROM magazine_articles WHERE status='PUBLISHED'").get().c===0);
+    dbQ.close();
+  }
+  r=await j('/api/magazine/admin/queue/stats');
+  check('stats: last_run reports 8 new items found (run count ≠ queue count)', r.data.last_run && r.data.last_run.drafted===8 && r.data.drafts===8, JSON.stringify({lr:r.data.last_run,d:r.data.drafts}));
   // backfill: a pre-existing draft without a cover must get the source image on the next run
   {
     const body='بررسی شواهد مربوط به تغذیه قبل از تمرین و تأثیر آن بر عملکرد ورزشی؛ این متن صرفاً برای آزمایش بازسازی تصویر کاور نوشته شده و طول کافی برای اعتبارسنجی ایجاد مقاله دارد.';
@@ -172,6 +264,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     runMigrations(mem);
     mem.prepare('UPDATE magazine_sources SET is_active=0').run();
     mem.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-c','Test C','http://127.0.0.1:'+feedPort+'/c.xml','rss','nutrition');
+    require('/home/user/yasnafit/src/ai-service').saveSettings(mem,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
     const r1 = await discovery.runDiscovery(mem, { notifyAudience: 'none' });
     check('batch: first run drafts exactly 20 new items (cap)', r1.drafted === 20, 'drafted='+r1.drafted+' new='+r1.newItems);
     check('batch: stopped_at_cap=true when 25 candidates > cap', r1.stopped_at_cap === true && r1.newItems === 25, 'stopped='+r1.stopped_at_cap);
@@ -188,12 +281,23 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     check('batch: second run not stopped at cap', r2.stopped_at_cap === false, 'new='+r2.newItems);
     mem.close();
   }
+  // AI unavailable -> NOTHING reaches the inbox (no raw English drafts)
+  {
+    const mem2=new DatabaseSync(':memory:'); runMigrations(mem2);
+    mem2.prepare('UPDATE magazine_sources SET is_active=0').run();
+    mem2.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-c2','Test C2','http://127.0.0.1:'+feedPort+'/c.xml','rss','nutrition');
+    require('/home/user/yasnafit/src/ai-service').saveSettings(mem2,{api_key:'dead-key',base_url:'http://127.0.0.1:1/ai',default_combo:'mock'});
+    const rA=await discovery.runDiscovery(mem2,{notifyAudience:'none'});
+    check('AI unavailable: nothing drafted, candidates marked not-prepared (inbox stays clean)', rA.drafted===0 && rA.not_prepared===20, JSON.stringify({d:rA.drafted,np:rA.not_prepared}));
+    check('AI unavailable: zero articles created', mem2.prepare('SELECT COUNT(*) c FROM magazine_articles').get().c===0);
+    mem2.close();
+  }
   r=await j('/api/magazine/admin/queue');
-  check('queue has 4 pending drafts (3 discovered + 1 backfill test)', r.data.queue.length===4, 'got '+r.data.queue.length);
+  check('queue has 9 pending drafts (8 discovered + 1 backfill test)', r.data.queue.length===9, 'got '+r.data.queue.length);
   const q1=r.data.queue.find(q=>q.title.includes('پژوهش جدید'));
-  check('queue item has source + flags + discovered_at', q1 && q1.source_name==='فید آزمایشی A' && Array.isArray(q1.quality_flags) && q1.discovered_at, q1?JSON.stringify({s:q1.source_name,f:q1.quality_flags,d:q1.discovered_at}):'missing');
+  check('queue item has publisher source + flags + discovered_at', q1 && q1.source_name==='News' && Array.isArray(q1.quality_flags) && q1.discovered_at, q1?JSON.stringify({s:q1.source_name,f:q1.quality_flags,d:q1.discovered_at}):'missing');
   r=await j('/api/magazine/admin/queue/stats');
-  check('stats: 0 published, 4 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===4, JSON.stringify(r.data));
+  check('stats: 0 published, 9 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===9, JSON.stringify(r.data));
   r=await j('/api/magazine/admin/queue/stats');
   check('stats: last_run_at recorded after discovery', Boolean(r.data.last_run_at), JSON.stringify(r.data.last_run_at));
 
@@ -259,7 +363,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // discover #2: everything duplicate now
   r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
-  check('discover#2: 0 new drafts, 4 duplicates', r.data.drafted===0 && r.data.duplicates===4, JSON.stringify(r.data));
+  check('discover#2: 0 new drafts, 11 duplicates (+3 re-filtered as not-new)', r.data.drafted===0 && r.data.duplicates===11 && r.data.filtered===3, JSON.stringify(r.data));
 
   // notification
   r=await j('/api/coach/notifications');
@@ -287,6 +391,11 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('UI: live progress bar + progress endpoint + image referrer fix', ui.includes('mag-progress__fill') && ui.includes('/api/magazine/admin/discover/progress') && ui.includes('referrerpolicy="no-referrer"') && ui.includes("referrerPolicy = 'no-referrer'"));
   check('UI: search-more button + in-place progress (no full re-render per tick) + batch cap flag', ui.includes('magSearchMore') && ui.includes('جستجو بیشتر') && ui.includes('mag-progress-host') && ui.includes('stopped_at_cap'));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
+  check('UI: card empty-image says «تصویر موجود نیست»', ui.includes('تصویر موجود نیست'));
+  check('UI: run toasts distinguish found / more + filters + AI-unavailable', ui.includes('مطلب جدید برای بررسی پیدا شد') && ui.includes('مطلب جدید دیگر پیدا شد') && ui.includes('not_prepared'));
+  check('UI: internal AI confidence/provider errors removed from review detail', !ui.includes('اعتماد پردازش') && !ui.includes('ai.ai_failed'));
+  check('UI: queue count wording (ready for review, not «AI found N»)', ui.includes('مطلب برای بررسی آماده است') && !ui.includes('مطلب جدید پیدا کرده است'));
+  check('UI: evergreen reference badge for old-but-important items', ui.includes('mag-news-cat--evergreen'));
 
   // ---- scheduler (in-process, same db as the server's data dir) ----
   const dbS=new DatabaseSync(path.join(dataDir,'yasnafit.db'));
@@ -297,7 +406,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   dbS.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.auto_fetch','1')").run();
   dbS.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.fetch_interval','6')").run();
   const onResult=await discovery.tickScheduledDiscovery(dbS,{'magazine.auto_fetch':'1','magazine.fetch_interval':'6'});
-  check('scheduler: auto_fetch on → discovery ran (all dups now)', onResult && onResult.drafted===0 && onResult.duplicates===4, JSON.stringify(onResult||null));
+  check('scheduler: auto_fetch on → discovery ran (all dups now)', onResult && onResult.drafted===0 && onResult.duplicates===11 && onResult.filtered===3, JSON.stringify(onResult||null));
   const immediate=await discovery.tickScheduledDiscovery(dbS,{'magazine.auto_fetch':'1','magazine.fetch_interval':'6'});
   check('scheduler: interval gate blocks immediate second run', immediate===null);
   const schedEvents=dbS.prepare("SELECT action FROM audit_events WHERE action LIKE 'discovery.scheduled%'").all();

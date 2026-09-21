@@ -24,6 +24,106 @@ const articleService = require('./article-service');
 const DISCOVERY_FETCH_MS = 15000;
 const TITLE_SIMILARITY_THRESHOLD = 0.86;
 
+// ---------- freshness + source-quality gates (owner spec) ----------
+// "New content" must actually be new: general media within 30 days, scientific
+// / established sources within 90 days. Older items are only accepted when the
+// AI explicitly marks them as an evergreen reference — and nothing older than
+// the hard cap may ever appear as "new" (a 2017/2020 article never does).
+const FRESH_NEWS_DAYS = 30;
+const FRESH_SCIENCE_DAYS = 90;
+const EVERGREEN_HARD_CAP_DAYS = 365;
+
+// Celebrity/lifestyle/SEO hosts are filtered out entirely (owner spec: never a
+// primary source). Kept conservative — general media is NOT banned, it is just
+// ranked lower (source_tier) and freshness-filtered harder.
+const LOW_QUALITY_HOSTS = /(^|\.)(people\.com|tmz\.com|eonline\.com|pagesix\.com|hellomagazine\.com|dailystar\.co\.uk|the-sun\.com|sun\.co\.uk)$/i;
+
+// OG images from Google's own domains are generic Google assets — using them is
+// exactly how unrelated articles ended up sharing one identical image.
+const OG_BLOCK_HOSTS = /(^|\.)(google\.com|google\.com\.[a-z]{2,3}|googleusercontent\.com|gstatic\.com)$/i;
+
+function hostOf(raw) {
+  try { return new URL(String(raw || '')).hostname.replace(/^www\./, '').toLowerCase(); } catch (e) { return ''; }
+}
+
+function ageDaysOf(iso) {
+  if (!iso) return null;
+  const t = new Date(String(iso)).getTime();
+  if (Number.isNaN(t)) return null;
+  const days = (Date.now() - t) / 86400000;
+  return days < 0 ? 0 : days;
+}
+
+// accept: 'fresh' → accept; 'evergreen' → only if the AI explicitly marks it an
+// important reference; false → reject (never presented as new).
+function freshnessGate({ ageDays, scientific }) {
+  if (ageDays == null) return { accept: false, reason: 'no-date' };
+  if (ageDays > EVERGREEN_HARD_CAP_DAYS) return { accept: false, reason: 'too-old' };
+  const limit = scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS;
+  if (ageDays <= limit) return { accept: 'fresh' };
+  return { accept: 'evergreen', reason: 'age' };
+}
+
+// Extract the embedded publisher URL from a news.google.com/rss/articles/<id>
+// redirect: the id is base64 of a protobuf that carries the original URL.
+function extractUrlFromGoogleNewsId(id) {
+  try {
+    let b64 = String(id || '').replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4;
+    if (pad) b64 += '='.repeat(4 - pad);
+    const text = Buffer.from(b64, 'base64').toString('utf8');
+    const urls = [...text.matchAll(/https?:\/\/[^\x00-\x1f"'\s<>]+/g)].map(m => m[0]);
+    if (!urls.length) return '';
+    return urls.sort((a, b) => b.length - a.length)[0];
+  } catch (e) {
+    return '';
+  }
+}
+
+// Resolve the ORIGINAL publisher URL behind a Google News RSS redirect.
+// Non-Google URLs pass through unchanged.
+function resolveGoogleNewsUrl(link, descriptionHtml) {
+  try {
+    const u = new URL(String(link || ''));
+    if (!/google\.com$/i.test(u.hostname.replace(/^www\./, ''))) return String(link || '');
+    const id = u.pathname.split('/').filter(Boolean).pop() || '';
+    const fromId = id ? extractUrlFromGoogleNewsId(id) : '';
+    if (fromId && !/google\.com$/i.test(hostOf(fromId))) return fromId;
+    const anchor = String(descriptionHtml || '').match(/<a[^>]+href\s*=\s*["']([^"']+)["']/i);
+    if (anchor && anchor[1] && !/google\.com$/i.test(hostOf(anchor[1]))) return anchor[1];
+    return String(link || '');
+  } catch (e) {
+    return String(link || '');
+  }
+}
+
+// "ScienceDaily"-style name from a bare domain (last-resort publisher name).
+function domainToName(host) {
+  const h = String(host || '').replace(/^www\./i, '').toLowerCase();
+  if (!h) return '';
+  const parts = h.split('.');
+  let base = parts[0] || h;
+  if (parts.length >= 3 && ['co', 'com', 'org', 'ac', 'gov', 'edu', 'net'].includes(parts[parts.length - 2])) base = parts[parts.length - 2] + '.' + parts[parts.length - 1];
+  const clean = base.split('.')[0].replace(/[-_]+/g, ' ').trim();
+  if (!clean) return '';
+  return clean.replace(/\b\p{L}/gu, c => c.toUpperCase());
+}
+
+// Coach-facing source name: the ORIGINAL publisher, never "Google News".
+// 1) the feed item's own <source> outlet, 2) the publisher domain of the
+// resolved article URL, 3) the feed's topic name as a last resort.
+function publisherOf(item, source) {
+  const outlet = String((item && item.outlet) || '').trim();
+  if (outlet && !/google\s*news/i.test(outlet)) {
+    const clean = outlet.replace(/\s*[-–—]\s*Google\s+News.*$/i, '').trim();
+    if (clean) return clean.slice(0, 120);
+  }
+  const byDomain = domainToName(hostOf(item && item.url));
+  if (byDomain && !/google/i.test(byDomain)) return byDomain;
+  const feedName = String((source && source.name) || '').replace(/^روز دنیا:\s*/u, '').trim();
+  return (feedName || 'منبع خبر').slice(0, 120);
+}
+
 // ---------- small helpers ----------
 
 function normalizeUrl(raw) {
@@ -123,13 +223,9 @@ function parseFeed(xml) {
     if (url && !/^(https?:|mailto:)/i.test(url)) url = '';
     const publishedAt = pick(block, 'pubDate', 'published', 'updated', 'dc:date') || null;
     const rawSummary = pick(block, 'description', 'summary', 'content', 'content:encoded');
-    // Google News feeds: the item <link> is a redirect; the real article URL is
-    // the first anchor inside the decoded description.
-    let realUrl = '';
-    if (/news\.google\.com\/?rss/i.test(url)) {
-      const anchor = rawSummary.match(/<a[^>]+href\s*=\s*["']([^"']+)["']/i);
-      if (anchor) realUrl = anchor[1];
-    }
+    // Google News feeds: the item <link> is a redirect; resolve the original
+    // publisher URL (encoded id first, then the description anchor).
+    const realUrl = resolveGoogleNewsUrl(url, rawSummary);
     const summary = rawSummary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
     let imageUrl = pickAttr(block, 'enclosure', 'url') || pickAttr(block, 'media:content', 'url') || pickAttr(block, 'media:thumbnail', 'url');
     if (!imageUrl) {
@@ -176,6 +272,7 @@ function listSources(db, { includeDeleted = false } = {}) {
   return db.prepare(sql).all().map(row => ({
     id: row.id,
     name: row.name,
+    source_tier: Number(row.source_tier) || 3,
     feed_url: row.feed_url,
     source_type: row.source_type,
     category_slug: row.category_slug || null,
@@ -233,7 +330,7 @@ function sourceView(db, id) {
   `).get(id);
   if (!row) return null;
   return {
-    id: row.id, name: row.name, feed_url: row.feed_url, source_type: row.source_type,
+    id: row.id, name: row.name, source_tier: Number(row.source_tier) || 3, feed_url: row.feed_url, source_type: row.source_type,
     category_slug: row.category_slug || null, category_name: row.category_name || null,
     is_active: Boolean(row.is_active), fetch_interval_h: Number(row.fetch_interval_h) || 12,
     last_fetched_at: row.last_fetched_at || null, last_success_at: row.last_success_at || null,
@@ -327,27 +424,31 @@ const EDITORIAL_SYSTEM_PROMPT = [
   'قوانین سخت‌گیرانه:',
   '1) هیچ حقیقت، مطالعه، آمار، نقل‌قول، شخص، رویداد یا منبع جدیدی اختراع نکنید. فقط بازنویسی/خلاصه‌سازی محتوای منبع.',
   '2) اطلاعات مبهم یا ناقص را به‌صورت محتاطانه بیان کنید (مثلاً «طبق گزارش منبع»).',
-  '3) اگر متن منبع به انگلیسی یا زبان دیگری است، آن را روان و حرفه‌ای به فارسی ترجمه/بازنویسی کنید (ترجمهٔ تحت‌اللفظی نه).',
-  '4) خروجی فقط JSON معتبر با همین کلیدها باشد: title, summary, content_html, claims[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1), category, why_it_matters, useful.',
-  '7) category فقط یکی از اینها باشد: bodybuilding / sports-science / nutrition / health / sports-news (هر کدام بیشتر با مطلب جور است). why_it_matters یک یا دو جملهٔ روان فارسی دربارهٔ اینکه این مطلب برای مخاطبان YASNAFIT (به‌ویژه زنان) چرا مهم/مفید است. useful فقط در صورت بی‌ربط/کلیک‌بیت/کم‌اعتبار بودن محتوا false باشد.',
-  '5) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی و ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
-  '6) اگر منبع علمی است، نام پژوهش/موسسه را فقط در حدی که در متن منبع آمده در references بنویسید.',
-  '8) منابع بر اساس اعتبار به این ترتیب اولویت دارند: سطح ۱ (علمی/مبتنی بر شواهد): PubMed/NCBI، ACSM، British Journal of Sports Medicine، Sports Medicine، Journal of Strength and Conditioning Research؛ سطح ۲ (سازمان‌های حرفه‌ای): NSCA، ISSN (International Society of Sports Nutrition)، IOC؛ سطح ۳ (نشریات معتبر ورزش و تغذیه و فدراسیون‌های بزرگ). از کلیک‌بیت، بلاگ‌های ضعیف و ادعاهای بی‌منبع اینفلوئنسرها پرهیز کنید.',
-  '9) شواهد: پیش‌فرض به مرورهای سیستماتیک، متاآنالیزها، کارآزمایی‌های تصادفی‌سازی‌شده، بیانیه‌های اجماعی و position standهای رسمی بدهید. هرگز یک مطالعهٔ تکی را به‌عنوان «حقیقت اثبات‌شده» ارائه نکنید (بنویسید «این مطالعه نشان داد…»). برای ادعاهای مهم، در حد امکان با چند منبع معتبر تطبیق دهید.',
-  '10) هر پیشنهاد مقاله باید نام منبع اصلی و تاریخ انتشار آن را در references حفظ کند (قانون ثابت: منبع اصلی + تاریخ). فقط ترجمه/خلاصه — هرگز اطلاعات اختراع‌شده.'
+  '3) title و summary حتماً فارسی و روان باشند؛ اگر منبع انگلیسی یا به زبان دیگری است، ترجمهٔ حرفه‌ای و غیرتحت‌اللفظی بنویسید. هرگز title یا summary انگلیسی در خروجی مجاز نیست.',
+  '4) key_points: بین ۳ تا ۶ نکتهٔ کلیدی، کوتاه، دقیق و فارسی، مستقیماً از خود مطلب.',
+  '5) why_it_matters: یک یا دو جملهٔ روان فارسی دربارهٔ اینکه این مطلب برای مخاطبان YASNAFIT (به‌ویژه زنان ورزشکار) چرا مهم یا مفید است.',
+  '6) category فقط یکی از اینها: bodybuilding / sports-science / nutrition / health / sports-news.',
+  '7) relevance: امتیاز 0 تا 10 برای مرتبط بودن مطلب با محوریت YASNAFIT: تمرین مقاومتی و بدنسازی زنان، رشد عضلانی، فیزیولوژی ورزش، تغذیهٔ ورزشی، پروتئین، کراتین و مکمل‌های دارای شواهد، ریکاوری و خواب، سلامت ورزشکاران زن، انرژی در دسترس و RED-S، سلامت استخوان، پیشگیری از آسیب، عملکرد ورزشی و اخبار مهم بدنسازی. مطلب بی‌ربط، کلیک‌بیت یا کم‌اعتبار: useful=false یا relevance کمتر از ۴.',
+  '8) evergreen_reference: فقط true اگر مطلب از نظر تازگی قدیمی است ولی یک مرجع مهم و پایدار محسوب می‌شود (مثلاً position stand رسمی یا مرور سیستماتیک بنیادین). برای مطالب عادی همیشه false.',
+  '9) content_html فقط برچسب‌های p, h2, ul, li, strong, em, a باشد؛ فارسی با ادبیات خبری-علمی؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
+  '10) شواهد: به مرورهای سیستماتیک، متاآنالیزها، کارآزمایی‌های تصادفی‌سازی‌شده و بیانیه‌های اجماعی وزن بیشتری بدهید. هرگز یک مطالعهٔ تکی را به‌عنوان «حقیقت اثبات‌شده» ارائه نکنید (بنویسید «این مطالعه نشان داد…»).',
+  '11) اعتبار منابع: سطح ۱: PubMed/NCBI، ACSM، NSCA، British Journal of Sports Medicine، Sports Medicine، JSCR، ISSN و مجلات همتای علمی ورزشی/تغذیه‌ای؛ سطح ۲: نشریات معتبر پزشکی، تغذیه و علوم ورزشی و فدراسیون‌های بزرگ؛ سطح ۳: رسانه‌های عمومی. محتوای سلبریتی/لایف‌استایل فقط در صورت داشتن ارزش علمی یا کاربردی واقعی پذیرفته می‌شود، وگرنه useful=false.',
+  '12) هر پیشنهاد باید نام منبع اصلی و تاریخ انتشار آن را در references حفظ کند (قانون ثابت: منبع اصلی + تاریخ). خروجی فقط JSON معتبر با همین کلیدها: title, summary, content_html, key_points[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1), relevance(0-10), evergreen_reference(true/false), category, why_it_matters, useful.'
 ].join('\n');
 
-function editorialUserPrompt(item, sourceName) {
-  return [
+function editorialUserPrompt(item, sourceName, { ageDays, needsEvergreen, limitDays } = {}) {
+  const lines = [
     'محتوای خبر/مقالهٔ منبع زیر را برای مجلهٔ YASNAFIT آماده کنید:',
-    `منبع: ${sourceName || 'نامشخص'}`,
+    `منبع اصلی: ${sourceName || 'نامشخص'}`,
     `آدرس اصلی: ${item.url}`,
     `عنوان اصلی: ${item.title}`,
     `تاریخ انتشار: ${item.publishedAt || 'نامشخص'}`,
     `نویسنده/سازمان: ${item.author || 'نامشخص'}`,
-    `خلاصهٔ منبع: ${item.summary || 'در دسترس نیست'}`,
-    ''
-  ].join('\n');
+    `خلاصهٔ منبع: ${item.summary || 'در دسترس نیست'}`
+  ];
+  if (ageDays != null) lines.push(`سابقهٔ مطلب: این مطلب حدود ${Math.round(ageDays)} روز پیش منتشر شده است.`);
+  if (needsEvergreen) lines.push(`توجه: این مطلب از ${limitDays} روز پیش‌تر است. فقط در صورتی که واقعاً یک مرجع مهم و پایدار (evergreen reference) باشد evergreen_reference را true بگذارید؛ در غیر این صورت false.`);
+  return lines.join('\n') + '\n';
 }
 
 function extractJson(text) {
@@ -362,15 +463,24 @@ function htmlEscape(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Validate the AI output against the editorial contract. Returns null when the
+// draft is NOT coach-ready (e.g. the AI failed to translate to Persian) — the
+// candidate then never appears in the review inbox.
 function draftFromAi(parsed, item, sourceName) {
   if (!parsed || typeof parsed !== 'object') return null;
   const title = String(parsed.title || '').trim().slice(0, 200);
   const summary = String(parsed.summary || '').trim().slice(0, 500);
+  const arabicScript = /\p{Script=Arabic}/u;
+  // Persian-only inbox: a Latin-script title or summary means the translation
+  // step did not happen — treat it as an invalid draft, not a fallback.
+  if (!title || !arabicScript.test(title) || !arabicScript.test(summary)) return null;
   // Keep only whitelisted tags/attributes; strip any AI meta-language defensively.
   let content = String(parsed.content_html || '').trim();
-  if (!title || content.length < 200) return null;
+  if (content.length < 200) return null;
   content = articleService.sanitizeRichText(content.slice(0, 100000));
-  const claims = Array.isArray(parsed.claims) ? parsed.claims.slice(0, 10).map(String).map(s => s.slice(0, 300)) : [];
+  const keyPoints = (Array.isArray(parsed.key_points) ? parsed.key_points : (Array.isArray(parsed.claims) ? parsed.claims : []))
+    .slice(0, 6).map(String).map(s => s.trim().slice(0, 300)).filter(Boolean);
+  if (keyPoints.length < 3) return null; // the card needs real key points
   const references = Array.isArray(parsed.references)
     ? parsed.references.slice(0, 10).map(r => ({ name: String(r?.name ?? r?.source_name ?? '').slice(0, 200), url: String(r?.url ?? r?.source_url ?? '').slice(0, 500) }))
         .filter(r => r.name || r.url)
@@ -378,6 +488,9 @@ function draftFromAi(parsed, item, sourceName) {
   const keywords = Array.isArray(parsed.related_keywords) ? parsed.related_keywords.slice(0, 8).map(String).map(s => s.slice(0, 80)) : [];
   const sensitive = Array.isArray(parsed.sensitive_flags) ? parsed.sensitive_flags.slice(0, 10).map(String).map(s => s.slice(0, 300)) : [];
   const confidence = Number(parsed.confidence);
+  const relevanceRaw = Number(parsed.relevance);
+  const relevance = Number.isFinite(relevanceRaw) ? Math.min(10, Math.max(0, relevanceRaw)) : null;
+  const evergreen = parsed.evergreen_reference === true;
   const knownCats = ['bodybuilding', 'sports-science', 'nutrition', 'health', 'sports-news'];
   const category = knownCats.includes(parsed.category) ? parsed.category : null;
   const whyItMatters = String(parsed.why_it_matters || '').trim().slice(0, 400);
@@ -386,37 +499,18 @@ function draftFromAi(parsed, item, sourceName) {
   if (item.url) bodyParts.push(`<p><a href="${htmlEscape(item.url)}" rel="noopener noreferrer">منبع اصلی: ${htmlEscape(sourceName || 'خبر')}</a></p>`);
   return {
     title,
-    summary: summary || item.summary || '',
+    summary,
     content: bodyParts.join('\n'),
     references,
-    claims,
+    key_points: keyPoints,
     keywords,
     sensitive,
     confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : null,
+    relevance,
+    evergreen_reference: evergreen,
     category,
     why_it_matters: whyItMatters,
     useful
-  };
-}
-
-function minimalDraftFromSource(item, sourceName) {
-  // Used when the AI provider is unavailable/fails: a clearly-flagged minimal
-  // editorial draft from the source's own metadata. Never invents content.
-  const sourceLine = `<p><a href="${htmlEscape(item.url)}" rel="noopener noreferrer">منبع اصلی: ${htmlEscape(sourceName || 'خبر')}</a></p>`;
-  const summaryText = item.summary ? `<p>${htmlEscape(item.summary)}</p>` : '';
-  return {
-    title: String(item.title).slice(0, 200),
-    summary: (item.summary || '').slice(0, 500),
-    content: `${summaryText ? summaryText + '\n' : ''}<p>این پیش‌نویس مستقیماً از خلاصهٔ منبع آماده شده و در انتظار بازنویسی/بازبینی ویراستاری است. قبل از انتشار، متن کامل خبر اصلی را مطالعه کنید.</p>\n${sourceLine}`,
-    references: item.url ? [{ name: sourceName || 'منبع خبر', url: item.url }] : [],
-    claims: [],
-    keywords: [],
-    sensitive: [],
-    confidence: null,
-    category: null,
-    why_it_matters: '',
-    useful: true,
-    aiAssisted: false
   };
 }
 
@@ -425,6 +519,9 @@ function minimalDraftFromSource(item, sourceName) {
 // No random image services, no downloads from search engines.
 async function fetchOgImage(pageUrl) {
   try {
+    // Never scrape Google's own redirect pages: their og:image is a generic
+    // Google asset (how unrelated articles shared one identical image).
+    if (OG_BLOCK_HOSTS.test(hostOf(pageUrl))) return '';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
@@ -449,6 +546,7 @@ async function fetchOgImage(pageUrl) {
           const u = new URL(val, pageUrl);
           if (u.protocol === 'http:') u.protocol = 'https:'; // prefer https so https sites never hit mixed-content
           if (!/^https:$/i.test(u.protocol)) return '';
+          if (OG_BLOCK_HOSTS.test(u.hostname.replace(/^www\./, ''))) return '';
           return u.toString();
         } catch (e) { return ''; }
       }
@@ -463,7 +561,7 @@ async function fetchOgImage(pageUrl) {
 
 // ---------- run the pipeline ----------
 
-async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
+async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = new Set() } = {}) {
   const d = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(discovery.id);
   const source = d.source_id ? sourceView(db, d.source_id) : null;
   db.prepare("UPDATE magazine_discoveries SET status='PROCESSING' WHERE id=?").run(d.id);
@@ -473,9 +571,25 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
     publishedAt: d.date_published,
     summary: d.summary_original,
     imageUrl: d.image_url,
-    author: ''
+    outlet: ''
   };
+  const publisher = String(d.publisher || '') || publisherOf(item, source);
+  const tier = Number((source && source.source_tier) || 3);
+  const scientific = tier <= 2;
+  const ageDays = ageDaysOf(d.date_published);
+  const gate = freshnessGate({ ageDays, scientific });
   const flags = qualityChecks({ item, categorySlug: d.category_slug });
+  const fail = (meta, flag) => {
+    const f = flag ? flags.concat([flag]) : flags;
+    db.prepare("UPDATE magazine_discoveries SET status='FAILED', quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?")
+      .run(JSON.stringify(f), JSON.stringify(meta), d.id);
+    return f;
+  };
+  // Hard freshness re-check (defense in depth; pass 1 already filters).
+  if (gate.accept === false) {
+    fail({ filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) }, 'مطلب قدیمی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود');
+    return { skipped: true, reason: 'freshness' };
+  }
   let draft = null;
   let aiFailed = null;
   if (aiEnabled) {
@@ -485,7 +599,7 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
         const reply = await chatCompletion(db, {
           messages: [
             { role: 'system', content: EDITORIAL_SYSTEM_PROMPT },
-            { role: 'user', content: editorialUserPrompt(item, source?.name) }
+            { role: 'user', content: editorialUserPrompt(item, publisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS }) }
           ],
           tools: false,
           temperature: 0.4,
@@ -493,32 +607,46 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
           timeout_ms: 90000
         });
         const parsed = extractJson(reply && (reply.content || reply.text || (typeof reply === 'string' ? reply : '')));
-        draft = draftFromAi(parsed, item, source?.name);
-        if (!draft) aiFailed = 'خروجی هوش مصنوعی معتبر نبود';
+        draft = draftFromAi(parsed, item, publisher);
+        if (!draft) aiFailed = 'خروجی هوش مصنوعی معتبر نبود (ترجمه/خلاصهٔ فارسی کافی نبود)';
       } else {
         aiFailed = 'هوش مصنوعی پیکربندی نشده است';
       }
     } catch (e) {
       aiFailed = e.message || 'خطا در پردازش هوش مصنوعی';
     }
+  } else {
+    aiFailed = 'پردازش هوش مصنوعی غیرفعال است';
   }
   if (!draft) {
-    if (aiFailed) flags.push('پردازش هوش مصنوعی انجام نشد: ' + String(aiFailed).slice(0, 200));
-    draft = minimalDraftFromSource(item, source?.name);
+    // Owner rule: every candidate must be AI-translated & summarized BEFORE it
+    // reaches the review inbox. No AI draft → the candidate is NOT shown.
+    fail({ ai_failed: aiFailed, age_days: ageDays == null ? null : Math.round(ageDays) }, 'محتوا هنوز آماده‌سازی ویرایشی (ترجمه/خلاصه) نشده است');
+    return { notPrepared: true, aiFailed };
   }
   if (draft.useful === false) {
-    db.prepare("UPDATE magazine_discoveries SET status='FAILED', ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?").run(JSON.stringify({ skipped: 'not useful', ai_failed: aiFailed || null }), d.id);
-    return { skipped: true };
+    fail({ skipped: 'not useful', relevance: draft.relevance }, 'محتوا برای مخاطب YASNAFIT مناسب نیست');
+    return { skipped: true, reason: 'useless' };
   }
-  // Image: prefer the feed's own image; otherwise read og:image from the
-  // original article page (the source's own image, with source attribution
-  // kept in the article). Never a random image service.
+  if (draft.relevance != null && draft.relevance < 4) {
+    fail({ skipped: 'low relevance', relevance: draft.relevance }, 'ارتباط مطلب با محوریت YASNAFIT کم است');
+    return { skipped: true, reason: 'relevance' };
+  }
+  if (gate.accept === 'evergreen' && !draft.evergreen_reference) {
+    fail({ skipped: 'old not evergreen', age_days: Math.round(ageDays) }, 'مطلب قدیمی است و مرجع مهم (evergreen) شناخته نشد');
+    return { skipped: true, reason: 'freshness' };
+  }
+  // Image: the feed's own image first, then the article's og:image — fetched
+  // from the ORIGINAL publisher page (never a Google page, never a random image
+  // service). One image per run: if another candidate already owns this exact
+  // image, this article keeps no cover instead of sharing a duplicate.
   let cover = item.imageUrl || '';
   if (cover) {
     // Keep every stored cover https so it survives the page CSP (img-src https:)
     try { const cu = new URL(cover); if (cu.protocol === 'http:') { cu.protocol = 'https:'; cover = cu.toString(); } } catch (e) { cover = ''; }
   }
   if (!cover) cover = await fetchOgImage(item.url);
+  if (cover && usedImages.has(cover)) cover = '';
   try {
     const article = articleService.createArticle(db, {
       title: draft.title,
@@ -527,19 +655,23 @@ async function processDiscovery(db, discovery, { aiEnabled = true } = {}) {
       category: draft.category || d.category_slug || undefined,
       cover_image: cover || null,
       content_origin: 'generated',
-      source_name: source?.name || null,
+      source_name: publisher || null,
       source_url: item.url,
-      sources: draft.references.length ? draft.references : (item.url ? [{ name: source?.name || 'منبع خبر', url: item.url }] : [])
+      sources: draft.references.length ? draft.references : (item.url ? [{ name: publisher || 'منبع خبر', url: item.url }] : [])
     }, 'discovery-engine');
+    if (cover) usedImages.add(cover);
     // Persist editorial metadata for the review screen.
     const meta = {
-      claims: draft.claims,
+      claims: draft.key_points,
+      key_points: draft.key_points,
       keywords: draft.keywords,
       sensitive: draft.sensitive,
       confidence: draft.confidence,
+      relevance: draft.relevance,
       why_it_matters: draft.why_it_matters || '',
-      ai_assisted: draft.aiAssisted !== false,
-      ai_failed: aiFailed || null
+      ai_assisted: true,
+      age_days: ageDays == null ? null : Math.round(ageDays),
+      freshness: gate.accept === 'evergreen' ? 'evergreen' : 'fresh'
     };
     db.prepare('UPDATE magazine_articles SET quality_flags=? WHERE id=?').run(JSON.stringify(flags), article.id);
     db.prepare('UPDATE magazine_discoveries SET status=\'DRAFTED\', article_id=?, quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?')
@@ -563,6 +695,7 @@ const progressState = {
   items_total: 0, items_done: 0, items_found: 0,
   images_total: 0, images_done: 0,
   drafted: 0, duplicates: 0, failed: 0, skipped: 0,
+  filtered: 0, rejected: 0, not_prepared: 0,
   error_sources: [], started_at: null, finished_at: null, last_result: null
 };
 function getDiscoveryProgress() {
@@ -573,6 +706,9 @@ function syncProgressFromSummary(summary) {
   progressState.duplicates = summary.duplicates;
   progressState.failed = summary.failed;
   progressState.skipped = summary.skipped;
+  progressState.filtered = summary.filtered;
+  progressState.rejected = summary.rejected;
+  progressState.not_prepared = summary.not_prepared;
   progressState.items_found = summary.fetched;
 }
 
@@ -581,19 +717,27 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     running: true, phase: 'sources', current_source: '',
     sources_total: 0, sources_done: 0, items_total: 0, items_done: 0, items_found: 0,
     images_total: 0, images_done: 0, drafted: 0, duplicates: 0, failed: 0, skipped: 0,
+    filtered: 0, rejected: 0, not_prepared: 0,
     error_sources: [], started_at: Date.now(), finished_at: null, last_result: null
   });
-  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, sources: 0, errors: [], stopped_at_cap: false };
+  const summary = { fetched: 0, newItems: 0, duplicates: 0, drafted: 0, failed: 0, skipped: 0, filtered: 0, rejected: 0, not_prepared: 0, filtered_breakdown: {}, sources: 0, errors: [], stopped_at_cap: false };
   try {
   const sources = listSources(db).filter(s => s.is_active);
   summary.sources = sources.length;
   progressState.sources_total = sources.length;
-  // Pass 1: fetch every feed; log duplicates; reserve a discovery row for each
-  // NEW item (dedupe must also work within this run) and collect the candidates.
+  // Pass 1: fetch every feed; QUALITY + FRESHNESS filter; log duplicates;
+  // reserve a discovery row for each NEW candidate (dedupe must also work
+  // within this run).
   const candidates = [];
-  // In-run dedupe: candidates collected earlier in THIS run must also count
-  // (the DB rows are reserved as NEW and only become DRAFTED in pass 2).
   const seenInRun = [];
+  const logRejected = (source, item, url, aiMeta) => {
+    db.prepare(`
+      INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, publisher, status, ai_meta)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, 'FAILED', ?)
+    `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }),
+      item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500),
+      item.imageUrl || null, publisherOf(item, source), JSON.stringify(aiMeta));
+  };
   for (const source of sources) {
     progressState.current_source = source.name;
     let items = [];
@@ -611,30 +755,51 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     for (const item of items) {
       const url = normalizeUrl(item.url);
       if (!url || !item.title) continue;
+      // --- QUALITY filter: celebrity/lifestyle/SEO hosts never surface.
+      if (LOW_QUALITY_HOSTS.test(hostOf(item.url))) {
+        summary.filtered += 1;
+        summary.filtered_breakdown['low-quality'] = (summary.filtered_breakdown['low-quality'] || 0) + 1;
+        logRejected(source, item, url, { filtered: 'low-quality' });
+        continue;
+      }
+      // --- FRESHNESS filter: old content is never presented as "new".
+      const tier = Number(source.source_tier) || 3;
+      const ageDays = ageDaysOf(cleanDate(item.publishedAt));
+      const gate = freshnessGate({ ageDays, scientific: tier <= 2 });
+      if (gate.accept === false) {
+        summary.filtered += 1;
+        summary.filtered_breakdown['freshness'] = (summary.filtered_breakdown['freshness'] || 0) + 1;
+        logRejected(source, item, url, { filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) });
+        continue;
+      }
       const inRun = seenInRun.find(c => c.url === url || titleSimilarity(c.title, item.title) >= TITLE_SIMILARITY_THRESHOLD);
       const dup = inRun || findDuplicate(db, { url: item.url, title: item.title, sourceName: source.name });
       if (dup) {
         summary.duplicates += 1;
         db.prepare(`
-          INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, status)
-          VALUES (?,?,?,?,?,?,?,?,?,?, 'DUPLICATE')
-        `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null);
+          INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, publisher, status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?, 'DUPLICATE')
+        `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null, publisherOf(item, source));
         seenInRun.push({ url, title: item.title });
         continue;
       }
       const info = db.prepare(`
-        INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?, 'NEW')
-      `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null);
+        INSERT INTO magazine_discoveries (stable_id, source_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, image_url, publisher, status)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?, 'NEW')
+      `).run(crypto.randomUUID(), source.id, url, sha1(url), fingerprintFor({ title: item.title, sourceName: source.name }), item.title.slice(0, 300), cleanDate(item.publishedAt), source.category_slug, (item.summary || '').slice(0, 500), item.imageUrl || null, publisherOf(item, source));
       seenInRun.push({ url, title: item.title });
-      candidates.push({ source, item, url, discoveryId: Number(info.lastInsertRowid) });
+      candidates.push({ source, item, url, discoveryId: Number(info.lastInsertRowid), tier, date: cleanDate(item.publishedAt) || '' });
     }
     syncProgressFromSummary(summary);
   }
   summary.newItems = candidates.length;
-  // Prioritize items whose own feed already provides an image, then cap this
-  // run at DISCOVERY_BATCH_SIZE new items (the UI «جستجو بیشتر» starts the next batch).
-  const ordered = [...candidates.filter(c => c.item.imageUrl), ...candidates.filter(c => !c.item.imageUrl)];
+  // Rank: scientific/professional sources first (owner quality tiers), then
+  // items whose feed already provides an image, then newest first. Cap this
+  // run at DISCOVERY_BATCH_SIZE new items (the UI «جستجو بیشتر» continues).
+  const ordered = [...candidates].sort((a, b) =>
+    (a.tier - b.tier) ||
+    ((b.item.imageUrl ? 1 : 0) - (a.item.imageUrl ? 1 : 0)) ||
+    String(b.date).localeCompare(String(a.date)));
   const toProcess = ordered.slice(0, DISCOVERY_BATCH_SIZE);
   summary.stopped_at_cap = ordered.length > DISCOVERY_BATCH_SIZE;
   // Items beyond the cap: release their reserved rows so the next run picks them up.
@@ -642,14 +807,18 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     db.prepare("DELETE FROM magazine_discoveries WHERE id=? AND status='NEW'").run(c.discoveryId);
   }
   progressState.items_total = toProcess.length;
-  // Pass 2: turn the batch into Persian editorial drafts.
+  progressState.phase = 'draft';
+  // Pass 2: AI editorial preparation (translate → summarize → key points) and
+  // image extraction; then the draft enters the coach review inbox.
+  const usedImages = new Set();
   let actionable = 0;
   for (const c of toProcess) {
     const { source, discoveryId } = c;
     progressState.current_source = source.name;
     try {
-      const result = await processDiscovery(db, { id: discoveryId });
-      if (result && result.skipped) { summary.skipped += 1; }
+      const result = await processDiscovery(db, { id: discoveryId }, { usedImages });
+      if (result && result.notPrepared) { summary.not_prepared += 1; }
+      else if (result && result.skipped) { summary.rejected += 1; }
       else { summary.drafted += 1; actionable += 1; }
     } catch (e) {
       summary.failed += 1;
@@ -658,7 +827,7 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     progressState.items_done += 1;
     syncProgressFromSummary(summary);
   }
-  // Notification only when the coach has actionable review items (section 17).
+  // Notification only when the coach has actionable review items.
   if (actionable > 0 && notifyAudience === 'coach') {
     const engagement = require('./engagement-service');
     engagement.notify(db, {
@@ -670,7 +839,8 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     });
   }
   // Backfill: drafts discovered before image support (or whose og fetch
-  // failed) get another chance to receive their own source image.
+  // failed) get another chance to receive their own source image. The same
+  // image is never handed to a DIFFERENT story (same source_url may keep it).
   progressState.phase = 'images';
   let imgFixed = 0;
   const needImage = db.prepare(`
@@ -683,25 +853,32 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
   progressState.images_total = needImage.length;
   for (const row of needImage) {
     const img = await fetchOgImage(row.source_url);
-    if (img) {
+    let conflict = false;
+    if (img) conflict = db.prepare('SELECT 1 AS x FROM magazine_articles WHERE deleted_at IS NULL AND cover_image=? AND source_url<>? LIMIT 1').get(img, row.source_url) != null;
+    if (img && !conflict) {
       db.prepare('UPDATE magazine_articles SET cover_image=? WHERE id=?').run(img, row.id);
       imgFixed += 1;
     }
     progressState.images_done += 1;
   }
   db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.last_run_at', ?)").run(new Date().toISOString());
+  db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.last_run_result', ?)").run(JSON.stringify({
+    drafted: summary.drafted, filtered: summary.filtered, rejected: summary.rejected,
+    not_prepared: summary.not_prepared, duplicates: summary.duplicates,
+    stopped_at_cap: summary.stopped_at_cap, at: new Date().toISOString()
+  }));
   const audit = require('./audit-service');
   audit.record(db, {
     actorType: 'system',
     action: 'discovery.completed',
     entityType: 'magazine_discovery',
-    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, failed: summary.failed, skipped: summary.skipped, images_backfilled: imgFixed }
+    metadata: { fetched: summary.fetched, new_items: summary.newItems, duplicates: summary.duplicates, drafted: summary.drafted, rejected: summary.rejected, filtered: summary.filtered, filtered_breakdown: summary.filtered_breakdown, not_prepared: summary.not_prepared, failed: summary.failed, images_backfilled: imgFixed }
   });
   const result = { ...summary, images_backfilled: imgFixed };
   progressState.running = false;
   progressState.finished_at = Date.now();
   progressState.phase = summary.errors.length ? 'done_with_errors' : 'done';
-  progressState.last_result = { drafted: summary.drafted, duplicates: summary.duplicates, failed: summary.failed, skipped: summary.skipped, fetched: summary.fetched, error_count: summary.errors.length, images_backfilled: imgFixed, stopped_at_cap: summary.stopped_at_cap };
+  progressState.last_result = { drafted: summary.drafted, duplicates: summary.duplicates, failed: summary.failed, skipped: summary.rejected, rejected: summary.rejected, filtered: summary.filtered, not_prepared: summary.not_prepared, fetched: summary.fetched, error_count: summary.errors.length, images_backfilled: imgFixed, stopped_at_cap: summary.stopped_at_cap };
   return result;
   } catch (e) {
     progressState.running = false;
@@ -799,7 +976,8 @@ function queueView(db, { status = '' } = {}) {
       quality_flags: flags,
       ai_meta: aiMeta,
       why_it_matters: aiMeta && aiMeta.why_it_matters ? aiMeta.why_it_matters : '',
-      key_points: aiMeta && Array.isArray(aiMeta.claims) ? aiMeta.claims : [],
+      key_points: aiMeta && (Array.isArray(aiMeta.key_points) ? aiMeta.key_points : (Array.isArray(aiMeta.claims) ? aiMeta.claims : [])),
+      evergreen: Boolean(aiMeta && aiMeta.freshness === 'evergreen'),
       discovered_at: discovery ? discovery.created_at : null,
       original_title: discovery ? discovery.title_original : null,
       source_published_at: discovery ? discovery.date_published : null,
@@ -812,18 +990,34 @@ function queueStats(db) {
   const count = status => db.prepare('SELECT COUNT(*) c FROM magazine_articles WHERE deleted_at IS NULL AND status=?').get(status).c;
   const newToday = db.prepare("SELECT COUNT(*) c FROM magazine_discoveries WHERE status='DRAFTED' AND date(created_at) = date('now')").get().c;
   const lastRun = db.prepare("SELECT value FROM settings WHERE key='magazine.last_run_at'").get();
+  const lastRunResultRow = db.prepare("SELECT value FROM settings WHERE key='magazine.last_run_result'").get();
+  let lastRunResult = null;
+  if (lastRunResultRow) { try { lastRunResult = JSON.parse(lastRunResultRow.value); } catch (e) { lastRunResult = null; } }
   return {
     published: count('PUBLISHED'),
     pending_review: count('PENDING_REVIEW'),
     drafts: count('DRAFT'),
     rejected: count('REJECTED'),
     new_today: newToday,
-    last_run_at: lastRun ? lastRun.value : null
+    last_run_at: lastRun ? lastRun.value : null,
+    last_run: lastRunResult
   };
 }
 
 module.exports = {
   DISCOVERY_BATCH_SIZE,
+  FRESH_NEWS_DAYS,
+  FRESH_SCIENCE_DAYS,
+  EVERGREEN_HARD_CAP_DAYS,
+  LOW_QUALITY_HOSTS,
+  OG_BLOCK_HOSTS,
+  hostOf,
+  ageDaysOf,
+  freshnessGate,
+  extractUrlFromGoogleNewsId,
+  resolveGoogleNewsUrl,
+  domainToName,
+  publisherOf,
   getDiscoveryProgress,
   fetchOgImage,
   fetchSourceItems,

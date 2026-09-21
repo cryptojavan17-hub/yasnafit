@@ -817,11 +817,12 @@
     return `
     <article class="mag-news-card" data-id="${item.id}">
       <div class="mag-news-card__media">
-        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>🖼️ بدون تصویر</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
+        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>🖼️ تصویر موجود نیست</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
       </div>
       <div class="mag-news-card__head">
         <span class="mag-news-cat">${emoji} ${esc(catName)}</span>
         ${statusBadge(item.status)}
+        ${item.evergreen ? '<span class="mag-news-cat mag-news-cat--evergreen">📚 مطلب مرجعی</span>' : ''}
       </div>
       <h4 class="mag-news-title">${esc(item.title)}</h4>
       ${item.original_title ? `<div class="mag-news-orig" dir="auto">Original: ${esc(item.original_title)}</div>` : ''}
@@ -859,7 +860,7 @@
       <div class="mag-progress" role="status">
         <div class="mag-progress__bar"><div class="mag-progress__fill" style="width:${pct}%"></div></div>
         <div class="mag-progress__status">${phaseText}${p.current_source ? ' — <b>' + esc(p.current_source) + '</b>' : ''}</div>
-        <div class="mag-progress__counts">${p.items_found ? faDigits(p.items_found) + ' مطلب پیدا شد · ' : ''}${p.drafted ? faDigits(p.drafted) + ' گزارش آماده' : ''}${errCount ? ' · ' + faDigits(errCount) + ' منبع در دسترس نبود' : ''}</div>
+        <div class="mag-progress__counts">${p.items_found ? faDigits(p.items_found) + ' کاندیدا پیدا شد · ' : ''}${p.filtered ? faDigits(p.filtered) + ' مورد فیلتر شد · ' : ''}${p.drafted ? faDigits(p.drafted) + ' گزارش آماده' : ''}${errCount ? ' · ' + faDigits(errCount) + ' منبع در دسترس نبود' : ''}</div>
       </div>
     `;
   }
@@ -870,8 +871,8 @@
     return `
       <div class="mag-news-head">
         <div class="mag-news-head__info">
-          <p class="mag-news-last">آخرین بررسی: <b>${st.last_run_at ? faDateTime(st.last_run_at) : 'هنوز انجام نشده'}</b></p>
-          <p class="mag-news-count">${n ? `AI ${faDigits(n)} مطلب جدید پیدا کرده است.` : 'هنوز مطلب جدیدی برای بررسی وجود ندارد.'}</p>
+          <p class="mag-news-last">آخرین بررسی: <b>${st.last_run_at ? faDateTime(st.last_run_at) : 'هنوز انجام نشده'}</b>${st.last_run ? ' — ' + faDigits(st.last_run.drafted || 0) + ' مطلب جدید پیدا شد' : ''}</p>
+          <p class="mag-news-count">${n ? faDigits(n) + ' مطلب برای بررسی آماده است.' : 'هنوز مطلب جدیدی برای بررسی وجود ندارد.'}</p>
         </div>
         <div class="mag-toolbar__actions">
           <button type="button" class="primary mag-news-run" id="magRunDiscover"${state.discoverRunning ? ' disabled' : ''}>${state.discoverRunning ? 'در حال بررسی…' : '🔍 بررسی مطالب جدید'}</button>          ${state.canSearchMore && !state.discoverRunning ? `<button type="button" class="secondary mag-news-run" id="magSearchMore">جستجو بیشتر (${faDigits(20)} مورد دیگر)</button>` : ''}
@@ -931,7 +932,7 @@
   function bindNews() {
     const pane = document.getElementById('magazinePane');
     if (!pane) return;
-    const runDiscoverFlow = async () => {
+    const runDiscoverFlow = async (isMore) => {
       state.discoverRunning = true;
       state.progress = { running: true, phase: 'sources' };
       renderPane();
@@ -964,10 +965,15 @@
       try {
         const result = await api('/api/magazine/admin/discover', { method: 'POST', body: '{}' });
         state.canSearchMore = Boolean(result.stopped_at_cap);
-        const found = result.drafted ? `📰 ${faDigits(result.drafted)} مطلب جدید پیدا شد — در کارت‌ها بررسی کنید` : 'مطلب جدیدی پیدا نشد — همه منابع بررسی شد';
-        if (result.stopped_at_cap) toast(found + ' — برای ادامه «جستجو بیشتر» را بزنید', true);
-        else if (result.errors && result.errors.length) toast(found + ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم)`, true);
-        else toast(found);
+        const parts = [];
+        if (result.drafted) parts.push(`📰 ${faDigits(result.drafted)} ${isMore ? 'مطلب جدید دیگر پیدا شد' : 'مطلب جدید برای بررسی پیدا شد'}.`);
+        else parts.push('مطلب جدیدی پیدا نشد — همه منابع بررسی شد.');
+        if (result.filtered) parts.push(`${faDigits(result.filtered)} مطلب به‌خاطر تازگی/کیمنبع مطابق نبود و حذف شد.`);
+        if (result.not_prepared) parts.push(`توجه: ${faDigits(result.not_prepared)} مطلب به‌خاطر نبود یا خطای هوش مصنوعی آماده نشد (تنظیمات هوش مصنوعی را بررسی کنید).`);
+        let msg = parts.join(' ');
+        if (result.stopped_at_cap) msg += ' برای ادامهٔ بررسی «جستجو بیشتر» را بزنید.';
+        else if (result.errors && result.errors.length) msg += ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم).`;
+        toast(msg, Boolean(result.stopped_at_cap || result.not_prepared));
       } catch (error) {
         toast('بررسی خطا کرد: ' + error.message, true);
       } finally {
@@ -978,9 +984,9 @@
       }
     };
     const discoverBtn = pane.querySelector('#magRunDiscover');
-    if (discoverBtn) discoverBtn.addEventListener('click', runDiscoverFlow);
+    if (discoverBtn) discoverBtn.addEventListener('click', () => runDiscoverFlow(false));
     const moreBtn = pane.querySelector('#magSearchMore');
-    if (moreBtn) moreBtn.addEventListener('click', runDiscoverFlow);
+    if (moreBtn) moreBtn.addEventListener('click', () => runDiscoverFlow(true));
     pane.querySelectorAll('[data-news-action]').forEach(btn => {
       const id = Number(btn.dataset.id);
       const action = btn.dataset.newsAction;
@@ -1075,8 +1081,6 @@
             <dt>عنوان اصلی</dt><dd>${esc(d.original_title || '—')}</dd>
             <dt>تاریخ انتشار منبع</dt><dd>${faDate(d.source_published_at)}</dd>
             <dt>تاریخ کشف</dt><dd>${faDate(d.discovered_at)}</dd>
-            ${ai.confidence != null ? `<dt>اعتماد پردازش</dt><dd>${faDigits(Math.round(Number(ai.confidence) * 100))}٪</dd>` : ''}
-            ${ai.ai_failed ? `<dt>پردازش</dt><dd class="mag-review__warn">${esc(ai.ai_failed)}</dd>` : ''}
           </dl>
           ${flags.length ? `<div class="mag-review__flags"><b>نیاز به بررسی:</b><ul>${flags.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>` : ''}
           ${d.duplicate ? '<div class="mag-review__flags mag-review__flags--dup">هشدار: این مطلب ممکن است تکراری باشد.</div>' : ''}
