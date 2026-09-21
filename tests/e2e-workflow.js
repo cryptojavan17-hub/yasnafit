@@ -65,7 +65,11 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,303);assert.equal(home.headers.get('location'),'/coach/login');
+  // Public site contract: unauthenticated / is the SSR marketing landing (200);
+  // the coach SPA gate now lives on /coach/dashboard → 303 /coach/login.
+  const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,200);
+  const homeHtml=await home.text();assert.match(homeHtml,/بدنی قوی‌تر،/);assert.match(homeHtml,/lang="fa"/);assert.match(homeHtml,/dir="rtl"/);
+  const coachDash=await fetch(BASE+'/coach/dashboard',{redirect:'manual'});assert.equal(coachDash.status,303);assert.equal(coachDash.headers.get('location'),'/coach/login');
   const loginPage=await fetch(BASE+'/coach/login');assert.equal(loginPage.status,200);
   const loginHtml=await loginPage.text();
   assert.match(loginHtml,/ادامه/);assert.match(loginHtml,/ایمیل مربی/);
@@ -163,7 +167,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(410,`/api/student-portal/${inviteA.token}`);
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
-  await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,telegram_id:'@yasnafit_test',instagram_id:'@yasnafit.test',height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});const meA=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meA.student.telegram_id,'@yasnafit_test');assert.equal(meA.student.instagram_id,'@yasnafit.test');assert.equal(meA.student.case_number,a.case_number);
+  await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,telegram_id:'@yasnafit_test',instagram_id:'@yasnafit.test',height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});const meA=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meA.student.telegram_id,'@yasnafit_test');assert.equal(meA.student.instagram_id,'@yasnafit.test');assert.equal(meA.student.case_number,a.case_number);const homeWithBot=await request('/',{cookie:sessionA.cookie});assert.equal(homeWithBot.response.status,200);assert.match(homeWithBot.data.toString('utf8'),/data-telegram-bot="true"/,'header: telegram bot button for the logged-in student');const tgConnect=await ok('/api/telegram-bot/connect',{method:'POST',cookie:sessionA.cookie,body:{telegram_id:'yasnafit_e2e_bot'}});assert.equal(tgConnect.ok,true);const meTg=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meTg.student.telegram_id,'@yasnafit_e2e_bot','telegram bot connect stored the id on the student account');const tgInfo=await ok('/api/telegram-bot',{cookie:sessionA.cookie});assert.equal(tgInfo.telegram_id,'@yasnafit_e2e_bot','own telegram id prefilled for the logged-in student');
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
   await completeStructuredAssessment(sessionA.cookie,'male');
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});
@@ -250,7 +254,9 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const versionInfo=await ok('/api/version');assert.deepEqual(versionInfo,{version:'0.9.1',name:'Yasnafit',environment:'development'});
   const releases=await ok('/api/releases');assert.deepEqual(releases.map(item=>item.version),['0.9.0','0.8.0','0.7.2','0.7.1','0.7.0','0.6.0','0.5.1','0.5.0','0.4.1','0.4.0','0.3.0','0.2.1','0.2.0','0.1.0']);
   {
-    const shell=await fetch(BASE+'/');
+    // The coach SPA shell (authenticated) carries the full hardening header set.
+    const shell=await fetch(BASE+'/coach/dashboard',{headers:{Cookie:coachCookie}});
+    assert.equal(shell.status,200,'coach shell must be 200 for an authenticated coach');
     const csp=shell.headers.get('content-security-policy')||'';
     assert.match(csp,/default-src 'self'/,'the coach shell is served without a CSP');
     assert.match(csp,/script-src 'self'/,'CSP must not allow inline scripts');
@@ -262,7 +268,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
     assert.match(script.headers.get('content-security-policy')||'',/frame-ancestors/,'static assets bypass the hardening headers');
   }
   const publicHealth=await ok('/api/health');assert.deepEqual(Object.keys(publicHealth).sort(),['ok','status','uptime','version'],'public health payload exposes more than liveness');
-  const health=await ok('/api/health?detailed=1',{coach:true});assert.equal(health.exercises,2707);assert.equal(health.schema_version,'030_coach_totp_authenticator');
+  const health=await ok('/api/health?detailed=1',{coach:true});assert.equal(health.exercises,2707);assert.equal(health.schema_version,'039_magazine_direct_persian_publishers');
   await expectStatus(401,'/api/health?detailed=1');await expectStatus(401,'/api/build');
   for(const file of fs.readdirSync(path.join(__dirname,'..','public')).filter(name=>/\.(?:js|html|css)$/.test(name))){
     // Only quoted version literals count: inline SVG path data ("c.12 1.05.4 2.07.82")
@@ -274,7 +280,11 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   const coachLogout=await request('/api/coach/auth/logout',{method:'POST',coach:true});
   assert.equal(coachLogout.response.status,200);
   await expectStatus(401,'/api/dashboard',{coach:true});
+  // After logout the stale cookie is rejected: / shows the public site, the
+  // coach SPA gate still bounces to /coach/login.
   const homeAfterLogout=await fetch(BASE+'/',{redirect:'manual',headers:{Cookie:coachCookie}});
-  assert.equal(homeAfterLogout.status,303);assert.equal(homeAfterLogout.headers.get('location'),'/coach/login');
+  assert.equal(homeAfterLogout.status,200);
+  const dashAfterLogout=await fetch(BASE+'/coach/dashboard',{redirect:'manual',headers:{Cookie:coachCookie}});
+  assert.equal(dashAfterLogout.status,303);assert.equal(dashAfterLogout.headers.get('location'),'/coach/login');
   console.log(JSON.stringify({ok:true,students:2,student_sessions:true,month_two:true,isolation:true,logout:true,application_version:versionInfo.version,releases:releases.length},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1;});

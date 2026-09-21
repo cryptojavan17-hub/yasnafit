@@ -44,6 +44,7 @@ async function render(label,route){
   if(((route.startsWith('/students/')&&route.includes('/timeline'))||/^\/coach\/students\/\d+\/assessments$/.test(route)) && window.renderStudentTimeline) return window.renderStudentTimeline(label,route);
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
   if(route==='/coach/releases' && window.renderReleaseHistory) return window.renderReleaseHistory(label,route);
+  if(route==='/coach/magazine' && window.renderMagazineAdmin) return window.renderMagazineAdmin(label,route);
   current=route;
   crumb.textContent=label;
   document.querySelectorAll('.menu-link').forEach(x=>x.classList.toggle('active',x.dataset.route===route));

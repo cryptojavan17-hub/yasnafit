@@ -1328,6 +1328,292 @@ const migrations = [
       if (!columns.has('totp_confirmed_at')) db.exec('ALTER TABLE coaches ADD COLUMN totp_confirmed_at TEXT');
       if (!columns.has('totp_last_counter')) db.exec('ALTER TABLE coaches ADD COLUMN totp_last_counter INTEGER');
     }
+  },
+  {
+    // Public website content (landing + about + magazine + results).
+    // Additive only: no existing table is touched. Content starts EMPTY on
+    // purpose — no fabricated articles, sources or success stories. The five
+    // structural categories are seeded because they are the magazine taxonomy
+    // itself, not claims.
+    id: '031_public_site_content',
+    description: 'Public site: magazine categories/articles/sources, success stories, coach profile',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS magazine_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          slug TEXT NOT NULL UNIQUE,
+          name_fa TEXT NOT NULL,
+          description TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS magazine_articles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          slug TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          summary TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL DEFAULT '',
+          category_id INTEGER,
+          cover_image TEXT,
+          status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','PENDING_REVIEW','REJECTED','PUBLISHED')),
+          content_origin TEXT NOT NULL DEFAULT 'human' CHECK(content_origin IN ('generated','edited','human','imported')),
+          source_name TEXT,
+          source_url TEXT,
+          reading_time INTEGER NOT NULL DEFAULT 0,
+          published_at TEXT,
+          reviewed_at TEXT,
+          reviewed_by TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT,
+          FOREIGN KEY(category_id) REFERENCES magazine_categories(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_articles_status ON magazine_articles(status, published_at);
+        CREATE INDEX IF NOT EXISTS idx_magazine_articles_category ON magazine_articles(category_id, status);
+        CREATE TABLE IF NOT EXISTS magazine_article_sources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          article_id INTEGER NOT NULL,
+          source_name TEXT NOT NULL,
+          source_url TEXT,
+          note TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(article_id) REFERENCES magazine_articles(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_article_sources_article ON magazine_article_sources(article_id);
+        CREATE TABLE IF NOT EXISTS success_stories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          display_name TEXT,
+          duration_months INTEGER,
+          goal TEXT,
+          metrics TEXT,
+          testimonial TEXT,
+          before_image TEXT,
+          after_image TEXT,
+          consent_status TEXT NOT NULL DEFAULT 'none' CHECK(consent_status IN ('none','verbal','written')),
+          status TEXT NOT NULL DEFAULT 'DRAFT' CHECK(status IN ('DRAFT','PUBLISHED','ARCHIVED')),
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS coach_profile (
+          id INTEGER PRIMARY KEY CHECK(id = 1),
+          display_name TEXT,
+          title TEXT,
+          highlight TEXT,
+          bio TEXT,
+          philosophy TEXT,
+          methodology TEXT,
+          photo TEXT,
+          specialties TEXT,
+          certifications TEXT,
+          timeline TEXT,
+          stats TEXT,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      const genUUID = () => require('crypto').randomUUID();
+      const seedCategory = db.prepare(`
+        INSERT OR IGNORE INTO magazine_categories (stable_id, slug, name_fa, sort_order) VALUES (?,?,?,?)
+      `);
+      const seeded = [
+        ['bodybuilding', 'بدنسازی', 1],
+        ['sports-science', 'علم ورزش', 2],
+        ['nutrition', 'تغذیه', 3],
+        ['health', 'سلامت', 4],
+        ['sports-news', 'اخبار ورزشی', 5]
+      ];
+      for (const [slug, nameFa, order] of seeded) seedCategory.run(genUUID(), slug, nameFa, order);
+    }
+  },
+  {
+    id: '032_telegram_bot_connections',
+    description: 'Telegram bot: student connection log (public header «ربات تلگرام» button)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_bot_connections (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          telegram_id TEXT NOT NULL,
+          student_id INTEGER,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_telegram_bot_connections_student ON telegram_bot_connections(student_id);
+      `);
+    }
+  },
+  {
+    id: '033_magazine_discovery_pipeline',
+    description: 'Magazine editorial pipeline: configurable news sources, discovery/dedup log, editorial quality flags (AI discovers + drafts, coach approves & publishes)',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS magazine_sources (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          feed_url TEXT NOT NULL,
+          source_type TEXT NOT NULL DEFAULT 'rss' CHECK(source_type IN ('rss','atom','api')),
+          category_slug TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          fetch_interval_h INTEGER NOT NULL DEFAULT 12,
+          last_fetched_at TEXT,
+          last_success_at TEXT,
+          last_error TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_sources_active ON magazine_sources(is_active, deleted_at);
+        CREATE TABLE IF NOT EXISTS magazine_discoveries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          source_id INTEGER,
+          url TEXT NOT NULL,
+          url_hash TEXT NOT NULL,
+          fingerprint TEXT NOT NULL,
+          title_original TEXT NOT NULL DEFAULT '',
+          date_published TEXT,
+          category_slug TEXT,
+          summary_original TEXT NOT NULL DEFAULT '',
+          image_url TEXT,
+          status TEXT NOT NULL DEFAULT 'NEW' CHECK(status IN ('NEW','PROCESSING','DRAFTED','DUPLICATE','FAILED')),
+          article_id INTEGER,
+          quality_flags TEXT,
+          ai_meta TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          processed_at TEXT,
+          FOREIGN KEY(source_id) REFERENCES magazine_sources(id) ON DELETE SET NULL,
+          FOREIGN KEY(article_id) REFERENCES magazine_articles(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_magazine_discoveries_url ON magazine_discoveries(url_hash);
+        CREATE INDEX IF NOT EXISTS idx_magazine_discoveries_status ON magazine_discoveries(status, created_at);
+      `);
+      try { db.exec('ALTER TABLE magazine_articles ADD COLUMN quality_flags TEXT'); } catch (e) { /* column already exists */ }
+      try { db.exec('ALTER TABLE magazine_articles ADD COLUMN rejection_reason TEXT'); } catch (e) { /* column already exists */ }
+    }
+  },
+  {
+    id: '034_magazine_builtin_world_sources',
+    description: 'Magazine: pre-configured trusted world sources (PubMed + world science/sports media) for sports, nutrition, bodybuilding and women\'s health — zero setup for the coach',
+    up(db) {
+      const builtins = [
+        ['builtin-pubmed-women-strength', 'PubMed — تمرینات مقاومتی زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+strength+training&format=rss', 'rss', 'bodybuilding'],
+        ['builtin-pubmed-sports-nutrition', 'PubMed — تغذیه ورزشی', 'https://pubmed.ncbi.nlm.nih.gov/?term=sports+nutrition&format=rss', 'rss', 'nutrition'],
+        ['builtin-pubmed-women-exercise', 'PubMed — ورزش و سلامت زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+exercise+health&format=rss', 'rss', 'health'],
+        ['builtin-gnews-sports-science', 'روز دنیا: علم ورزش', 'https://news.google.com/rss/search?q=sports+science+strength+training&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-women-fitness', 'روز دنیا: تمرین و تناسب‌اندام زنان', 'https://news.google.com/rss/search?q=women+fitness+training+health&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-nutrition-science', 'روز دنیا: علم تغذیه', 'https://news.google.com/rss/search?q=nutrition+science+research&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
+  },
+  {
+    id: '035_magazine_builtin_topic_coverage',
+    description: 'Magazine: extend built-in world sources to full topic list (hypertrophy, recovery/sleep, supplements, women\'s sports, sports news) — still zero coach setup',
+    up(db) {
+      const builtins = [
+        ['builtin-pubmed-women-hypertrophy', 'PubMed — رشد عضلانی زنان', 'https://pubmed.ncbi.nlm.nih.gov/?term=women+muscle+hypertrophy&format=rss', 'rss', 'bodybuilding'],
+        ['builtin-pubmed-recovery-sleep', 'PubMed — ریکاوری و خواب', 'https://pubmed.ncbi.nlm.nih.gov/?term=exercise+recovery+OR+sleep&format=rss', 'rss', 'health'],
+        ['builtin-pubmed-supplements', 'PubMed — مکمل‌های ورزشی', 'https://pubmed.ncbi.nlm.nih.gov/?term=sports+supplements&format=rss', 'rss', 'nutrition'],
+        ['builtin-gnews-womens-sports', 'روز دنیا: ورزش زنان', 'https://news.google.com/rss/search?q=women%27s+sports&hl=en&gl=US&ceid=US:en', 'rss', 'sports-news'],
+        ['builtin-gnews-sports-news', 'روز دنیا: اخبار ورزشی مهم', 'https://news.google.com/rss/search?q=sports+news&hl=en&gl=US&ceid=US:en', 'rss', 'sports-news']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
+  },
+  {
+    id: '036_magazine_source_tiers',
+    description: 'Magazine: owner source-tier coverage — Tier 1 (BJSM/ACSM/JSCR) + Tier 2 (NSCA/ISSN) + Tier 3 (RED-S/energy availability, injury prevention & bone health, protein/supplements evidence) via Google News',
+    up(db) {
+      const builtins = [
+        ['builtin-gnews-bjsm', 'روز دنیا: British Journal of Sports Medicine', 'https://news.google.com/rss/search?q=%22British%20Journal%20of%20Sports%20Medicine%22&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-acsm', 'روز دنیا: ACSM — position standها و راهنماها', 'https://news.google.com/rss/search?q=ACSM%20%22position%20stand%22%20OR%20%22clinical%20guideline%22&hl=en&gl=US&ceid=US:en', 'rss', 'sports-science'],
+        ['builtin-gnews-jscr', 'روز دنیا: Journal of Strength and Conditioning Research', 'https://news.google.com/rss/search?q=%22Journal%20of%20Strength%20and%20Conditioning%20Research%22&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-nsca', 'روز دنیا: NSCA — strength & conditioning', 'https://news.google.com/rss/search?q=NSCA%20OR%20%22strength%20and%20conditioning%22%20women%20training&hl=en&gl=US&ceid=US:en', 'rss', 'bodybuilding'],
+        ['builtin-gnews-issn', 'روز دنیا: ISSN — International Society of Sports Nutrition', 'https://news.google.com/rss/search?q=%22International%20Society%20of%20Sports%20Nutrition%22&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition'],
+        ['builtin-gnews-reds', 'روز دنیا: سلامت ورزشکاران زنان — RED-S و energy availability', 'https://news.google.com/rss/search?q=%22energy%20availability%22%20OR%20%22RED-S%22%20female%20athletes&hl=en&gl=US&ceid=US:en', 'rss', 'health'],
+        ['builtin-gnews-women-injury', 'روز دنیا: آسیب‌پیشگیری و سلامت استخوان ورزشکاران زنان', 'https://news.google.com/rss/search?q=women%20athletes%20injury%20prevention%20OR%20%22bone%20health%22&hl=en&gl=US&ceid=US:en', 'rss', 'health'],
+        ['builtin-gnews-protein-supps', 'روز دنیا: شواهد پروتئین و مکمل‌های ورزشی', 'https://news.google.com/rss/search?q=protein%20OR%20creatine%20supplements%20athletes%20evidence&hl=en&gl=US&ceid=US:en', 'rss', 'nutrition']
+      ];
+      const insert = db.prepare('INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)');
+      for (const b of builtins) insert.run(b[0], b[1], b[2], b[3], b[4]);
+    }
+  },
+  {
+    id: '037_magazine_source_quality_tiers',
+    description: 'Magazine: source quality tiers (owner spec) — scientific/peer-reviewed sources rank above established publications and general media',
+    up(db) {
+      try { db.exec('ALTER TABLE magazine_sources ADD COLUMN source_tier INTEGER DEFAULT 3'); } catch (e) { /* column already exists */ }
+      // Coach-facing source name = the ORIGINAL publisher (never "Google News").
+      try { db.exec('ALTER TABLE magazine_discoveries ADD COLUMN publisher TEXT'); } catch (e) { /* column already exists */ }
+      // Tier 1 — peer-reviewed science & professional bodies (highest priority).
+      const tier1 = [
+        'builtin-pubmed-women-strength','builtin-pubmed-sports-nutrition','builtin-pubmed-women-exercise',
+        'builtin-pubmed-women-hypertrophy','builtin-pubmed-recovery-sleep','builtin-pubmed-supplements',
+        'builtin-gnews-bjsm','builtin-gnews-acsm','builtin-gnews-jscr','builtin-gnews-nsca','builtin-gnews-issn'
+      ];
+      const q1 = db.prepare('UPDATE magazine_sources SET source_tier=1 WHERE stable_id=?');
+      for (const id of tier1) q1.run(id);
+      // Tier 2 — established sports-science/nutrition topic coverage.
+      const tier2 = [
+        'builtin-gnews-sports-science','builtin-gnews-women-fitness','builtin-gnews-nutrition-science',
+        'builtin-gnews-womens-sports','builtin-gnews-reds','builtin-gnews-women-injury','builtin-gnews-protein-supps'
+      ];
+      const q2 = db.prepare('UPDATE magazine_sources SET source_tier=2 WHERE stable_id=?');
+      for (const id of tier2) q2.run(id);
+      // Tier 3 (default) — general media; lowest priority, filtered hardest.
+    }
+  },
+  {
+    id: '038_magazine_persian_sources',
+    description: 'Magazine: owner pivot (2026-09-21, rev11) — discovery on PERSIAN sources only: six Persian fitness/bodybuilding/nutrition topics via Google News fa/IR search (hl=fa&gl=IR&ceid=IR:fa → results are Persian articles from real Persian sites; the pipeline resolves each to the original publisher). Previous world (English) built-ins are DEACTIVATED, not deleted — they stay re-activatable.',
+    up(db) {
+      const faFeeds = [
+        ['builtin-fa-bodybuilding', 'منبع فارسی: بدنسازی بانوان', 'https://news.google.com/rss/search?q=' + encodeURIComponent('بدنسازی بانوان') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'bodybuilding'],
+        ['builtin-fa-nutrition', 'منبع فارسی: تغذیه ورزشی', 'https://news.google.com/rss/search?q=' + encodeURIComponent('تغذیه ورزشی') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'nutrition'],
+        ['builtin-fa-exercise', 'منبع فارسی: علم تمرین', 'https://news.google.com/rss/search?q=' + encodeURIComponent('علم تمرین') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'sports-science'],
+        ['builtin-fa-fitness', 'منبع فارسی: تناسب اندام زنان', 'https://news.google.com/rss/search?q=' + encodeURIComponent('تناسب اندام زنان') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'health'],
+        ['builtin-fa-supplements', 'منبع فارسی: مکمل‌های ورزشی', 'https://news.google.com/rss/search?q=' + encodeURIComponent('مکمل‌های ورزشی') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'nutrition'],
+        ['builtin-fa-women-health', 'منبع فارسی: سلامت زنان و ورزش', 'https://news.google.com/rss/search?q=' + encodeURIComponent('سلامت زنان و ورزش') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'health']
+      ];
+      const ins = db.prepare(`
+        INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h, source_tier)
+        VALUES (?,?,?,?,?,1,12,3)
+      `);
+      for (const f of faFeeds) ins.run(f[0], f[1], f[2], f[3], f[4]);
+      // Owner: "Search ONLY Persian sources" — the previous world (English)
+      // built-ins are deactivated (kept in DB, re-activatable by the coach).
+      db.exec("UPDATE magazine_sources SET is_active=0 WHERE is_active=1 AND stable_id LIKE 'builtin-%' AND stable_id NOT LIKE 'builtin-fa-%' AND deleted_at IS NULL");
+    }
+  },
+  {
+    id: '039_magazine_direct_persian_publishers',
+    description: 'Replace Google News Persian searches with direct publisher RSS and HTML article lists',
+    up(db) {
+      if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='magazine_sources'").get()) return;
+      db.exec("ALTER TABLE magazine_sources ADD COLUMN fetch_format TEXT NOT NULL DEFAULT 'feed' CHECK(fetch_format IN ('feed','html'))");
+      // Preserve historical rows/articles; remove all six Google queries from
+      // default discovery. No Google fallback is used by the new publishers.
+      db.exec("UPDATE magazine_sources SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE stable_id IN ('builtin-fa-bodybuilding','builtin-fa-nutrition','builtin-fa-exercise','builtin-fa-fitness','builtin-fa-supplements','builtin-fa-women-health')");
+      const publishers = [
+        ['builtin-direct-fa-elmevarzesh', 'علم ورزش — علم تمرین', 'https://www.elmevarzesh.com/category/sports-physiology/exercise-science/feed/', 'feed', 'sports-science'],
+        ['builtin-direct-fa-iranbadan', 'ایران بدن — بدنسازی و فیتنس', 'https://www.iranbadan.com/category/bodybuilding-fitness/feed/', 'feed', 'bodybuilding'],
+        ['builtin-direct-fa-badanfit', 'بدن فیت — مقالات آموزشی', 'https://badanfit.ir/blog.html', 'html', 'bodybuilding'],
+        ['builtin-direct-fa-fitamin', 'فیتامین — مجله ورزشی و تغذیه', 'https://fitamin.ir/mag/', 'html', 'health']
+      ];
+      const ins = db.prepare("INSERT OR IGNORE INTO magazine_sources (stable_id,name,feed_url,fetch_format,category_slug,source_type,is_active,fetch_interval_h,source_tier) VALUES (?,?,?,?,?,'rss',1,12,2)");
+      for (const source of publishers) ins.run(...source);
+    }
   }
 ];
 

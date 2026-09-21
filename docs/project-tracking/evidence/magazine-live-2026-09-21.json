@@ -1,0 +1,125 @@
+{
+  "run_id": "1cc9bfb1-db84-4691-980c-f6d982167cde",
+  "started_at": "2026-09-21T11:18:03.174Z",
+  "mode": "unfiltered-once",
+  "disabled_filters": [
+    "freshness",
+    "source-quality"
+  ],
+  "retained_rules": [
+    "valid-url-and-title",
+    "Persian-title",
+    "deduplication",
+    "original-publisher-url",
+    "20-item-processing-cap",
+    "coach-only-publication"
+  ],
+  "sources": [
+    {
+      "id": 20,
+      "name": "منبع فارسی: بدنسازی بانوان",
+      "url": "https://news.google.com/rss/search?q=%D8%A8%D8%AF%D9%86%D8%B3%D8%A7%D8%B2%DB%8C%20%D8%A8%D8%A7%D9%86%D9%88%D8%A7%D9%86&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 21,
+      "name": "منبع فارسی: تغذیه ورزشی",
+      "url": "https://news.google.com/rss/search?q=%D8%AA%D8%BA%D8%B0%DB%8C%D9%87%20%D9%88%D8%B1%D8%B2%D8%B4%DB%8C&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 22,
+      "name": "منبع فارسی: علم تمرین",
+      "url": "https://news.google.com/rss/search?q=%D8%B9%D9%84%D9%85%20%D8%AA%D9%85%D8%B1%DB%8C%D9%86&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 23,
+      "name": "منبع فارسی: تناسب اندام زنان",
+      "url": "https://news.google.com/rss/search?q=%D8%AA%D9%86%D8%A7%D8%B3%D8%A8%20%D8%A7%D9%86%D8%AF%D8%A7%D9%85%20%D8%B2%D9%86%D8%A7%D9%86&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 24,
+      "name": "منبع فارسی: مکمل‌های ورزشی",
+      "url": "https://news.google.com/rss/search?q=%D9%85%DA%A9%D9%85%D9%84%E2%80%8C%D9%87%D8%A7%DB%8C%20%D9%88%D8%B1%D8%B2%D8%B4%DB%8C&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 25,
+      "name": "منبع فارسی: سلامت زنان و ورزش",
+      "url": "https://news.google.com/rss/search?q=%D8%B3%D9%84%D8%A7%D9%85%D8%AA%20%D8%B2%D9%86%D8%A7%D9%86%20%D9%88%20%D9%88%D8%B1%D8%B2%D8%B4&hl=fa&gl=IR&ceid=IR:fa",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    }
+  ],
+  "items": [],
+  "queue": {
+    "total": 0,
+    "ready": 0,
+    "drafted_this_run": 0,
+    "visible_this_run": 0,
+    "missing_article_ids": []
+  },
+  "finished_at": "2026-09-21T11:18:08.071Z",
+  "summary": {
+    "fetched": 0,
+    "newItems": 0,
+    "duplicates": 0,
+    "drafted": 0,
+    "failed": 0,
+    "skipped": 0,
+    "filtered": 0,
+    "rejected": 0,
+    "not_prepared": 0,
+    "filtered_breakdown": {},
+    "sources": 6,
+    "errors": [
+      "منبع فارسی: بدنسازی بانوان: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "منبع فارسی: تغذیه ورزشی: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "منبع فارسی: علم تمرین: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "منبع فارسی: تناسب اندام زنان: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "منبع فارسی: مکمل‌های ورزشی: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "منبع فارسی: سلامت زنان و ورزش: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    ],
+    "stopped_at_cap": false,
+    "reprocessed": 0,
+    "audit_rejected": 0
+  },
+  "http_queue_verification": {
+    "status": 200,
+    "total": 0,
+    "ids": [],
+    "ready": 0
+  },
+  "provenance": "Live Node fetch via authenticated application API. Original migration-038 feed URLs, no feed substitution or mocked fetch. Separate test database; not the owner machine."
+}

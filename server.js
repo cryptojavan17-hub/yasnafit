@@ -39,6 +39,9 @@ const aiService = require('./src/ai-service');
 const requestSecurity = require('./src/request-security');
 const buildInfo = require('./src/build-info');
 const storagePaths = require('./src/storage-paths');
+const articleService = require('./src/article-service');
+const publicContentService = require('./src/public-content-service');
+const magazineDiscovery = require('./src/magazine-discovery-service');
 if(requestSecurity.ALLOW_2FA_SKIP){
   console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
 }
@@ -2488,6 +2491,895 @@ async function handleCoachEngagement(req,res,url){
   return null;
 }
 
+// ================= Public website (landing + about + magazine) =================
+// Server-rendered with per-page SEO metadata; public/landing.js only adds
+// interactivity (sticky header, mobile menu, category filters). Every fact on
+// the public site comes from the database — nothing personal or scientific is
+// hardcoded. The coach session keeps the legacy dashboard on "/", while
+// anonymous visitors see the public home on the same URL.
+
+const escHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const toFaDigits = value => String(value ?? '').replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+
+// Jalali (Persian) calendar for display — same algorithm as public/jalali.js.
+// Storage stays ISO (BR-15); this only formats dates for HTML/meta.
+const jalaliFormat = (() => {
+  const div = (a, b) => ~~(a / b);
+  const mod = (a, b) => a - ~~(a / b) * b;
+  const breaks = [-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178];
+  function jalCal(jy) {
+    const bl = breaks.length, gy = jy + 621;
+    let leapJ = -14, jp = breaks[0], jm, jump = 0, n, i;
+    if (jy < jp || jy >= breaks[bl - 1]) return null;
+    for (i = 1; i < bl; i += 1) {
+      jm = breaks[i]; jump = jm - jp;
+      if (jy < jm) break;
+      leapJ = leapJ + div(jump, 33) * 8 + div(mod(jump, 33), 4);
+      jp = jm;
+    }
+    n = jy - jp;
+    leapJ = leapJ + div(n, 33) * 8 + div(mod(n, 33) + 3, 4);
+    if (mod(jump, 33) === 4 && jump - n === 4) leapJ += 1;
+    const leapG = div(gy, 4) - div((div(gy, 100) + 1) * 3, 4) - 150;
+    return { gy, march: 20 + leapJ - leapG };
+  }
+  function g2d(gy, gm, gd) {
+    let d = div((gy + div(gm - 8, 6) + 100100) * 1461, 4) + div(153 * mod(gm + 9, 12) + 2, 5) + gd - 34840408;
+    d = d - div(div(gy + 100100 + div(gm - 8, 6), 100) * 3, 4) + 752;
+    return d;
+  }
+  function d2g(jdn) {
+    let j = 4 * jdn + 139361631;
+    j = j + div(div(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+    const i = div(mod(j, 1461), 4) * 5 + 308;
+    return { gy: div(j, 1461) - 100100 + div(8 - (mod(div(i, 153), 12) + 1), 6), gm: mod(div(i, 153), 12) + 1, gd: div(mod(i, 153), 5) + 1 };
+  }
+  const yearLength = jy => {
+    const a = jalCal(jy), b = jalCal(jy + 1);
+    if (!a || !b) return 365;
+    return g2d(jy + 622, 3, b.march) - g2d(jy + 621, 3, a.march);
+  };
+  function d2j(jdn) {
+    const gy = d2g(jdn).gy;
+    let jy = gy - 621;
+    const r = jalCal(jy);
+    if (!r) return null;
+    const jdn1f = g2d(gy, 3, r.march);
+    let k = jdn - jdn1f, jm, jd;
+    if (k >= 0) {
+      if (k <= 185) { jm = 1 + div(k, 31); jd = mod(k, 31) + 1; return { jy, jm, jd }; }
+      k -= 186;
+    } else {
+      jy -= 1; k += 179;
+      if (yearLength(jy) === 366) k += 1;
+    }
+    jm = 7 + div(k, 30); jd = mod(k, 30) + 1;
+    return { jy, jm, jd };
+  }
+  const monthNames = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+  const fa = v => String(v).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+  return function format(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '').trim());
+    if (!m) return '';
+    const j = d2j(g2d(Number(m[1]), Number(m[2]), Number(m[3])));
+    if (!j) return '';
+    return `${fa(j.jd)} ${monthNames[j.jm - 1]} ${fa(j.jy)}`;
+  };
+})();
+
+function publicBaseUrl(req) {
+  const secure = requestSecurity.isHttps(req);
+  const host = requestSecurity.requestHost(req) || 'localhost';
+  return `${secure ? 'https' : 'http'}://${host}`;
+}
+
+const PUBLIC_NAV = [
+  ['خانه', '/'],
+  ['درباره من', '/about'],
+  ['خدمات', '/services'],
+  ['مجله', '/magazine'],
+  ['نتایج', '/results'],
+  ['تماس', '/contact']
+];
+
+// Owner header spec (2026-09-20, T-19 round 1): exactly these five links +
+// ثبت نام/ورود buttons. PUBLIC_NAV (with تماس) remains for the footer nav.
+const HEADER_NAV = [
+  ['خانه', '/'],
+  ['درباره من', '/about'],
+  ['خدمات', '/services'],
+  ['مجله', '/magazine'],
+  ['نتایج', '/results']
+];
+
+const ICONS = {
+  dumbbell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
+  analytics: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',
+  coaching: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5c.8-4 3.6-6 7-6s6.2 2 7 6"/></svg>',
+  program: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9.5 8h5M9.5 12h5M9.5 16h3"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 3v3M12 6c-3 0-5.5 2.6-5.5 6v1.5A5.5 5.5 0 0 0 12 19a5.5 5.5 0 0 0 5.5-5.5V12c0-3.4-2.5-6-5.5-6z"/><path d="M12 19v2.5"/></svg>',
+  assessment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>',
+  tracking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  online: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5a8 8 0 0 1 16 0M7 15.5a5 5 0 0 1 10 0"/><circle cx="12" cy="18.5" r="1.6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.8 3.6-5.8 7-5.8s6.2 2 7 5.8"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5C6.5 16.5 3.5 13 3.5 9.6 3.5 7 5.5 5 8 5c1.7 0 3.2.9 4 2.2C12.8 5.9 14.3 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.4-3 6.9-8.5 10.9z"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg>',
+  telegram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="12" cy="12" r="4"/><path d="M17.3 6.7h.01"/></svg>',
+  cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5L2.5 9 12 13.5 21.5 9 12 4.5z"/><path d="M6.5 11.5v4.2c0 1.6 2.5 3 5.5 3s5.5-1.4 5.5-3v-4.2"/><path d="M21.5 9v5"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M3.5 16.5l4.5-4 4 3.5 3-2.5 5.5 4.5"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.8 4.5h-1.6a3.7 3.7 0 0 0-3.7 3.7v2.3H8.2v3.4h2.3v6.6h3.4v-6.6h2.4l.5-3.4h-2.9V8.4a1 1 0 0 1 1-1h1.4z"/></svg>'
+};
+
+const SERVICES = [
+  { icon: 'program', title: 'برنامه تمرینی اختصاصی', description: 'برنامه ماهانه ۳۰ روزه که از روی ارزیابی کامل بدنت و هدفت ساخته می‌شود.' },
+  { icon: 'nutrition', title: 'برنامه غذایی', description: 'تغذیه‌ای متناسب با هدف، شرایط و سبک زندگی تو — بدون رژیم‌های سختگیرانه.' },
+  { icon: 'assessment', title: 'ارزیابی بدن', description: 'ارزیابی چندمرحله‌ای: اندازه‌گیری‌ها، سلامت، هدف و سابقه ورزشی از روز اول.' },
+  { icon: 'tracking', title: 'پیگیری پیشرفت', description: 'ثبت تمرین‌ها، مشاهده روند و ارزیابی دوره‌ای برای اصلاح مسیر با داده.' },
+  { icon: 'online', title: 'مربیگری آنلاین', description: 'دسترسی دائمی به مربی، پیام‌رسان مستقیم و همراهی مستمر در تمام مسیر.' }
+];
+
+function brandMarkup() {
+  return `<a class="brand" href="/" aria-label="YASNAFIT — صفحه اصلی"><span class="brand__mark" aria-hidden="true">Y</span><span class="brand__text">YASNA<span>FIT</span></span></a>`;
+}
+
+function headerMarkup(path, coachAuthorized) {
+  const links = HEADER_NAV.map(([label, href]) => {
+    const active = (href === '/' ? path === '/' : path.startsWith(href)) ? ' is-active' : '';
+    return `<a class="site-nav__link${active}" href="${href}" data-nav="${href}">${label}</a>`;
+  }).join('');
+  const action = coachAuthorized
+    ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
+    : `<button type="button" class="btn btn--ghost btn--sm" data-telegram-bot="true" aria-haspopup="dialog"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</button>
+      <a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
+      <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
+  return `<header class="site-header" id="siteHeader">
+  <div class="site-header__inner">
+    ${brandMarkup()}
+    <nav class="site-nav" id="siteNav" aria-label="ناوبری اصلی">${links}</nav>
+    <div class="site-header__actions">
+      ${action}
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="باز و بسته کردن منو">
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+</header>`;
+}
+
+function footerMarkup(site, profile, categories) {
+  // Wireframe (newlanding.png section 9): brand | inline navigation | three
+  // social icons, then a centered copyright line. Icons become real links only
+  // when the owner has configured a URL (never a placeholder account); until
+  // then they render as non-interactive placeholders so the layout matches the
+  // design without dead links.
+  const contact = site.contact || {};
+  const socials = [
+    { key: 'facebook', value: contact.facebook, href: v => 'https://facebook.com/' + String(v).replace(/^@/, ''), label: 'فیسبوک YASNAFIT' },
+    { key: 'telegram', value: contact.telegram, href: v => 'https://t.me/' + String(v).replace(/^@/, ''), label: 'تلیگرام YASNAFIT' },
+    { key: 'instagram', value: contact.instagram, href: v => 'https://instagram.com/' + String(v).replace(/^@/, ''), label: 'اینستاگرام YASNAFIT' }
+  ];
+  const year = new Date().getFullYear();
+  return `<footer class="site-footer">
+  <div class="site-footer__row">
+    ${brandMarkup()}
+    <nav class="site-footer__nav" aria-label="ناوبری پاورقی">
+      ${PUBLIC_NAV.map(([label, href]) => `<a href="${href}">${label}</a>`).join('')}
+    </nav>
+    <div class="site-footer__social" aria-label="شبکه‌های اجتماعی">
+      ${socials.map(s => s.value
+        ? `<a href="${escHtml(s.href(s.value))}" rel="noopener noreferrer" target="_blank" aria-label="${s.label}">${ICONS[s.key]}</a>`
+        : `<span class="site-footer__social--placeholder" title="به‌زودی" aria-hidden="true">${ICONS[s.key]}</span>`).join('')}
+    </div>
+  </div>
+  <div class="site-footer__bottom">
+    <p>YASNAFIT © ${year} | تمامی حقوق محفوظ است.</p>
+  </div>
+</footer>`;
+}
+
+function articleCardMarkup(article) {
+  const cover = article.cover_image || '/images/landing/cover-default.svg';
+  const date = article.published_at ? jalaliFormat(article.published_at) : '';
+  const catClass = article.category ? ' article-card__badge--' + escHtml(article.category) : '';
+  return `<article class="article-card">
+  <a class="article-card__media" href="/magazine/${escHtml(article.slug)}" tabindex="-1" aria-hidden="true">
+    <img loading="lazy" src="${escHtml(cover)}" alt="" data-fallback="/images/landing/cover-default.svg">
+    ${article.category_name ? `<span class="article-card__badge${catClass}">${escHtml(article.category_name)}</span>` : ''}
+  </a>
+  <div class="article-card__body">
+    <h3 class="article-card__title"><a href="/magazine/${escHtml(article.slug)}">${escHtml(article.title)}</a></h3>
+    <p class="article-card__summary">${escHtml(article.summary || '')}</p>
+    <div class="article-card__meta">
+      <span class="article-card__meta-item" aria-hidden="true">${ICONS.calendar}</span>
+      ${date ? `<time datetime="${escHtml(String(article.published_at).slice(0, 10))}">${escHtml(date)}</time>` : '<span>—</span>'}
+      <span class="article-card__meta-item" aria-hidden="true">${ICONS.clock}</span>
+      <span>${toFaDigits(article.reading_time || 1)} دقیقه مطالعه</span>
+    </div>
+    <a class="article-card__cta" href="/magazine/${escHtml(article.slug)}">مطالعه کامل مطلب <span class="article-card__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
+  </div>
+</article>`;
+}
+
+function emptyMagazineMarkup() {
+  return `<div class="empty-state" role="status">
+  <div class="empty-state__icon" aria-hidden="true">${ICONS.program}</div>
+  <h3>هنوز مقاله‌ای منتشر نشده است</h3>
+  <p>به‌زودی اینجا مقالات علمی و کاربردی YASNAFIT را می‌خوانید.</p>
+</div>`;
+}
+
+function storyCardMarkup(story) {
+  const metrics = Array.isArray(story.metrics) ? story.metrics : (story.metrics && typeof story.metrics === 'object' ? Object.entries(story.metrics).map(([k, v]) => ({ label: k, value: v })) : []);
+  return `<article class="story-card">
+    <div class="story-card__media">
+      ${story.before_image || story.after_image ? `
+        <div class="story-card__before"><img loading="lazy" src="${escHtml(story.before_image || '/images/landing/cover-default.svg')}" alt="تصویر قبل از شروع" data-fallback="/images/landing/cover-default.svg"><span>قبل</span></div>
+        <div class="story-card__after"><img loading="lazy" src="${escHtml(story.after_image || '/images/landing/cover-default.svg')}" alt="تصویر بعد از پایان دوره" data-fallback="/images/landing/cover-default.svg"><span>بعد</span></div>` : ''}
+    </div>
+    <div class="story-card__body">
+      <div class="story-card__head">
+        <h3>${escHtml(story.title)}</h3>
+        ${story.duration_months ? `<span class="story-card__duration">${toFaDigits(story.duration_months)} ماه</span>` : ''}
+      </div>
+      ${story.goal ? `<p class="story-card__goal">هدف: ${escHtml(story.goal)}</p>` : ''}
+      ${metrics.length ? `<ul class="story-card__metrics">${metrics.slice(0, 4).map(m => `<li><span>${escHtml(m.label)}</span><b>${escHtml(m.value)}</b></li>`).join('')}</ul>` : ''}
+      ${story.testimonial ? `<blockquote class="story-card__quote">${escHtml(story.testimonial)}</blockquote>` : ''}
+      ${story.display_name ? `<p class="story-card__name">— ${escHtml(story.display_name)}</p>` : ''}
+    </div>
+  </article>`;
+}
+
+function emptyResultsMarkup() {
+  return `<div class="empty-state" role="status">
+  <div class="empty-state__icon" aria-hidden="true">${ICONS.analytics}</div>
+  <h3>نتایج واقعی به‌زودی اینجا</h3>
+  <p>تبدیلات واقعی شاگردان با اجازهٔ خودشان در این بخش نمایش داده می‌شود.</p>
+</div>`;
+}
+
+
+function servicesBody(ctx) {
+  return `
+<section class="page-hero">
+  <div class="page-hero__inner">
+    <p class="section-eyebrow">YASNAFIT</p>
+    <h1 class="page-hero__title">خدمات</h1>
+    <p class="page-hero__lead">هر بخش مسیر، با روش علمی و پیگیری مستمر</p>
+  </div>
+</section>
+<section class="services">
+  <div class="services__grid services__grid--page">
+    ${SERVICES.map(s => `<article class="service-card">
+      <div class="service-card__icon" aria-hidden="true">${ICONS[s.icon]}</div>
+      <h3>${escHtml(s.title)}</h3>
+      <p>${escHtml(s.description)}</p>
+    </article>`).join('')}
+  </div>
+</section>
+<section class="cta-band">
+  <h2>هنوز مطمئن نیستی از کجا شروع کنی؟</h2>
+  <p>کافیست ثبت‌نام کنی؛ اولین ارزیابی خودش مسیر را مشخص می‌کند.</p>
+  <a class="btn btn--primary" href="/student/register">شروع مسیر من</a>
+</section>`;
+}
+
+function resultsBody(ctx) {
+  const { stories } = ctx;
+  return `
+<section class="page-hero">
+  <div class="page-hero__inner">
+    <p class="section-eyebrow">YASNAFIT</p>
+    <h1 class="page-hero__title">نتایج</h1>
+    <p class="page-hero__lead">تبدیلات واقعی، با اجازهٔ خودِ شاگردان</p>
+  </div>
+</section>
+<section class="results">
+  ${stories.length ? `<div class="results__grid">${stories.map(storyCardMarkup).join('')}</div>` : emptyResultsMarkup()}
+</section>`;
+}
+
+function magazineBody(ctx) {
+  const { categories, articles, activeCategory } = ctx;
+  const pills = [`<button type="button" class="magazine-pill${!activeCategory ? ' is-active' : ''}" data-category="" aria-pressed="${!activeCategory}">همه</button>`,
+    ...categories.map(c => `<button type="button" class="magazine-pill${activeCategory === c.slug ? ' is-active' : ''}" data-category="${escHtml(c.slug)}" aria-pressed="${activeCategory === c.slug}">${escHtml(c.name_fa)}</button>`)].join('');
+  return `
+<section class="page-hero page-hero--compact">
+  <div class="page-hero__inner">
+    <p class="section-eyebrow">YASNAFIT MAGAZINE</p>
+    <h1 class="page-hero__title">علم، ورزش و سبک زندگی</h1>
+    <p class="page-hero__lead">مقالات علمی و کاربردی دربارهٔ بدنسازی، تغذیه و سلامت</p>
+  </div>
+</section>
+<section class="magazine">
+  <div class="magazine-filters" role="group" aria-label="فیلتر دسته‌بندی">${pills}</div>
+  <div class="magazine-grid" id="magazineGrid" data-category="${escHtml(activeCategory)}">
+    ${articles.length ? articles.map(articleCardMarkup).join('') : emptyMagazineMarkup()}
+  </div>
+</section>`;
+}
+
+function articleBody(ctx) {
+  const { article } = ctx;
+  const related = (article.related || []).filter(r => r.slug && r.slug !== article.slug).slice(0, 3);
+  return `
+<section class="article-page">
+  <nav class="breadcrumbs" aria-label="مسیر صفحه">
+    <a href="/">خانه</a><span aria-hidden="true">/</span>
+    <a href="/magazine">مجله</a><span aria-hidden="true">/</span>
+    ${article.category_name ? `<a href="/magazine?category=${escHtml(article.category)}">${escHtml(article.category_name)}</a><span aria-hidden="true">/</span>` : ''}
+    <span aria-current="page">${escHtml(article.title)}</span>
+  </nav>
+  <header class="article-header">
+    ${article.category_name ? `<a class="article-badge" href="/magazine?category=${escHtml(article.category)}">${escHtml(article.category_name)}</a>` : ''}
+    <h1 class="article-title">${escHtml(article.title)}</h1>
+    <p class="article-summary">${escHtml(article.summary || '')}</p>
+    <div class="article-meta">
+      ${article.published_at ? `<time datetime="${escHtml(String(article.published_at).slice(0, 10))}">${escHtml(jalaliFormat(article.published_at))}</time>` : ''}
+      <span class="article-card__dot" aria-hidden="true">•</span>
+      <span>${toFaDigits(article.reading_time || 1)} دقیقه مطالعه</span>
+    </div>
+  </header>
+  ${article.cover_image ? `<img class="article-cover" src="${escHtml(article.cover_image)}" alt="تصویر اصلی مقاله: ${escHtml(article.title)}" data-fallback="/images/landing/cover-default.svg">` : ''}
+  <div class="article-body">${articleService.sanitizeRichText(article.content)}</div>
+  ${related.length ? `<section class="article-related" aria-label="مقالات مرتبط">
+    <h2>مقالات مرتبط</h2>
+    <div class="magazine-grid magazine-grid--related">${related.map(articleCardMarkup).join('')}</div>
+  </section>` : ''}
+  <div class="article-back">
+    <a class="btn btn--ghost" href="/magazine">بازگشت به مجله</a>
+  </div>
+</section>`;
+}
+
+function contactBody(ctx) {
+  const { site, profile } = ctx;
+  const items = [];
+  if (site.contact?.telegram) items.push(`<a class="contact-card" href="https://t.me/${escHtml(site.contact.telegram.replace(/^@/, ''))}" rel="noopener noreferrer" target="_blank"><span>تلیگرام</span><b>${escHtml(site.contact.telegram)}</b></a>`);
+  if (site.contact?.instagram) items.push(`<a class="contact-card" href="https://instagram.com/${escHtml(site.contact.instagram.replace(/^@/, ''))}" rel="noopener noreferrer" target="_blank"><span>اینستاگرام</span><b>${escHtml(site.contact.instagram)}</b></a>`);
+  if (site.contact?.email) items.push(`<a class="contact-card" href="mailto:${escHtml(site.contact.email)}"><span>ایمیل</span><b>${escHtml(site.contact.email)}</b></a>`);
+  return `
+<section class="page-hero">
+  <div class="page-hero__inner">
+    <p class="section-eyebrow">YASNAFIT</p>
+    <h1 class="page-hero__title">تماس</h1>
+    <p class="page-hero__lead">${escHtml(site.contact.note || 'برای شروع همکاری یا هر سوال، از راه‌های زیر در ارتباط باش.')}</p>
+  </div>
+</section>
+<section class="contact">
+  ${items.length ? `<div class="contact__cards">${items.join('')}</div>` : `<div class="empty-state" role="status"><div class="empty-state__icon" aria-hidden="true">${ICONS.online}</div><h3>راه‌های تماس به‌زودی درج می‌شود</h3><p>تا آن زمان، می‌توانی ثبت‌نام کنی تا از همان راه با هم در ارتباط باشیم.</p></div>`}
+  <div class="contact__actions">
+    <a class="btn btn--primary" href="/student/register">ثبت‌نام جدید</a>
+    <a class="btn btn--ghost" href="/student/login">ورود به حساب</a>
+  </div>
+</section>`;
+}
+
+// ---------- Shell + dispatcher ----------
+
+function publicMetaFor(kind, path, ctx) {
+  const base = { title: 'YASNAFIT', description: 'YASNAFIT — پلتفرم مربیگری فیتنس بانوان؛ برنامه اختصاصی، تغذیه، ارزیابی و پیگیری مستمر.' };
+  if (kind === 'article' && ctx.article) {
+    const a = ctx.article;
+    return {
+      title: `${a.title} | YASNAFIT Magazine`,
+      description: a.summary || 'مقاله از YASNAFIT Magazine',
+      ogType: 'article',
+      ogImage: a.cover_image || null,
+      jsonLd: {
+        '@context': 'https://schema.org', '@type': 'Article',
+        headline: a.title, description: a.summary || '',
+        datePublished: String(a.published_at || '').slice(0, 10), dateModified: String(a.published_at || '').slice(0, 10),
+        articleSection: a.category_name || 'YASNAFIT Magazine',
+        publisher: { '@type': 'Organization', name: 'YASNAFIT' }
+      }
+    };
+  }
+  const map = {
+    home: { title: 'YASNAFIT | بدنی قوی‌تر، زندگی بهتر', description: 'با برنامه‌های علمی و اصولی، به بهترین نسخه از خودت دست پیدا کن. مربیگری فیتنس بانوان: برنامه اختصاصی، تغذیه، ارزیابی و پیگیری مستمر.' },
+    about: { title: 'درباره من | YASNAFIT', description: 'معرفی و سوابق کاری مربی در YASNAFIT.' },
+    services: { title: 'خدمات | YASNAFIT', description: 'برنامه تمرینی اختصاصی، برنامه غذایی، ارزیابی بدن، پیگیری پیشرفت و مربیگری آنلاین.' },
+    results: { title: 'نتایج | YASNAFIT', description: 'تبدیلات واقعی شاگردان YASNAFIT با اجازهٔ خودشان.' },
+    magazine: { title: 'YASNAFIT Magazine | علم، ورزش و سبک زندگی', description: 'مجلهٔ YASNAFIT: مقالات علمی و کاربری دربارهٔ بدنسازی، علم ورزش، تغذیه، سلامت و اخبار ورزشی.' },
+    contact: { title: 'تماس | YASNAFIT', description: 'راه‌های ارتباط و شروع همکاری با YASNAFIT.' }
+  };
+  return { ...base, ...(map[kind] || base) };
+}
+
+function publicContextFor(req, res, { kind, path }) {
+  const site = publicContentService.publicSiteInfo(db);
+  const profile = publicContentService.getCoachProfile(db);
+  const ctx = { site, profile, articles: [], stories: [], categories: [], activeCategory: '' };
+  if (kind === 'article') {
+    let slug = path.replace(/^\/magazine\//, '').replace(/\/$/, '');
+    try { slug = decodeURIComponent(slug); } catch (e) { /* keep raw */ }
+    ctx.article = articleService.getPublicArticle(db, slug);
+    return ctx;
+  }
+  // Per-category public switch (settings: magazine.category_enabled.*). An empty
+  // list here is treated as "no gating" so a missing setting never hides content.
+  const enabled = new Set(site.enabled_categories || []);
+  const enabledSet = enabled.size ? enabled : null;
+  ctx.categories = articleService.listPublicCategories(db, enabledSet);
+  if (kind === 'home') {
+    ctx.articles = articleService.listPublicSiteArticles(db, { limit: 4, enabledSlugs: enabledSet });
+    ctx.stories = publicContentService.listPublicStories(db);
+  }
+  if (kind === 'magazine') {
+    const category = urlSearchParamsCategory(req) || '';
+    // A disabled (or unknown) category falls back to "all" so the URL never dead-ends.
+    ctx.activeCategory = category && ctx.categories.some(c => c.slug === category) ? category : '';
+    ctx.articles = articleService.listPublicSiteArticles(db, { category: ctx.activeCategory, limit: 200, enabledSlugs: enabledSet });
+  }
+  if (kind === 'results') ctx.stories = publicContentService.listPublicStories(db);
+  return ctx;
+}
+
+function urlSearchParamsCategory(req) {
+  try { return new URL(req.url, 'http://localhost').searchParams.get('category') || ''; } catch (e) { return ''; }
+}
+
+function sendPublicPage(req, res, { kind, path }) {
+  const ctx = publicContextFor(req, res, { kind, path });
+  if (kind === 'article' && !ctx.article) {
+    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...requestSecurity.securityHeaders() });
+    return res.end(JSON.stringify({ error: 'مقاله پیدا نشد', code: 'NOT_FOUND' }));
+  }
+  const meta = publicMetaFor(kind, path, ctx);
+  const base = publicBaseUrl(req);
+  const canonical = `${base}${path}${kind === 'magazine' && ctx.activeCategory ? `?category=${encodeURIComponent(ctx.activeCategory)}` : ''}`;
+  const ogImage = meta.ogImage ? (meta.ogImage.startsWith('http') ? meta.ogImage : `${base}${meta.ogImage}`) : (ctx.site.og_image ? `${base}${ctx.site.og_image}` : '');
+  const coachAuthorized = isCoachAuthorized(req);
+  // Task 25 (PART 2 — owner clarification 2026-09-20): the /about page is the
+  // NEW about page — the complete About Me.png reference (no crop, no HTML text
+  // duplication, same sizing rule as the hero/landing section).
+  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT"></section>';
+  const body = kind === 'home' ? ''
+    : kind === 'about' ? aboutBody
+    : kind === 'services' ? servicesBody(ctx)
+    : kind === 'results' ? resultsBody(ctx)
+    : kind === 'magazine' ? magazineBody(ctx)
+    : kind === 'article' ? articleBody(ctx)
+    : contactBody(ctx);
+  const jsonLd = meta.jsonLd ? `\n  <script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>` : '';
+  // Task 25 (PART 1 of 4 — FINAL per owner 2026-09-20): the hero IS the
+  // owner's Hero.png, shown in FULL — exact file from main, no crop, no gap,
+  // no deletion of anything (text/logo are part of the image; no HTML text
+  // overlay that would duplicate them). Full width, natural ratio, responsive.
+  // Task 25 (PART 3) — magazine + stats on home. Real system, real articles
+  // only (published, category-gated); the owner's exact pill list; stats row
+  // with the owner-provided numbers. Markup/CSS reuse the /magazine system.
+  const homeMagSlugs=['bodybuilding','sports-science','nutrition','health'];
+  const homeMagNames={bodybuilding:'بدنسازی','sports-science':'علم ورزش',nutrition:'تغذیه',health:'سلامت'};
+  const homeMagCategories=homeMagSlugs.map(slug=>{const found=(ctx.categories||[]).find(c=>c.slug===slug);return found?found:{slug,name_fa:homeMagNames[slug]};});
+  const homeMagPills=[`<button type="button" class="magazine-pill is-active" data-category="" aria-pressed="true">همه</button>`,
+    ...homeMagCategories.map(c=>`<button type="button" class="magazine-pill" data-category="${escHtml(c.slug)}" aria-pressed="false">${escHtml(c.name_fa)}</button>`)].join('');
+  const homeMagCards=(ctx.articles||[]).map(a=>articleCardMarkup(a).replace('<article class="article-card">',`<article class="article-card" data-category="${escHtml(a.category||'')}">`)).join('');
+  const homeMagStats=[
+    {icon:'user',value:toFaDigits('500+'),label:'شاگرد موفق'},
+    {icon:'calendar',value:toFaDigits('17+'),label:'سال تجربه'},
+    {icon:'program',value:toFaDigits('120+'),label:'برنامه اختصاصی'},
+    {icon:'heart',value:toFaDigits('98')+'٪',label:'رضایت شاگردان'}
+  ].map(item=>`<div class="stats__item"><span class="stats__icon" aria-hidden="true">${ICONS[item.icon]}</span><span class="stats__value">${item.value}</span><span class="stats__label">${item.label}</span></div>`).join('');
+  const bodyHtml = kind === 'home'
+    ? `<a class="skip-link" href="#main">پرش به محتوا</a>
+  ${headerMarkup(path, coachAuthorized)}
+  <main id="main">
+    <div class="home-hero">
+      <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
+    </div>
+    <section id="about" class="home-about">
+      <img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT" loading="lazy">
+    </section>
+    <section class="magazine magazine--home" aria-label="YASNAFIT MAGAZINE">
+      <div class="magazine--home__head">
+        <p class="section-eyebrow">YASNAFIT MAGAZINE</p>
+        <h2 class="magazine--home__title">علم، ورزش و سبک زندگی</h2>
+      </div>
+      <div class="magazine-filters magazine-filters--home" role="group" aria-label="فیلتر دسته‌بندی">${homeMagPills}</div>
+      <div class="magazine-grid magazine-grid--home" id="magazineHomeGrid" data-category="">${homeMagCards || emptyMagazineMarkup()}</div>
+      <div class="magazine--home__none empty-state" role="status" hidden><div class="empty-state__icon" aria-hidden="true">${ICONS.program}</div><h3>هنوز مقاله‌ای در این دسته منتشر نشده است</h3><p>دستهٔ دیگر را انتخاب کنید یا از صفحهٔ مجله دیدن کنید.</p></div>
+    </section>
+    <section class="stats" aria-label="آمار YASNAFIT">
+      <div class="stats__inner">${homeMagStats}</div>
+    </section>
+  </main>
+  ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
+  <script src="/jalali.js" defer></script>
+  <script src="/landing.js" defer></script>`
+    : `<a class="skip-link" href="#main">پرش به محتوا</a>
+  ${headerMarkup(path, coachAuthorized)}
+  <main id="main">${body}</main>
+  ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
+  <script src="/jalali.js" defer></script>
+  <script src="/landing.js" defer></script>`;
+  const html = `<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#05070a" />
+  <meta name="color-scheme" content="dark" />
+  <title>${escHtml(meta.title)}</title>
+  <meta name="description" content="${escHtml(meta.description)}" />
+  <link rel="canonical" href="${escHtml(canonical)}" />
+  <meta property="og:site_name" content="YASNAFIT" />
+  <meta property="og:type" content="${escHtml(meta.ogType || 'website')}" />
+  <meta property="og:title" content="${escHtml(meta.title)}" />
+  <meta property="og:description" content="${escHtml(meta.description)}" />
+  <meta property="og:url" content="${escHtml(canonical)}" />
+  ${ogImage ? `<meta property="og:image" content="${escHtml(ogImage)}" />` : ''}
+  <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />
+  <meta name="twitter:title" content="${escHtml(meta.title)}" />
+  <meta name="twitter:description" content="${escHtml(meta.description)}" />
+  ${ogImage ? `<meta name="twitter:image" content="${escHtml(ogImage)}" />` : ''}
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230e7490'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='36' font-weight='800' fill='white' text-anchor='middle'%3EY%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/landing.css" />
+  ${jsonLd}
+</head>
+<body data-page="${kind === 'article' ? 'article' : escHtml(path)}" data-coach-session="${coachAuthorized ? '1' : '0'}">
+  ${bodyHtml}
+</body>
+</html>`;
+  const publicHeaders = {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+  };
+  if (req.method === 'HEAD') {
+    res.writeHead(200, publicHeaders);
+    return res.end();
+  }
+  res.writeHead(200, publicHeaders);
+  res.end(html);
+}
+
+function sendSitemap(req, res) {
+  const base = publicBaseUrl(req);
+  const urls = [
+    { loc: '/', priority: '1.0' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
+    { loc: '/results', priority: '0.7' }, { loc: '/magazine', priority: '0.8' }, { loc: '/contact', priority: '0.7' }
+  ];
+  for (const article of articleService.listPublicArticles(db, { limit: 500 })) {
+    urls.push({ loc: `/magazine/${article.slug}`, priority: '0.6' });
+  }
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    + urls.map(u => `<url><loc>${escHtml(base + u.loc)}</loc><priority>${u.priority}</priority></url>`).join('')
+    + '</urlset>';
+  res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600', ...requestSecurity.securityHeaders() });
+  res.end(xml);
+}
+
+function sendRobots(req, res) {
+  const base = publicBaseUrl(req);
+  const body = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /coach/\nDisallow: /student/\n\nSitemap: ${base}/sitemap.xml\n`;
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600', ...requestSecurity.securityHeaders() });
+  res.end(body);
+}
+
+async function handleMagazineAdmin(req,res,url){
+  const p=url.pathname;
+  // ----- Articles -----
+  if(p==='/api/magazine/admin/articles' && req.method==='GET'){
+    return send(res,200,articleService.listAdminArticles(db,{
+      status:url.searchParams.get('status')||'',
+      category_id:url.searchParams.get('category_id')||'',
+      search:url.searchParams.get('search')||''
+    }));
+  }
+  if(p==='/api/magazine/admin/articles' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const article=articleService.createArticle(db,b);
+      log('مقاله جدید مجله ساخته شد', article.title);
+      auditService.record(db,{actorType:'coach',action:'article.created',entityType:'magazine_article',entityId:article.id,entityStableId:article.stable_id,metadata:{status:article.status,category:article.category_slug||null}});
+      return send(res,201,article);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/articles/bulk' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const result=articleService.bulkArticles(db,b);
+      log(`عملیات گروهی مجله: ${b.action}`, `${result.count} مقاله`);
+      auditService.record(db,{actorType:'coach',action:`article.bulk_${b.action}`,entityType:'magazine_article',metadata:{count:result.count}});
+      return send(res,200,result);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/articles' && !['GET','POST'].includes(req.method)) return sendError(res,405,'متد مجاز نیست');
+  const adminArticleMatch=p.match(/^\/api\/magazine\/admin\/articles\/(\d+)$/);
+  if(adminArticleMatch){
+    const id=Number(adminArticleMatch[1]);
+    if(req.method==='GET'){
+      const article=articleService.adminArticle(db,id);
+      if(!article) return sendError(res,404,'مقاله پیدا نشد');
+      return send(res,200,article);
+    }
+    if(req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const b=await readBody(req);
+      try{
+        const article=articleService.updateArticle(db,id,b);
+        log('مقاله مجله ویرایش شد', article.title);
+        auditService.record(db,{actorType:'coach',action:'article.updated',entityType:'magazine_article',entityId:id,entityStableId:article.stable_id,metadata:{status:article.status}});
+        return send(res,200,article);
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      try{
+        const existing=articleService.adminArticle(db,id);
+        if(!existing) return sendError(res,404,'مقاله پیدا نشد');
+        articleService.deleteArticle(db,id);
+        log('مقاله مجله حذف شد', existing.title);
+        auditService.record(db,{actorType:'coach',action:'article.deleted',entityType:'magazine_article',entityId:id,entityStableId:existing.stable_id,metadata:{title:existing.title}});
+        return send(res,200,{id,soft_deleted:true});
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
+  const adminActionMatch=p.match(/^\/api\/magazine\/admin\/articles\/(\d+)\/(to-review|publish|reject|to-draft)$/);
+  if(adminActionMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(adminActionMatch[1]);
+    const action=adminActionMatch[2];
+    const body=await readBody(req);
+    const labels={ 'to-review':'به بررسی ارسال شد', 'publish':'انتشار یافت', 'reject':'رد شد', 'to-draft':'به پیش‌نویس برگشت' };
+    if(action==='publish'){
+      const existing=articleService.adminArticle(db,id);
+      if(!existing) return sendError(res,404,'مقاله پیدا نشد');
+      if(['generated','imported'].includes(existing.content_origin)){
+        const refCount=db.prepare('SELECT COUNT(*) c FROM magazine_article_sources WHERE article_id=?').get(id).c;
+        if(!existing.source_url && !existing.source_name && !refCount) return send(res,400,{error:'برای انتشار این مقاله باید منبع معتبر ثبت شود',code:'SOURCE_REQUIRED'});
+      }
+      if(existing.source_url){
+        const urlHash=magazineDiscovery.sha1(magazineDiscovery.normalizeUrl(existing.source_url));
+        if(urlHash){
+          const published=db.prepare("SELECT source_url FROM magazine_articles WHERE deleted_at IS NULL AND status='PUBLISHED' AND id<>? AND source_url IS NOT NULL").all(id);
+          if(published.some(r=>magazineDiscovery.sha1(magazineDiscovery.normalizeUrl(r.source_url))===urlHash)) return send(res,409,{error:'این خبر قبلاً با همین منبع منتشر شده است',code:'DUPLICATE_SOURCE'});
+        }
+      }
+    }
+    try{
+      const article=articleService.transitionArticle(db,id,action.replace(/-/g,'_'));
+      if(action==='reject' && body && body.reason){
+        db.prepare('UPDATE magazine_articles SET rejection_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL').run(String(body.reason).slice(0,300),id);
+      }
+      log(`مقاله مجله: ${labels[action]}`, article.title);
+      auditService.record(db,{actorType:'coach',action:`article.${action.replace('-','_')}`,entityType:'magazine_article',entityId:id,entityStableId:article.stable_id,metadata:{status:article.status,rejection_reason:action==='reject'&&body&&body.reason?String(body.reason).slice(0,300):null}});
+      return send(res,200,article);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  // ----- Editorial review queue (discovered drafts) -----
+  if(p==='/api/magazine/admin/queue' && req.method==='GET'){
+    const status=(url.searchParams.get('status')||'').toUpperCase();
+    return send(res,200,{queue:magazineDiscovery.queueView(db,{status})});
+  }
+  if(p==='/api/magazine/admin/queue/stats' && req.method==='GET'){
+    return send(res,200,magazineDiscovery.queueStats(db));
+  }
+  const queueItemMatch=p.match(/^\/api\/magazine\/admin\/queue\/(\d+)$/);
+  if(queueItemMatch && req.method==='GET'){
+    const id=Number(queueItemMatch[1]);
+    const article=articleService.adminArticle(db,id);
+    if(!article) return sendError(res,404,'مقاله پیدا نشد');
+    const discovery=db.prepare('SELECT * FROM magazine_discoveries WHERE article_id=? ORDER BY id DESC LIMIT 1').get(id);
+    let qualityFlags=[];let aiMeta=null;
+    if(discovery){try{qualityFlags=JSON.parse(discovery.quality_flags||'[]');}catch(e){qualityFlags=[];}try{aiMeta=JSON.parse(discovery.ai_meta||'null');}catch(e){aiMeta=null;}}
+    const refs=db.prepare('SELECT source_name, source_url, note FROM magazine_article_sources WHERE article_id=? ORDER BY sort_order, id').all(id);
+    const history=auditService.listForEntity(db,'magazine_article',id);
+    return send(res,200,{article,discovery:discovery?{discovered_at:discovery.created_at,original_title:discovery.title_original,source_published_at:discovery.date_published,duplicate:discovery.status==='DUPLICATE'}:null,quality_flags:qualityFlags,ai_meta:aiMeta,references:refs,history:history.slice(0,20)});
+  }
+  const queueReprocessMatch=p.match(/^\/api\/magazine\/admin\/queue\/(\d+)\/reprocess$/);
+  if(queueReprocessMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(queueReprocessMatch[1]);
+    try{
+      const out=await magazineDiscovery.reprocessOne(db,id);
+      log('بازپردازش دستی مطلب مجله', out.reprocessed ? 'موفق' : (out.ai_failed||'ناموفق'));
+      return send(res,200,out);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/discover/diagnostics' && req.method==='GET'){
+    res.setHeader('Content-Disposition', 'attachment; filename="magazine-diagnostics.json"');
+    res.setHeader('Cache-Control', 'no-store');
+    return send(res,200,magazineDiscovery.discoveryDiagnostics(db));
+  }
+  if(p==='/api/magazine/admin/discover' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    try{
+      const body=await readBody(req);
+      const result=await magazineDiscovery.runDiscovery(db,{diagnosticUnfiltered:body?.diagnostic_unfiltered===true});
+      log('بررسی مطالب جدید مجله انجام شد', `${result.drafted} پیش‌نویس جدید / ${result.duplicates} تکراری`);
+      return send(res,200,result);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/discover/progress' && req.method==='GET'){
+    return send(res,200,magazineDiscovery.getDiscoveryProgress());
+  }
+  // ----- News sources (magazine_sources) -----
+  if(p==='/api/magazine/admin/sources' && req.method==='GET'){
+    return send(res,200,{sources:magazineDiscovery.listSources(db)});
+  }
+  if(p==='/api/magazine/admin/sources' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const source=magazineDiscovery.createSource(db,b);
+      log('منبع خبری جدید مجله', source.name);
+      auditService.record(db,{actorType:'coach',action:'source.created',entityType:'magazine_source',entityId:source.id,metadata:{name:source.name}});
+      return send(res,201,source);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  const adminSourceMatch=p.match(/^\/api\/magazine\/admin\/sources\/(\d+)$/);
+  if(adminSourceMatch){
+    const id=Number(adminSourceMatch[1]);
+    if(req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const b=await readBody(req);
+      try{
+        const source=magazineDiscovery.updateSource(db,id,b);
+        log('منبع خبری مجله ویرایش شد', source.name);
+        auditService.record(db,{actorType:'coach',action:'source.updated',entityType:'magazine_source',entityId:id,metadata:{name:source.name,is_active:source.is_active}});
+        return send(res,200,source);
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      try{
+        if(!magazineDiscovery.deleteSource(db,id)) return sendError(res,404,'منبع پیدا نشد');
+        log('منبع خبری مجله حذف شد', `#${id}`);
+        auditService.record(db,{actorType:'coach',action:'source.deleted',entityType:'magazine_source',entityId:id});
+        return send(res,200,{id,soft_deleted:true});
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
+  const sourceTestMatch=p.match(/^\/api\/magazine\/admin\/sources\/(\d+)\/test$/);
+  if(sourceTestMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(sourceTestMatch[1]);
+    const source=magazineDiscovery.listSources(db).find(x=>x.id===id);
+    if(!source) return sendError(res,404,'منبع پیدا نشد');
+    try{
+      const items=await magazineDiscovery.fetchSourceItems(db,source).catch(async e=>{ magazineDiscovery.setSourceFetchResult(db,id,{ok:false,error:String(e.message||e).slice(0,300)}); throw e; });
+      magazineDiscovery.setSourceFetchResult(db,id,{ok:true});
+      return send(res,200,{ok:true,item_count:items.length,preview:items.slice(0,3).map(i=>({title:i.title,url:i.url,published_at:i.publishedAt}))});
+    }catch(error){
+      return send(res,200,{ok:false,error:String(error.message||error).slice(0,300)});
+    }
+  }
+
+  // ----- Categories -----
+  if(p==='/api/magazine/admin/categories' && req.method==='GET'){
+    return send(res,200,{categories:articleService.listAdminCategories(db)});
+  }
+  if(p==='/api/magazine/admin/categories' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const category=articleService.createCategory(db,b);
+      log('دسته جدید مجله ساخته شد', category.name_fa);
+      auditService.record(db,{actorType:'coach',action:'category.created',entityType:'magazine_category',entityId:category.id,entityStableId:category.stable_id,metadata:{slug:category.slug}});
+      return send(res,201,category);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/categories' && !['GET','POST'].includes(req.method)) return sendError(res,405,'متد مجاز نیست');
+  const adminCategoryMatch=p.match(/^\/api\/magazine\/admin\/categories\/(\d+)$/);
+  if(adminCategoryMatch){
+    const id=Number(adminCategoryMatch[1]);
+    if(req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const b=await readBody(req);
+      try{
+        const category=articleService.updateCategory(db,id,b);
+        log('دسته مجله ویرایش شد', category.name_fa);
+        auditService.record(db,{actorType:'coach',action:'category.updated',entityType:'magazine_category',entityId:id,metadata:{slug:category.slug}});
+        return send(res,200,category);
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      try{
+        const existing=articleService.listAdminCategories(db).find(c => c.id===id);
+        if(!existing) return sendError(res,404,'دسته پیدا نشد');
+        articleService.deleteCategory(db,id);
+        log('دسته مجله حذف شد', existing.name_fa);
+        auditService.record(db,{actorType:'coach',action:'category.deleted',entityType:'magazine_category',entityId:id,metadata:{slug:existing.slug}});
+        return send(res,200,{id,soft_deleted:true});
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
+  // ----- Automation + site settings -----
+  if(p==='/api/magazine/admin/settings' && req.method==='GET'){
+    return send(res,200,{settings:publicContentService.getSiteSettings(db)});
+  }
+  if(p==='/api/magazine/admin/settings' && req.method==='PUT'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    const updated=publicContentService.updateSiteSettings(db,b);
+    log('تنظیمات سایت عمومی به‌روزرسانی شد', `${Object.keys(b).length} فیلد`);
+    auditService.record(db,{actorType:'coach',action:'site_settings.updated',entityType:'site_settings',metadata:{fields:Object.keys(b)}});
+    return send(res,200,{settings:updated});
+  }
+  // ----- Success stories (results) -----
+  if(p==='/api/magazine/admin/results' && req.method==='GET'){
+    return send(res,200,{stories:publicContentService.listAdminStories(db)});
+  }
+  if(p==='/api/magazine/admin/results' && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const story=publicContentService.createStory(db,b);
+      log('نتیعه جدید ثبت شد', story.title);
+      auditService.record(db,{actorType:'coach',action:'story.created',entityType:'success_story',entityId:story.id,entityStableId:story.stable_id,metadata:{title:story.title,consent:story.consent_status}});
+      return send(res,201,story);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  if(p==='/api/magazine/admin/results' && !['GET','POST'].includes(req.method)) return sendError(res,405,'متد مجاز نیست');
+  const adminStoryMatch=p.match(/^\/api\/magazine\/admin\/results\/(\d+)$/);
+  if(adminStoryMatch){
+    const id=Number(adminStoryMatch[1]);
+    if(req.method==='PUT'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      const b=await readBody(req);
+      try{
+        const story=publicContentService.updateStory(db,id,b);
+        log('نتیعه ویرایش شد', story.title);
+        auditService.record(db,{actorType:'coach',action:'story.updated',entityType:'success_story',entityId:id,entityStableId:story.stable_id});
+        return send(res,200,story);
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    if(req.method==='DELETE'){
+      if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+      try{
+        publicContentService.deleteStory(db,id);
+        log('نتیعه حذف شد', `id ${id}`);
+        auditService.record(db,{actorType:'coach',action:'story.deleted',entityType:'success_story',entityId:id});
+        return send(res,200,{id,soft_deleted:true});
+      }catch(error){ return sendCaughtError(res,error); }
+    }
+    return sendError(res,405,'متد مجاز نیست');
+  }
+  const adminStoryActionMatch=p.match(/^\/api\/magazine\/admin\/results\/(\d+)\/(publish|unpublish|archive)$/);
+  if(adminStoryActionMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(adminStoryActionMatch[1]);
+    const action=adminStoryActionMatch[2];
+    try{
+      const story=publicContentService.transitionStory(db,id,action);
+      log(`نتیعه: ${action}`, story.title);
+      auditService.record(db,{actorType:'coach',action:`story.${action}`,entityType:'success_story',entityId:id,metadata:{status:story.status}});
+      return send(res,200,story);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  // ----- Coach profile (drives the public /about page) -----
+  if(p==='/api/magazine/admin/coach-profile' && req.method==='GET'){
+    return send(res,200,publicContentService.getCoachProfile(db));
+  }
+  if(p==='/api/magazine/admin/coach-profile' && req.method==='PUT'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const b=await readBody(req);
+    try{
+      const profile=publicContentService.updateCoachProfile(db,b);
+      log('پروفایل مربی (صفحات عمومی) به‌روزرسانی شد', profile.display_name||'');
+      auditService.record(db,{actorType:'coach',action:'coach_profile.updated',entityType:'coach_profile',metadata:{fields:Object.keys(b)}});
+      return send(res,200,profile);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
+  return null;
+}
+
 // --- Main API Router ---
 async function api(req,res,url){
   try {
@@ -2522,13 +3414,79 @@ async function api(req,res,url){
       return send(res,410,{error:'این API منسوخ شده است؛ از لینک دعوت برای ساخت نشست امن استفاده کنید.',code:'STUDENT_SESSION_REQUIRED'});
     }
     if(p.startsWith('/api/student/'))return handleStudentSessionApi(req,res,url);
-    const studentScoped = p.startsWith('/api/student-photos/')||p.startsWith('/api/student-documents/')||p.startsWith('/api/exercise-image/');
+
+    // ---- Telegram bot connection (public header «ربات تلگرام» button, Task 26) ----
+    // GET  /api/telegram-bot          -> { telegram_id (own, when a student session
+    //    exists), bot_username (when the owner configured the bot) }
+    // POST /api/telegram-bot/connect  -> { telegram_id } -> logs the connection and,
+    //    when a student session exists, stores it on the account; replies with
+    //    bot_username so the client can open the bot in the Telegram app.
+    if(p==='/api/telegram-bot' || p==='/api/telegram-bot/connect'){
+      const siteInfo=publicContentService.publicSiteInfo(db);
+      const botUsername=siteInfo.telegram_bot_username || null;
+      if(p==='/api/telegram-bot' && req.method==='GET'){
+        const student=studentSessionService.resolveStudentSession(db,req);
+        let own=null;
+        if(student){ const row=one('SELECT telegram_id FROM students WHERE id=? AND deleted_at IS NULL',student.student_id); own=row?.telegram_id || null; }
+        return send(res,200,{telegram_id:own,bot_username:botUsername});
+      }
+      if(p==='/api/telegram-bot/connect' && req.method==='POST'){
+        let body={};
+        try{ body=await readBody(req); }catch(e){ return send(res,400,{error:'ورودی نامعتبر است',code:'INVALID_BODY'}); }
+        const raw=body===null||body===undefined||body.telegram_id===undefined||body.telegram_id===null?'':String(body.telegram_id);
+        const value=raw.replace(/^@+/,'').trim();
+        if(!value||value.length>64) return send(res,400,{error:'آیدی تلگرام نامعتبر است',code:'INVALID_TELEGRAM_ID'});
+        const student=studentSessionService.resolveStudentSession(db,req);
+        db.prepare('INSERT INTO telegram_bot_connections (telegram_id, student_id) VALUES (?, ?)').run(value, student?student.student_id:null);
+        if(student){
+          db.prepare('UPDATE students SET telegram_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run('@'+value, student.student_id);
+        }
+        return send(res,200,{ok:true,bot_username:botUsername});
+      }
+      return send(res,405,{error:'روش مجاز نیست',code:'METHOD_NOT_ALLOWED'});
+    }
+    // ---- Public website content (no authentication; published data only) ----
+    const isPublicContentPath = p==='/api/magazine' || p==='/api/results' || p==='/api/coach-profile' || p==='/api/site'
+      || (p.startsWith('/api/magazine/') && !p.startsWith('/api/magazine/admin'));
+    if(isPublicContentPath){
+      if(p==='/api/magazine' && req.method==='GET'){
+        const siteInfo = publicContentService.publicSiteInfo(db);
+        const enabled = new Set(siteInfo.enabled_categories || []);
+        const enabledSet = enabled.size ? enabled : null;
+        const categories = articleService.listPublicCategories(db, enabledSet);
+        const category = urlSearchParamsCategory(req);
+        const validCategory = category && categories.some(c => c.slug === category);
+        return send(res,200,{
+          categories,
+          articles: validCategory
+            ? articleService.listPublicSiteArticles(db, { category, limit: 200, enabledSlugs: enabledSet })
+            : (category ? [] : articleService.listPublicSiteArticles(db, { limit: 200, enabledSlugs: enabledSet }))
+        });
+      }
+      const publicArticleMatch = p.match(/^\/api\/magazine\/([^/?#]{1,200})$/);
+      if(publicArticleMatch && req.method==='GET'){
+        let slug; try { slug = decodeURIComponent(publicArticleMatch[1]); } catch (e) { slug = publicArticleMatch[1]; }
+        const article = articleService.getPublicArticle(db, slug);
+        if(!article) return sendError(res,404,'مقاله پیدا نشد');
+        return send(res,200,article);
+      }
+      if(p==='/api/results' && req.method==='GET') return send(res,200,{stories:publicContentService.listPublicStories(db)});
+      if(p==='/api/coach-profile' && req.method==='GET') return send(res,200,publicContentService.getCoachProfile(db));
+      if(p==='/api/site' && req.method==='GET') return send(res,200,publicContentService.publicSiteInfo(db));
+      return sendError(res,404,'مسیر پیدا نشد');
+    }
+    const studentScoped = p.startsWith('/api/student-photos/')||p.startsWith('/api/student-documents/')||p.startsWith('/api/exercise-image/')||isPublicContentPath;
     if(!studentScoped && requireCoach(req,res)) return true;
     if(p==='/api/dashboard') return await handleDashboard(req,res);
     if(p.startsWith('/api/coach/')||p.startsWith('/api/students/')){const engagement=await handleCoachEngagement(req,res,url);if(engagement)return engagement;}
 
     if(p.startsWith('/api/ai/')){
       const r = await handleAi(req,res,url);
+      if(r) return r;
+    }
+
+    if(p.startsWith('/api/magazine/admin')){
+      const r = await handleMagazineAdmin(req,res,url);
       if(r) return r;
     }
 
@@ -2708,12 +3666,29 @@ const server=http.createServer(async(req,res)=>{
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
+    // ---- Public website (landing / about / services / results / magazine / contact) ----
+    // "/" is the public home for EVERYONE, including an authenticated coach
+    // (owner decision 2026-09-19: the landing is the site's front door; the
+    // coach panel is reached from the header "پنل مربی" button → /coach/dashboard).
+    // HEAD mirrors GET (Node suppresses the response body automatically).
+    const isSafeMethod = req.method==='GET' || req.method==='HEAD';
+    if(url.pathname==='/sitemap.xml' && isSafeMethod) return sendSitemap(req,res);
+    if(url.pathname==='/robots.txt' && isSafeMethod) return sendRobots(req,res);
+    const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,600}$/); // 600: percent-encoded Persian slugs can be long
+    if(publicArticlePage) return sendPublicPage(req,res,{kind:'article',path:url.pathname});
+    const isPublicPageRoute = isSafeMethod && (
+      url.pathname==='/about' || url.pathname==='/services' || url.pathname==='/results' ||
+      url.pathname==='/magazine' || url.pathname==='/contact' ||
+      url.pathname==='/'
+    );
+    if(isPublicPageRoute) return sendPublicPage(req,res,{kind:url.pathname==='/'?'home':url.pathname.slice(1),path:url.pathname});
+
     // Coach SPA routes contain no public data, but the dashboard shell itself is also
     // private. Student routes use a separate HTML shell and student session.
     const requestExt=path.extname(url.pathname).toLowerCase();
     const isCoachSpaRoute=!url.pathname.startsWith('/join/') &&
       !coachAuthPages[url.pathname] &&
-      (url.pathname==='/' || url.pathname==='/index.html' || !requestExt);
+      (url.pathname==='/index.html' || !requestExt);
     if(isCoachSpaRoute && !isCoachAuthorized(req)) return redirectCoachLogin(res);
 
     // Blank white placeholder image serving
@@ -2837,6 +3812,7 @@ server.listen(port,listenHost,()=>{
   if(!requestSecurity.TRUST_PROXY) console.log('[Security] X-Forwarded-* headers are ignored (set YASNAFIT_TRUST_PROXY=1 behind a reverse proxy).');
   if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
+  try { magazineDiscovery.startDiscoveryScheduler(db); console.log('[Magazine Discovery] scheduler armed (settings-driven)'); } catch (e) { console.log('[Magazine Discovery] scheduler unavailable:', e.message); }
   const repoImageCount = countFlatImages(path.join(publicDir,'assets','images','exercises','imported'));
   const volumeImageCount = countFlatImages(storagePaths.exerciseImagesDir);
   const mediaSummary = `[Media] تصاویر حرکات: ${repoImageCount+volumeImageCount} فایل (Volume: ${volumeImageCount} | ریپو: ${repoImageCount}) · ریشه: ${storagePaths.exerciseImagesDir}`;

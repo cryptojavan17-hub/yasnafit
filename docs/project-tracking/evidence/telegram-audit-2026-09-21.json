@@ -1,0 +1,155 @@
+{
+  "recorded_at": "2026-09-21T15:35:35.200Z",
+  "reviewed_commit": "70a04141e0a3d1ced25602c9465922fa29bed40e",
+  "scope": "Temporary SQLite, synthetic accounts, real local HTTP API. No Telegram API requests, credentials, real-user data or live bot delivery. Observations are NOT assertions that behavior is secure.",
+  "environment": {
+    "node": "v22.22.3",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "observations": {
+    "unconfigured": {
+      "status": 200,
+      "data": {
+        "ok": true,
+        "bot_username": null
+      },
+      "no_store": true
+    },
+    "validation": [
+      {
+        "kind": "blank",
+        "status": 400,
+        "stored": null
+      },
+      {
+        "kind": "length65",
+        "status": 400,
+        "stored": null
+      },
+      {
+        "kind": "object",
+        "status": 200,
+        "stored": "[object Object]"
+      },
+      {
+        "kind": "number",
+        "status": 200,
+        "stored": "12345"
+      },
+      {
+        "kind": "boolean",
+        "status": 200,
+        "stored": "true"
+      },
+      {
+        "kind": "embedded_space",
+        "status": 200,
+        "stored": "bad name"
+      },
+      {
+        "kind": "non_latin",
+        "status": 200,
+        "stored": "نام_آزمایشی"
+      },
+      {
+        "kind": "url",
+        "status": 200,
+        "stored": "https://example.invalid/user"
+      },
+      {
+        "kind": "leading_space_at",
+        "status": 200,
+        "stored": "@audit_demo"
+      }
+    ],
+    "invalid_json": 400,
+    "wrong_method": 405,
+    "anonymous_admin_settings": 401,
+    "ownership": {
+      "own_a_only": true,
+      "own_b_only": true,
+      "anonymous_no_id": true,
+      "no_store": true,
+      "authenticated_connect": 200
+    },
+    "same_claimed_handle_on_two_accounts": true,
+    "repeat_requests": {
+      "submitted": 3,
+      "rows_added": 3
+    },
+    "cross_origin_with_explicit_cookie": 200,
+    "same_attempt_via_profile": 403,
+    "plain_text_body": 200,
+    "connection_audit_events_added": 0,
+    "partial_write": {
+      "status": 500,
+      "rows_added_despite_failure": 1,
+      "profile_unchanged": true
+    },
+    "invalid_bot_setting_returned": "not a bot/url",
+    "profile_clear": 200,
+    "connection_rows_retained_after_clear": 6
+  },
+  "browser": {
+    "run": true,
+    "chromium": "153.0.8010.0",
+    "prefill_overwrote_typed_value": true,
+    "focus_escaped_dialog": true,
+    "focus_restored_to_opener": false,
+    "mobile_box": {
+      "x": 20,
+      "y": 283.90625,
+      "width": 350,
+      "height": 276.1875
+    },
+    "mobile_document_overflow_px": 0,
+    "attempted_url": "https://t.me/yasnafit_audit_bot",
+    "message_when_popup_blocked": "اتصال شما ثبت شد — برنامه تلگرام باز می‌شود؛ ربات را شروع کنید.",
+    "fallback_links_when_popup_blocked": 0,
+    "profile_card": {
+      "present": true,
+      "status": 200,
+      "handle_saved": true,
+      "connection_rows_added": 0,
+      "stayed_on_profile": true
+    },
+    "same_site_response": "blocked-response",
+    "same_site_cross_origin_changed_profile": true,
+    "page_errors": []
+  },
+  "local_load_sample": {
+    "note": "Single bounded local synthetic sample; no production capacity or Telegram latency claim. 8 POST workers + 1 health worker. DB file bytes include WAL and SHM, not durable growth per row.",
+    "sequential_get": {
+      "n": 40,
+      "p50_ms": 1.09,
+      "p95_ms": 1.46,
+      "max_ms": 2.88
+    },
+    "anonymous_connect": {
+      "n": 160,
+      "p50_ms": 7.91,
+      "p95_ms": 16.03,
+      "max_ms": 35.57
+    },
+    "health_during_burst": {
+      "n": 40,
+      "p50_ms": 4.62,
+      "p95_ms": 15.63,
+      "max_ms": 16.19
+    },
+    "elapsed_ms": 219.17,
+    "post_statuses": {
+      "200": 160
+    },
+    "rows_added": 160,
+    "db_related_bytes_before": 3604816,
+    "db_related_bytes_after": 5979640
+  },
+  "baseline_tests": {
+    "command": "npm test",
+    "exit_code": 0,
+    "suite_count": 21,
+    "meaning": "Existing regressions passed; not verification of Telegram delivery or the absence of security defects."
+  }
+}
