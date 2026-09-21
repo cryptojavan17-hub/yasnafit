@@ -888,7 +888,7 @@
       ${state.canSearchMore && !state.discoverRunning ? `<p class="mag-toolbar__note mag-news-more-note">این بررسی ${faDigits(state.lastDrafted || 0)} مطلب جدید آماده کرد؛ برای بررسیٔ موارد بعدی «جستجو بیشتر» را بزنید.</p>` : ''}
       ${state.discoverRunning ? newsProgressMarkup() : ''}
       ${readyQueue.length ? `<div class="mag-news-grid">${readyQueue.map(newsCard).join('')}</div>` : reprocessQueue.length ? '' : '<div class="empty-state-sm">برای شروع، دکمهٔ «بررسی مطالب جدید» را بزنید — سیستم از منابع معتبر روز دنیا جستجو می‌کند، فارسی می‌کند و گزارش آماده می‌سازد.</div>'}
-      ${reprocessQueue.length ? `<details class="mag-news-reprocess-list"><summary>🔁 جزئیات ${faDigits(reprocessQueue.length)} مطلب نیازمند پردازش مجدد</summary>${reprocessQueue.map(q => `<div class="mag-news-reprocess-item"><span dir="auto">${esc(q.title || '—')}</span><small>${(q.audit_reasons || []).join('؛ ')}</small><button type="button" class="mag-action mag-action--reject" data-news-action="reject" data-id="${q.id}">رد</button></div>`).join('')}</details>` : ''}
+      ${reprocessQueue.length ? `<details class="mag-news-reprocess-list" open><summary>🔁 جزئیات ${faDigits(reprocessQueue.length)} مطلب نیازمند پردازش مجدد</summary>${reprocessQueue.map(q => `<div class="mag-news-reprocess-item"><span dir="auto">${esc(q.title || '—')}</span><small>${(q.audit_reasons || []).join('؛ ')}${q.ai_meta && q.ai_meta.reprocess_count ? ' · تلاش خودکار ' + faDigits(q.ai_meta.reprocess_count) + ' از ' + faDigits(3) : ''}</small><button type="button" class="mag-action" data-news-action="reprocess" data-id="${q.id}">🔄 پردازش مجدد</button><button type="button" class="mag-action mag-action--reject" data-news-action="reject" data-id="${q.id}">رد</button></div>`).join('')}</details>` : ''}
     `;
   }
 
@@ -1048,6 +1048,13 @@
         if (reason === null) return;
         await api(`/api/magazine/admin/articles/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason || null }) });
         toast('مطلب رد شد');
+        await renderPane();
+      } else if (action === 'reprocess') {
+        toast('در حال پردازش مجدد… (منبع اصلی حل و گزارش فارسی دوباره ساخته می‌شود)');
+        const out = await api(`/api/magazine/admin/queue/${id}/reprocess`, { method: 'POST', body: '{}' });
+        if (out.reprocessed) toast('✅ مطلب با عنوان و منبع فارسی/اصلی به‌روز شد و به صف «آماده بررسی» برگشت.');
+        else if (out.not_prepared) toast('پردازش هنوز کامل نشد: ' + (out.ai_failed || 'هوش مصنوعی در دسترس نبود') + ' — در بررسی بعد دوباره امتحان می‌شود.', true);
+        else toast('مطلب به صف بررسی نرفت: ' + (out.ai_failed || 'دلیل در گزارش فنی'), true);
         await renderPane();
       }
     } catch (error) {

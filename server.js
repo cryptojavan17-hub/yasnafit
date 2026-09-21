@@ -3184,6 +3184,16 @@ async function handleMagazineAdmin(req,res,url){
     const history=auditService.listForEntity(db,'magazine_article',id);
     return send(res,200,{article,discovery:discovery?{discovered_at:discovery.created_at,original_title:discovery.title_original,source_published_at:discovery.date_published,duplicate:discovery.status==='DUPLICATE'}:null,quality_flags:qualityFlags,ai_meta:aiMeta,references:refs,history:history.slice(0,20)});
   }
+  const queueReprocessMatch=p.match(/^\/api\/magazine\/admin\/queue\/(\d+)\/reprocess$/);
+  if(queueReprocessMatch && req.method==='POST'){
+    if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
+    const id=Number(queueReprocessMatch[1]);
+    try{
+      const out=await magazineDiscovery.reprocessOne(db,id);
+      log('بازپردازش دستی مطلب مجله', out.reprocessed ? 'موفق' : (out.ai_failed||'ناموفق'));
+      return send(res,200,out);
+    }catch(error){ return sendCaughtError(res,error); }
+  }
   if(p==='/api/magazine/admin/discover' && req.method==='POST'){
     if(!sameOrigin(req)) return sendError(res,403,'مبدأ درخواست مجاز نیست');
     try{

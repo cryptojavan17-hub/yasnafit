@@ -48,6 +48,7 @@ const RSS_D='<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.
   +'<entry><title>مورد حوالهٔ اصلی</title><link href="http://127.0.0.1:__IMGPORT__/redirector/x"/><updated>2026-09-21T08:00:00Z</updated><summary>موردی که باید به انتشارکنندۀ اصلی و canonical حل شود.</summary></entry>'
   +'<entry><title>مورد تصویر توییتر</title><link href="http://127.0.0.1:__IMGPORT__/img-twitter.html"/><updated>2026-09-21T08:10:00Z</updated><summary>موردی که صفحهٔ آن فقط twitter:image دارد.</summary></entry>'
   +'<entry><title>FAILAI مورد ناموفق</title><link href="http://127.0.0.1:__IMGPORT__/fail-ai.html"/><updated>2026-09-21T08:20:00Z</updated><summary>پردازش هوش مصنوعی روی این مورد خطا می‌دهد.</summary></entry>'
+  +'<entry><title>ENGLISH_TITLE_ONCE مورد</title><link href="http://127.0.0.1:__IMGPORT__/en-first.html"/><updated>2026-09-21T08:30:00Z</updated><summary>هوش مصنوعی این بار اول انگلیسی جواب می‌دهد و بعد از اصلاح، فارسی.</summary></entry>'
   +'</feed>';
 
 let failures=0;
@@ -134,12 +135,14 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     if(req.url.startsWith('/story4.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(STORY4_PAGE);return;}
     if(req.url.startsWith('/img-twitter.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(TWITTER_PAGE);return;}
     if(req.url.startsWith('/fail-ai.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<html><head><title>Fail</title></head><body><article>متن مورد ناموفق که پردازش هوش مصنوعی روی آن خطا می‌دهد و باید «نیازمند پردازش مجدد» بماند و هرگز به صف آماده‌بررسی نرود.</article></body></html>');return;}
+    if(req.url.startsWith('/en-first.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<html><head><title>EN first</title></head><body><article>Can you mix creatine with electrolytes? Experts explain the interaction between creatine monohydrate and electrolyte supplements, and whether combining them in a single drink is safe for most adults.</article></body></html>');return;}
     if(req.url.startsWith('/story2.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(ARTICLE_PAGE);return;}
     if(req.url.startsWith('/page-a.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
     if(req.url.startsWith('/page-b.html')){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(SHARED_OG_PAGE('https://shared-img.example.com/shared.jpg'));return;}
     if(req.url.startsWith('/img-2.jpg')){res.setHeader('Content-Type','image/jpeg');res.end('fake');return;}
     if(req.url.startsWith('/ai/models')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({models:['mock-model'],default_combo:'mock-model'}));return;}
-    if(req.url.startsWith('/ai/chat/completions')){let body='';req.on('data',c=>body+=c);req.on('end',()=>{try{const p=JSON.parse(body);const prompt=(p.messages||[]).map(m=>m.content).join('\n');if(prompt.includes('FAILAI مورد ناموفق')){res.setHeader('Content-Type','text/plain');res.end('not-json: the mock AI exploded for this story');return;}res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(aiReply(prompt))+'\n```'}}]}));}catch(e){res.statusCode=500;res.end('bad');}});return;}
+    if(req.url.startsWith('/ai/chat/completions')){let body='';req.on('data',c=>body+=c);req.on('end',()=>{try{const p=JSON.parse(body);const prompt=(p.messages||[]).map(m=>m.content).join('\n');if(prompt.includes('FAILAI مورد ناموفق')){res.setHeader('Content-Type','text/plain');res.end('not-json: the mock AI exploded for this story');return;}
+      if(prompt.includes('ENGLISH_TITLE_ONCE مورد') && !prompt.includes('خروجی قبلی شما پذیرفته نشد')){const bad={title:'Can You Mix Creatine With Electrolytes? Experts Explain',summary:'Creatine and electrolytes in English only.',content_html:'<p>english only content that must not reach the inbox as a prepared Persian article.</p>'.repeat(10),key_points:['a','b','c'],references:[],related_keywords:[],sensitive_flags:[],confidence:0.9,relevance:8,evergreen_reference:false,category:'sports-science',why_it_matters:'no',useful:true};res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(bad)+'\n```'}}]}));return;}res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'```json\n'+JSON.stringify(aiReply(prompt))+'\n```'}}]}));}catch(e){res.statusCode=500;res.end('bad');}});return;}
     res.setHeader('Content-Type','application/xml; charset=utf-8');
     if(req.url.startsWith('/a.xml'))res.end(RSS_A2);
     else if(req.url.startsWith('/d.xml'))res.end(RSS_D2);
@@ -292,6 +295,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     check('rev10 UI: scan toast = «پیدا شد» (new finds) + ready count', ui.includes('در این بررسی') && ui.includes('مطلب جدید پیدا شد'), 'missing toast wording');
     check('rev10 UI: card labels per spec (عنوان اصلی / تاریخ انتشار / چرا این مطلب مهم است؟ / نکات کلیدی / تصویر پیدا نشد)', ui.includes('عنوان اصلی:') && ui.includes('تاریخ انتشار:') && ui.includes('چرا این مطلب مهم است؟') && ui.includes('نکات کلیدی:') && ui.includes('تصویر برای این مطلب پیدا نشد') && ui.includes('آماده بررسی'), 'missing label');
     check('rev10 UI: no misleading «این بار N مورد آماده شد» claim', !ui.includes('مورد آماده شد — برای ادامه'), 'still present');
+    check('rev10.1 UI: parked items offer «🔄 پردازش مجدد» (manual retry) + attempts shown', ui.includes('🔄 پردازش مجدد') && ui.includes('تلاش خودکار'), 'missing button');
   }
   // batch cap + image priority (isolated in-memory db + local feed C)
   {
@@ -337,21 +341,23 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     mem3.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-d','Test D','http://127.0.0.1:'+feedPort+'/d.xml','rss','sports-science');
     require('/home/user/yasnafit/src/ai-service').saveSettings(mem3,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
     const rD=await discovery.runDiscovery(mem3,{notifyAudience:'none'});
-    check('rev10: 3 candidates → 2 drafted (FA), 1 not-prepared (AI failed)', rD.drafted===2 && rD.not_prepared===1, JSON.stringify(rD));
+    check('rev10: 4 candidates → 3 drafted (FA), 1 not-prepared (AI failed)', rD.drafted===3 && rD.not_prepared===1, JSON.stringify(rD));
     const redir=mem3.prepare('SELECT a.* FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%حوالهٔ اصلی%');
     check('rev10: redirect resolved → canonical publisher URL (final source, never discovery link)', redir && redir.source_url==='https://publisher4.example.com/canon-1', redir?JSON.stringify(redir.source_url):'missing');
     check('rev10: coach-facing source = og:site_name of the original page', redir && redir.source_name==='Site Four', redir?redir.source_name:'missing');
     check('rev10: article image = its own og:image', redir && redir.cover_image==='https://img4.example.com/main.jpg', redir?redir.cover_image:'missing');
     const twItem=mem3.prepare('SELECT a.cover_image FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%تصویر توییتر%');
     check('rev10: twitter:image used when og missing', twItem && twItem.cover_image==='https://img-tw.example.com/tw.jpg', twItem?twItem.cover_image:'missing');
+    const enItem=mem3.prepare('SELECT a.* FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%ENGLISH_TITLE_ONCE%');
+    check('rev10.1: AI that answered English first is corrected in-run → FA title drafted (never raw English)', enItem && /\p{Script=Arabic}/u.test(enItem.title) && !/Creatine With Electrolytes/.test(enItem.title), enItem?JSON.stringify(enItem.title.slice(0,40)):'missing');
     const failRow=mem3.prepare("SELECT * FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%'").get();
     let fMeta={}; try{fMeta=JSON.parse(failRow&&failRow.ai_meta||'{}');}catch(e){}
     check('rev10: AI failure → FAILED + internal mark «نیازمند پردازش مجدد»', failRow && failRow.status==='FAILED' && fMeta.needs_reprocess===true && String(failRow.quality_flags||'').includes('نیازمند پردازش مجدد'), JSON.stringify({s:failRow&&failRow.status,meta:fMeta,flags:failRow&&failRow.quality_flags}));
     check('rev10: failed-AI item has NO article (excluded from ready queue)', mem3.prepare("SELECT COUNT(*) c FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%' AND article_id IS NOT NULL").get().c===0);
     const stD=discovery.queueStats(mem3);
-    check('rev10: queue stats split — 2 ready, 0 parked (ready count never includes failed)', stD.drafts===2 && stD.needs_reprocess===0, JSON.stringify(stD));
+    check('rev10: queue stats split — 3 ready, 0 parked (ready count never includes failed)', stD.drafts===3 && stD.needs_reprocess===0, JSON.stringify(stD));
     const qD=discovery.queueView(mem3);
-    check('rev10: queue rows carry audit_reasons (empty for clean drafts)', qD.length===2 && qD.every(q=>Array.isArray(q.audit_reasons) && q.audit_reasons.length===0), JSON.stringify(qD.map(q=>q.audit_reasons)));
+    check('rev10: queue rows carry audit_reasons (empty for clean drafts)', qD.length===3 && qD.every(q=>Array.isArray(q.audit_reasons) && qD.length===3 && q.audit_reasons.length===0), JSON.stringify(qD.map(q=>q.audit_reasons)));
     // Legacy (pre-rev10) drafts must be cleaned on the next run:
     // (1) a 2020 English-titled draft with a Google News source → rejected (stale)
     // (2) a FA-titled fresh draft still pointing at a Google News link → re-resolved
@@ -360,7 +366,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     mem3.prepare("INSERT INTO magazine_discoveries (stable_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, publisher, status, article_id, ai_meta) VALUES (?,?,?,?,?,?,?,?,?, 'DRAFTED', ?, ?)").run('leg-old','https://news.google.com/rss/articles/OLDLEGACY1','h-leg-old','fp-leg-old','Legacy English Title from 2020','2020-03-01 09:00:00','sports-science','legacy','Google News',legOldId,null);
     mem3.prepare("INSERT INTO magazine_discoveries (stable_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, publisher, status, article_id, ai_meta) VALUES (?,?,?,?,?,?,?,?,?, 'DRAFTED', ?, ?)").run('leg-gnews','https://news.google.com/rss/articles/'+gnewsId('https://legacy2.example.com/x'),'h-leg-gnews','fp-leg-gnews','مطلب فارسی با منبع گوگل‌نیوز','2026-09-21 08:00:00','sports-science','legacy','Google News',leg2Id,null);
     let stBefore=discovery.queueStats(mem3);
-    check('rev10 audit: legacy drafts parked (ready 2 → 0… both flagged)', stBefore.needs_reprocess===2, JSON.stringify(stBefore));
+    check('rev10 audit: legacy drafts parked (ready 3, 2 flagged)', stBefore.drafts===3 && stBefore.needs_reprocess===2, JSON.stringify(stBefore));
     const rp=await discovery.reprocessStaleDrafts(mem3);
     check('rev10 reprocess: stale legacy rejected + gnews legacy re-resolved', rp.rejected===1 && rp.reprocessed===1, JSON.stringify(rp));
     const oldRow=mem3.prepare('SELECT * FROM magazine_articles WHERE id=?').get(legOldId);
@@ -368,7 +374,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const leg2=mem3.prepare('SELECT * FROM magazine_articles WHERE id=?').get(leg2Id);
     check('rev10 reprocess: gnews source resolved to original publisher (article updated in place)', String(leg2.source_url).startsWith('https://legacy2.example.com/') && /\p{Script=Arabic}/u.test(leg2.title), JSON.stringify({u:leg2.source_url,t:leg2.title.slice(0,30)}));
     const stAfter=discovery.queueStats(mem3);
-    check('rev10 reprocess: ready queue clean again (3 ready incl. re-resolved one, 0 parked)', stAfter.drafts===3 && stAfter.needs_reprocess===0, JSON.stringify(stAfter));
+    check('rev10 reprocess: ready queue clean again (4 ready incl. re-resolved one, 0 parked)', stAfter.drafts===4 && stAfter.needs_reprocess===0, JSON.stringify(stAfter));
     // The parked FAILAI candidate: retried at most 3 times, then stops (no loop)
     for(let i=0;i<3;i++){ await discovery.reprocessStaleDrafts(mem3); }
     let fcRaw=mem3.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%FAILAI%'").get().ai_meta;
@@ -385,6 +391,23 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('stats: 0 published, 9 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===9, JSON.stringify(r.data));
   r=await j('/api/magazine/admin/queue/stats');
   check('stats: last_run_at recorded after discovery', Boolean(r.data.last_run_at), JSON.stringify(r.data.last_run_at));
+  // rev10.1: manual «🔄 پردازش مجدد» (coach) on a parked legacy draft
+  {
+    const ddb3=new DatabaseSync(path.join(dataDir,'yasnafit.db'));
+    const leg3GnewsUrl='https://news.google.com/rss/articles/'+gnewsId('https://legacy3.example.com/y');
+    const legacyId=ddb3.prepare("INSERT INTO magazine_articles (stable_id, slug, title, summary, content, status, content_origin, source_name, source_url, created_at, updated_at) VALUES (?,?,?,?,?,?, 'generated', 'Google News', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run('legacy-stable-rp','legacy-rp','مطلب تست بازپردازش دستی با منبع گوگل‌نیوز','خلاصه','<p>متن فارسی برای تست بازپردازش دستی از دکمهٔ «پردازش مجدد»؛ طول کافی برای اعتبارسنجی دارد.</p>'.repeat(3),'DRAFT',leg3GnewsUrl).lastInsertRowid;
+    ddb3.prepare("INSERT INTO magazine_discoveries (stable_id, url, url_hash, fingerprint, title_original, date_published, category_slug, summary_original, publisher, status, article_id, ai_meta) VALUES (?,?,?,?,?,?,?,?,?, 'DRAFTED', ?, ?)").run('leg-rp',leg3GnewsUrl,'h-leg-rp','fp-leg-rp','مطلب تست بازپردازش دستی با منبع گوگل‌نیوز','2026-09-21 09:00:00','sports-science','legacy','Google News',legacyId,JSON.stringify({needs_reprocess:true}));
+    ddb3.close();
+    const anRp=await fetch(BASE+'/api/magazine/admin/queue/'+legacyId+'/reprocess',{method:'POST',body:'{}'});
+    check('rev10.1: reprocess endpoint anonymous → 401', anRp.status===401, 'got '+anRp.status);
+    r=await j(`/api/magazine/admin/queue/${legacyId}/reprocess`,{method:'POST',body:'{}'});
+    check('rev10.1: coach «پردازش مجدد» succeeds (source resolved + AI rerun)', r.status===200 && r.data.reprocessed===true, JSON.stringify(r.data));
+    const rpArt=await j('/api/magazine/admin/articles/'+legacyId);
+    check('rev10.1: reprocessed article keeps FA + original publisher source (never Google News)', String(rpArt.data.source_url).startsWith('https://legacy3.example.com/') && /\p{Script=Arabic}/u.test(rpArt.data.title) && rpArt.data.status==='DRAFT', JSON.stringify({u:rpArt.data.source_url,t:String(rpArt.data.title).slice(0,40)}));
+    const rpQ=await j('/api/magazine/admin/queue');
+    const rpRow=rpQ.data.queue.find(q=>q.id===legacyId);
+    check('rev10.1: reprocessed row back in ready queue (no audit flags)', rpRow && rpRow.audit_reasons.length===0, JSON.stringify(rpRow&&rpRow.audit_reasons));
+  }
 
   // review detail
   r=await j(`/api/magazine/admin/queue/${q1.id}`);

@@ -424,7 +424,7 @@ const EDITORIAL_SYSTEM_PROMPT = [
   'قوانین سخت‌گیرانه:',
   '1) هیچ حقیقت، مطالعه، آمار، نقل‌قول، شخص، رویداد یا منبع جدیدی اختراع نکنید. فقط بازنویسی/خلاصه‌سازی محتوای منبع.',
   '2) اطلاعات مبهم یا ناقص را به‌صورت محتاطانه بیان کنید (مثلاً «طبق گزارش منبع»).',
-  '3) title و summary حتماً فارسی و روان باشند؛ اگر منبع انگلیسی یا به زبان دیگری است، ترجمهٔ حرفه‌ای و غیرتحت‌اللفظی بنویسید. هرگز title یا summary انگلیسی در خروجی مجاز نیست.',
+  '3) title و summary حتماً فارسی و روان باشند؛ اگر منبع انگلیسی یا به زبان دیگری است، ترجمهٔ حرفه‌ای و غیرتحت‌اللفظی بنویسید. هرگز title یا summary انگلیسی در خروجی مجاز نیست. title هرگز نباید با پیشوندی مانند «ترجمهٔ فارسی:» شروع شود — باید یک تیتر طبیعی و حرفه‌ای فارسی باشد (عنوان انگلیسی اصلی جای جداگانه در سیستم دارد).',
   '4) key_points: بین ۳ تا ۶ نکتهٔ کلیدی، کوتاه، دقیق و فارسی، مستقیماً از خود مطلب.',
   '5) why_it_matters: یک یا دو جملهٔ روان فارسی دربارهٔ اینکه این مطلب برای مخاطبان YASNAFIT (به‌ویژه زنان ورزشکار) چرا مهم یا مفید است.',
   '6) category فقط یکی از اینها: bodybuilding / sports-science / nutrition / health / sports-news.',
@@ -697,19 +697,28 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
     try {
       const aiSettings = getSettings(db);
       if (aiSettings.has_api_key) {
-        const reply = await chatCompletion(db, {
-          messages: [
+        const userPrompt = editorialUserPrompt({ ...item, url: finalUrl }, resolvedPublisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS, text: page ? page.text : '' });
+        // One corrective retry in the same run: if the AI returns an English
+        // title/summary or invalid JSON, it is told exactly what failed and
+        // asked again (lower temperature). A second failure parks the item as
+        // «نیازمند پردازش مجدد» instead of showing raw English in the inbox.
+        for (let attempt = 0; attempt < 2 && !draft; attempt++) {
+          const messages = [
             { role: 'system', content: EDITORIAL_SYSTEM_PROMPT },
-            { role: 'user', content: editorialUserPrompt({ ...item, url: finalUrl }, resolvedPublisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS, text: page ? page.text : '' }) }
-          ],
-          tools: false,
-          temperature: 0.4,
-          max_tokens: 2200,
-          timeout_ms: 90000
-        });
-        const parsed = extractJson(reply && (reply.content || reply.text || (typeof reply === 'string' ? reply : '')));
-        draft = draftFromAi(parsed, item, publisher);
-        if (!draft) aiFailed = 'خروجی هوش مصنوعی معتبر نبود (ترجمه/خلاصهٔ فارسی کافی نبود)';
+            { role: 'user', content: userPrompt }
+          ];
+          if (attempt === 1) messages.push({ role: 'user', content: 'خروجی قبلی شما پذیرفته نشد: title و summary حتماً باید فارسی و طبیعی باشند (نه انگلیسی، نه ترجمهٔ تحت‌اللفظی) و JSON کامل و معتبر باشد. همین مطلب را دوباره با خروجی صحیح بفرستید.' });
+          const reply = await chatCompletion(db, {
+            messages,
+            tools: false,
+            temperature: attempt === 0 ? 0.4 : 0.2,
+            max_tokens: 2200,
+            timeout_ms: 90000
+          });
+          const parsed = extractJson(reply && (reply.content || reply.text || (typeof reply === 'string' ? reply : '')));
+          draft = draftFromAi(parsed, item, resolvedPublisher);
+          if (!draft) aiFailed = 'خروجی هوش مصنوعی معتبر نبود (ترجمه/خلاصهٔ فارسی کافی نبود)';
+        }
       } else {
         aiFailed = 'هوش مصنوعی پیکربندی نشده است';
       }
@@ -879,6 +888,28 @@ async function reprocessStaleDrafts(db, { usedImages = new Set() } = {}) {
     } catch (e) { /* stays parked */ }
   }
   return result;
+}
+
+// Manual, per-item reprocess (coach button «🔄 پردازش مجدد»): resolves the
+// original source again, re-runs the AI editorial pass and updates the SAME
+// article in place. Resets the attempt counter so a coach-requested retry is
+// not blocked by the automatic 3-attempt cap.
+async function reprocessOne(db, articleId) {
+  const row = db.prepare("SELECT * FROM magazine_articles WHERE id=? AND deleted_at IS NULL AND status='DRAFT'").get(articleId);
+  if (!row) { const e = new Error('مقاله پیدا نشد یا در وضعیت پیش‌نویس نیست'); e.statusCode = 404; throw e; }
+  const discovery = db.prepare('SELECT * FROM magazine_discoveries WHERE article_id=? ORDER BY id DESC LIMIT 1').get(articleId);
+  if (!discovery) { const e = new Error('رکورد کشف برای این مطلب وجود ندارد'); e.statusCode = 400; throw e; }
+  let am = null;
+  try { am = JSON.parse(discovery.ai_meta || 'null'); } catch (e) { am = null; }
+  db.prepare("UPDATE magazine_discoveries SET status='PROCESSING', ai_meta=? WHERE id=?")
+    .run(JSON.stringify({ ...(am || {}), reprocess_count: 0 }), discovery.id);
+  const res = await processDiscovery(db, { id: discovery.id }, { existingArticleId: articleId });
+  return {
+    reprocessed: Boolean(res && res.article),
+    not_prepared: Boolean(res && res.notPrepared),
+    skipped: Boolean(res && res.skipped),
+    ai_failed: res && res.aiFailed ? res.aiFailed : null
+  };
 }
 
 // How many NEW items one discovery run turns into drafts. The coach UI shows
@@ -1235,6 +1266,7 @@ module.exports = {
   validImageUrl,
   auditDraftForReprocess,
   reprocessStaleDrafts,
+  reprocessOne,
   domainToName,
   publisherOf,
   getDiscoveryProgress,
