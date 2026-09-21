@@ -18,7 +18,6 @@
  */
 
 const crypto = require('crypto');
-const { chatCompletion, getSettings } = require('./ai-service');
 const articleService = require('./article-service');
 
 const DISCOVERY_FETCH_MS = 15000;
@@ -100,7 +99,7 @@ function resolveGoogleNewsUrl(link, descriptionHtml) {
 // "ScienceDaily"-style name from a bare domain (last-resort publisher name).
 function domainToName(host) {
   const h = String(host || '').replace(/^www\./i, '').toLowerCase();
-  if (!h) return '';
+  if (!h || h === 'localhost' || /^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.startsWith('127.')) return '';
   const parts = h.split('.');
   let base = parts[0] || h;
   if (parts.length >= 3 && ['co', 'com', 'org', 'ac', 'gov', 'edu', 'net'].includes(parts[parts.length - 2])) base = parts[parts.length - 2] + '.' + parts[parts.length - 1];
@@ -414,107 +413,6 @@ function qualityChecks({ item, categorySlug }) {
   return flags;
 }
 
-// ---------- AI editorial draft (section 5) ----------
-// Strict contract: the model may only re-express the provided source content;
-// it must never invent facts/studies/statistics/quotes/people/sources. Output
-// must be strict JSON.
-
-const EDITORIAL_SYSTEM_PROMPT = [
-  'شما ویراستار خبری-علمی مجلهٔ YASNAFIT هستید (خوانندگان اصلی: زنان ورزشکار و مربی‌زنان). شما فقط با محتوایی که در پیام کاربر داده می‌شود کار می‌کنید.',
-  'قوانین سخت‌گیرانه:',
-  '1) هیچ حقیقت، مطالعه، آمار، نقل‌قول، شخص، رویداد یا منبع جدیدی اختراع نکنید. فقط بازنویسی/خلاصه‌سازی محتوای منبع.',
-  '2) اطلاعات مبهم یا ناقص را به‌صورت محتاطانه بیان کنید (مثلاً «طبق گزارش منبع»).',
-  '3) title و summary حتماً فارسی و روان باشند؛ اگر منبع انگلیسی یا به زبان دیگری است، ترجمهٔ حرفه‌ای و غیرتحت‌اللفظی بنویسید. هرگز title یا summary انگلیسی در خروجی مجاز نیست. title هرگز نباید با پیشوندی مانند «ترجمهٔ فارسی:» شروع شود — باید یک تیتر طبیعی و حرفه‌ای فارسی باشد (عنوان انگلیسی اصلی جای جداگانه در سیستم دارد).',
-  '4) key_points: بین ۳ تا ۶ نکتهٔ کلیدی، کوتاه، دقیق و فارسی، مستقیماً از خود مطلب.',
-  '5) why_it_matters: یک یا دو جملهٔ روان فارسی دربارهٔ اینکه این مطلب برای مخاطبان YASNAFIT (به‌ویژه زنان ورزشکار) چرا مهم یا مفید است.',
-  '6) category فقط یکی از اینها: bodybuilding / sports-science / nutrition / health / sports-news.',
-  '7) relevance: امتیاز 0 تا 10 برای مرتبط بودن مطلب با محوریت YASNAFIT: تمرین مقاومتی و بدنسازی زنان، رشد عضلانی، فیزیولوژی ورزش، تغذیهٔ ورزشی، پروتئین، کراتین و مکمل‌های دارای شواهد، ریکاوری و خواب، سلامت ورزشکاران زن، انرژی در دسترس و RED-S، سلامت استخوان، پیشگیری از آسیب، عملکرد ورزشی و اخبار مهم بدنسازی. مطلب بی‌ربط، کلیک‌بیت یا کم‌اعتبار: useful=false یا relevance کمتر از ۴.',
-  '8) evergreen_reference: فقط true اگر مطلب از نظر تازگی قدیمی است ولی یک مرجع مهم و پایدار محسوب می‌شود (مثلاً position stand رسمی یا مرور سیستماتیک بنیادین). برای مطالب عادی همیشه false.',
-  '9) content_html یک پیش‌نویس ویرایشی کامل (۲ تا ۶ بند) برای مجلهٔ YASNAFIT است — نه صرفاً خلاصهٔ خبر؛ با ادبیات خبری-علمیِ طبیعی و حرفه‌ای فارسی (نه ترجمهٔ تحت‌اللفظی)؛ اصطلاحات علمی انگلیسی در صورت کفایت می‌توانند در پرانتز بمانند؛ فقط برچسب‌های p, h2, ul, li, strong, em, a؛ بدون زبان فنی هوش مصنوعی و بدون ذکر «تولیدشده با هوش مصنوعی».',
-  '10) شواهد: به مرورهای سیستماتیک، متاآنالیزها، کارآزمایی‌های تصادفی‌سازی‌شده و بیانیه‌های اجماعی وزن بیشتری بدهید. هرگز یک مطالعهٔ تکی را به‌عنوان «حقیقت اثبات‌شده» ارائه نکنید (بنویسید «این مطالعه نشان داد…»).',
-  '11) اعتبار منابع: سطح ۱: PubMed/NCBI، ACSM، NSCA، British Journal of Sports Medicine، Sports Medicine، JSCR، ISSN و مجلات همتای علمی ورزشی/تغذیه‌ای؛ سطح ۲: نشریات معتبر پزشکی، تغذیه و علوم ورزشی و فدراسیون‌های بزرگ؛ سطح ۳: رسانه‌های عمومی. محتوای سلبریتی/لایف‌استایل فقط در صورت داشتن ارزش علمی یا کاربردی واقعی پذیرفته می‌شود، وگرنه useful=false.',
-  '12) هر پیشنهاد باید نام منبع اصلی و تاریخ انتشار آن را در references حفظ کند (قانون ثابت: منبع اصلی + تاریخ). خروجی فقط JSON معتبر با همین کلیدها: title, summary, content_html, key_points[], references[{name,url}], related_keywords[], sensitive_flags[], confidence(0-1), relevance(0-10), evergreen_reference(true/false), category, why_it_matters, useful.'
-].join('\n');
-
-function editorialUserPrompt(item, sourceName, { ageDays, needsEvergreen, limitDays, text } = {}) {
-  const lines = [
-    'محتوای خبر/مقالهٔ منبع زیر را برای مجلهٔ YASNAFIT آماده کنید:',
-    `منبع اصلی: ${sourceName || 'نامشخص'}`,
-    `آدرس اصلی: ${item.url}`,
-    `عنوان اصلی: ${item.title}`,
-    `تاریخ انتشار: ${item.publishedAt || 'نامشخص'}`,
-    `نویسنده/سازمان: ${item.author || 'نامشخص'}`,
-    `خلاصهٔ منبع: ${item.summary || 'در دسترس نیست'}`
-  ];
-  if (text) lines.push('متن اصلی مقاله (از صفحهٔ انتشارکنندۀ اصلی): ' + String(text).slice(0, 6000));
-  if (ageDays != null) lines.push(`سابقهٔ مطلب: این مطلب حدود ${Math.round(ageDays)} روز پیش منتشر شده است.`);
-  if (needsEvergreen) lines.push(`توجه: این مطلب از ${limitDays} روز پیش‌تر است. فقط در صورتی که واقعاً یک مرجع مهم و پایدار (evergreen reference) باشد evergreen_reference را true بگذارید؛ در غیر این صورت false.`);
-  return lines.join('\n') + '\n';
-}
-
-function extractJson(text) {
-  const cleaned = String(text || '').replace(/^```(?:json)?/i, '').replace(/```$/,'').trim();
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  try { return JSON.parse(cleaned.slice(start, end + 1)); } catch (e) { return null; }
-}
-
-function htmlEscape(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// Validate the AI output against the editorial contract. Returns null when the
-// draft is NOT coach-ready (e.g. the AI failed to translate to Persian) — the
-// candidate then never appears in the review inbox.
-function draftFromAi(parsed, item, sourceName) {
-  if (!parsed || typeof parsed !== 'object') return null;
-  const title = String(parsed.title || '').trim().slice(0, 200);
-  const summary = String(parsed.summary || '').trim().slice(0, 500);
-  const arabicScript = /\p{Script=Arabic}/u;
-  // Persian-only inbox: a Latin-script title or summary means the translation
-  // step did not happen — treat it as an invalid draft, not a fallback.
-  if (!title || !arabicScript.test(title) || !arabicScript.test(summary)) return null;
-  // Keep only whitelisted tags/attributes; strip any AI meta-language defensively.
-  let content = String(parsed.content_html || '').trim();
-  if (content.length < 200) return null;
-  content = articleService.sanitizeRichText(content.slice(0, 100000));
-  const keyPoints = (Array.isArray(parsed.key_points) ? parsed.key_points : (Array.isArray(parsed.claims) ? parsed.claims : []))
-    .slice(0, 6).map(String).map(s => s.trim().slice(0, 300)).filter(Boolean);
-  if (keyPoints.length < 3) return null; // the card needs real key points
-  const references = Array.isArray(parsed.references)
-    ? parsed.references.slice(0, 10).map(r => ({ name: String(r?.name ?? r?.source_name ?? '').slice(0, 200), url: String(r?.url ?? r?.source_url ?? '').slice(0, 500) }))
-        .filter(r => r.name || r.url)
-    : [];
-  const keywords = Array.isArray(parsed.related_keywords) ? parsed.related_keywords.slice(0, 8).map(String).map(s => s.slice(0, 80)) : [];
-  const sensitive = Array.isArray(parsed.sensitive_flags) ? parsed.sensitive_flags.slice(0, 10).map(String).map(s => s.slice(0, 300)) : [];
-  const confidence = Number(parsed.confidence);
-  const relevanceRaw = Number(parsed.relevance);
-  const relevance = Number.isFinite(relevanceRaw) ? Math.min(10, Math.max(0, relevanceRaw)) : null;
-  const evergreen = parsed.evergreen_reference === true;
-  const knownCats = ['bodybuilding', 'sports-science', 'nutrition', 'health', 'sports-news'];
-  const category = knownCats.includes(parsed.category) ? parsed.category : null;
-  const whyItMatters = String(parsed.why_it_matters || '').trim().slice(0, 400);
-  const useful = parsed.useful === undefined ? true : Boolean(parsed.useful);
-  const bodyParts = [content];
-  if (item.url) bodyParts.push(`<p><a href="${htmlEscape(item.url)}" rel="noopener noreferrer">منبع اصلی: ${htmlEscape(sourceName || 'خبر')}</a></p>`);
-  return {
-    title,
-    summary,
-    content: bodyParts.join('\n'),
-    references,
-    key_points: keyPoints,
-    keywords,
-    sensitive,
-    confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : null,
-    relevance,
-    evergreen_reference: evergreen,
-    category,
-    why_it_matters: whyItMatters,
-    useful
-  };
-}
-
 // ---------- article page inspection (canonical URL + images + article text) ----------
 // A single fetch of the ORIGINAL publisher page (like a browser preview):
 // canonical URL, publisher name (og:site_name), the image chain
@@ -626,7 +524,23 @@ async function fetchOgImage(pageUrl) {
 
 // ---------- run the pipeline ----------
 
-async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = new Set(), existingArticleId = null } = {}) {
+const ARABIC_SCRIPT = /\p{Script=Arabic}/u;
+
+function htmlEscape(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---------- rev11: SIMPLIFIED PERSIAN FLOW (owner: "STOP the complex pipeline") ----------
+// No AI anywhere in this path. For each found Persian article we:
+//   1) keep the ORIGINAL Persian title (never machine-translated)
+//   2) resolve the original source URL (Google News links are only discovery;
+//      the final source is the original publisher via redirect/canonical)
+//   3) extract the article's REAL image (og:image → twitter → JSON-LD → main <img>
+//      → valid feed thumbnail; never a generic/AI image)
+//   4) keep the short summary from the feed + the publication date
+//   5) show a simple card; the coach reviews and publishes via the existing
+//      article system. The AI never runs and never publishes.
+async function processDiscovery(db, discovery, { usedImages = new Set(), existingArticleId = null } = {}) {
   const d = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(discovery.id);
   const source = d.source_id ? sourceView(db, d.source_id) : null;
   db.prepare("UPDATE magazine_discoveries SET status='PROCESSING' WHERE id=?").run(d.id);
@@ -638,11 +552,8 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
     imageUrl: d.image_url,
     outlet: ''
   };
-  const publisher = String(d.publisher || '') || publisherOf(item, source);
   const tier = Number((source && source.source_tier) || 3);
-  const scientific = tier <= 2;
   const ageDays = ageDaysOf(d.date_published);
-  const gate = freshnessGate({ ageDays, scientific });
   const flags = qualityChecks({ item, categorySlug: d.category_slug });
   const fail = (meta, flag, opts = {}) => {
     const f = flag ? flags.concat([flag]) : flags;
@@ -657,15 +568,26 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
     }
     return f;
   };
-  // Hard freshness re-check (defense in depth; pass 1 already filters).
-  if (gate.accept === false) {
-    fail({ filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) }, 'مطلب قدیمی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود', { rejectArticle: true });
+  // Freshness: normal news ≤ 30 days, scientific/professional feeds ≤ 90 days.
+  // Older content is never presented as "new" (no AI evergreen mark exists in
+  // the simplified flow). Missing date → cannot verify → filtered.
+  const limitDays = tier <= 2 ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS;
+  if (ageDays == null) {
+    fail({ filtered: 'no-date', needs_reprocess: false }, 'تاریخ انتشار مشخص نیست — تازگی قابل تأیید نیست', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
-  // --- Original URL resolution (owner architecture): discovery link →
-  // ORIGINAL publisher page → canonical URL. A Google News link is NEVER the
-  // final source: first the id is decoded offline, then (production) the
-  // redirect is followed live, then the page's canonical link wins.
+  if (ageDays > limitDays) {
+    fail({ filtered: 'too-old', needs_reprocess: false, age_days: Math.round(ageDays) }, 'قدیمی‌تر از سقف تازگی است و به‌عنوان مطلب جدید پذیرفته نمی‌شود', { rejectArticle: true });
+    return { skipped: true, reason: 'freshness' };
+  }
+  // Persian-only flow: an item whose title is not Persian (an English result
+  // that slipped through) never enters the queue.
+  if (!ARABIC_SCRIPT.test(item.title)) {
+    fail({ filtered: 'non-persian', needs_reprocess: false }, 'عنوان فارسی نیست — جریان ساده فقط مقالات فارسی را می‌پذیرد', { rejectArticle: true });
+    return { skipped: true, reason: 'non-persian' };
+  }
+  // --- Original URL resolution: discovery link → ORIGINAL publisher page →
+  // canonical. A Google News link is NEVER the final source.
   let page = null;
   let finalUrl = item.url;
   if (/(^|\.)google\.com$/i.test(hostOf(item.url))) {
@@ -688,86 +610,35 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
   const resolvedPublisher = siteName || String(d.publisher || '') || publisherOf({ ...item, url: finalUrl }, source);
   if (/(^|\.)google\.com$/i.test(hostOf(finalUrl))) {
     fail({ needs_reprocess: true, reason: 'original-url-unresolved' }, 'منبع اصلی هنوز به انتشارکنندۀ اصلی حل نشده است — نیازمند پردازش مجدد');
-    return { notPrepared: true, aiFailed: 'منبع اصلی حل نشد' };
+    return { notPrepared: true };
   }
   db.prepare('UPDATE magazine_discoveries SET url=?, publisher=? WHERE id=?').run(finalUrl, resolvedPublisher, d.id);
-  let draft = null;
-  let aiFailed = null;
-  if (aiEnabled) {
-    try {
-      const aiSettings = getSettings(db);
-      if (aiSettings.has_api_key) {
-        const userPrompt = editorialUserPrompt({ ...item, url: finalUrl }, resolvedPublisher, { ageDays, needsEvergreen: gate.accept === 'evergreen', limitDays: scientific ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS, text: page ? page.text : '' });
-        // One corrective retry in the same run: if the AI returns an English
-        // title/summary or invalid JSON, it is told exactly what failed and
-        // asked again (lower temperature). A second failure parks the item as
-        // «نیازمند پردازش مجدد» instead of showing raw English in the inbox.
-        for (let attempt = 0; attempt < 2 && !draft; attempt++) {
-          const messages = [
-            { role: 'system', content: EDITORIAL_SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt }
-          ];
-          if (attempt === 1) messages.push({ role: 'user', content: 'خروجی قبلی شما پذیرفته نشد: title و summary حتماً باید فارسی و طبیعی باشند (نه انگلیسی، نه ترجمهٔ تحت‌اللفظی) و JSON کامل و معتبر باشد. همین مطلب را دوباره با خروجی صحیح بفرستید.' });
-          const reply = await chatCompletion(db, {
-            messages,
-            tools: false,
-            temperature: attempt === 0 ? 0.4 : 0.2,
-            max_tokens: 2200,
-            timeout_ms: 90000
-          });
-          const parsed = extractJson(reply && (reply.content || reply.text || (typeof reply === 'string' ? reply : '')));
-          draft = draftFromAi(parsed, item, resolvedPublisher);
-          if (!draft) aiFailed = 'خروجی هوش مصنوعی معتبر نبود (ترجمه/خلاصهٔ فارسی کافی نبود)';
-        }
-      } else {
-        aiFailed = 'هوش مصنوعی پیکربندی نشده است';
-      }
-    } catch (e) {
-      aiFailed = e.message || 'خطا در پردازش هوش مصنوعی';
-    }
-  } else {
-    aiFailed = 'پردازش هوش مصنوعی غیرفعال است';
-  }
-  if (!draft) {
-    // Owner rule (rev10): every candidate must be AI-translated & summarized
-    // BEFORE it reaches the review inbox. No AI draft → the candidate is NOT
-    // shown; it is marked internally «نیازمند پردازش مجدد» and retried on a
-    // later run (it never counts as ready).
-    fail({ ai_failed: aiFailed, needs_reprocess: true, age_days: ageDays == null ? null : Math.round(ageDays) }, 'نیازمند پردازش مجدد — پردازش AI ناموفق بود');
-    return { notPrepared: true, aiFailed };
-  }
-  if (draft.useful === false) {
-    fail({ skipped: 'not useful', needs_reprocess: false, relevance: draft.relevance }, 'محتوا برای مخاطب YASNAFIT مناسب نیست', { rejectArticle: true });
-    return { skipped: true, reason: 'useless' };
-  }
-  if (draft.relevance != null && draft.relevance < 4) {
-    fail({ skipped: 'low relevance', needs_reprocess: false, relevance: draft.relevance }, 'ارتباط مطلب با محوریت YASNAFIT کم است', { rejectArticle: true });
-    return { skipped: true, reason: 'relevance' };
-  }
-  if (gate.accept === 'evergreen' && !draft.evergreen_reference) {
-    fail({ skipped: 'old not evergreen', needs_reprocess: false, age_days: Math.round(ageDays) }, 'مطلب قدیمی است و مرجع مهم (evergreen) شناخته نشد', { rejectArticle: true });
-    return { skipped: true, reason: 'freshness' };
-  }
-  // Image (owner order): the article's own og:image → twitter:image →
-  // JSON-LD image → main article image — all read from the ORIGINAL publisher
-  // page (never a Google page, never a random image service, never an AI image).
-  // The feed's own thumbnail is a LAST resort and only when it is a real
-  // content image. One image per story: if another candidate already owns this
-  // exact image, this article gets no cover instead of sharing a duplicate.
+  // Image: the article's own og:image → twitter:image → JSON-LD image → main
+  // article image → valid feed thumbnail. One image per story (never shared
+  // between unrelated articles). No random images, no AI images.
   let cover = pageImageChain(page);
   if (!cover) cover = validImageUrl(item.imageUrl, finalUrl);
   if (cover && usedImages.has(cover)) cover = '';
+  // NO AI (owner rev11): the card shows the original Persian title, the real
+  // image, source name, date and the short feed summary. The article body is
+  // that summary + a link to the original article; the coach can expand it in
+  // «ویرایش» before publishing.
+  const summaryText = String(item.summary || '').trim().slice(0, 300);
+  const content = [
+    summaryText ? `<p>${htmlEscape(summaryText)}</p>` : '',
+    `<p><a href="${htmlEscape(finalUrl)}" rel="noopener noreferrer">مطالعهٔ کامل مطلب در منبع اصلی</a></p>`
+  ].filter(Boolean).join('\n');
   try {
     const articleInput = {
-      title: draft.title,
-      summary: draft.summary,
-      content: draft.content,
-      category: draft.category || d.category_slug || undefined,
+      title: item.title.slice(0, 200),
+      summary: summaryText,
+      content,
+      category: d.category_slug || undefined,
       cover_image: cover || null,
-      content_origin: 'generated',
+      content_origin: 'imported',
       source_name: resolvedPublisher || null,
       source_url: finalUrl,
-      sources: [{ name: resolvedPublisher || 'منبع خبر', url: finalUrl }, ...draft.references.filter(r => r.url && r.url !== finalUrl)].slice(0, 6)
+      sources: [{ name: resolvedPublisher || 'منبع خبر', url: finalUrl }]
     };
     let article;
     if (existingArticleId) {
@@ -777,23 +648,11 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
       article = articleService.createArticle(db, articleInput, 'discovery-engine');
     }
     if (cover) usedImages.add(cover);
-    // Persist editorial metadata for the review screen.
-    const meta = {
-      claims: draft.key_points,
-      key_points: draft.key_points,
-      keywords: draft.keywords,
-      sensitive: draft.sensitive,
-      confidence: draft.confidence,
-      relevance: draft.relevance,
-      why_it_matters: draft.why_it_matters || '',
-      ai_assisted: true,
-      age_days: ageDays == null ? null : Math.round(ageDays),
-      freshness: gate.accept === 'evergreen' ? 'evergreen' : 'fresh'
-    };
+    const meta = { age_days: Math.round(ageDays), freshness: 'fresh', no_ai: true };
     db.prepare('UPDATE magazine_articles SET quality_flags=? WHERE id=?').run(JSON.stringify(flags), article.id);
     db.prepare('UPDATE magazine_discoveries SET status=\'DRAFTED\', article_id=?, quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?')
       .run(article.id, JSON.stringify(flags), JSON.stringify(meta), d.id);
-    return { article, flags, aiFailed };
+    return { article, flags };
   } catch (e) {
     db.prepare("UPDATE magazine_discoveries SET status='FAILED', processed_at=CURRENT_TIMESTAMP WHERE id=?").run(d.id);
     db.prepare('UPDATE magazine_discoveries SET ai_meta=? WHERE id=?').run(JSON.stringify({ error: String(e.message || e).slice(0, 300) }), d.id);
@@ -808,7 +667,6 @@ async function processDiscovery(db, discovery, { aiEnabled = true, usedImages = 
 // Google News link, or flagged by the AI step as needs-reprocess. Such drafts
 // are parked, retried on a later discovery run, and finally rejected if they
 // cannot be fixed (3 attempts) — old 2017/2020-style items never stay "new".
-const ARABIC_SCRIPT = /\p{Script=Arabic}/u;
 const REPROCESS_MAX_ATTEMPTS = 3;
 
 function auditDraftForReprocess(row, discovery) {
@@ -817,8 +675,8 @@ function auditDraftForReprocess(row, discovery) {
   let aiMeta = null;
   try { aiMeta = JSON.parse((discovery && discovery.ai_meta) || 'null'); } catch (e) { aiMeta = null; }
   const ageDays = ageDaysOf(discovery ? discovery.date_published : null);
-  if (ageDays != null && ageDays > FRESH_SCIENCE_DAYS && !(aiMeta && aiMeta.freshness === 'evergreen')) {
-    reasons.push('تازگی: کهن‌تر از سقف مجاز و مرجع دائمی شناخته نشده است');
+  if (ageDays != null && ageDays > FRESH_SCIENCE_DAYS) {
+    reasons.push('تازگی: کهن‌تر از سقف مجاز است');
   }
   if (row.source_url && /google\.com$/i.test(hostOf(row.source_url)) && /rss\/articles/i.test(row.source_url)) {
     reasons.push('منبع هنوز لینک گوگل‌نیوز است — باید به انتشارکنندۀ اصلی حل شود');
@@ -841,7 +699,8 @@ async function reprocessStaleDrafts(db, { usedImages = new Set() } = {}) {
     if (!reasons.length) { result.kept += 1; continue; }
     const attempts = Number((aiMeta && aiMeta.reprocess_count) || 0);
     const stale = reasons.some(r => r.startsWith('تازگی'));
-    if (stale || attempts >= REPROCESS_MAX_ATTEMPTS) {
+    const nonPersian = reasons.some(r => r.startsWith('عنوان فارسی ندارد'));
+    if (stale || nonPersian || attempts >= REPROCESS_MAX_ATTEMPTS) {
       db.prepare("UPDATE magazine_articles SET status='REJECTED', rejection_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL")
         .run(reasons.join('؛ ').slice(0, 300), row.aid);
       if (discovery) db.prepare("UPDATE magazine_discoveries SET status='FAILED', ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?")
@@ -990,14 +849,23 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
         logRejected(source, item, url, { filtered: 'low-quality' });
         continue;
       }
-      // --- FRESHNESS filter: old content is never presented as "new".
+      // --- FRESHNESS filter: old content is never presented as "new"
+      // (30d normal / 90d scientific; the simplified flow has no evergreen mark).
       const tier = Number(source.source_tier) || 3;
       const ageDays = ageDaysOf(cleanDate(item.publishedAt));
       const gate = freshnessGate({ ageDays, scientific: tier <= 2 });
-      if (gate.accept === false) {
+      if (gate.accept !== 'fresh') {
         summary.filtered += 1;
         summary.filtered_breakdown['freshness'] = (summary.filtered_breakdown['freshness'] || 0) + 1;
-        logRejected(source, item, url, { filtered: gate.reason, age_days: ageDays == null ? null : Math.round(ageDays) });
+        logRejected(source, item, url, { filtered: gate.reason || 'too-old', age_days: ageDays == null ? null : Math.round(ageDays) });
+        continue;
+      }
+      // --- PERSIAN-ONLY filter: the simplified flow takes Persian articles
+      // from Persian sites; English results are not the main content.
+      if (!ARABIC_SCRIPT.test(item.title)) {
+        summary.filtered += 1;
+        summary.filtered_breakdown['non-persian'] = (summary.filtered_breakdown['non-persian'] || 0) + 1;
+        logRejected(source, item, url, { filtered: 'non-persian' });
         continue;
       }
       const inRun = seenInRun.find(c => c.url === url || titleSimilarity(c.title, item.title) >= TITLE_SIMILARITY_THRESHOLD);

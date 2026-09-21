@@ -1573,6 +1573,28 @@ const migrations = [
       for (const id of tier2) q2.run(id);
       // Tier 3 (default) — general media; lowest priority, filtered hardest.
     }
+  },
+  {
+    id: '038_magazine_persian_sources',
+    description: 'Magazine: owner pivot (2026-09-21, rev11) — discovery on PERSIAN sources only: six Persian fitness/bodybuilding/nutrition topics via Google News fa/IR search (hl=fa&gl=IR&ceid=IR:fa → results are Persian articles from real Persian sites; the pipeline resolves each to the original publisher). Previous world (English) built-ins are DEACTIVATED, not deleted — they stay re-activatable.',
+    up(db) {
+      const faFeeds = [
+        ['builtin-fa-bodybuilding', 'منبع فارسی: بدنسازی بانوان', 'https://news.google.com/rss/search?q=' + encodeURIComponent('بدنسازی بانوان') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'bodybuilding'],
+        ['builtin-fa-nutrition', 'منبع فارسی: تغذیه ورزشی', 'https://news.google.com/rss/search?q=' + encodeURIComponent('تغذیه ورزشی') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'nutrition'],
+        ['builtin-fa-exercise', 'منبع فارسی: علم تمرین', 'https://news.google.com/rss/search?q=' + encodeURIComponent('علم تمرین') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'sports-science'],
+        ['builtin-fa-fitness', 'منبع فارسی: تناسب اندام زنان', 'https://news.google.com/rss/search?q=' + encodeURIComponent('تناسب اندام زنان') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'health'],
+        ['builtin-fa-supplements', 'منبع فارسی: مکمل‌های ورزشی', 'https://news.google.com/rss/search?q=' + encodeURIComponent('مکمل‌های ورزشی') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'nutrition'],
+        ['builtin-fa-women-health', 'منبع فارسی: سلامت زنان و ورزش', 'https://news.google.com/rss/search?q=' + encodeURIComponent('سلامت زنان و ورزش') + '&hl=fa&gl=IR&ceid=IR:fa', 'rss', 'health']
+      ];
+      const ins = db.prepare(`
+        INSERT OR IGNORE INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h, source_tier)
+        VALUES (?,?,?,?,?,1,12,3)
+      `);
+      for (const f of faFeeds) ins.run(f[0], f[1], f[2], f[3], f[4]);
+      // Owner: "Search ONLY Persian sources" — the previous world (English)
+      // built-ins are deactivated (kept in DB, re-activatable by the coach).
+      db.exec("UPDATE magazine_sources SET is_active=0 WHERE is_active=1 AND stable_id LIKE 'builtin-%' AND stable_id NOT LIKE 'builtin-fa-%' AND deleted_at IS NULL");
+    }
   }
 ];
 

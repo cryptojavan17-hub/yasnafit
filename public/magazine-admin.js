@@ -809,30 +809,20 @@
     try { return new Date(iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z').toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return String(iso).slice(0, 16); }
   }
 
+  // rev11 simple card: Persian title / image / source / date / short summary /
+  // [مشاهده] [ویرایش] [✓ انتشار] [رد] — no AI fields, no technical data.
   function newsCard(item) {
-    const emoji = CATEGORY_EMOJI[item.category] || '📰';
-    const catName = item.category_name || 'مجله';
     const date = item.source_published_at || item.discovered_at || item.created_at;
-    const points = (item.key_points || []).slice(0, 6);
     return `
     <article class="mag-news-card" data-id="${item.id}">
-      <div class="mag-news-card__head">
-        <span class="mag-news-cat">${emoji} ${esc(catName)}</span>
-        ${item.status === 'DRAFT' ? '<span class="mag-badge mag-badge--ready">آماده بررسی</span>' : statusBadge(item.status)}
-        ${item.evergreen ? '<span class="mag-news-cat mag-news-cat--evergreen">📚 مرجع دائمی</span>' : ''}
-      </div>
-      <h4 class="mag-news-title">${esc(item.title)}</h4>
-      ${item.original_title ? `<div class="mag-news-orig" dir="auto"><span class="mag-news-orig__label">عنوان اصلی:</span> ${esc(item.original_title)}</div>` : ''}
-      <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ انتشار: ${faDate(date)}</div>
-      ${item.summary ? `<p class="mag-news-summary"><b>خلاصه:</b> ${esc(item.summary)}</p>` : ''}
-      ${item.why_it_matters ? `<p class="mag-news-why"><b>چرا این مطلب مهم است؟</b> ${esc(item.why_it_matters)}</p>` : ''}
-      ${points.length ? `<div class="mag-news-points-wrap"><div class="mag-news-points-label">نکات کلیدی:</div><ul class="mag-news-points">${points.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : ''}
       <div class="mag-news-card__media">
         ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>تصویر برای این مطلب پیدا نشد</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
       </div>
-      ${item.source_url ? `<a class="mag-news-src" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده منبع اصلی ↗</a>` : ''}
+      <h4 class="mag-news-title">${esc(item.title)}</h4>
+      <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ: ${faDate(date)}</div>
+      ${item.summary ? `<p class="mag-news-summary">${esc(item.summary)}</p>` : ''}
       <div class="mag-news-actions">
-        <button type="button" class="mag-action" data-news-action="review" data-id="${item.id}">مشاهده کامل</button>
+        ${item.source_url ? `<a class="mag-action mag-action--view" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده</a>` : ''}
         <button type="button" class="mag-action" data-news-action="edit" data-id="${item.id}">ویرایش</button>
         <button type="button" class="mag-action mag-action--publish" data-news-action="publish" data-id="${item.id}">✓ انتشار</button>
         <button type="button" class="mag-action mag-action--reject" data-news-action="reject" data-id="${item.id}">رد</button>
@@ -849,7 +839,7 @@
     else if (p.phase === 'done' || p.phase === 'done_with_errors') pct = 100;
     const phaseText = {
       sources: p.sources_total ? `در حال بررسی منابع روز دنیا… ${faDigits(p.sources_done)} از ${faDigits(p.sources_total)}` : 'در حال آماده‌سازی…',
-      draft: p.items_total ? `در حال آماده‌سازی گزارش فارسی… ${faDigits(p.items_done || 0)} از ${faDigits(p.items_total)}` : 'در حال آماده‌سازی گزارش فارسی…',
+      draft: p.items_total ? `در حال بررسی مطالب… ${faDigits(p.items_done || 0)} از ${faDigits(p.items_total)}` : 'در حال بررسی مطالب…',
       images: 'در حال به‌روزرسانی تصویرها…',
       done: 'تمام شد',
       done_with_errors: 'تمام شد — برخی منابع در دسترس نبود',
@@ -976,11 +966,11 @@
         const parts = [];
         // rev10 wording: "پیدا شد" = this scan's NEW finds; "آماده است" = the
         // existing pending review queue. The two numbers may differ on purpose.
-        if (result.drafted) parts.push(`📰 در این بررسی ${faDigits(result.drafted)} ${isMore ? 'مطلب جدید دیگر پیدا شد' : 'مطلب جدید پیدا شد'}.`);
+        if (result.drafted) parts.push(`📰 در این بررسی ${faDigits(result.drafted)} ${isMore ? 'مطلب جدید فارسی دیگر پیدا شد' : 'مطلب جدید فارسی پیدا شد'}.`);
         else parts.push('در این بررسی مطلب جدیدی پیدا نشد — همهٔ منابع بررسی شد.');
         if (typeof result.ready_review === 'number') parts.push(faDigits(result.ready_review) + ' مطلب برای بررسی آماده است.');
         if (result.filtered) parts.push(`${faDigits(result.filtered)} مطلب به‌خاطر تازگی/کیفیت منبع مطابق نبود و حذف شد.`);
-        if (result.not_prepared) parts.push(`توجه: ${faDigits(result.not_prepared)} مطلب «نیازمند پردازش مجدد» است (هوش مصنوعی برای آماده‌سازی فارسی در دسترس نبود یا خطا داد — در بررسی بعدی دوباره امتحان می‌شود).`);
+        if (result.not_prepared) parts.push(`توجه: ${faDigits(result.not_prepared)} مطلب «نیازمند پردازش مجدد» است (منبع اصلی حل نشد — در بررسی بعدی دوباره امتحان می‌شود).`);
         let msg = parts.join(' ');
         if (result.stopped_at_cap) msg += ' برای ادامهٔ بررسی «جستجو بیشتر» را بزنید.';
         else if (result.errors && result.errors.length) msg += ` (توجه: ${faDigits(result.errors.length)} منبع در این باره در دسترس نبود — دفعهٔ بعد دوباره امتحان می‌کنیم).`;
