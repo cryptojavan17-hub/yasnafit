@@ -176,7 +176,7 @@
     (root || document).querySelectorAll('input[data-jalali]').forEach(attach);
   }
 
-  window.YasnaJalali = {
+  const api = {
     isoToJalali, isoToJalaliStr, jalaliStrToIso, format, addMonths,
     monthNames, isLeap, monthLength,
     attach, autoInit,
@@ -184,4 +184,6 @@
     set(el, iso) { if (!el) return; el.value = iso ? isoToJalaliStr(iso) : ''; revalidate(el, false); },
     formatSafe(iso) { return format(iso) || (iso || '—'); },
   };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (typeof window !== 'undefined') window.YasnaJalali = api;
 })();

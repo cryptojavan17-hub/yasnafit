@@ -8,6 +8,14 @@
 
 ## 2026-09-21
 
+### Correction 13 (T-17 — replace Google with direct Persian publishers)
+- Migration 039 preserves/disables all six Persian Google queries and adds four direct endpoints: `https://www.elmevarzesh.com/category/sports-physiology/exercise-science/feed/`, `https://www.iranbadan.com/category/bodybuilding-fitness/feed/`, `https://badanfit.ir/blog.html`, `https://fitamin.ir/mag/`. Existing source table gains only `fetch_format` (`feed`/`html`); no parallel article/source system.
+- Small non-executing HTML listing reader extracts same-publisher title/link/image/date, merges duplicate image/title anchors, excludes navigation/category links, supports lazy images and reuses the existing Jalali converter. WordPress `content:encoded` image fallback and article publication-date metadata are supported.
+- Owner's temporary testing policy: 180-day age limit. Direct publisher links do not require a canonical or a successful article-page fetch. Missing images enter DRAFT with «تصویر پیدا نشد». If a direct publisher exposes no parseable date even after page inspection, keep null with an explicit coach warning, never substitute today's date or mark it fresh. Known >180-day articles are still filtered. AI and automatic publishing remain absent.
+- Tests: full suite (now 21 suites) passed; migration upgrade/idempotency, HTML -> existing article -> ready queue, missing image/canonical/page/date, age boundary, dedup and no publication covered. General E2E passed on isolated current code, schema 039.
+- Live check in sandbox: all four actual publisher connections fail before TLS with ECONNRESET; authenticated HTTP discovery and queue both contain zero, not success. Separate web retrieval confirmed real Persian RSS/listing content. Independent GitHub runner could not start: the GitHub App lacks workflows permission, so the proposed workflow was removed before delivery. The opt-in real-network script remains available, but no remote success is claimed. No mock counts are acceptance evidence. [Full source list, live titles and actual run](MAGAZINE-DIRECT-PUBLISHERS-2026-09-21.md).
+
+
 ### Correction 12 (T-17 — real-source diagnosis, acceptance still BLOCKED)
 - **Correction to rev11.1 claims:** the previous demo was mock data, not live acceptance. A browser User-Agent is not a real browser; retry/90-day changes did not establish recovery on the owner's machine. The six configured sources are Google News queries, not independent Persian publishers.
 - **Live evidence:** all six Node requests failed before TLS (`ECONNRESET`); authenticated one-shot unfiltered discovery returned 0 fetched / 0 filtered / 0 drafted, and HTTP queue returned 0 actual rows. Separate live web-tool retrieval returned US-English locale on all six queries (entry counts 4/2/0/1/3/0); modern opaque Google links remain unresolved. Full URLs, actual titles, limitations and exact runtime report: [live diagnosis](MAGAZINE-LIVE-DIAGNOSIS-2026-09-21.md).

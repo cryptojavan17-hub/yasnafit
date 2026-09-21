@@ -15,15 +15,16 @@
 
 const crypto = require('crypto');
 const articleService = require('./article-service');
+const htmlSource = require('./magazine-html-source');
 
 const DISCOVERY_FETCH_MS = 25000;
 const TITLE_SIMILARITY_THRESHOLD = 0.86;
 
 // ---------- freshness + source-quality gates (owner spec) ----------
-// Normal runs accept dated articles up to 90 days old. A coach-requested,
+// Owner-requested testing policy (rev13): accept dated articles up to 180 days old. A coach-requested,
 // one-shot diagnostic may bypass age/host quality, but never auto-publishes.
-const FRESH_NEWS_DAYS = 90;
-const FRESH_SCIENCE_DAYS = 90;
+const FRESH_NEWS_DAYS = 180;
+const FRESH_SCIENCE_DAYS = 180;
 const EVERGREEN_HARD_CAP_DAYS = 365;
 
 // Celebrity/lifestyle/SEO hosts are filtered out entirely (owner spec: never a
@@ -49,7 +50,7 @@ function ageDaysOf(iso) {
 
 // accept: 'fresh' → accept; 'evergreen' → between limit and hard cap (kept for
 // compatibility; the simplified flow filters anything not 'fresh'); false → too old.
-// rev11.1: the normal limit is 90 days (FRESH_NEWS_DAYS = FRESH_SCIENCE_DAYS = 90).
+// rev13: the temporary test limit is 180 days (FRESH_NEWS_DAYS = FRESH_SCIENCE_DAYS = 180).
 function freshnessGate({ ageDays, scientific }) {
   if (ageDays == null) return { accept: false, reason: 'no-date' };
   if (ageDays > EVERGREEN_HARD_CAP_DAYS) return { accept: false, reason: 'too-old' };
@@ -224,7 +225,7 @@ function parseFeed(xml, { includeInvalid = false } = {}) {
     const summary = rawSummary.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
     let imageUrl = pickAttr(block, 'enclosure', 'url') || pickAttr(block, 'media:content', 'url') || pickAttr(block, 'media:thumbnail', 'url');
     if (!imageUrl) {
-      const img = rawSummary.match(/<img[^>]+src\s*=\s*["']([^"']+)["']/i);
+      const img = (rawSummary + pick(block, 'content:encoded')).match(/<img[^>]+(?:data-src|src)\s*=\s*["']([^"']+)["']/i);
       imageUrl = img ? img[1] : '';
     }
     if (imageUrl && !/^https?:/i.test(imageUrl)) imageUrl = '';
@@ -266,6 +267,8 @@ function listSources(db, { includeDeleted = false } = {}) {
   `;
   return db.prepare(sql).all().map(row => ({
     id: row.id,
+    stable_id: row.stable_id,
+    fetch_format: row.fetch_format || 'feed',
     name: row.name,
     source_tier: Number(row.source_tier) || 3,
     feed_url: row.feed_url,
@@ -301,7 +304,8 @@ function validateSourceInput(db, input) {
     else categorySlug = cat ? String(input.category_slug).slice(0, 100) : null;
   }
   const intervalH = [6, 12, 24].includes(Number(input.fetch_interval_h)) ? Number(input.fetch_interval_h) : 12;
-  return { errors, name, feedUrl, sourceType, categorySlug, intervalH, isActive: input.is_active !== undefined ? (input.is_active ? 1 : 0) : undefined };
+  const fetchFormat = input.fetch_format === 'html' ? 'html' : 'feed';
+  return { errors, name, feedUrl, sourceType, fetchFormat, categorySlug, intervalH, isActive: input.is_active !== undefined ? (input.is_active ? 1 : 0) : undefined };
 }
 
 function createSource(db, input) {
@@ -311,9 +315,9 @@ function createSource(db, input) {
   if (dup) { const error = new Error('این منبع قبلاً ثبت شده است'); error.statusCode = 409; throw error; }
   const stableId = crypto.randomUUID();
   const info = db.prepare(`
-    INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h)
-    VALUES (?,?,?,?,?,?,?)
-  `).run(stableId, v.name, v.feedUrl, v.sourceType, v.categorySlug, v.isActive === undefined ? 1 : v.isActive, v.intervalH);
+    INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h, fetch_format)
+    VALUES (?,?,?,?,?,?,?,?)
+  `).run(stableId, v.name, v.feedUrl, v.sourceType, v.categorySlug, v.isActive === undefined ? 1 : v.isActive, v.intervalH, v.fetchFormat);
   return sourceView(db, Number(info.lastInsertRowid));
 }
 
@@ -325,7 +329,7 @@ function sourceView(db, id) {
   `).get(id);
   if (!row) return null;
   return {
-    id: row.id, name: row.name, source_tier: Number(row.source_tier) || 3, feed_url: row.feed_url, source_type: row.source_type,
+    id: row.id, stable_id: row.stable_id, fetch_format: row.fetch_format || 'feed', name: row.name, source_tier: Number(row.source_tier) || 3, feed_url: row.feed_url, source_type: row.source_type,
     category_slug: row.category_slug || null, category_name: row.category_name || null,
     is_active: Boolean(row.is_active), fetch_interval_h: Number(row.fetch_interval_h) || 12,
     last_fetched_at: row.last_fetched_at || null, last_success_at: row.last_success_at || null,
@@ -340,8 +344,8 @@ function updateSource(db, id, input) {
   if (v.errors.length) { const error = new Error(v.errors[0]); error.validationErrors = v.errors; throw error; }
   db.prepare(`
     UPDATE magazine_sources SET name=?, feed_url=?, source_type=?, category_slug=?, fetch_interval_h=?,
-      is_active=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL
-  `).run(v.name, v.feedUrl, v.sourceType, v.categorySlug, v.intervalH, v.isActive === undefined ? existing.is_active ? 1 : 0 : v.isActive, id);
+      is_active=?, fetch_format=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND deleted_at IS NULL
+  `).run(v.name, v.feedUrl, v.sourceType, v.categorySlug, v.intervalH, v.isActive === undefined ? existing.is_active ? 1 : 0 : v.isActive, v.fetchFormat, id);
   return sourceView(db, id);
 }
 
@@ -372,7 +376,7 @@ async function fetchSourceItems(db, source, diagnostics = null) {
       const response = await fetch(source.feed_url, {
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': source.fetch_format === 'html' ? 'text/html,application/xhtml+xml' : 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
       });
       if (diagnostics) Object.assign(diagnostics, {
         http_status: response.status, final_url: response.url, reachable: response.ok,
@@ -382,10 +386,13 @@ async function fetchSourceItems(db, source, diagnostics = null) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const text = await response.text();
-      const all = parseFeed(text, { includeInvalid: true });
+      const all = source.fetch_format === 'html'
+        ? htmlSource.parseHtmlListing(text, response.url || source.feed_url)
+        : parseFeed(text, { includeInvalid: true });
       if (diagnostics) Object.assign(diagnostics, {
         parsed_items: all.length, processed_items: Math.min(all.length, 50),
-        feed_format_recognized: /<(rss|feed|rdf:RDF)[\s>]/i.test(text),
+        fetch_format: source.fetch_format || 'feed',
+        feed_format_recognized: source.fetch_format === 'html' ? /<(html|article|a)[\s>]/i.test(text) : /<(rss|feed|rdf:RDF)[\s>]/i.test(text),
         capped_entries: Math.max(0, all.length - 50),
         feed_language: (text.match(/<language[^>]*>([^<]*)<\/language>/i) || [])[1] || null,
         examples: all.slice(0, 3).map(i => ({ title: i.title, url: i.url, date: i.publishedAt, feed_image: i.imageUrl || null }))
@@ -480,6 +487,7 @@ async function fetchArticlePage(url) {
       if (!response.ok) { out.error = `HTTP ${response.status}`; return out; }
       const html = (await response.text()).slice(0, 2000000);
       out.ok = true;
+      out.publishedAt = htmlSource.articleDate(html);
       try { out.finalUrl = new URL(response.url || url).toString(); } catch (e) { out.finalUrl = url; }
       const canon = html.match(/<link[^>]+rel=["']?canonical["']?[^>]+href=["']([^"']+)["']/i) || html.match(/<link[^>]+href=["']([^"']+)["'][^>]*rel=["']?canonical["']?[^>]*>/i);
       if (canon) out.canonical = String(canon[1]).trim();
@@ -506,15 +514,14 @@ async function fetchArticlePage(url) {
         if (out.ldImage) break;
       }
       out.pageTitle = (meta['og:title'] || meta['twitter:title'] || (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').toString().replace(/\s+/g, ' ').trim().slice(0, 300);
-      for (const m of html.matchAll(/<img[^>]+>/gi)) {
-        const src = (m[0].match(/src\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+      const art = html.match(/<article[\s\S]*?<\/article>/i) || html.match(/<main[\s\S]*?<\/main>/i);
+      const scope = art ? art[0] : html.replace(/<(header|nav|footer)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+      for (const m of scope.matchAll(/<img[^>]+>/gi)) {
+        const src = (m[0].match(/(?:data-src|data-lazy-src)\s*=\s*["']([^"']+)["']/i) || m[0].match(/src\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
         if (!src || src.startsWith('data:')) continue;
         const v = validImageUrl(src, url);
         if (v) { out.mainImage = v; break; }
       }
-      let scope = html;
-      const art = html.match(/<article[\s\S]*?<\/article>/i) || html.match(/<main[\s\S]*?<\/main>/i);
-      if (art) scope = art[0];
       out.text = scope
         .replace(/<script[\s\S]*?<\/script>/gi, ' ')
         .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -567,6 +574,10 @@ function htmlEscape(s) {
 //   4) keep the short summary from the feed + the publication date
 //   5) show a simple card; the coach reviews and publishes via the existing
 //      article system. The AI never runs and never publishes.
+function directPublisher(source) {
+  return Boolean(source && (String(source.stable_id || '').startsWith('builtin-direct-fa-') || source.fetch_format === 'html'));
+}
+
 async function processDiscovery(db, discovery, { usedImages = new Set(), existingArticleId = null, diagnosticUnfiltered = false } = {}) {
   const d = db.prepare('SELECT * FROM magazine_discoveries WHERE id=?').get(discovery.id);
   const source = d.source_id ? sourceView(db, d.source_id) : null;
@@ -580,7 +591,7 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
     outlet: ''
   };
   const tier = Number((source && source.source_tier) || 3);
-  const ageDays = ageDaysOf(d.date_published);
+  let ageDays = ageDaysOf(d.date_published);
   const flags = qualityChecks({ item, categorySlug: d.category_slug });
   const fail = (meta, flag, opts = {}) => {
     const f = flag ? flags.concat([flag]) : flags;
@@ -595,11 +606,11 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
     }
     return f;
   };
-  // Freshness (rev11.1, owner test limit): ≤ 90 days for every source.
+  // Freshness (rev13, owner test limit): ≤ 180 days for every source.
   // Older content is never presented as "new" (no AI evergreen mark exists in
   // the simplified flow). Missing date → cannot verify → filtered.
   const limitDays = tier <= 2 ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS;
-  if (!diagnosticUnfiltered && ageDays == null) {
+  if (!diagnosticUnfiltered && ageDays == null && !directPublisher(source)) {
     fail({ filtered: 'no-date', needs_reprocess: false }, 'تاریخ انتشار مشخص نیست — تازگی قابل تأیید نیست', { rejectArticle: true });
     return { skipped: true, reason: 'freshness' };
   }
@@ -631,8 +642,21 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
     }
   } else {
     page = await fetchArticlePage(item.url);
+    if (page.ok && page.finalUrl && hostOf(page.finalUrl) === hostOf(item.url)) finalUrl = page.finalUrl;
   }
-  if (page && page.canonical && !/(^|\.)google\.com$/i.test(hostOf(page.canonical))) finalUrl = page.canonical;
+  // A direct publisher link is sufficient: canonical/page availability is
+  // enrichment, not an admission condition. Never replace it with a bad URL.
+  const canonical = page && page.canonical ? htmlSource.httpUrl(page.canonical, finalUrl) : '';
+  if (canonical && !/(^|\.)google\.com$/i.test(hostOf(canonical)) && (!directPublisher(source) || hostOf(canonical) === hostOf(finalUrl))) finalUrl = canonical;
+  if (directPublisher(source) && !item.publishedAt && page && page.publishedAt) {
+    item.publishedAt = page.publishedAt;
+    ageDays = ageDaysOf(item.publishedAt);
+    db.prepare('UPDATE magazine_discoveries SET date_published=? WHERE id=?').run(item.publishedAt, d.id);
+    if (!diagnosticUnfiltered && ageDays > limitDays) {
+      fail({ filtered: 'too-old', age_days: Math.round(ageDays) }, 'تاریخ صفحهٔ ناشر قدیمی‌تر از سقف آزمایشی است');
+      return { skipped: true, reason: 'freshness' };
+    }
+  }
   const siteName = page && page.siteName ? page.siteName : '';
   const resolvedPublisher = siteName || String(d.publisher || '') || publisherOf({ ...item, url: finalUrl }, source);
   if (/(^|\.)google\.com$/i.test(hostOf(finalUrl))) {
@@ -675,9 +699,9 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
       article = articleService.createArticle(db, articleInput, 'discovery-engine');
     }
     if (cover) usedImages.add(cover);
-    const meta = { age_days: ageDays == null ? null : Math.round(ageDays), freshness: diagnosticUnfiltered ? 'diagnostic-unfiltered' : 'fresh', no_ai: true,
+    const meta = { age_days: ageDays == null ? null : Math.round(ageDays), freshness: diagnosticUnfiltered ? 'diagnostic-unfiltered' : ageDays == null ? 'unknown' : 'fresh', no_ai: true,
       diagnostic_unfiltered: diagnosticUnfiltered, page_reachable: Boolean(page && page.ok), page_error: page && page.error || null,
-      image_extracted: Boolean(cover) };
+      image_extracted: Boolean(cover), date_unknown: ageDays == null, canonical_verified: Boolean(canonical && finalUrl === canonical) };
     db.prepare('UPDATE magazine_articles SET quality_flags=? WHERE id=?').run(JSON.stringify(flags), article.id);
     db.prepare('UPDATE magazine_discoveries SET status=\'DRAFTED\', article_id=?, quality_flags=?, ai_meta=?, processed_at=CURRENT_TIMESTAMP WHERE id=?')
       .run(article.id, JSON.stringify(flags), JSON.stringify(meta), d.id);
@@ -761,6 +785,7 @@ async function reprocessStaleDrafts(db, { usedImages = new Set() } = {}) {
     WHERE status='FAILED' AND article_id IS NULL
       AND ai_meta LIKE '%needs_reprocess%' AND ai_meta NOT LIKE '%\"needs_reprocess\":false%'
       AND date(created_at) > date('now', '-14 days')
+      AND EXISTS (SELECT 1 FROM magazine_sources s WHERE s.id=magazine_discoveries.source_id AND s.is_active=1 AND s.deleted_at IS NULL)
       -- A fresh feed candidate already owns this retry in the current run.
       -- Do not process both the old parked row and its new candidate.
       AND NOT EXISTS (SELECT 1 FROM magazine_discoveries n
@@ -880,7 +905,7 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
     progressState.current_source = source.name;
     let items = [];
     let fetchError = null;
-    const sourceReport = { id: source.id, name: source.name, url: source.feed_url, reachable: false, parsed_items: null, processed_items: 0, examples: [] };
+    const sourceReport = { id: source.id, name: source.name, url: source.feed_url, fetch_format: source.fetch_format || 'feed', reachable: false, parsed_items: null, processed_items: 0, examples: [] };
     report.sources.push(sourceReport);
     try {
       items = await fetchSourceItems(db, source, sourceReport);
@@ -910,12 +935,12 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
         continue;
       }
       // --- FRESHNESS filter: old content is never presented as "new"
-      // (rev11.1: 90d limit for all sources during testing; the simplified
+      // (rev11.1: 180d test limit for all sources during testing; the simplified
       // flow has no evergreen mark).
       const tier = Number(source.source_tier) || 3;
       const ageDays = ageDaysOf(cleanDate(item.publishedAt));
       const gate = freshnessGate({ ageDays, scientific: tier <= 2 });
-      if (!diagnosticUnfiltered && gate.accept !== 'fresh') {
+      if (!diagnosticUnfiltered && gate.accept !== 'fresh' && !(ageDays == null && directPublisher(source))) {
         summary.filtered += 1;
         summary.filtered_breakdown['freshness'] = (summary.filtered_breakdown['freshness'] || 0) + 1;
         logRejected(source, item, url, { filtered: gate.reason || 'too-old', age_days: ageDays == null ? null : Math.round(ageDays) });
@@ -996,9 +1021,9 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
       summary.errors.push(`پردازش: ${e.message || e}`);
       itemReport.error = networkError(e);
     }
-    const persisted = db.prepare('SELECT status, article_id, ai_meta, quality_flags FROM magazine_discoveries WHERE id=?').get(discoveryId);
+    const persisted = db.prepare('SELECT status, article_id, ai_meta, quality_flags, date_published FROM magazine_discoveries WHERE id=?').get(discoveryId);
     let meta = {}; try { meta = JSON.parse(persisted.ai_meta || '{}'); } catch (_) {}
-    Object.assign(itemReport, { status: persisted.status, article_id: persisted.article_id, metadata: meta,
+    Object.assign(itemReport, { status: persisted.status, article_id: persisted.article_id, published_at: persisted.date_published, metadata: meta,
       reason: meta.filtered || meta.reason || meta.error || itemReport.error || null });
     writeReport();
     progressState.items_done += 1;
@@ -1026,7 +1051,9 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
       AND (cover_image IS NULL OR cover_image='')
       AND source_url IS NOT NULL AND source_url != ''
     ORDER BY updated_at DESC LIMIT 15
-  `).all();
+  `).all().filter(row => !report.items.some(item => item.article_id === row.id));
+  // This run already attempted each new draft's page/image; do not immediately
+  // fetch it a second time just because the publisher has no image.
   progressState.images_total = needImage.length;
   for (const row of needImage) {
     const img = await fetchOgImage(row.source_url);
@@ -1235,6 +1262,7 @@ function discoveryDiagnostics(db) {
 module.exports = {
   discoveryDiagnostics,
   probeImage,
+  parseHtmlListing: htmlSource.parseHtmlListing,
   DISCOVERY_BATCH_SIZE,
   FRESH_NEWS_DAYS,
   FRESH_SCIENCE_DAYS,

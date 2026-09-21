@@ -1,0 +1,103 @@
+{
+  "run_id": "ba4c59ce-f9c9-4381-9732-aa7a35674ac9",
+  "started_at": "2026-09-21T13:48:40.842Z",
+  "mode": "normal",
+  "disabled_filters": [],
+  "retained_rules": [
+    "valid-url-and-title",
+    "Persian-title",
+    "deduplication",
+    "original-publisher-url",
+    "20-item-processing-cap",
+    "coach-only-publication"
+  ],
+  "sources": [
+    {
+      "id": 26,
+      "name": "علم ورزش — علم تمرین",
+      "url": "https://www.elmevarzesh.com/category/sports-physiology/exercise-science/feed/",
+      "fetch_format": "feed",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 27,
+      "name": "ایران بدن — بدنسازی و فیتنس",
+      "url": "https://www.iranbadan.com/category/bodybuilding-fitness/feed/",
+      "fetch_format": "feed",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 28,
+      "name": "بدن فیت — مقالات آموزشی",
+      "url": "https://badanfit.ir/blog.html",
+      "fetch_format": "html",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    },
+    {
+      "id": 29,
+      "name": "فیتامین — مجله ورزشی و تغذیه",
+      "url": "https://fitamin.ir/mag/",
+      "fetch_format": "html",
+      "reachable": false,
+      "parsed_items": null,
+      "processed_items": 0,
+      "examples": [],
+      "first_error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "error": "fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    }
+  ],
+  "items": [],
+  "queue": {
+    "total": 0,
+    "ready": 0,
+    "drafted_this_run": 0,
+    "visible_this_run": 0,
+    "missing_article_ids": []
+  },
+  "finished_at": "2026-09-21T13:48:45.182Z",
+  "summary": {
+    "fetched": 0,
+    "newItems": 0,
+    "duplicates": 0,
+    "drafted": 0,
+    "failed": 0,
+    "skipped": 0,
+    "filtered": 0,
+    "rejected": 0,
+    "not_prepared": 0,
+    "filtered_breakdown": {},
+    "sources": 4,
+    "errors": [
+      "علم ورزش — علم تمرین: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "ایران بدن — بدنسازی و فیتنس: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "بدن فیت — مقالات آموزشی: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established",
+      "فیتامین — مجله ورزشی و تغذیه: fetch failed | ECONNRESET | Client network socket disconnected before secure TLS connection was established"
+    ],
+    "stopped_at_cap": false,
+    "reprocessed": 0,
+    "audit_rejected": 0
+  },
+  "test_max_age_days": 180,
+  "http_queue_verification": {
+    "status": 200,
+    "total": 0,
+    "ids": [],
+    "ready": 0
+  },
+  "provenance": "Actual Node HTTP application run. Migration-039 direct publisher endpoints. No Google News, no mocked fetch or source substitution. Not the owner machine."
+}

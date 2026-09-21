@@ -86,7 +86,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('freshnessGate: 10d general -> fresh', discovery.freshnessGate({ageDays:10,scientific:false}).accept==='fresh');
   check('freshnessGate: 60d scientific -> fresh (90d limit)', discovery.freshnessGate({ageDays:60,scientific:true}).accept==='fresh');
   check('freshnessGate: 60d general -> fresh (rev11.1: 90d limit for all sources)', discovery.freshnessGate({ageDays:60,scientific:false}).accept==='fresh');
-  check('freshnessGate: 120d general -> evergreen bucket (filtered in simplified flow)', discovery.freshnessGate({ageDays:120,scientific:false}).accept==='evergreen');
+  check('freshnessGate: 120d general accepted during 180-day trial', discovery.freshnessGate({ageDays:120,scientific:false}).accept==='fresh');
+  check('freshnessGate: boundary 180 days accepted, 181 filtered', discovery.freshnessGate({ageDays:180,scientific:false}).accept==='fresh' && discovery.freshnessGate({ageDays:181,scientific:false}).accept!=='fresh');
   check('freshnessGate: 400d -> rejected (never "new")', discovery.freshnessGate({ageDays:400,scientific:true}).accept===false);
   check('freshnessGate: missing date -> rejected (cannot verify freshness)', discovery.freshnessGate({ageDays:null,scientific:false}).accept===false);
   check('publisherOf: <source> outlet wins', discovery.publisherOf({url:'https://redirect-story.example.com/rs-1',outlet:'Science Daily'},{name:'X'})==='Science Daily');
@@ -207,12 +208,12 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // built-in world sources (migration 034): seeded & active by default; zero-setup flow
   r=await j('/api/magazine/admin/sources');
-  check('built-in PERSIAN sources active (6) + English world sources deactivated (19, kept)', r.data.sources.length===25 && r.data.sources.filter(x=>x.is_active).length===6 && r.data.sources.filter(x=>x.is_active).every(x=>String(x.name).includes('منبع فارسی')), 'count='+(r.data.sources&&r.data.sources.length)+' active='+(r.data.sources||[]).filter(x=>x.is_active).length);
+  check('direct Persian publisher sources active (4), all 25 old sources preserved inactive', r.data.sources.length===29 && r.data.sources.filter(x=>x.is_active).length===4 && r.data.sources.filter(x=>x.is_active).every(x=>!x.feed_url.includes('google.com')), 'count='+(r.data.sources&&r.data.sources.length)+' active='+(r.data.sources||[]).filter(x=>x.is_active).length);
   const t1=r.data.sources.find(x=>/PubMed/.test(x.name)); const t1b=r.data.sources.find(x=>/British Journal/.test(x.name)); const t3=r.data.sources.find(x=>/اخبار ورزشی/.test(x.name));
   check('source quality tiers: scientific=1, professional=1, general media=3', t1 && t1b && t3 && t1.source_tier===1 && t1b.source_tier===1 && t3.source_tier===3, JSON.stringify({pubmed:t1&&t1.source_tier,bjsm:t1b&&t1b.source_tier,news:t3&&t3.source_tier}));
   for(const b of r.data.sources){ await j(`/api/magazine/admin/sources/${b.id}`,{method:'PUT',body:JSON.stringify({is_active:false})}); }
   r=await j('/api/magazine/admin/sources');
-  check('built-ins can be toggled off (advanced)', r.data.sources.length===25 && r.data.sources.every(x=>!x.is_active));
+  check('built-ins can be toggled off (advanced)', r.data.sources.length===29 && r.data.sources.every(x=>!x.is_active));
 
   // sources CRUD
   r=await j('/api/magazine/admin/sources',{method:'POST',body:JSON.stringify({name:'منبع نامعتبر',feed_url:'ftp://bad.example/x'})});
@@ -321,7 +322,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const ui=(await (await fetch(BASE+'/magazine-admin.js')).text());
     check('rev10 UI: «آماده است» vs «نیازمند پردازش مجدد» explained separately', ui.includes('مطلب برای بررسی آماده است') && ui.includes('نیازمند پردازش مجدد') && ui.includes('در شمارش «آماده بررسی» نیست'), 'missing wording');
     check('rev11 UI: scan toast = «مطلب جدید فارسی پیدا شد» (new finds) + ready count', ui.includes('در این بررسی') && ui.includes('مطلب جدید فارسی پیدا شد') && ui.includes('مطلب برای بررسی آماده است'), 'missing toast wording');
-    check('rev11 UI: simple card — [مشاهده][ویرایش][✓ انتشار][رد] + تصویر پیدا نشد، بدون فیلدهای AI', ui.includes('mag-action--view') && ui.includes('data-news-action="edit"') && ui.includes('data-news-action="publish"') && ui.includes('data-news-action="reject"') && ui.includes('تصویر برای این مطلب پیدا نشد') && !ui.includes('چرا این مطلب مهم است؟') && !ui.includes('نکات کلیدی:'), 'label mismatch');
+    check('rev11 UI: simple card — [مشاهده][ویرایش][✓ انتشار][رد] + تصویر پیدا نشد، بدون فیلدهای AI', ui.includes('mag-action--view') && ui.includes('data-news-action="edit"') && ui.includes('data-news-action="publish"') && ui.includes('data-news-action="reject"') && ui.includes('تصویر پیدا نشد') && !ui.includes('چرا این مطلب مهم است؟') && !ui.includes('نکات کلیدی:'), 'label mismatch');
     check('rev10 UI: no misleading «این بار N مورد آماده شد» claim', !ui.includes('مورد آماده شد — برای ادامه'), 'still present');
     check('rev10.1 UI: parked items offer «🔄 پردازش مجدد» (manual retry) + attempts shown', ui.includes('🔄 پردازش مجدد') && ui.includes('تلاش خودکار'), 'missing button');
   }
@@ -541,7 +542,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('UI: live progress bar + progress endpoint + image referrer fix', ui.includes('mag-progress__fill') && ui.includes('/api/magazine/admin/discover/progress') && ui.includes('referrerpolicy="no-referrer"') && ui.includes("referrerPolicy = 'no-referrer'"));
   check('UI: search-more button + in-place progress (no full re-render per tick) + batch cap flag', ui.includes('magSearchMore') && ui.includes('جستجو بیشتر') && ui.includes('mag-progress-host') && ui.includes('stopped_at_cap'));
   check('UI: old «در انتظار پیاده‌سازی» note removed', !ui.includes('در انتظار پیاده‌سازی موتور دریافت منابع'));
-  check('UI: card empty-image says «تصویر برای این مطلب پیدا نشد» + «انتخاب تصویر»', ui.includes('تصویر برای این مطلب پیدا نشد') && ui.includes('انتخاب تصویر'));
+  check('UI: card empty-image says «تصویر پیدا نشد» + «انتخاب تصویر»', ui.includes('تصویر پیدا نشد') && ui.includes('انتخاب تصویر'));
   check('UI: run toasts distinguish found-this-scan vs ready queue + «نیازمند پردازش مجدد»', ui.includes('در این بررسی') && ui.includes('مطلب جدید پیدا شد') && ui.includes('مطلب برای بررسی آماده است') && ui.includes('نیازمند پردازش مجدد'));
   check('UI: internal AI confidence/provider errors removed from review detail', !ui.includes('اعتماد پردازش') && !ui.includes('ai.ai_failed'));
   check('UI: queue count wording (ready for review, not «AI found N»)', ui.includes('مطلب برای بررسی آماده است') && !ui.includes('مطلب جدید پیدا کرده است'));

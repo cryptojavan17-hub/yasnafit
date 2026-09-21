@@ -1,7 +1,13 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `038_magazine_persian_sources` stored in `settings` table and `schema_migrations`
+Current: `039_magazine_direct_persian_publishers` stored in `settings` table and `schema_migrations`
+
+## Direct publisher sources (migration 039)
+
+`magazine_sources.fetch_format`: additive TEXT column, NOT NULL, default `feed`, CHECK in (`feed`, `html`). It selects the parser for the existing `feed_url` endpoint; the legacy `source_type` column/constraint is retained for compatibility. No new source/article/queue tables.
+
+Migration 039 disables the six `builtin-fa-*` Google News queries (preserving history) and seeds four `builtin-direct-fa-*` publishers: Elmevarzesh exercise-science RSS, Iranbadan bodybuilding RSS, Badanfit `blog.html`, and Fitamin `mag/`. Custom sources and existing articles are preserved. Application startup applies the migration automatically.
 
 ## Migrations
 Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transactional.
@@ -34,6 +40,7 @@ Run via `src/migrations.js` `runMigrations(db)` - idempotent, ordered, transacti
 - `035_magazine_builtin_topic_coverage` - Built-in sources extended to the full topic list
 - `036_magazine_source_tiers` - Owner source-tier coverage via Google News search feeds
 - `037_magazine_source_quality_tiers` - `source_tier` (1 scientific / 2 professional / 3 general) + `publisher` on sources
+- `039_magazine_direct_persian_publishers` - Direct publisher RSS/HTML, additive `fetch_format`, four active publishers; six old Persian Google queries inactive
 - `038_magazine_persian_sources` - Rev11 (2026-09-21): six PERSIAN built-in discovery sources (Google News `hl=fa&gl=IR&ceid=IR:fa` search for بدنسازی بانوان / تغذیه ورزشی / علم تمرین / تناسب اندام زنان / مکمل‌های ورزشی / سلامت زنان و ورزش) at tier 3; the 19 English built-ins are deactivated (kept, re-activatable)
 
 ## Full Schema

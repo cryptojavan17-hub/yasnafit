@@ -816,12 +816,13 @@
     return `
     <article class="mag-news-card" data-id="${item.id}">
       <div class="mag-news-card__media">
-        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>تصویر برای این مطلب پیدا نشد</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
+        ${item.cover_image ? `<img src="${esc(item.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="mag-news-card__noimg"><span>تصویر پیدا نشد</span><button type="button" class="mag-action" data-news-action="image" data-id="${item.id}">انتخاب تصویر</button></div>`}
       </div>
       <h4 class="mag-news-title">${esc(item.title)}</h4>
       <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ: ${faDate(date)}</div>
       ${item.source_url ? `<div class="mag-news-url" dir="ltr" title="${esc(item.source_url)}">${esc(item.source_url)}</div>` : ''}
       ${item.ai_meta && item.ai_meta.diagnostic_unfiltered ? '<p class="mag-toolbar__note">آزمایش بدون فیلتر سن و کیفیت؛ تازگی این مطلب تأیید نشده است.</p>' : ''}
+      ${item.ai_meta && item.ai_meta.date_unknown ? '<p class="mag-toolbar__note">تاریخ انتشار مشخص نیست؛ تازگی نیازمند بررسی مربی است.</p>' : ''}
       ${item.summary ? `<p class="mag-news-summary">${esc(item.summary)}</p>` : ''}
       <div class="mag-news-actions">
         ${item.source_url ? `<a class="mag-action mag-action--view" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده</a>` : ''}

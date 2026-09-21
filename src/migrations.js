@@ -1595,6 +1595,25 @@ const migrations = [
       // built-ins are deactivated (kept in DB, re-activatable by the coach).
       db.exec("UPDATE magazine_sources SET is_active=0 WHERE is_active=1 AND stable_id LIKE 'builtin-%' AND stable_id NOT LIKE 'builtin-fa-%' AND deleted_at IS NULL");
     }
+  },
+  {
+    id: '039_magazine_direct_persian_publishers',
+    description: 'Replace Google News Persian searches with direct publisher RSS and HTML article lists',
+    up(db) {
+      if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='magazine_sources'").get()) return;
+      db.exec("ALTER TABLE magazine_sources ADD COLUMN fetch_format TEXT NOT NULL DEFAULT 'feed' CHECK(fetch_format IN ('feed','html'))");
+      // Preserve historical rows/articles; remove all six Google queries from
+      // default discovery. No Google fallback is used by the new publishers.
+      db.exec("UPDATE magazine_sources SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE stable_id IN ('builtin-fa-bodybuilding','builtin-fa-nutrition','builtin-fa-exercise','builtin-fa-fitness','builtin-fa-supplements','builtin-fa-women-health')");
+      const publishers = [
+        ['builtin-direct-fa-elmevarzesh', 'علم ورزش — علم تمرین', 'https://www.elmevarzesh.com/category/sports-physiology/exercise-science/feed/', 'feed', 'sports-science'],
+        ['builtin-direct-fa-iranbadan', 'ایران بدن — بدنسازی و فیتنس', 'https://www.iranbadan.com/category/bodybuilding-fitness/feed/', 'feed', 'bodybuilding'],
+        ['builtin-direct-fa-badanfit', 'بدن فیت — مقالات آموزشی', 'https://badanfit.ir/blog.html', 'html', 'bodybuilding'],
+        ['builtin-direct-fa-fitamin', 'فیتامین — مجله ورزشی و تغذیه', 'https://fitamin.ir/mag/', 'html', 'health']
+      ];
+      const ins = db.prepare("INSERT OR IGNORE INTO magazine_sources (stable_id,name,feed_url,fetch_format,category_slug,source_type,is_active,fetch_interval_h,source_tier) VALUES (?,?,?,?,?,'rss',1,12,2)");
+      for (const source of publishers) ins.run(...source);
+    }
   }
 ];
 
