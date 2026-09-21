@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-21** (جلسهٔ `arena/01a0c4f9-yasnafit` — **دکمهٔ اتصال به ربات تلگرام برای مهمان‌ها روی لندینگ (درخواست مالک): سایت عمومی (لندینگ+مجله) از شاخهٔ `arena/01a0b993-yasnafit` در این شاخه merge شد؛ دکمه حالا لینک سادهٔ `https://t.me/yasnafitbot?start=landing` است (هدر همهٔ صفحات عمومی + بخش CTA انتهای لندینگ)؛ فرم ثبت آیدی، مودال `tg-dialog` و دو endpoint عمومی `/api/telegram-bot*` حذف شدند؛ `npm test` = ۲۱/۲۱ + e2e زنده سبز + `scripts/audit-telegram.js` بازنویسی‌شده. چرخهٔ واقعی ربات همچنان `NOT IMPLEMENTED` (T-20/KI-023)** — جزئیات در §13/§14
+> آخرین به‌روزرسانی: **2026-09-21** (جلسهٔ `arena/01a0c4f9-yasnafit` — **Task 29: ربات `@yasnafitbot` حالا سمت سرور به `/start` جواب می‌دهد** — `src/telegram-bot-service.js` بدون وابستگی؛ webhook `POST /api/telegram/webhook` (پروداکشن، secret header) یا long polling (لوکال)؛ توکن فقط از `TELEGRAM_BOT_TOKEN`؛ هیچ ذخیره‌ای؛ تست با Bot API جعلی = ۱۹ گروه، `npm test` = ۲۲/۲۲؛ **پذیرش با ربات زنده هنوز توسط مالک انجام نشده** (`DEPLOYMENT.md` §۱۰). پیش از آن در همین جلسه: **دکمهٔ اتصال به ربات تلگرام برای مهمان‌ها روی لندینگ (درخواست مالک): سایت عمومی (لندینگ+مجله) از شاخهٔ `arena/01a0b993-yasnafit` در این شاخه merge شد؛ دکمه حالا لینک سادهٔ `https://t.me/yasnafitbot?start=landing` است (هدر همهٔ صفحات عمومی + بخش CTA انتهای لندینگ)؛ فرم ثبت آیدی، مودال `tg-dialog` و دو endpoint عمومی `/api/telegram-bot*` حذف شدند؛ `npm test` = ۲۱/۲۱ + e2e زنده سبز + `scripts/audit-telegram.js` بازنویسی‌شده. چرخهٔ واقعی ربات همچنان `NOT IMPLEMENTED` (T-20/KI-023)** — جزئیات در §13/§14
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -27,7 +27,7 @@
 ## 3. Current Architecture
 
 * **Backend:** `server.js` (تک‌فایل، ~۱۶۱KB) — `http.createServer` بدون فریم‌ورک؛ روتینگ دستی `/api/*` + سرو استاتیک. توابع مشترک: `send()/sendError()`، `readBody()` (سقف `MAX_BODY_SIZE = 1MB`)، `rateLimit()`، `isSafePath()`.
-* **Services:** `src/*.js` — `database.js`, `migrations.js`, `validation.js`, `student-service.js`, `student-auth-service.js`, `student-session-service.js`, `coach-auth-service.js`, `assessment-service.js`, `assessment-document-service.js`, `engagement-service.js`, `program-service.js`, `diet-program-service.js`, `supplement-program-service.js`, `audit-service.js`, `upload-service.js`, `ai-service.js`, `release-service.js`, `totp.js`, `qr-svg.js`, `build-info.js`, **`request-security.js` (جدید)**.
+* **Services:** `src/*.js` — `database.js`, `migrations.js`, `validation.js`, `student-service.js`, `student-auth-service.js`, `student-session-service.js`, `coach-auth-service.js`, `assessment-service.js`, `assessment-document-service.js`, `engagement-service.js`, `program-service.js`, `diet-program-service.js`, `supplement-program-service.js`, `audit-service.js`, `upload-service.js`, `ai-service.js`, `release-service.js`, `totp.js`, `qr-svg.js`, `build-info.js`, **`request-security.js`**, `article-service.js`, `public-content-service.js`, `magazine-discovery-service.js`, `magazine-html-source.js`, **`telegram-bot-service.js` (Task 29 — ربات `@yasnafitbot`: پاسخ به `/start`؛ webhook/polling؛ بدون وابستگی)**.
 * **Frontend:** بدون بیلد؛ `public/index.html` = شل SPA مربی (۱۴ فایل CSS + ۱۶ فایل JS، ازآخر `public/boot.js`)، `public/student.html` = شل اختصاصی شاگرد (بدون سایدبار مربی). ماژول‌های اصلی: `app.js`, `core.js`, `students.js`, `exercises.js`, `program-builder.js`, `program-pdf.js`, `diet-programs.js`, `supplement-programs.js`, `coach-submissions.js`, `releases.js`, `ai-settings.js`, `ai-copilot.js`, `student-app.js`, `assessment-wizard.js`, `jalali*.js`, `localization.js`.
 * **Design system:** سلسله‌مراتب مونوکروم مشکی/سفید؛ تنها `public/theme.css` مجاز به تعریف هگز رنگ است؛ `!important` ممنوع (گارد `tests/ui-design-regression.js`).
 * **Database:** SQLite (`node:sqlite` — experimental) در `data/yasnafit.db`، `journal_mode=WAL`، `foreign_keys=ON`. مایگریشن‌ها هنگام بالا آمدن سرور خودکار اجرا می‌شوند.
@@ -58,12 +58,12 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0c4f9-yasnafit` (جلسهٔ 2026-09-21؛ از `main` = `729ab7b` = snapshot مالک ساخته شده؛ تاریخچه‌ها بی‌ارتباط‌اند — بنگرید به هشدار merge پایین) |
-| آخرین کامیت | `052c569` = merge سایت عمومی از `arena/01a0b993-yasnafit` (tip `ed3c780`)؛ کامیت این تسک (دکمهٔ تلگرام + docs) پس از آن |
-| working tree | این تسک **بدون کامیت تا تأیید مالک** در پایان جلسه؛ همهٔ تغییرات روی `arena/01a0c4f9-yasnafit` |
-| local vs origin | شاخهٔ جلسه push می‌شود (همان قاعدهٔ ثابت: کامیت local می‌سوزد)؛ `origin/main` = `729ab7b` — سایت عمومی هنوز روی main نیست |
-| PR | این جلسه: **PR به `main` مورد انتظار است** (مالک merge سایت عمومی + دکمه را خواست). merge فقط با تأیید صریح مالک |
+| آخرین کامیت | `052c569` = merge سایت عمومی ← `513cc0d` = Task 28 (دکمهٔ تلگرام) ← **کامیت Task 29 (ربات `/start`) پس از آن — push‌شده** |
+| working tree | تمیز پس از commit+push Task 29؛ همهٔ تغییرات روی `arena/01a0c4f9-yasnafit` |
+| local vs origin | شاخهٔ جلسه push شده (قاعدهٔ ثابت: بلافاصله بعد از هر کامیت push)؛ `origin/main` = `729ab7b` — سایت عمومی + ربات هنوز روی main نیست |
+| PR | **PR #9** (OPEN، base `main`): https://github.com/cryptojavan17-hub/yasnafit/pull/9 — شامل سایت عمومی + دکمهٔ تلگرام + ربات `/start`. merge فقط با تأیید صریح مالک |
 | ⚠️ هشدار merge (مهم برای جلسات بعد) | `main` = یک کامیت snapshot («Add files via upload») است و تاریخچهٔ شاخهٔ `arena/01a0b993-yasnafit` با آن **بی‌ارتباط** است ⇒ merge فقط با `--allow-unrelated-histories` ممکن بود. با `-X theirs` انجام شد و **تنها فایلی که از `main` جلوتر بود `YASNAFIT-LAUNCHER.bat` بود** (گزینهٔ ۱ به `/coach/login`) که دستی از `main` نگه داشته شد (`git checkout origin/main -- YASNAFIT-LAUNCHER.bat`). بقیهٔ فایل‌ها superset بودند (تأیید با diff؛ صفر حذف از main در `server.js`/`src/migrations.js`). اگر جلسهٔ دیگری روی `arena/01a0b993-yasnafit` کار کند، دوباره‌کاری/تضاد ممکن است |
-| اقدامات باز | (۱) مالک: آپلود/بررسی PR این جلسه (merge سایت عمومی + دکمهٔ تلگرام) (۲) T-20 باقی‌مانده: چرخهٔ واقعی ربات (Update/هویت تأییدشده/outbox) + بازبینی مدل دوم (۳) T-17 (auto-fetch مجله) فقط با تأیید مالک (۴) T-18 باقی‌مانده: فقط تصویر OG (اختیاری) (۵) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل بی‌پاسخ |
+| اقدامات باز | (۱) مالک: بررسی/merge PR #9، سپس ست‌کردن `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_URL=https://yasnafit.ir` روی Railway و تست دستی `DEPLOYMENT.md` §۱۰.۴ (۲) T-20 باقی‌مانده: پیوند هویت تأییدشده (nonce روی `/start <payload>`) + outbox + بازبینی مدل دوم (۳) T-17 (auto-fetch مجله) فقط با تأیید مالک (۴) T-18 باقی‌مانده: فقط تصویر OG (اختیاری) (۵) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل بی‌پاسخ |
 | هشدار Arena | همان درس‌های قبل: بلافاصله بعد از هر کامیت **push کنید** (کامیت local می‌سوزد)؛ قبل از هر کاری `git status` + قضاوت با محتوا نه هش. ⚠️ در این session فایل `data/` چندین بار پاک/بازسازی شده (سندباکس) ⇒ DB فعلی = تازه + داده e2e؛ **هیچ ربطی به DB لوکال/production مالک ندارد** |
 
 ## 6. Railway Deployment
@@ -151,6 +151,7 @@
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
 
+* **2026-09-21** — **Task 29 (جلسهٔ `arena/01a0c4f9-yasnafit` — ربات `@yasnafitbot` پاسخ‌گوی `/start`، پرامپت دوم مالک):** `src/telegram-bot-service.js` (بدون وابستگی npm؛ `fetch` داخلی Node) + روت `POST /api/telegram/webhook` در `server.js` (قبل از گیت مربی؛ ۴۰۴ اگر ربات در حالت webhook نباشد، ۴۰۵ غیر POST، ۴۰۳ بدون هدر `X-Telegram-Bot-Api-Secret-Token` درست، ۴۰۰ JSON خراب) + `telegramBot.start()` در `server.listen`. `/start` و `/start landing` (هر payload) → متن خوش‌آمد مالک verbatim + لینک `https://yasnafit.ir/student/register` (anchor HTML + دکمهٔ inline «ثبت‌نام در سایت»)؛ `/help` و هر پیام خصوصی دیگر → راهنمای کوتاه؛ گروه/کانال نادیده. حالت‌ها: `auto` (webhook اگر `TELEGRAM_WEBHOOK_URL` باشد، وگرنه polling — که اگر webhook ثبت‌شده‌ای ببیند شروع نمی‌شود)، `webhook`, `polling`, `off`. راز webhook = `TELEGRAM_WEBHOOK_SECRET` یا HMAC از توکن. **هیچ ذخیره‌ای** (نه chat_id، نه username، نه `activity_log`). ابزار `scripts/telegram-webhook.js` (`info|set|delete|me|commands`). `GET /api/health?detailed=1` (مربی) فیلد `telegram_bot`. مستندات: `DEPLOYMENT.md` §۲ + §۱۰، `README.md`, `ARCHITECTURE.md` §19، CHANGELOG/TODO/KNOWN-ISSUES/TD-49/PROJECT-CONTEXT/TELEGRAM-AUDIT. ✅ `tests/telegram-bot-regression.js` = ۱۹ گروه با Bot API جعلی محلی (webhook + polling + guards + صفر ذخیره + توکن در لاگ نیست) • `npm test` = **۲۲/۲۲** • e2e زنده `ok:true`. ❗ **پذیرش با ربات واقعی انجام نشده** (توکن در سندباکس نیست و نباید باشد؛ `api.telegram.org` از سندباکس در دسترس نبود).
 * **2026-09-20** — **Task 22 (همین جلسه/شاخه — هدر روی لندینگ + دکمه‌ها + اندازهٔ تصویر — T-19 مرحلهٔ ۱):** مالک: «عکس خیلی بزرگه — کوچک‌تر کن مناسب موبایل هم باشه — بالا هدر — دکمه‌ها: خانه - درباره من - خدمات - مجله - نتایج - ثبت نام - ورود» ⇒ (1) هدر واقعی بالای تصویر با دقیقاً همین ۵ لینک (`HEADER_NAV`) + دکمهٔ **ثبت نام** → `/student/register` + دکمهٔ **ورود** → `/student/login` (فلوهای موجود)؛ برای نشست مربی: «پنل مربی»؛ منوی همبرگری موبایل فعال. (2) تصویر سقف عرض ۹۴۱px (عرض طبیعی طرح) + وسط‌چین — موبایل: تمام‌عرض. هدر در همهٔ صفحات عمومی مشترک؛ فوتر دست‌نخورده (تماس در فوتر). **T-19 DONE** (مالک هدر بالا را به‌جای دکمه‌روی‌تصویر انتخاب کرد). ۵۸ گروه test:public-site + ۱۹/۱۹ npm test + smoke زنده.
 * **2026-09-20** — **Task 23 (همین جلسه/شاخه — پاک‌کردن نوشته‌های هدرِ خودِ تصویر لندینگ):** مالک: «خوبه — ولی زیر دکمه‌ها نوشته‌های قبلی عکس بود؛ اون نوشته‌ها رو پاک کن» ⇒ نوار بالای `public/images/landing/landing2.png` (۶۲px = لوگو YASNAFIT + منو + شعار «مربی و برنامه‌ریز پیشگیری بانوان» + دکمهٔ ورودِ داخل تصویر) برش خورد (۹۴۱×۱۶۷۲ → ۹۴۱×۱۶۱۰)؛ بقیهٔ طرح دست‌نخورده؛ هیچ کد/HTML/CSS تغییر نکرد (مسیر تصویر ثابت). smoke: تصویر ۲۰۰ (۹۴۱×۱۶۱۰).
 * **2026-09-20** — **Task 24 (همین جلسه/شاخه — حذف کامل لندینگ قبلی / شروع از نو):** مالک: «تمام قسمت‌های لندینگ رو حذف کن — میخوام دوباره شروع کنم» ⇒ (1) رندر تصویر کامل طرح (landing2.png) از home حذف شد → صفحهٔ placeholder مینیمال (YASNAFIT + «صفحهٔ اصلی در حال بازطراحی است.») در پوستهٔ هدر + فوتر معمولی؛ (2) CSS `landing-full` حذف → `home-placeholder`؛ (3) فایل `public/images/landing/landing2.png` حذف (۴۰۴)؛ (4) گروه home تست بازمهندسی‌شده (placeholder + هدر مالک + فوتر + نبود تصویر). **دست‌نخورده:** هدر مشترک (۵ لینک + ثبت نام/ورود + منوی موبایل) + فوتر در همهٔ صفحات عمومی؛ /about /services /results /magazine /contact؛ تصاویر woman/cover (سرو‌دهندهٔ /about + /results + مجله)؛ API/ورود/پنل‌ها. ۵۸ گروه + ۱۹/۱۹ + smoke زنده (landing2.png = ۴۰۴؛ بقیه = ۲۰۰).
@@ -269,12 +270,20 @@
 * **حاصل:** `telegramBotLink()` (پیش‌فرض `yasnafitbot`؛ اگر `site.telegram_bot_username` معتبر باشد همان، وگرنه fallback) + لینک در هدر همهٔ صفحات عمومی + بخش `telegram-cta` در انتهای home (دو دکمه: «اتصال به ربات تلگرام» + «ثبت‌نام در سایت») + حذف فرم/مودال/دو endpoint عمومی + کارت پروفایل شاگرد با متن صادق («شناسهٔ تلگرام»، بدون وعدهٔ ارسال). ✅ `npm test` = ۲۱/۲۱ (public-site = ۶۴ گروه) + `npm run test:e2e` زنده = ok:true + `scripts/audit-telegram.js` بازنویسی‌شده سبز.
 * **محدودیت صادقانه:** در این سندباکس Chromium نصب نیست ⇒ بررسی چشمی/پیکسلی موبایل انجام نشد (فقط CSS/مارک‌آپ + smoke با curl).
 
+### Task 29 (2026-09-21، پرامپت دوم مالک — سمت ربات `@yasnafitbot`: پیام خوش‌آمد برای `/start`) — جلسهٔ `arena/01a0c4f9-yasnafit`
+* **پرامپت مالک:** ربات وقتی با `https://t.me/yasnafitbot?start=landing` (یا فقط `/start`) استارت شد، پیام خوش‌آمد فارسی (متن دقیق داده شد) + لینک `https://yasnafit.ir/student/register` بفرستد؛ `/help` اختیاری؛ توکن فقط از env؛ dev = long polling، prod = webhook روی همان سرور Node با secret؛ لاگ خطا بدون توکن. **خارج از دامنه (انجام نشد، عمداً):** ذخیرهٔ chat_id/username، اتصال حساب، نوتیفیکیشن برنامه، deep link با توکن یک‌بارمصرف، تغییر لندینگ/هدر.
+* **حاصل:** بالا (§10). نکتهٔ مهم برای مالک: **webhook در BotFather ثبت نمی‌شود** — خودِ سرور در هر استارت `setWebhook` می‌زند؛ BotFather فقط توکن/توضیحات/دستورها. متن خوش‌آمد (انتخاب مالک) به «برگرد و حسابت رو وصل کن» اشاره دارد که هنوز ساخته نشده (T-20 فاز B) — به همین دلیل پیام‌های غیر `/start` هم راهنمای کوتاه می‌گیرند تا ربات ساکت نماند.
+* **قدم بعدی مالک:** Railway → Variables: `TELEGRAM_BOT_TOKEN` (از BotFather) + `TELEGRAM_WEBHOOK_URL=https://yasnafit.ir` (بدون اسلش انتهایی) → redeploy → لاگ `[Telegram] webhook registered at https://yasnafit.ir/api/telegram/webhook` → تست دستی §۱۰.۴ `DEPLOYMENT.md`. توصیه: توکن اصلی فقط روی Railway؛ برای لوکال ربات آزمایشی جدا.
+
 
 ## 14. Last Session Handoff
 
-### جلسهٔ `arena/01a0c4f9-yasnafit` — 2026-09-21 (Task 28: دکمهٔ ربات تلگرام برای مهمان‌ها)
+### جلسهٔ `arena/01a0c4f9-yasnafit` — 2026-09-21 (Task 28: دکمهٔ ربات تلگرام برای مهمان‌ها + Task 29: ربات پاسخ‌گوی `/start`)
 
-### What was done
+### What was done (Task 29 — آخرین کار جلسه)
+0. **ربات `/start`:** `src/telegram-bot-service.js` (جدید)، روت `POST /api/telegram/webhook` + `telegramBot.start()` + `telegram_bot` در health تفصیلی (`server.js`)، `scripts/telegram-webhook.js` (جدید)، `tests/telegram-bot-regression.js` (جدید، `npm run test:telegram`، در زنجیرهٔ `npm test`)، `DEPLOYMENT.md` §۲/§۱۰، `README.md`, `ARCHITECTURE.md`, مستندات پیگیری (CHANGELOG Task 29، TODO T-20، KI-023، TD-49، PROJECT-CONTEXT، TELEGRAM-AUDIT جدول وضعیت). commit + push روی همین شاخه؛ PR #9 همین تغییرات را هم شامل می‌شود.
+
+### What was done (Task 28)
 1. **merge سایت عمومی:** محتوای `arena/01a0b993-yasnafit` (tip `ed3c780`) با `--allow-unrelated-histories -X theirs` در این شاخه merge شد (کامیت `052c569`) چون لندینگ روی `main` وجود نداشت. تنها رگرسیون ممکن (`YASNAFIT-LAUNCHER.bat` که روی `main` جدیدتر بود) دستی از `main` نگه داشته شد.
 2. **دکمهٔ تلگرام (اسپک مالک):** `server.js` → `TELEGRAM_BOT_DEFAULT_USERNAME` + `telegramBotLink(site)`؛ هدر عمومی (همهٔ ۷ صفحه) حالا `<a target="_blank" rel="noopener noreferrer">` به `https://t.me/yasnafitbot?start=landing` است (قبلاً دکمهٔ مودال) + بخش جدید `telegram-cta` در انتهای صفحهٔ اصلی با دو دکمه (ربات / ثبت‌نام) و یک راهنمای کوتاه.
 3. **حذف مسیر قدیمی:** فرم ثبت آیدی و مودال از `public/landing.js` و استایل‌های `.tg-dialog*` از `public/landing.css` پاک شد؛ `GET /api/telegram-bot` و `POST /api/telegram-bot/connect` از `server.js` حذف شدند (مسیرهای ناشناس `/api` ⇒ ۴۰۱ از گیت مربی). جدول `telegram_bot_connections` و مایگریشن 032 دست‌نخورده.
@@ -283,30 +292,38 @@
 6. **مستندات:** CHANGELOG توسعه (مدخل Task 28 + merge)، PROJECT-CONTEXT، TODO (T-20 نیمه‌بسته)، KNOWN-ISSUES (KI-023 بازنویسی‌شده + HISTORY)، افزودن «به‌روزرسانی پس از ممیزی» به TELEGRAM-AUDIT-2026-09-21.md، و همین حافظه.
 
 ### What was tested (اجرا شده، نه ادعا)
-* `npm test` → همهٔ ۲۱ سوئیت exit 0 (public-site = ۶۴ گروه).
+* **Task 29:** `node tests/telegram-bot-regression.js` = ۱۹ گروه سبز (Bot API جعلی محلی: `setWebhook` با URL/secret درست، ۴۰۵/۴۰۳/۴۰۳/۴۰۰، `/start landing` → ۲۰۰ + `sendMessage` با متن/anchor/دکمهٔ دقیق، `/start` تکراری دوباره جواب می‌گیرد، `/help`، گروه/کانال نادیده، صفر رکورد در `telegram_bot_connections`/`students.telegram_id`/`activity_log`، توکن در لاگ نیست، polling با `deleteWebhook` + offset ۰→۲۲، امتناع auto از دزدیدن webhook، backoff بعد از ۴۰۹، بدون توکن ⇒ ۴۰۴) • `npm test` = **۲۲/۲۲** exit 0 • سرور زندهٔ 3020 ری‌استارت شد: لاگ `[Telegram] disabled — TELEGRAM_BOT_TOKEN is not set`، `POST /api/telegram/webhook` = ۴۰۴، `/` = ۲۰۰ با ۲ لینک، e2e زنده `ok:true` • اجرای دستی نمایشی با Bot API جعلی (پیام دقیق در گزارش مالک) • `scripts/telegram-webhook.js` همهٔ ۵ اکشن روی API جعلی.
+* **Task 28:** `npm test` → همهٔ ۲۱ سوئیت exit 0 (public-site = ۶۴ گروه).
 * `npm run test:e2e` روی سرور زندهٔ 3020 → `ok:true` (۲ شاگرد، ماه دوم، ایزوله‌سازی، خروج، نسخه 0.9.1).
 * smoke زنده با curl: `GET /` = 200 و دقیقاً ۲ لینک `https://t.me/yasnafitbot?start=landing`؛ `/magazine /about /services /contact` هر کدام ۱ لینک؛ صفر `data-telegram-bot`/`tg-dialog`؛ `GET /api/telegram-bot` = 401 و `POST /api/telegram-bot/connect` = 401.
 * `node scripts/audit-telegram.js` → گزارش `logs/telegram-audit.json` (gitignored): لینک درست در همهٔ صفحات عمومی، نبود فرم، اندپوینت‌ها ۴۰۱، صفر رکورد اتصال، رفتار username معتبر/نامعتبر.
 
 ### What failed / محدودیت‌ها
+* **Task 29 — پذیرش با ربات واقعی انجام نشد و در این سندباکس ممکن نیست:** توکن وجود ندارد (و نباید در چت/سندباکس باشد) و `api.telegram.org` از سندباکس در دسترس نبود (curl → exit 35). همهٔ شواهد با Bot API جعلی محلی است. تست واقعی = مالک بعد از ست‌کردن متغیرها روی Railway (`DEPLOYMENT.md` §۱۰.۴).
 * **Chromium در این سندباکس نیست** ⇒ تست مرورگر/پیکسل و بررسی موبایل انجام نشد؛ فقط مارک‌آپ + CSS + smoke. اگر مالک موبایل تأیید نکرد، اولین کار جلسهٔ بعد اجرای یک بررسی مرورگر است.
 * ادعای «پیام خوش‌آمد ربات» قابل تحقق بدون کد ربات نیست (توضیح داده شد).
 
 ### What remains
-1. **مالک:** تأیید و merge PR این شاخه (سایت عمومی + دکمهٔ تلگرام). merge ⇒ auto-deploy ⇒ ری‌استارت uptime ملاک انتشار است.
-2. **ادامهٔ پرامپت مالک** (بخش‌های بعد از «… باز شود:») — جلسه منتظر آن است.
-3. **T-20:** چرخهٔ واقعی ربات (دریافت Update، هویت تأییدشده، outbox) + بازبینی مدل دوم. اگر مالک بخواهد «پیام خوش‌آمد خودکار» یا «نوتیفیکیشن در تلگرام» معنا پیدا کند، همین مسیر لازم است.
+1. **مالک:** تأیید و merge PR #9 (سایت عمومی + دکمهٔ تلگرام + ربات `/start`). merge ⇒ auto-deploy ⇒ ری‌استارت uptime ملاک انتشار است.
+2. **مالک (بعد از deploy):** Railway Variables: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_URL=https://yasnafit.ir` ⇒ redeploy ⇒ در تلگرام `t.me/yasnafitbot?start=landing` → START → پیام خوش‌آمد. نتیجه را به جلسهٔ بعد بگویید تا در KI-023/T-20 ثبت شود (تا آن زمان `UNKNOWN — needs verification`).
+3. **T-20 باقی‌مانده:** فاز B (پیوند هویت تأییدشده با nonce یک‌بارمصرف روی `/start <payload>` + ذخیرهٔ chat_id با رضایت) → فاز C کامل (outbox + نوتیفیکیشن «برنامه‌ات آماده شد») → فاز D (پذیرش واقعی با دو حساب) + بازبینی مدل دوم. همه فقط با درخواست صریح مالک.
 4. T-17 (auto-fetch) و T-18-OG: فقط با تأیید مالک.
 
 ### Exact next step for the next Agent
-1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: تغییرات Task 28 در working tree یا کامیت‌شده روی `arena/01a0c4f9-yasnafit`).
-2. اگر مالک بخش‌های بعدی پرامپت را فرستاد، همان را روی همین شاخه ادامه بده (بدون شاخهٔ جدید).
+1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: working tree تمیز؛ Task 28 + Task 29 کامیت و push شده روی `arena/01a0c4f9-yasnafit`؛ PR #9 باز).
+2. اگر مالک نتیجهٔ تست واقعی ربات را گفت: موفق ⇒ KI-023/T-20/TELEGRAM-AUDIT را از `UNKNOWN` به `VERIFIED (owner, date)` ببر؛ ناموفق ⇒ اول `TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js info` (`last_error_message`) و جدول عیب‌یابی `DEPLOYMENT.md` §۱۰.۵. اگر فاز B را خواست: روی `planReply()` در `src/telegram-bot-service.js` سوار شو، transport را دست نزن.
 3. پایان هر تسک: حافظه + CHANGELOG + commit + push + گزارش فارسی + بلوک `bat` §17 با نام شاخهٔ جلسه.
 
 ## 15. Files Changed Recently
 
 | فایل | تغییر | وضعیت |
 |---|---|---|
+| `src/telegram-bot-service.js` (جدید) | **Task 29:** سرویس ربات — config از env، `planReply` (start/help/guide)، Bot API client با redact توکن، webhook handler، polling loop، status | این جلسه |
+| `server.js` | **Task 29:** require + `createBot`، روت `POST /api/telegram/webhook` قبل از گیت مربی، `telegram_bot` در health تفصیلی، `telegramBot.start()` در listen | این جلسه |
+| `tests/telegram-bot-regression.js` (جدید) + `package.json` (`test:telegram` در زنجیره) | **Task 29:** ۱۹ گروه با Bot API جعلی | این جلسه |
+| `scripts/telegram-webhook.js` (جدید) | **Task 29:** ابزار اپراتور `info|set|delete|me|commands` (توکن فقط از env) | این جلسه |
+| `DEPLOYMENT.md` (§۲ + §۱۰), `README.md`, `ARCHITECTURE.md` (§19) | **Task 29:** متغیرها، حالت‌ها، ثبت webhook (نه در BotFather)، راستی‌آزمایی، عیب‌یابی | این جلسه |
+| `docs/project-tracking/{CHANGELOG,TODO,KNOWN-ISSUES,TECHNICAL-DECISIONS(TD-49),PROJECT-CONTEXT,TELEGRAM-AUDIT-2026-09-21}.md` + `mahdi hellp.md` | **Task 29:** مستندسازی | این جلسه |
 | `server.js` | **Task 28:** `telegramBotLink()` + لینک ربات در هدر عمومی + بخش `telegram-cta` در home + حذف `GET /api/telegram-bot` و `POST /api/telegram-bot/connect` | این جلسه |
 | `public/landing.js`, `public/landing.css` | **Task 28:** حذف مودال/فرم تلگرام و `.tg-dialog*` + استایل `telegram-cta` | این جلسه |
 | `public/student-app.js` | **Task 28:** کارت پروفایل = «شناسهٔ تلگرام» (تماس اختیاری، بدون وعدهٔ ارسال) | این جلسه |
@@ -380,11 +397,11 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0c4f9-yasnafit`) هم‌زمان می‌شود؛ چون `server.js` + `public/*` تغییر کرده **ری‌استارت سرور + `Ctrl+Shift+R` لازم است**؛ DB لوکال دست‌نخورده می‌ماند (هیچ مایگریشن جدیدی در این تسک نبود — بالاترین = 039) |
+| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0c4f9-yasnafit`) هم‌زمان می‌شود؛ چون `server.js` + `src/*` + `public/*` تغییر کرده **ری‌استارت سرور + `Ctrl+Shift+R` لازم است**؛ DB لوکال دست‌نخورده می‌ماند (هیچ مایگریشن جدیدی — بالاترین = 039). ربات روی لوکال بدون `TELEGRAM_BOT_TOKEN` خاموش است (یک خط لاگ) — برای تست لوکال فقط با ربات آزمایشی جدا (§۱۰ DEPLOYMENT) |
 | Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a0c4f9-yasnafit` = merge (`052c569`) + تغییرات Task 28؛ سرور زنده روی 3020 با DB تازهٔ سندباکس (۳۹ مایگریشن، ۲۷۰۷ حرکت، بدون مربی provisioned). ⚠️ DB سندباکس هیچ ربطی به DB لوکال/Production مالک ندارد |
 | Git / GitHub origin | **پس از push این جلسه = CURRENT** | `origin/main` = `729ab7b` (snapshot مالک)؛ سایت عمومی + دکمهٔ تلگرام فقط روی شاخهٔ `arena/01a0c4f9-yasnafit` |
 | `main` | **`729ab7b`** | سایت عمومی هنوز روی main نیست؛ بعد از merge PR، build باید موفق شود و auto-deploy منتشر کند |
-| Railway | **LIVE (0.9.1) — کد سایت عمومی هنوز نیست** | بعد از merge، auto-deploy ⇒ ریست uptime ملاک است. ⚠️ DB production مالک با DB سندباکس **هیچ ارتباطی ندارد**؛ دادهٔ e2e سندباکس نباید به production برسد |
+| Railway | **LIVE (0.9.1) — کد سایت عمومی و ربات هنوز نیست** | بعد از merge PR #9، auto-deploy ⇒ ریست uptime ملاک است. سپس Variables: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_URL=https://yasnafit.ir` ⇒ redeploy ⇒ لاگ `[Telegram] webhook registered at …`. ⚠️ DB production مالک با DB سندباکس **هیچ ارتباطی ندارد**؛ دادهٔ e2e سندباکس نباید به production برسد |
 
 
 **تا این لحظه هیچ workflow خودکار (GitHub Actions) در مخزن نیست؛ deploy با Railway از طریق اتصال repo انجام می‌شود (auto-deploy روی push به شاخهٔ متصل، محدود به `watchPatterns`).**

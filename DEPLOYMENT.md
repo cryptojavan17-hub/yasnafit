@@ -31,6 +31,11 @@ npm test
 | `YASNAFIT_TRUST_PROXY` | خاموش | فقط وقتی `1` کنید که ترافیک حتماً از پروکسی (nginx/caddy) می‌آید. تا این پرچم خاموش است، `X-Forwarded-For/Host/Proto` کاملاً نادیده گرفته می‌شود |
 | `YASNAFIT_COOKIE_SECURE` | خاموش | `1` کنید تا کوکی نشست‌ها همیشه `Secure` بخورند (لازمی وقتی TLS در پروکسی خاتمه می‌یابد) |
 | `NODE_ENV` | — | `production` باعث می‌شود مسیر تستی `POST /api/test/reset-rate-limit` کاملاً حذف شود |
+| `TELEGRAM_BOT_TOKEN` | خاموش | توکن ربات `@yasnafitbot` از BotFather. تا ست نشود ربات کاملاً خاموش است. **هرگز در git/چت/لاگ نیاید** (سرور هم آن را چاپ نمی‌کند) — §۱۰ |
+| `TELEGRAM_BOT_MODE` | `auto` | `webhook` / `polling` / `off`. در `auto`: اگر `TELEGRAM_WEBHOOK_URL` ست باشد webhook، وگرنه long polling (توسعه) — §۱۰ |
+| `TELEGRAM_WEBHOOK_URL` | — | ریشهٔ عمومی https همین سرور (مثلاً `https://yasnafit.ir`)؛ مسیر `/api/telegram/webhook` خودکار به آن اضافه و هنگام بالا آمدن با `setWebhook` ثبت می‌شود |
+| `TELEGRAM_WEBHOOK_SECRET` | مشتق از توکن | اختیاری. رازی که تلگرام در هدر `X-Telegram-Bot-Api-Secret-Token` برمی‌گرداند؛ بدون آن، سرور یک راز پایدار از خود توکن مشتق می‌کند (چاپ نمی‌شود) |
+| `YASNAFIT_PUBLIC_URL` | `https://yasnafit.ir` | پایهٔ لینک ثبت‌نام داخل پیام ربات (`/student/register` به آن اضافه می‌شود) |
 
 نکته امنیتی: هر سه هدر `X-Forwarded-*` قابل جعل هستند. کلید محدودیت تلاش‌های ناموفق
 ورود، بررسی same-origin (ضد CSRF) و پرچم `Secure` کوکی فقط با `YASNAFIT_TRUST_PROXY=1`
@@ -355,3 +360,72 @@ node server.js
   1. `railway logs | grep Media` → باید `[Media] تصاویر حرکات: 1888 فایل (Volume: 1888 | ریپو: 0)` را نشان دهد.
   2. `curl -I https://yasnafit-production.up.railway.app/api/exercise-image/4` → `200` با `Content-Type: image/png` یا `image/jpeg`.
   3. اگر `Volume: 0` دیدید، mount path با محل آپلود ناسازگار است — فایل‌ها باید دقیقاً در `<mount>/media/images/exercises/imported` باشند.
+
+---
+
+## ۱۰. ربات تلگرام `@yasnafitbot` — پاسخ خودکار به `/start` (از ۲۰۲۶-۰۹-۲۱ / Task 29)
+
+دکمهٔ «ربات تلگرام» لندینگ به `https://t.me/yasnafitbot?start=landing` می‌رود. وقتی کاربر START را می‌زند، تلگرام پیام `/start landing` را برای ربات می‌فرستد و **همین سرور Node** پیام خوش‌آمد فارسی + لینک `https://yasnafit.ir/student/register` (متن + دکمهٔ شیشه‌ای «ثبت‌نام در سایت») را برمی‌گرداند. `/help` و هر پیام خصوصی دیگر، راهنمای کوتاه با همان لینک می‌گیرد. **هیچ چیزی ذخیره نمی‌شود** (نه chat_id، نه نام کاربری، نه اتصال حساب) — این‌ها فازهای بعدی T-20 هستند. کد: `src/telegram-bot-service.js` (بدون وابستگی npm؛ `fetch` داخلی Node ≥ 22)، روت: `server.js` → `POST /api/telegram/webhook`.
+
+### ۱۰.۱ دو حالت دریافت پیام
+
+| حالت | کی | چه می‌کند |
+|---|---|---|
+| **webhook** (پروداکشن — Railway / سرور با TLS) | `TELEGRAM_WEBHOOK_URL` ست باشد (یا `TELEGRAM_BOT_MODE=webhook`) | هنگام بالا آمدن، `setWebhook` را با آدرس `<TELEGRAM_WEBHOOK_URL>/api/telegram/webhook` + `secret_token` صدا می‌زند؛ تلگرام هر update را به همان مسیر POST می‌کند. سرور فقط درخواستی را می‌پذیرد که هدر `X-Telegram-Bot-Api-Secret-Token` آن با راز برابر باشد (مقایسهٔ زمان‌ثابت)؛ بقیه `403`، متد غیر POST `405`، و اگر ربات در حالت webhook نباشد اصلاً مسیر وجود ندارد (`404`) |
+| **polling** (توسعه / لوکال) | `TELEGRAM_WEBHOOK_URL` ست نباشد | حلقهٔ `getUpdates` با long polling ۳۰ ثانیه‌ای. ⚠️ قاعدهٔ ایمنی: در حالت `auto` اگر تلگرام بگوید یک webhook ثبت شده (یعنی پروداکشن دارد کار می‌کند)، سرور لوکال **polling را شروع نمی‌کند** و فقط هشدار می‌دهد. فقط `TELEGRAM_BOT_MODE=polling` صریح، webhook قبلی را حذف می‌کند و جریان پیام‌ها را می‌گیرد |
+
+توصیه: توکن ربات اصلی را **فقط روی Railway** بگذارید. برای تست لوکال، در BotFather یک ربات آزمایشی دوم بسازید و توکن همان را لوکال ست کنید تا پروداکشن هرگز قطع نشود.
+
+### ۱۰.۲ راه‌اندازی روی Railway (Variables)
+
+| متغیر | مقدار |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | توکنی که BotFather داده (فقط در داشبورد Railway) |
+| `TELEGRAM_WEBHOOK_URL` | `https://yasnafit.ir` (یا اگر دامنه وصل نیست: `https://<name>.up.railway.app`) — بدون اسلش انتهایی و بدون مسیر |
+| `TELEGRAM_WEBHOOK_SECRET` | اختیاری؛ اگر می‌خواهید راز جدا داشته باشید ۳۲+ کاراکتر از `A-Z a-z 0-9 _ -` |
+| `TELEGRAM_BOT_MODE` | لازم نیست (`auto` ⇒ webhook چون URL هست) |
+
+redeploy کنید. در لاگ باید ببینید:
+
+```
+[Telegram] bot identity confirmed: @yasnafitbot
+[Telegram] webhook registered at https://yasnafit.ir/api/telegram/webhook (secret derived from the token; never logged)
+```
+
+اگر `TELEGRAM_BOT_TOKEN` نباشد فقط یک خط `[Telegram] disabled — TELEGRAM_BOT_TOKEN is not set` چاپ می‌شود و بقیهٔ برنامه عادی کار می‌کند.
+
+### ۱۰.۳ ثبت webhook — خودکار است؛ در BotFather چیزی ثبت نمی‌شود
+
+**Webhook در BotFather ثبت نمی‌شود** (BotFather فقط توکن، نام، توضیحات و فهرست دستورها را نگه می‌دارد). ثبت webhook با متد `setWebhook` از Bot API انجام می‌شود و **همین سرور هر بار که بالا می‌آید آن را خودش انجام می‌دهد**. اگر خواستید دستی بررسی/اصلاح کنید (توکن فقط در همان شل، نه در فایل):
+
+```bash
+# وضعیت فعلی (getWebhookInfo): آدرس ثبت‌شده، تعداد update معطل، آخرین خطای تلگرام هنگام تحویل
+TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js info
+# ثبت دستی (همان کاری که سرور در استارت می‌کند)
+TELEGRAM_BOT_TOKEN=… TELEGRAM_WEBHOOK_URL=https://yasnafit.ir node scripts/telegram-webhook.js set
+# حذف webhook (مثلاً برای برگشت به polling در توسعه)
+TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js delete
+# هویت ربات / ثبت فهرست دستورهای منو (/start, /help)
+TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js me
+TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js commands
+```
+
+کارهای اختیاری داخل BotFather (روی کد اثری ندارد): `/setdescription` (متنی که قبل از زدن START دیده می‌شود)، `/setabouttext`، `/setuserpic`. فهرست دستورها را خودِ سرور با `setMyCommands` ثبت می‌کند.
+
+### ۱۰.۴ راستی‌آزمایی پس از deploy
+
+1. `TELEGRAM_BOT_TOKEN=… node scripts/telegram-webhook.js info` → `url` باید `https://yasnafit.ir/api/telegram/webhook` باشد و `last_error_message` خالی.
+2. `curl -i -X POST https://yasnafit.ir/api/telegram/webhook` → `403` (بدون هدر راز). `curl -i https://yasnafit.ir/api/telegram/webhook` → `405`.
+3. در تلگرام `https://t.me/yasnafitbot?start=landing` را باز کنید و START بزنید → پیام خوش‌آمد باید بلافاصله بیاید؛ لینک داخل پیام و دکمهٔ «ثبت‌نام در سایت» باید `https://yasnafit.ir/student/register` را باز کند. دوباره `/start landing` بفرستید → همان پیام دوباره می‌آید. `/help` → راهنمای کوتاه.
+4. با نشست مربی: `GET /api/health?detailed=1` فیلد `telegram_bot` را نشان می‌دهد (`mode`, `running`, `username`, `updates_received`, `replies_sent`, `last_error`) — بدون توکن و بدون chat_id.
+
+### ۱۰.۵ عیب‌یابی
+
+| نشانه | علت / راه‌حل |
+|---|---|
+| `info` می‌گوید `last_error_message: Wrong response from the webhook: 403 Forbidden` | راز سرور با رازی که هنگام `setWebhook` ثبت شده فرق دارد (توکن یا `TELEGRAM_WEBHOOK_SECRET` بعد از ثبت عوض شده). سرور را redeploy کنید تا دوباره `setWebhook` بزند، یا `scripts/telegram-webhook.js set` را با همان env سرور اجرا کنید |
+| `last_error_message` دربارهٔ SSL/certificate | تلگرام فقط https معتبر روی پورت‌های 443/80/88/8443 را قبول می‌کند؛ دامنهٔ Railway و `yasnafit.ir` با TLS معتبر مشکلی ندارند، ولی `http://` یا گواهی self-signed رد می‌شود |
+| در لاگ: `Conflict: terminated by other getUpdates request` (409) | دو پروسه هم‌زمان polling می‌کنند (مثلاً لوکال + سرور با یک توکن). یکی را ببندید یا برای لوکال ربات آزمایشی جدا بسازید |
+| در لاگ: `refusing to start long polling in auto mode` | یک webhook (احتمالاً پروداکشن) ثبت است و سرور لوکال عمداً آن را نمی‌دزدد. برای تست لوکال با همین توکن `TELEGRAM_BOT_MODE=polling` بگذارید (webhook پروداکشن حذف می‌شود!) — بهتر: ربات آزمایشی جدا |
+| ربات جواب نمی‌دهد ولی `info` سالم است | لاگ سرور را برای `[Telegram] ✗` بگردید (خطای `sendMessage` مثل `403 bot was blocked by the user` طبیعی است). `pending_update_count` بالا یعنی تلگرام نمی‌تواند به سرور برسد (health سرور را ببینید) |
+

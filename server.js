@@ -42,6 +42,10 @@ const storagePaths = require('./src/storage-paths');
 const articleService = require('./src/article-service');
 const publicContentService = require('./src/public-content-service');
 const magazineDiscovery = require('./src/magazine-discovery-service');
+const telegramBotService = require('./src/telegram-bot-service');
+// @yasnafitbot auto-reply (/start → welcome + registration link). Enabled only when
+// TELEGRAM_BOT_TOKEN exists in the environment; the token itself is never logged.
+const telegramBot = telegramBotService.createBot({ logger: console });
 if(requestSecurity.ALLOW_2FA_SKIP){
   console.log('[Security] ⚠ تأیید دو مرحله‌ای مربی موقتاً رد می‌شود (YASNAFIT_ALLOW_2FA_SKIP=1). فقط برای تست؛ بعد از تست این متغیر را پاک کنید.');
 }
@@ -490,6 +494,7 @@ async function handleHealth(req,res,{detailed=false}={}){
     programs: totalPrograms,
     schema_version: schemaVersion,
     two_factor_skipped: requestSecurity.ALLOW_2FA_SKIP,
+    telegram_bot: telegramBot.status(),
     uptime: Math.round(process.uptime())
   });
 }
@@ -3451,8 +3456,12 @@ async function api(req,res,url){
     // public endpoint that accepts, stores or verifies a Telegram username any
     // more — the old /api/telegram-bot and /api/telegram-bot/connect routes are
     // gone (they stored typed usernames as if they were verified connections).
-    // A future verified bot link-up needs the bot service itself (secret token,
-    // Telegram identity from a real update, one-time nonce) — not this path.
+    // The only bot route is Telegram's own webhook below: it is 404 unless the bot
+    // runs in webhook mode, and every call must carry the setWebhook secret header
+    // (src/telegram-bot-service.js). It stores nothing — it only answers /start.
+    if(p===telegramBotService.WEBHOOK_PATH){
+      return await telegramBot.handleWebhookRequest(req,res,{readBody,send});
+    }
     // ---- Public website content (no authentication; published data only) ----
     const isPublicContentPath = p==='/api/magazine' || p==='/api/results' || p==='/api/coach-profile' || p==='/api/site'
       || (p.startsWith('/api/magazine/') && !p.startsWith('/api/magazine/admin'));
@@ -3821,6 +3830,8 @@ server.listen(port,listenHost,()=>{
   if(!requestSecurity.isHttps({headers:{},socket:{}}) && requestSecurity.PRODUCTION) console.log('[Security] Cookies are not marked Secure; set YASNAFIT_COOKIE_SECURE=1 when serving over HTTPS.');
   console.log(`Application version: ${releaseService.getApplicationInfo().version}`);
   try { magazineDiscovery.startDiscoveryScheduler(db); console.log('[Magazine Discovery] scheduler armed (settings-driven)'); } catch (e) { console.log('[Magazine Discovery] scheduler unavailable:', e.message); }
+  // Telegram bot: off without TELEGRAM_BOT_TOKEN; webhook or long polling otherwise. Never blocks startup.
+  telegramBot.start().catch(error => console.error('[Telegram] ✗ start failed:', telegramBotService.redact(error, telegramBot.config.token)));
   const repoImageCount = countFlatImages(path.join(publicDir,'assets','images','exercises','imported'));
   const volumeImageCount = countFlatImages(storagePaths.exerciseImagesDir);
   const mediaSummary = `[Media] تصاویر حرکات: ${repoImageCount+volumeImageCount} فایل (Volume: ${volumeImageCount} | ریپو: ${repoImageCount}) · ریشه: ${storagePaths.exerciseImagesDir}`;

@@ -354,6 +354,16 @@ Audited:
   `version`, `uptime`); row counts, port and schema version need `?detailed=1` plus a coach
   session. `GET /api/build` (git stamp, file mtimes, feature markers) requires a coach session.
   `POST /api/test/reset-rate-limit` disappears when `NODE_ENV=production`.
+- **Telegram bot (`src/telegram-bot-service.js`, Task 29):** the only inbound bot route is
+  `POST /api/telegram/webhook`, resolved before the coach gate. It is `404` unless the bot runs
+  in webhook mode, `405` for other methods and `403` unless `X-Telegram-Bot-Api-Secret-Token`
+  matches the `setWebhook` secret (SHA-256 digests compared with `timingSafeEqual`). The bot
+  token is read only inside the service from `TELEGRAM_BOT_TOKEN`; every log/error line is
+  passed through `redact()` so fetch errors (whose URL embeds the token) never leak it. The
+  default webhook secret is an HMAC-SHA256 of the token (stable, never printed);
+  `TELEGRAM_WEBHOOK_SECRET` overrides it. Long polling exists for development only and, in
+  `auto` mode, refuses to steal a webhook that is already registered. The handler stores
+  nothing (no chat_id, no username, no `activity_log` row) — it answers `/start` and `/help`.
 - **Error text:** `sendCaughtError()` keeps the Persian validation messages a service raises
   on purpose, but logs and replaces anything that looks like a SQLite/library complaint, so
   internal messages never reach the browser.
