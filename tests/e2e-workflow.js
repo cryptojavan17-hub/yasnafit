@@ -65,13 +65,13 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
 }
 (async()=>{
   try { await fetch(`${BASE}/api/test/reset-rate-limit`, { method: 'POST' }); } catch(e){}
-  // Owner decision 2026-09-21: the domain root is the student entry page (login/register,
-  // small coach-login link); the SSR marketing landing lives on /home; the coach SPA gate
-  // is /coach/dashboard → 303 /coach/login.
+  // Owner decision 2026-09-21 (final): the new landing is the home page on «/» (200, SSR);
+  // /home is a retired alias (301 → /); the student entry page is /student/login; the
+  // coach SPA gate is /coach/dashboard → 303 /coach/login.
   const home=await fetch(BASE+'/',{redirect:'manual'});assert.equal(home.status,200);assert.match(home.headers.get('content-type'),/text\/html/);
-  const homeHtml=await home.text();assert.match(homeHtml,/student-app\.js/,'the domain root must open the student page');assert.doesNotMatch(homeHtml,/id="sidebar"/,'the domain root must not expose the coach shell');
-  const landing=await fetch(BASE+'/home',{redirect:'manual'});assert.equal(landing.status,200);
-  const landingHtml=await landing.text();assert.match(landingHtml,/بدنی قوی‌تر،/);assert.match(landingHtml,/lang="fa"/);assert.match(landingHtml,/dir="rtl"/);
+  const homeHtml=await home.text();assert.match(homeHtml,/بدنی قوی‌تر،/);assert.match(homeHtml,/lang="fa"/);assert.match(homeHtml,/dir="rtl"/);assert.doesNotMatch(homeHtml,/id="sidebar"/,'the domain root must not expose the coach shell');assert.doesNotMatch(homeHtml,/student-app\.js/,'the domain root is the landing, not the student shell');
+  const legacyHome=await fetch(BASE+'/home',{redirect:'manual'});assert.equal(legacyHome.status,301);assert.equal(legacyHome.headers.get('location'),'/');
+  const studentEntry=await fetch(BASE+'/student/login',{redirect:'manual'});assert.equal(studentEntry.status,200);assert.match(await studentEntry.text(),/student-app\.js/,'the student entry page must stay on /student/login');
   const coachDash=await fetch(BASE+'/coach/dashboard',{redirect:'manual'});assert.equal(coachDash.status,303);assert.equal(coachDash.headers.get('location'),'/coach/login');
   const loginPage=await fetch(BASE+'/coach/login');assert.equal(loginPage.status,200);
   const loginHtml=await loginPage.text();
@@ -142,7 +142,7 @@ async function onboard(cookie,{name,mobile,weight,preference='declined',photoTyp
   await expectStatus(401,'/api/dashboard',{cookie:sessionA.cookie});await expectStatus(403,'/api/student/profile',{method:'PUT',cookie:sessionA.cookie,headers:{Origin:'https://evil.example'},body:{full_name:'attacker'}});
 
   await ok('/api/student/profile',{method:'PUT',cookie:sessionA.cookie,body:{full_name:`Student A ${suffix}`,mobile:mobileA,telegram_id:'@yasnafit_test',instagram_id:'@yasnafit.test',height:175,weight:78,goal:'فیتنس',training_experience:'متوسط',preferred_location:'gym',limitations:'none',injuries:'none'}});const meA=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meA.student.telegram_id,'@yasnafit_test');assert.equal(meA.student.instagram_id,'@yasnafit.test');assert.equal(meA.student.case_number,a.case_number);/* Owner spec 2026-09-21: the public «ربات تلگرام» control is a plain deep link — it collects nothing, so the guest/student landing HTML carries the same link and the removed public write endpoints stay 404 (no typed username is stored as a connection). */
-  const homeWithBot=await request('/home',{cookie:sessionA.cookie});assert.equal(homeWithBot.response.status,200);assert.match(homeWithBot.data.toString('utf8'),/href="https:\/\/t\.me\/[^"]+\?start=landing"[^>]*target="_blank" rel="noopener noreferrer"/,'public header: telegram bot deep link');await expectStatus(401,'/api/telegram-bot');await expectStatus(401,'/api/telegram-bot/connect',{method:'POST',cookie:sessionA.cookie,body:{telegram_id:'@yasnafit_e2e_bot'}});const meTg=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meTg.student.telegram_id,'@yasnafit_test','telegram id stays the profile contact value — the public link writes nothing');
+  const homeWithBot=await request('/',{cookie:sessionA.cookie});assert.equal(homeWithBot.response.status,200);assert.match(homeWithBot.data.toString('utf8'),/href="https:\/\/t\.me\/[^"]+\?start=landing"[^>]*target="_blank" rel="noopener noreferrer"/,'public header: telegram bot deep link');await expectStatus(401,'/api/telegram-bot');await expectStatus(401,'/api/telegram-bot/connect',{method:'POST',cookie:sessionA.cookie,body:{telegram_id:'@yasnafit_e2e_bot'}});const meTg=await ok('/api/student/me',{cookie:sessionA.cookie});assert.equal(meTg.student.telegram_id,'@yasnafit_test','telegram id stays the profile contact value — the public link writes nothing');
   await ok('/api/student/assessment',{method:'POST',cookie:sessionA.cookie,body:{weight:78,height:175,waist:84,goal:'فیتنس',training_experience:'متوسط',student_note:'month one'}});
   await completeStructuredAssessment(sessionA.cookie,'male');
   await expectStatus(409,'/api/student/assessment/photos',{method:'POST',cookie:sessionA.cookie,body:new FormData()});

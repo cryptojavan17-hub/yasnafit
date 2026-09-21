@@ -472,7 +472,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   }
   pub=await fetch(BASE+'/magazine');
   check('/magazine lists published article', (await pub.text()).includes(art1.slug));
-  pub=await fetch(BASE+'/home'); // landing lives on /home (owner decision 2026-09-21)
+  pub=await fetch(BASE+'/'); // the landing is the home page (owner decision 2026-09-21, final)
   check('homepage shows published article', (await pub.text()).includes(art1.slug));
 
   // duplicate publish blocked: craft a second generated article w/ same source_url

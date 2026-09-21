@@ -58,8 +58,7 @@ const botLinks = html => [...html.matchAll(/href="(https:\/\/t\.me\/[^"]*)"/g)].
   const handle = id => db.prepare('SELECT telegram_id FROM students WHERE id=?').get(id).telegram_id;
 
   // 1) The guest control is a deep link: header + CTA band, same URL, no form.
-  //    The landing lives on /home since 2026-09-21 («/» = student entry page).
-  const home = await request('/home');
+  const home = await request('/');
   const links = botLinks(home.data);
   observations.landing = {
     status: home.status,
@@ -101,19 +100,19 @@ const botLinks = html => [...html.matchAll(/href="(https:\/\/t\.me\/[^"]*)"/g)].
   // 4) The configured bot username drives the link; a junk value falls back to
   //    the default bot so the button can never point at a dead target.
   settings.updateSiteSettings(db, { 'site.telegram_bot_username': 'yasnafit_audit_bot' });
-  observations.configured_username = { link: botLinks((await request('/home')).data).at(0) };
+  observations.configured_username = { link: botLinks((await request('/')).data).at(0) };
   settings.updateSiteSettings(db, { 'site.telegram_bot_username': 'not a bot/url' });
-  observations.invalid_username_fallback = { link: botLinks((await request('/home')).data).at(0), expected: DEFAULT_BOT_URL };
+  observations.invalid_username_fallback = { link: botLinks((await request('/')).data).at(0), expected: DEFAULT_BOT_URL };
   settings.updateSiteSettings(db, { 'site.telegram_bot_username': '' });
 
   // 5) Local sample of the landing page render only. This is NOT bot throughput,
   //    not Telegram latency and not a capacity claim.
   const samples = [];
-  for (let i = 0; i < 5; i++) await request('/home');
-  for (let i = 0; i < 40; i++) { const t = performance.now(); await request('/home'); samples.push(performance.now() - t); }
-  const followedStudent = await request('/home', { cookie: cookieA });
+  for (let i = 0; i < 5; i++) await request('/');
+  for (let i = 0; i < 40; i++) { const t = performance.now(); await request('/'); samples.push(performance.now() - t); }
+  const followedStudent = await request('/', { cookie: cookieA });
   report.local_load_sample = {
-    note: 'Sequential GET /home (landing SSR) on one temporary loopback server. No Telegram call was made; no throughput or SLA claim.',
+    note: 'Sequential GET / (landing SSR) on one temporary loopback server. No Telegram call was made; no throughput or SLA claim.',
     landing_render: timings(samples),
     landing_status_with_student_cookie: followedStudent.status,
     same_link_for_signed_in_visitor: botLinks(followedStudent.data).every(url => url === DEFAULT_BOT_URL)
@@ -127,7 +126,7 @@ const botLinks = html => [...html.matchAll(/href="(https:\/\/t\.me\/[^"]*)"/g)].
     await context.route('https://**/*', route => route.abort()); // Never navigate to Telegram during the audit.
     const page = await context.newPage(), pageErrors = [];
     page.on('pageerror', e => pageErrors.push(e.message));
-    await page.goto(base + '/home');
+    await page.goto(base + '/');
     const headerLink = page.locator(`.site-header__actions a[href="${DEFAULT_BOT_URL}"]`);
     const ctaLink = page.locator(`.telegram-cta a[href="${DEFAULT_BOT_URL}"]`);
     report.browser = {

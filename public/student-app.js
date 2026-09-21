@@ -78,8 +78,8 @@
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
   const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
   const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
-  /* لینک کوچک به صفحهٔ معرفی (لندینگ عمومی روی /home) — تصمیم مالک 2026-09-21: «/» = ورود شاگرد، لندینگ در /home */
-  const LANDING_ENTRY='<a class="entry-site-link" href="/home">معرفی یسنا فیت</a>';
+  /* لینک کوچک به صفحهٔ اصلی (لندینگ عمومی روی «/») — تصمیم نهایی مالک 2026-09-21: لندینگ جدید = صفحهٔ اصلی */
+  const LANDING_ENTRY='<a class="entry-site-link" href="/">معرفی یسنا فیت</a>';
   /* راه‌های ارتباطی صفحهٔ اصلی — برای تغییر، فقط مقادیر href را عوض کنید */
   const CONTACTS=[
     {id:'instagram',href:'https://instagram.com/exercise._.yasna._',label:'اینستاگرام یاسنافیت',
@@ -1050,8 +1050,7 @@
   async function start(){
     const path=location.pathname;
     if(path.startsWith('/join/'))return renderJoin();
-    if(path==='/'||path==='/index.html')return renderLogin();
-    if(path==='/student/login')return renderLogin();
+    if(path==='/student/login')return renderLogin(); // the domain root is the SSR landing (server.js), not this shell
     if(path==='/student/register')return renderRegister();
     if(path==='/student/logout')return renderLogout();
     const pages={

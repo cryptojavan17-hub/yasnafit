@@ -117,8 +117,8 @@ async function waitForServer(timeoutMs = 15000) {
   // ---------- 2. Public SSR pages ----------
   console.log('· public SSR pages');
   {
-    // Owner decision 2026-09-21: «/» is the student entry page; the marketing landing lives on /home.
-    const home = await html('/home');
+    // Owner decision 2026-09-21 (final): the new landing is the home page on «/».
+    const home = await html('/');
     // Task 25 (PART 1 of 4 — FINAL per owner 2026-09-20): the hero is the
     // owner's Hero.png shown in FULL (no crop, no gap, no deletion, no
     // duplicated HTML text).
@@ -138,7 +138,7 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: hero = full owner image + head/meta/canonical, no crops/old images, no inline scripts, no AI wording');
     // Owner header spec (T-19 round 1): exactly these five links + ثبت نام + ورود buttons.
     assert.match(home, /class="brand"/, 'header: brand present');
-    for (const nav of ['/home', '/about', '/services', '/magazine', '/results']) {
+    for (const nav of ['/', '/about', '/services', '/magazine', '/results']) {
       assert.ok(home.includes(`data-nav="${nav}"`), `header nav link ${nav}`);
     }
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
@@ -215,7 +215,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.doesNotMatch(home, /hero-woman|cta-woman|about-woman/, 'home: no orphaned placeholder photos referenced');
     check('home: about section = full About Me.png below the hero');
 
-    const homeRes = await request('/home');
+    const homeRes = await request('/');
     const csp = homeRes.response.headers.get('content-security-policy') || '';
     assert.match(csp, /script-src 'self'/);
     assert.match(csp, /default-src 'self'/);
@@ -256,7 +256,7 @@ async function waitForServer(timeoutMs = 15000) {
     assert.equal(sitemap.response.status, 200);
     assert.match(sitemap.data, /<urlset/);
     assert.match(sitemap.data, /\/about/);
-    assert.match(sitemap.data, /<loc>[^<]*\/home<\/loc>/, 'sitemap lists the landing on /home');
+    assert.doesNotMatch(sitemap.data, /<loc>[^<]*\/home<\/loc>/, 'sitemap must not list the retired /home alias');
     const robots = await request('/robots.txt');
     assert.match(robots.data, /Sitemap:/);
     check('sitemap.xml + robots.txt');
@@ -550,9 +550,9 @@ async function waitForServer(timeoutMs = 15000) {
     // username is saved, and falls back to the default bot otherwise — the
     // button must never point at a broken/missing target (owner spec 2026-09-21).
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '@yasnafit_smoke_bot' } });
-    assert.ok((await html('/home')).includes('href="https://t.me/yasnafit_smoke_bot?start=landing"'), 'coach-configured bot username drives the landing link');
+    assert.ok((await html('/')).includes('href="https://t.me/yasnafit_smoke_bot?start=landing"'), 'coach-configured bot username drives the landing link');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': 'not a bot/url' } });
-    assert.ok((await html('/home')).includes('href="https://t.me/yasnafitbot?start=landing"'), 'invalid stored username falls back to the default bot');
+    assert.ok((await html('/')).includes('href="https://t.me/yasnafitbot?start=landing"'), 'invalid stored username falls back to the default bot');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '' } });
     check('landing bot link: configured username honoured, invalid value falls back to @yasnafitbot');
     check('unknown settings keys ignored, known keys applied');
@@ -647,37 +647,45 @@ async function waitForServer(timeoutMs = 15000) {
     check('audit events recorded for all mutation types');
   }
 
-  // ---------- 12. Root = student entry page; landing on /home (owner decision 2026-09-21) ----------
-  // «/» opens the student login/register shell (with the small coach-login link and a
-  // «معرفی یسنا فیت» link to /home); the marketing landing moved to /home and keeps the
-  // public header for everyone (a logged-in coach sees پنل مربی there).
-  console.log('· root = student entry page, landing on /home');
+  // ---------- 12. Root = the new landing for EVERYONE (owner decision 2026-09-21, final) ----------
+  // «/» serves the SSR landing (anonymous visitor and logged-in coach alike; the coach
+  // panel is reached from the header «پنل مربی» button, anonymous coaches from the footer
+  // «ورود مربی» link). /home and /index.html were short-lived aliases → 301 to «/».
+  // The student login/register shell stays on /student/login with its «معرفی یسنا فیت» link.
+  console.log('· root = public landing (aliases redirect)');
   {
     const anon = await request('/');
     assert.equal(anon.response.status, 200);
-    assert.match(anon.response.headers.get('content-type') || '', /text\/html/);
-    assert.ok(anon.data.includes('student-app.js'), 'anonymous visitor gets the student entry shell on /');
+    assert.ok(anon.data.includes('id="main"') && anon.data.includes('class="home-hero"'), 'anonymous visitor gets the landing on /');
     assert.ok(!anon.data.includes('id="content"'), 'anonymous visitor must not get the coach SPA shell');
-    assert.ok(!anon.data.includes('class="home-hero"'), 'the landing is not rendered on / any more');
-    check('GET / (anonymous) → student entry page');
+    assert.ok(!anon.data.includes('student-app.js'), 'the student shell is not served on / any more');
+    assert.ok(anon.data.includes('data-coach-session="0"'), 'anonymous landing marks no coach session');
+    assert.ok(anon.data.includes('class="site-footer__coach" href="/coach/login"'), 'landing footer offers a discreet coach login link');
+    check('GET / (anonymous) → public landing page + footer coach link');
 
+    for (const alias of ['/home', '/index.html', '/home?utm=x']) {
+      const res = await request(alias);
+      assert.equal(res.response.status, 301, `${alias} must redirect permanently`);
+      assert.equal(res.response.headers.get('location'), alias.includes('?') ? '/?utm=x' : '/', `${alias} → /`);
+    }
+    check('/home and /index.html → 301 /');
+
+    const login = await request('/student/login');
+    assert.equal(login.response.status, 200);
+    assert.ok(login.data.includes('student-app.js'), 'student shell lives on /student/login');
     const studentApp = fs.readFileSync(path.join(__dirname, '..', 'public', 'student-app.js'), 'utf8');
-    assert.match(studentApp, /entry-site-link" href="\/home">معرفی یسنا فیت<\/a>/, 'the entry page links to the landing on /home');
+    assert.match(studentApp, /entry-site-link" href="\/">معرفی یسنا فیت<\/a>/, 'the entry page links back to the landing on /');
     assert.match(studentApp, /entry-coach-link" href="\/coach\/login">ورود مربی<\/a>/, 'the entry page keeps the small coach-login link');
-    check('entry page: «معرفی یسنا فیت» → /home + «ورود مربی» → /coach/login');
+    check('student login page on /student/login with «معرفی یسنا فیت» → / and «ورود مربی»');
 
-    const landingAnon = await request('/home');
-    assert.equal(landingAnon.response.status, 200);
-    assert.ok(landingAnon.data.includes('id="main"') && landingAnon.data.includes('class="home-hero"'), 'anonymous visitor gets the landing on /home');
-    assert.ok(landingAnon.data.includes('data-coach-session="0"'), 'anonymous landing marks no coach session');
-    const res = await request('/home', { cookie: coachCookie });
+    const res = await request('/', { cookie: coachCookie });
     assert.equal(res.response.status, 200);
-    assert.ok(res.data.includes('id="main"'), 'authed coach gets the landing page on /home');
-    assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /home');
+    assert.ok(res.data.includes('id="main"'), 'authed coach still gets the landing page on /');
+    assert.ok(!res.data.includes('id="content"'), 'authed coach must NOT get the SPA shell on /');
     assert.ok(res.data.includes('data-coach-session="1"'), 'authed landing marks the coach session');
     assert.ok(res.data.includes('class="brand"'), 'authed landing keeps the public header');
     assert.ok(res.data.includes('پنل مربی'), 'authed landing header offers the پنل مربی button');
-    check('GET /home (anonymous + coach session) → public landing page');
+    check('GET / (coach session) → public landing page with panel button');
 
     const dash = await request('/coach/dashboard', { cookie: coachCookie });
     assert.equal(dash.response.status, 200);

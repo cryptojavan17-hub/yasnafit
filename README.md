@@ -88,7 +88,7 @@ PORT=3020 YASNAFIT_HOST=127.0.0.1 YASNAFIT_TRUST_PROXY=1 YASNAFIT_COOKIE_SECURE=
 
 نکته‌های کاربردی که قبلاً در `راهنمای_اجرا.md` بود و حالا همین‌جا جمع شده است:
 
-- مسیرهای ورودی: `/coach` (پنل مربی، لاگین با ایمیل + رمز + Google Authenticator)، `/student/login`، `/student/register`، `/student/onboarding`، `/join/:token` (لینک دعوت یک‌بارمصرف که خودِ برنامه می‌سازد).
+- مسیرهای ورودی: `/` (لندینگ عمومی — صفحهٔ اصلی برای همه؛ `/home` ⇒ 301)، `/coach/login` (پنل مربی، ایمیل + رمز — بدون کد ۶ رقمی از ۲۰۲۶-۰۹-۱۱)، `/student/login`، `/student/register`، `/student/onboarding`، `/join/:token` (لینک دعوت یک‌بارمصرف که خودِ برنامه می‌سازد).
 - دیتابیس فقط `data/yasnafit.db` است؛ مایگریشن‌ها هنگام بالا آمدن سرور خودکار اجرا می‌شوند. ریست کامل = بستن سرور و حذف `data/yasnafit.db*`.
 - فرانت‌اند بدون بیلد است: تغییر `public/*` با رفرش مرورگر دیده می‌شود، ولی تغییر `server.js` یا `src/*` به ری‌استارت نیاز دارد.
 - پورت ۳۰۲۰ اشغال بود: لینوکس/مک `lsof -ti:3020 | xargs kill -9` — ویندوز `netstat -ano | findstr :3020` سپس `taskkill /PID <PID> /F`.

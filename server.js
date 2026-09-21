@@ -2761,9 +2761,11 @@ function publicBaseUrl(req) {
   return `${secure ? 'https' : 'http'}://${host}`;
 }
 
-// Owner decision 2026-09-21: the domain root («/») is the student entry page
-// (login/register + small coach link); the marketing landing lives on /home.
-const LANDING_PATH = '/home';
+// Owner decision 2026-09-21 (final, same day): the new landing IS the home page —
+// «/» serves it for everyone. /home (the short-lived alias) redirects here; the
+// student login/register page stays on /student/login.
+const LANDING_PATH = '/';
+const LANDING_LEGACY_PATH = '/home';
 const PUBLIC_NAV = [
   ['خانه', LANDING_PATH],
   ['درباره من', '/about'],
@@ -2893,6 +2895,7 @@ function footerMarkup(site, profile, categories) {
   </div>
   <div class="site-footer__bottom">
     <p>YASNAFIT © ${year} | تمامی حقوق محفوظ است.</p>
+    <a class="site-footer__coach" href="/coach/login">ورود مربی</a>
   </div>
 </footer>`;
 }
@@ -3272,7 +3275,7 @@ function sendPublicPage(req, res, { kind, path }) {
 function sendSitemap(req, res) {
   const base = publicBaseUrl(req);
   const urls = [
-    { loc: '/', priority: '1.0' }, { loc: LANDING_PATH, priority: '0.9' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
+    { loc: LANDING_PATH, priority: '1.0' }, { loc: '/about', priority: '0.8' }, { loc: '/services', priority: '0.7' },
     { loc: '/results', priority: '0.7' }, { loc: '/magazine', priority: '0.8' }, { loc: '/contact', priority: '0.7' }
   ];
   for (const article of articleService.listPublicArticles(db, { limit: 500 })) {
@@ -3924,21 +3927,17 @@ const server=http.createServer(async(req,res)=>{
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
-    // دامنهٔ اصلی عمومی است: بازدیدکننده صفحهٔ شاگرد (ورود/ثبت‌نام) را می‌بیند؛
-    // ورود مربی از لینک کوچک پایین همین صفحه در دسترس است. داشبورد مربی /coach/dashboard.
-    if(url.pathname==='/'||url.pathname==='/index.html'){
-      const entryHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
-      res.writeHead(200,entryHeaders);
-      analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
-      return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
-    }
-
-    // ---- Public website (landing on /home / about / services / results / magazine / contact) ----
-    // Owner decision 2026-09-21: "/" is the student entry page (handled above); the
-    // marketing landing moved to /home and stays reachable from the public header.
-    // The coach panel is reached from the header "پنل مربی" button → /coach/dashboard.
+    // ---- Public website (landing on "/" / about / services / results / magazine / contact) ----
+    // Owner decision 2026-09-21 (final): the new landing is the home page for EVERYONE,
+    // including an authenticated coach (the panel is reached from the header
+    // «پنل مربی» button → /coach/dashboard; anonymous coach entry: footer «ورود مربی»).
+    // /home and /index.html were short-lived aliases — permanent redirect to "/".
     // HEAD mirrors GET (Node suppresses the response body automatically).
     const isSafeMethod = req.method==='GET' || req.method==='HEAD';
+    if((url.pathname===LANDING_LEGACY_PATH || url.pathname==='/index.html') && isSafeMethod){
+      res.writeHead(301,{Location:LANDING_PATH+(url.search||''),'Cache-Control':'no-store',...requestSecurity.securityHeaders()});
+      return res.end();
+    }
     if(url.pathname==='/sitemap.xml' && isSafeMethod) return sendSitemap(req,res);
     if(url.pathname==='/robots.txt' && isSafeMethod) return sendRobots(req,res);
     const publicArticlePage = isSafeMethod && url.pathname.match(/^\/magazine\/[^/?#]{1,600}$/); // 600: percent-encoded Persian slugs can be long
@@ -3948,7 +3947,13 @@ const server=http.createServer(async(req,res)=>{
       url.pathname==='/magazine' || url.pathname==='/contact' ||
       url.pathname===LANDING_PATH
     );
-    if(isPublicPageRoute) return sendPublicPage(req,res,{kind:url.pathname===LANDING_PATH?'home':url.pathname.slice(1),path:url.pathname});
+    if(isPublicPageRoute){
+      // Site-visit analytics (merged from the 01a085de lineage): the landing is the home
+      // page, so it is recorded as '/', the other public pages under their own path.
+      if(req.method==='GET' && url.pathname===LANDING_PATH) analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
+      else if(req.method==='GET') analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
+      return sendPublicPage(req,res,{kind:url.pathname===LANDING_PATH?'home':url.pathname.slice(1),path:url.pathname});
+    }
 
     // Coach SPA routes contain no public data, but the dashboard shell itself is also
     // private. Student routes use a separate HTML shell and student session.

@@ -89,13 +89,14 @@ assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboa
 assert.match(studentHtml,/theme-color" content="#eef1f6"/,'student shell default browser chrome must be LIGHT');
 assert.ok(studentHtml.indexOf('<script src="/theme-toggle.js"></script>')<studentHtml.indexOf('/theme.css'),'student shell must apply the theme before stylesheets');
 assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboarding-card\\{'),'student onboarding card rule moved');
-/* ── صفحهٔ اصلی دامنه: پوستهٔ شاگرد + لینک کوچک ورود مربی ── */
+/* ── صفحهٔ اصلی دامنه = لندینگ عمومی (تصمیم نهایی مالک 2026-09-21)؛ صفحهٔ ورود شاگرد روی /student/login با لینک کوچک ورود مربی ── */
 {
   const serverSrc=fs.readFileSync(path.join(root,'server.js'),'utf8');
-  assert.match(serverSrc,/url\.pathname==='\/'\|\|url\.pathname==='\/index\.html'/,'server must special-case the domain root');
-  const rootBlock=serverSrc.slice(serverSrc.indexOf("if(url.pathname==='/'||url.pathname==='/index.html')"));
-  assert.ok(rootBlock.slice(0,400).includes("'student.html'"),'the domain root must serve the student shell');
+  assert.match(serverSrc,/const LANDING_PATH = '\/';/,'the SSR landing must be mounted on the domain root');
+  assert.match(serverSrc,/url\.pathname===LANDING_LEGACY_PATH \|\| url\.pathname==='\/index\.html'\) && isSafeMethod\)\{\s*\n\s*res\.writeHead\(301/,'/home and /index.html must redirect permanently to the landing');
+  assert.ok(!/if\(url\.pathname==='\/'\|\|url\.pathname==='\/index\.html'\)\{[\s\S]{0,400}'student\.html'/.test(serverSrc),'the domain root must not serve the student shell any more');
   const studentAppSrc=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+  assert.match(studentAppSrc,/entry-site-link" href="\/">معرفی یسنا فیت<\/a>/,'the student entry page must link back to the landing on /');
   assert.match(studentAppSrc,/entry-coach-link" href="\/coach\/login">ورود مربی<\/a>/,'the entry pages must carry a small coach-login link');
   assert.ok(!studentAppSrc.includes('OWNER_MARK')&&!studentAppSrc.includes('owner-mark'),'the landing page must NOT render the ownership mark (owner removed it from the login screen; it lives in LICENSE/package.json)');
   for(const f of ['package.json','LICENSE']){
@@ -112,7 +113,8 @@ assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboardin
       }
     }
   }
-  assert.match(studentAppSrc,/if\(path==='\/'\|\|path==='\/index\.html'\)return renderLogin\(\);/,'the root path must render the student login scene');
+  assert.match(studentAppSrc,/if\(path==='\/student\/login'\)return renderLogin\(\);/,'the student login scene must stay on /student/login');
+  assert.ok(!/path==='\/'\|\|path==='\/index\.html'\)return renderLogin/.test(studentAppSrc),'the student shell must not claim the domain root');
   assert.ok((studentAppSrc.match(/\$\{COACH_ENTRY\}/g)||[]).length>=4,'coach link must appear on login/register/error/success scenes');
   assert.match(studentAppSrc,/const CONTACTS=\[/,'the landing page contact list is missing');
   for(const marker of ['instagram.com/','t.me/','mailto:','tel:']){
