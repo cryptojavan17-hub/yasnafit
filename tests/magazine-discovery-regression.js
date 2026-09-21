@@ -85,7 +85,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('resolveGoogleNewsUrl: non-google URL passes through', discovery.resolveGoogleNewsUrl('https://plain.example.com/x','')==='https://plain.example.com/x');
   check('freshnessGate: 10d general -> fresh', discovery.freshnessGate({ageDays:10,scientific:false}).accept==='fresh');
   check('freshnessGate: 60d scientific -> fresh (90d limit)', discovery.freshnessGate({ageDays:60,scientific:true}).accept==='fresh');
-  check('freshnessGate: 60d general -> needs AI evergreen mark', discovery.freshnessGate({ageDays:60,scientific:false}).accept==='evergreen');
+  check('freshnessGate: 60d general -> fresh (rev11.1: 90d limit for all sources)', discovery.freshnessGate({ageDays:60,scientific:false}).accept==='fresh');
+  check('freshnessGate: 120d general -> evergreen bucket (filtered in simplified flow)', discovery.freshnessGate({ageDays:120,scientific:false}).accept==='evergreen');
   check('freshnessGate: 400d -> rejected (never "new")', discovery.freshnessGate({ageDays:400,scientific:true}).accept===false);
   check('freshnessGate: missing date -> rejected (cannot verify freshness)', discovery.freshnessGate({ageDays:null,scientific:false}).accept===false);
   check('publisherOf: <source> outlet wins', discovery.publisherOf({url:'https://redirect-story.example.com/rs-1',outlet:'Science Daily'},{name:'X'})==='Science Daily');
@@ -229,15 +230,17 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     check('rev10 fetchArticlePage: google pages never scraped', (await discovery.fetchArticlePage('https://news.google.com/rss/articles/abc')).ok===false);
   }
 
-  // discover #1: 14 items = 8 drafted + 1 rejected (aged, not evergreen) +
+  // discover #1 (rev11.1: 90d freshness, Persian quality exemption):
+  // 14 items = 10 drafted (incl. the two 60d items + the Persian-titled
+  // celebrity-host item — quality filter no longer over-filters Persian) +
   // 2 duplicates (cross-source story + two google-redirects of one story) +
-  // 3 filtered (2017 + 2020 too old, 1 celebrity host)
+  // 2 filtered (2017 + 2020 too old, >90d)
   r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
   const d1=r.data;
   check('discover#1 fetched 14 candidates', d1.fetched===14, JSON.stringify(d1));
-  check('discover#1 drafted 7 (original Persian titles, NO AI used)', d1.drafted===7, 'drafted='+d1.drafted+' np='+d1.not_prepared);
+  check('discover#1 drafted 10 (original Persian titles, NO AI used, 90d relaxed)', d1.drafted===10, 'drafted='+d1.drafted+' np='+d1.not_prepared);
   check('discover#1 duplicates 2 (cross-source + google-redirect same story)', d1.duplicates===2, 'dups='+d1.duplicates);
-  check('discover#1 filtered 5 (4 not-fresh [2017/2020/2×60d] + 1 low-quality host)', d1.filtered===5 && d1.filtered_breakdown && d1.filtered_breakdown['freshness']===4 && d1.filtered_breakdown['low-quality']===1, JSON.stringify(d1.filtered_breakdown));
+  check('discover#1 filtered 2 (2017 + 2020 older than the 90d limit; 60d items now ACCEPTED)', d1.filtered===2 && d1.filtered_breakdown && d1.filtered_breakdown['freshness']===2 && !d1.filtered_breakdown['low-quality'], JSON.stringify(d1.filtered_breakdown));
   check('discover#1 rejected 0 (aged items filtered, not rejected)', d1.rejected===0, 'rejected='+d1.rejected);
   check('discover#1 not_prepared 0 (no AI step exists in the simplified flow)', d1.not_prepared===0, 'np='+d1.not_prepared);
   check('rev11: pipeline NEVER calls the AI (0 AI calls for 14 candidates)', aiCalls===0, 'aiCalls='+aiCalls);
@@ -252,31 +255,31 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   r=await j('/api/magazine/admin/queue');
   const qAll=r.data.queue;
   const arabic=/\p{Script=Arabic}/u;
-  check('inbox: every draft = original Persian title + real publisher (no AI fields)', qAll.length===7 && qAll.every(q=>arabic.test(q.title) && q.source_name && String(q.source_name).length>0 && !/google\.com/i.test(String(q.source_url))), JSON.stringify(qAll.map(q=>({t:String(q.title).slice(0,25),s:q.source_name}))));
-  check('inbox: summary kept wherever the feed provided one (6 of 7 — one fixture feed has none)', qAll.filter(q=>String(q.summary||'').length>0).length===6, 'with-summary='+qAll.filter(q=>String(q.summary||'').length>0).length);
+  check('inbox: every draft = original Persian title + real publisher (no AI fields)', qAll.length===10 && qAll.every(q=>arabic.test(q.title) && q.source_name && String(q.source_name).length>0 && !/google\.com/i.test(String(q.source_url))), JSON.stringify(qAll.map(q=>({t:String(q.title).slice(0,25),s:q.source_name}))));
+  check('inbox: summary kept wherever the feed provided one (9 of 10 — one fixture feed has none)', qAll.filter(q=>String(q.summary||'').length>0).length===9, 'with-summary='+qAll.filter(q=>String(q.summary||'').length>0).length);
   check('rev11: draft title is the ORIGINAL Persian title (no «ترجمهٔ فارسی:» prefix)', qAll.every(q=>!String(q.title).startsWith('ترجمهٔ فارسی:')), JSON.stringify(qAll.map(q=>String(q.title).slice(0,20))));
   check('inbox: source is the original publisher (never feed name / Google News)', qAll.every(q=>q.source_name && q.source_name.length>0 && !/google|روز دنیا|فید آزمایشی/i.test(q.source_name)), JSON.stringify(qAll.map(q=>q.source_name)));
   const sciPub=qAll.find(q=>String(q.title).includes('Science Daily'));
   check('source shown = original publisher (Science Daily) + original URL', sciPub && sciPub.source_name==='Science Daily' && sciPub.source_url==='https://sci-daily.example.com/women-resistance-training', sciPub?JSON.stringify({s:sciPub.source_name,u:sciPub.source_url}):'missing');
   const gArt=qAll.find(q=>q.source_url===GNEWS_REAL);
   check('google-news redirect resolved: source_url = original publisher URL', gArt && gArt.source_url===GNEWS_REAL && gArt.source_name==='Redirect Story', gArt?JSON.stringify({u:gArt.source_url,s:gArt.source_name}):'missing');
-  check('aged (60d) items NOT in the inbox (evergreen/AI path removed from simplified flow)', !qAll.some(q=>String(q.title).includes('EVERGREEN_OK')), 'aged item leaked into inbox');
-  check('inbox: no 2017/2020 article presented as new', !qAll.some(q=>/2017|2020/.test(String(q.title))));
+  check('rev11.1: 60d items ARE in the inbox now (relaxed to 90d)', qAll.some(q=>String(q.title).includes('دو ماه پیش')) && qAll.some(q=>String(q.title).includes('EVERGREEN_OK')), '60d items missing from inbox');
+  check('inbox: no 2017/2020 article presented as new (still >90d = filtered)', !qAll.some(q=>/2017|2020/.test(String(q.title))));
   const imgOnes=qAll.filter(q=>q.cover_image==='https://shared-img.example.com/shared.jpg');
   check('image uniqueness: shared og image assigned to exactly one article', imgOnes.length===1, 'count='+imgOnes.length);
   {
     const dbQ=new DatabaseSync(path.join(dataDir,'yasnafit.db'));
     const oldRows=dbQ.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%2017%' OR title_original LIKE '%2020%'").all();
     check('2017/2020 items rejected with freshness reason (logged, not in inbox)', oldRows.length===2 && oldRows.every(x=>{try{return JSON.parse(x.ai_meta||'{}').filtered==='too-old';}catch(e){return false;}}), JSON.stringify(oldRows.map(x=>x.ai_meta)));
-    const lowRow=dbQ.prepare("SELECT ai_meta FROM magazine_discoveries WHERE title_original LIKE '%سلبریتی%'").get();
-    check('celebrity/low-quality host filtered out', lowRow && JSON.parse(lowRow.ai_meta||'{}').filtered==='low-quality', lowRow?lowRow.ai_meta:'none');
+    const lowRow=dbQ.prepare("SELECT status, ai_meta FROM magazine_discoveries WHERE title_original LIKE '%سلبریتی%'").get();
+    check('rev11.1: Persian-titled item on a celebrity host is NOT over-filtered by quality (drafted)', lowRow && lowRow.status==='DRAFTED' && !JSON.parse(lowRow.ai_meta||'{}').filtered, lowRow?JSON.stringify({s:lowRow.status,m:lowRow.ai_meta}):'none');
     const dupResolved=dbQ.prepare('SELECT COUNT(*) c FROM magazine_discoveries WHERE url_hash=?').get(discovery.sha1(discovery.normalizeUrl(GNEWS_REAL)));
     check('near-duplicate via two google-redirects deduped (drafted + duplicate rows)', dupResolved.c===2, 'rows='+dupResolved.c);
     check('AI never auto-publishes: zero PUBLISHED articles after discovery', dbQ.prepare("SELECT COUNT(*) c FROM magazine_articles WHERE status='PUBLISHED'").get().c===0);
     dbQ.close();
   }
   r=await j('/api/magazine/admin/queue/stats');
-  check('stats: last_run reports 7 new items found (run count ≠ queue count)', r.data.last_run && r.data.last_run.drafted===7 && r.data.drafts===7, JSON.stringify({lr:r.data.last_run,d:r.data.drafts}));
+  check('stats: last_run reports 10 new items found (run count ≠ queue count)', r.data.last_run && r.data.last_run.drafted===10 && r.data.drafts===10, JSON.stringify({lr:r.data.last_run,d:r.data.drafts}));
   // backfill: a pre-existing draft without a cover must get the source image on the next run
   {
     const body='بررسی شواهد مربوط به تغذیه قبل از تمرین و تأثیر آن بر عملکرد ورزشی؛ این متن صرفاً برای آزمایش بازسازی تصویر کاور نوشته شده و طول کافی برای اعتبارسنجی ایجاد مقاله دارد.';
@@ -393,11 +396,11 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     mem3.close();
   }
   r=await j('/api/magazine/admin/queue');
-  check('queue has 8 pending drafts (7 discovered + 1 backfill test)', r.data.queue.length===8, 'got '+r.data.queue.length);
+  check('queue has 11 pending drafts (10 discovered + 1 backfill test)', r.data.queue.length===11, 'got '+r.data.queue.length);
   const q1=r.data.queue.find(q=>q.title.includes('پژوهش جدید'));
   check('queue item has publisher source + flags + discovered_at', q1 && q1.source_name==='News' && Array.isArray(q1.quality_flags) && q1.discovered_at, q1?JSON.stringify({s:q1.source_name,f:q1.quality_flags,d:q1.discovered_at}):'missing');
   r=await j('/api/magazine/admin/queue/stats');
-  check('stats: 0 published, 8 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===8, JSON.stringify(r.data));
+  check('stats: 0 published, 11 drafts (incl. backfill test)', r.data.published===0 && r.data.drafts===11, JSON.stringify(r.data));
   r=await j('/api/magazine/admin/queue/stats');
   check('stats: last_run_at recorded after discovery', Boolean(r.data.last_run_at), JSON.stringify(r.data.last_run_at));
   // rev10.1: manual «🔄 پردازش مجدد» (coach) on a parked legacy draft
@@ -444,7 +447,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   // rev11: the extracted article image is the published hero image
   {
     const qNow=await j('/api/magazine/admin/queue');
-    const imgDraft=qNow.data.queue.find(q=>q.source_url===STORY2_URL);
+    const imgDraft=qNow.data.queue.find(q=>q.source_url===STORY2_URL && String(q.title).includes('تغذیه قبل از تمرین'));
     if (imgDraft) {
       await j(`/api/magazine/admin/articles/${imgDraft.id}/publish`,{method:'POST',body:'{}'});
       const hp=await fetch(BASE+'/magazine/'+imgDraft.slug);
@@ -492,7 +495,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   // discover #2: everything duplicate now
   r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
-  check('discover#2: 0 new drafts, 9 duplicates (+5 re-filtered: 4 freshness + 1 low-quality)', r.data.drafted===0 && r.data.duplicates===9 && r.data.filtered===5, JSON.stringify(r.data));
+  check('discover#2: 0 new drafts, 12 duplicates (+2 re-filtered: 2017/2020)', r.data.drafted===0 && r.data.duplicates===12 && r.data.filtered===2, JSON.stringify(r.data));
 
   // notification
   r=await j('/api/coach/notifications');
@@ -535,7 +538,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   dbS.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.auto_fetch','1')").run();
   dbS.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES ('magazine.fetch_interval','6')").run();
   const onResult=await discovery.tickScheduledDiscovery(dbS,{'magazine.auto_fetch':'1','magazine.fetch_interval':'6'});
-  check('scheduler: auto_fetch on → discovery ran (all dups now)', onResult && onResult.drafted===0 && onResult.duplicates===9 && onResult.filtered===5, JSON.stringify(onResult||null));
+  check('scheduler: auto_fetch on → discovery ran (all dups now)', onResult && onResult.drafted===0 && onResult.duplicates===12 && onResult.filtered===2, JSON.stringify(onResult||null));
   const immediate=await discovery.tickScheduledDiscovery(dbS,{'magazine.auto_fetch':'1','magazine.fetch_interval':'6'});
   check('scheduler: interval gate blocks immediate second run', immediate===null);
   const schedEvents=dbS.prepare("SELECT action FROM audit_events WHERE action LIKE 'discovery.scheduled%'").all();

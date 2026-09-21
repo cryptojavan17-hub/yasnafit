@@ -20,7 +20,7 @@
 const crypto = require('crypto');
 const articleService = require('./article-service');
 
-const DISCOVERY_FETCH_MS = 15000;
+const DISCOVERY_FETCH_MS = 25000;
 const TITLE_SIMILARITY_THRESHOLD = 0.86;
 
 // ---------- freshness + source-quality gates (owner spec) ----------
@@ -28,7 +28,8 @@ const TITLE_SIMILARITY_THRESHOLD = 0.86;
 // / established sources within 90 days. Older items are only accepted when the
 // AI explicitly marks them as an evergreen reference — and nothing older than
 // the hard cap may ever appear as "new" (a 2017/2020 article never does).
-const FRESH_NEWS_DAYS = 30;
+// rev11.1 (owner, 2026-09-21): relaxed for testing — accept up to 90 days for ALL sources.
+const FRESH_NEWS_DAYS = 90;
 const FRESH_SCIENCE_DAYS = 90;
 const EVERGREEN_HARD_CAP_DAYS = 365;
 
@@ -53,8 +54,9 @@ function ageDaysOf(iso) {
   return days < 0 ? 0 : days;
 }
 
-// accept: 'fresh' → accept; 'evergreen' → only if the AI explicitly marks it an
-// important reference; false → reject (never presented as new).
+// accept: 'fresh' → accept; 'evergreen' → between limit and hard cap (kept for
+// compatibility; the simplified flow filters anything not 'fresh'); false → too old.
+// rev11.1: the normal limit is 90 days (FRESH_NEWS_DAYS = FRESH_SCIENCE_DAYS = 90).
 function freshnessGate({ ageDays, scientific }) {
   if (ageDays == null) return { accept: false, reason: 'no-date' };
   if (ageDays > EVERGREEN_HARD_CAP_DAYS) return { accept: false, reason: 'too-old' };
@@ -363,21 +365,32 @@ function setSourceFetchResult(db, id, { ok, error }) {
 }
 
 async function fetchSourceItems(db, source) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DISCOVERY_FETCH_MS);
+  // rev11.1: one retry after a short pause — Google News search RSS can 403/timeout
+  // intermittently; a single retry recovers most «source unavailable» cases.
+  const doFetch = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DISCOVERY_FETCH_MS);
+    try {
+      const response = await fetch(source.feed_url, {
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      return parseFeed(text).slice(0, 50);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let items;
   try {
-    const response = await fetch(source.feed_url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: { 'User-Agent': 'YasnaFit-Magazine/1.0 (editorial preview; +https://yasnafit.ir)', 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml' }
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await response.text();
-    const items = parseFeed(text).slice(0, 50);
-    return items.map(item => ({ ...item, source }));
-  } finally {
-    clearTimeout(timer);
+    items = await doFetch();
+  } catch (firstError) {
+    await new Promise(r => setTimeout(r, 800));
+    items = await doFetch(); // throws the second error if it fails again
   }
+  return items.map(item => ({ ...item, source }));
 }
 
 function findDuplicate(db, { url, title, sourceName }) {
@@ -568,7 +581,7 @@ async function processDiscovery(db, discovery, { usedImages = new Set(), existin
     }
     return f;
   };
-  // Freshness: normal news ≤ 30 days, scientific/professional feeds ≤ 90 days.
+  // Freshness (rev11.1, owner test limit): ≤ 90 days for every source.
   // Older content is never presented as "new" (no AI evergreen mark exists in
   // the simplified flow). Missing date → cannot verify → filtered.
   const limitDays = tier <= 2 ? FRESH_SCIENCE_DAYS : FRESH_NEWS_DAYS;
@@ -842,15 +855,19 @@ async function runDiscovery(db, { notifyAudience = 'coach' } = {}) {
     for (const item of items) {
       const url = normalizeUrl(item.url);
       if (!url || !item.title) continue;
-      // --- QUALITY filter: celebrity/lifestyle/SEO hosts never surface.
-      if (LOW_QUALITY_HOSTS.test(hostOf(item.url))) {
+      // --- QUALITY filter: celebrity/lifestyle/SEO hosts never surface —
+      // rev11.1: relaxed for PERSIAN sources (owner: «do not over-filter by
+      // source quality for Persian sources»); the host list targets English
+      // celebrity sites, Persian articles keep their own ranking by tier.
+      if (!ARABIC_SCRIPT.test(item.title) && LOW_QUALITY_HOSTS.test(hostOf(item.url))) {
         summary.filtered += 1;
         summary.filtered_breakdown['low-quality'] = (summary.filtered_breakdown['low-quality'] || 0) + 1;
         logRejected(source, item, url, { filtered: 'low-quality' });
         continue;
       }
       // --- FRESHNESS filter: old content is never presented as "new"
-      // (30d normal / 90d scientific; the simplified flow has no evergreen mark).
+      // (rev11.1: 90d limit for all sources during testing; the simplified
+      // flow has no evergreen mark).
       const tier = Number(source.source_tier) || 3;
       const ageDays = ageDaysOf(cleanDate(item.publishedAt));
       const gate = freshnessGate({ ageDays, scientific: tier <= 2 });

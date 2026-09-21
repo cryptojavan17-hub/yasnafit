@@ -820,6 +820,7 @@
       </div>
       <h4 class="mag-news-title">${esc(item.title)}</h4>
       <div class="mag-news-meta">${item.source_name ? `منبع: <b>${esc(item.source_name)}</b>` : ''}${item.source_name ? ' · ' : ''}تاریخ: ${faDate(date)}</div>
+      ${item.source_url ? `<div class="mag-news-url" dir="ltr" title="${esc(item.source_url)}">${esc(item.source_url)}</div>` : ''}
       ${item.summary ? `<p class="mag-news-summary">${esc(item.summary)}</p>` : ''}
       <div class="mag-news-actions">
         ${item.source_url ? `<a class="mag-action mag-action--view" href="${esc(item.source_url)}" target="_blank" rel="noopener noreferrer">مشاهده</a>` : ''}
