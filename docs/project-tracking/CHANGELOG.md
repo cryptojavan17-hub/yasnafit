@@ -8,6 +8,12 @@
 
 ## 2026-09-21
 
+### Telegram audit — structure, security, behavior and local performance (no production changes)
+- Reviewed current code at `70a0414`: Telegram is a handle-storage/link-opening surface; no in-repo update receiver, verified user/chat binding, Bot API sender or outbox was found. Any external bot remains unverified.
+- Added opt-in `scripts/audit-telegram.js`: temporary DB, synthetic sessions, bounded local load, optional Chromium. Reproduced invalid input acceptance, missing origin/type guard (including real same-site cross-origin browser profile mutation), duplicate unthrottled writes, partial write under injected failure, retained history after field clearing, stale prefill, focus escape and absent blocked-popup fallback. Profile card still exists despite an older removal claim. No bot credentials or real Telegram delivery used.
+- `npm test`: 21 suites passed. Browser/API observations and local timings are recorded in [audit evidence](evidence/telegram-audit-2026-09-21.json), not claimed as bot production capacity or security approval.
+- Deliverables: [Persian audit and phased upgrade plan](TELEGRAM-AUDIT-2026-09-21.md), [independent reviewer handoff](TELEGRAM-SECOND-REVIEW-HANDOFF.md). Independent second-model execution is **NOT DONE**; no delegation tool was available. No executable app code/schema/auth changed. Remediation remains OPEN (T-20 / KI-023).
+
 ### Correction 15 (T-17 — coach article actions and visible editor)
 - Coach-table «مشاهده» now opens the validated original HTTP(S) source in a separate tab; articles without a source retain a local read-only preview. Public «مطالعه کامل مطلب» remains internal.
 - Replaced the article's unpositioned body-appended modal with a native top-layer dialog, upper-center placement, viewport bounds, internal scroll and always-visible header/save/close controls. Focus, Escape/outside close, pending state and inline errors are handled. Both table and queue use the same editor; removed duplicate queue action listeners.
