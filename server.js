@@ -2592,6 +2592,19 @@ const HEADER_NAV = [
   ['نتایج', '/results']
 ];
 
+// Guest → Telegram bot (owner spec 2026-09-21). The landing only links out to
+// the bot: no username is asked for, verified or stored on this path, so the
+// button works for visitors who have no account yet. The coach-configured bot
+// username (پنل مربی → تنظیمات سایت) is honoured when it is a valid bot
+// username; otherwise the default bot is used, so the link is never broken.
+const TELEGRAM_BOT_DEFAULT_USERNAME = 'yasnafitbot';
+function telegramBotLink(site) {
+  const configured = String((site && site.telegram_bot_username) || '').replace(/^@+/, '').trim();
+  const username = /^[A-Za-z0-9_]{4,32}$/.test(configured) ? configured : TELEGRAM_BOT_DEFAULT_USERNAME;
+  // ?start=landing lets the bot recognise visitors who came from the landing page.
+  return `https://t.me/${username}?start=landing`;
+}
+
 const ICONS = {
   dumbbell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg>',
   analytics: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',
@@ -2627,14 +2640,17 @@ function brandMarkup() {
   return `<a class="brand" href="/" aria-label="YASNAFIT — صفحه اصلی"><span class="brand__mark" aria-hidden="true">Y</span><span class="brand__text">YASNA<span>FIT</span></span></a>`;
 }
 
-function headerMarkup(path, coachAuthorized) {
+function headerMarkup(path, coachAuthorized, telegramUrl) {
   const links = HEADER_NAV.map(([label, href]) => {
     const active = (href === '/' ? path === '/' : path.startsWith(href)) ? ' is-active' : '';
     return `<a class="site-nav__link${active}" href="${href}" data-nav="${href}">${label}</a>`;
   }).join('');
   const action = coachAuthorized
     ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
-    : `<button type="button" class="btn btn--ghost btn--sm" data-telegram-bot="true" aria-haspopup="dialog"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</button>
+    // Owner spec 2026-09-21: the guest control is a plain deep link to the bot
+    // (new tab, noopener). It used to open a dialog that collected the Telegram
+    // ID and stored it — that path is gone, so nothing is claimed or saved here.
+    : `<a class="btn btn--ghost btn--sm" href="${telegramUrl}" target="_blank" rel="noopener noreferrer" aria-label="اتصال به ربات تلگرام"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</a>
       <a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
       <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
   return `<header class="site-header" id="siteHeader">
@@ -2936,6 +2952,7 @@ function sendPublicPage(req, res, { kind, path }) {
   const canonical = `${base}${path}${kind === 'magazine' && ctx.activeCategory ? `?category=${encodeURIComponent(ctx.activeCategory)}` : ''}`;
   const ogImage = meta.ogImage ? (meta.ogImage.startsWith('http') ? meta.ogImage : `${base}${meta.ogImage}`) : (ctx.site.og_image ? `${base}${ctx.site.og_image}` : '');
   const coachAuthorized = isCoachAuthorized(req);
+  const telegramUrl = telegramBotLink(ctx.site);
   // Task 25 (PART 2 — owner clarification 2026-09-20): the /about page is the
   // NEW about page — the complete About Me.png reference (no crop, no HTML text
   // duplication, same sizing rule as the hero/landing section).
@@ -2969,7 +2986,7 @@ function sendPublicPage(req, res, { kind, path }) {
   ].map(item=>`<div class="stats__item"><span class="stats__icon" aria-hidden="true">${ICONS[item.icon]}</span><span class="stats__value">${item.value}</span><span class="stats__label">${item.label}</span></div>`).join('');
   const bodyHtml = kind === 'home'
     ? `<a class="skip-link" href="#main">پرش به محتوا</a>
-  ${headerMarkup(path, coachAuthorized)}
+  ${headerMarkup(path, coachAuthorized, telegramUrl)}
   <main id="main">
     <div class="home-hero">
       <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
@@ -2989,12 +3006,25 @@ function sendPublicPage(req, res, { kind, path }) {
     <section class="stats" aria-label="آمار YASNAFIT">
       <div class="stats__inner">${homeMagStats}</div>
     </section>
+    <section class="telegram-cta" aria-label="ربات تلگرام YASNAFIT">
+      <div class="telegram-cta__inner">
+        <span class="telegram-cta__icon" aria-hidden="true">${ICONS.telegram}</span>
+        <p class="section-eyebrow">YASNAFIT TELEGRAM</p>
+        <h2 class="telegram-cta__title">در تلگرام همراهِ مسیرت باش</h2>
+        <p class="telegram-cta__text">ربات تلگرام یسنا فیت را استارت کن و از همان‌جا در جریان باش. برنامهٔ اختصاصی، ارزیابی و پیگیری‌ها در پنل شخصی خودت در سایت است.</p>
+        <div class="telegram-cta__actions">
+          <a class="btn btn--primary" href="${telegramUrl}" target="_blank" rel="noopener noreferrer">اتصال به ربات تلگرام<span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
+          <a class="btn btn--ghost" href="/student/register">ثبت‌نام در سایت<span class="btn__arrow" aria-hidden="true">${ICONS.arrow}</span></a>
+        </div>
+        <p class="telegram-cta__hint">برای باز کردن ربات، نیازی به ثبت‌نام در سایت نیست.</p>
+      </div>
+    </section>
   </main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
   <script src="/jalali.js" defer></script>
   <script src="/landing.js" defer></script>`
     : `<a class="skip-link" href="#main">پرش به محتوا</a>
-  ${headerMarkup(path, coachAuthorized)}
+  ${headerMarkup(path, coachAuthorized, telegramUrl)}
   <main id="main">${body}</main>
   ${footerMarkup(ctx.site, ctx.profile, ctx.categories)}
   <script src="/jalali.js" defer></script>
@@ -3415,36 +3445,14 @@ async function api(req,res,url){
     }
     if(p.startsWith('/api/student/'))return handleStudentSessionApi(req,res,url);
 
-    // ---- Telegram bot connection (public header «ربات تلگرام» button, Task 26) ----
-    // GET  /api/telegram-bot          -> { telegram_id (own, when a student session
-    //    exists), bot_username (when the owner configured the bot) }
-    // POST /api/telegram-bot/connect  -> { telegram_id } -> logs the connection and,
-    //    when a student session exists, stores it on the account; replies with
-    //    bot_username so the client can open the bot in the Telegram app.
-    if(p==='/api/telegram-bot' || p==='/api/telegram-bot/connect'){
-      const siteInfo=publicContentService.publicSiteInfo(db);
-      const botUsername=siteInfo.telegram_bot_username || null;
-      if(p==='/api/telegram-bot' && req.method==='GET'){
-        const student=studentSessionService.resolveStudentSession(db,req);
-        let own=null;
-        if(student){ const row=one('SELECT telegram_id FROM students WHERE id=? AND deleted_at IS NULL',student.student_id); own=row?.telegram_id || null; }
-        return send(res,200,{telegram_id:own,bot_username:botUsername});
-      }
-      if(p==='/api/telegram-bot/connect' && req.method==='POST'){
-        let body={};
-        try{ body=await readBody(req); }catch(e){ return send(res,400,{error:'ورودی نامعتبر است',code:'INVALID_BODY'}); }
-        const raw=body===null||body===undefined||body.telegram_id===undefined||body.telegram_id===null?'':String(body.telegram_id);
-        const value=raw.replace(/^@+/,'').trim();
-        if(!value||value.length>64) return send(res,400,{error:'آیدی تلگرام نامعتبر است',code:'INVALID_TELEGRAM_ID'});
-        const student=studentSessionService.resolveStudentSession(db,req);
-        db.prepare('INSERT INTO telegram_bot_connections (telegram_id, student_id) VALUES (?, ?)').run(value, student?student.student_id:null);
-        if(student){
-          db.prepare('UPDATE students SET telegram_id=?, updated_at=CURRENT_TIMESTAMP, version=version+1 WHERE id=? AND deleted_at IS NULL').run('@'+value, student.student_id);
-        }
-        return send(res,200,{ok:true,bot_username:botUsername});
-      }
-      return send(res,405,{error:'روش مجاز نیست',code:'METHOD_NOT_ALLOWED'});
-    }
+    // ---- Telegram bot (owner spec 2026-09-21) ----
+    // The guest «ربات تلگرام» control on the public site is a plain deep link to
+    // https://t.me/<bot>?start=landing (built by telegramBotLink). There is no
+    // public endpoint that accepts, stores or verifies a Telegram username any
+    // more — the old /api/telegram-bot and /api/telegram-bot/connect routes are
+    // gone (they stored typed usernames as if they were verified connections).
+    // A future verified bot link-up needs the bot service itself (secret token,
+    // Telegram identity from a real update, one-time nonce) — not this path.
     // ---- Public website content (no authentication; published data only) ----
     const isPublicContentPath = p==='/api/magazine' || p==='/api/results' || p==='/api/coach-profile' || p==='/api/site'
       || (p.startsWith('/api/magazine/') && !p.startsWith('/api/magazine/admin'));

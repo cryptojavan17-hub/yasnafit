@@ -1036,6 +1036,9 @@ main { padding-top: var(--header-h); }
   .article-page { padding: 40px 16px 72px; }
   .contact { padding: 12px 16px 72px; }
   .contact__actions .btn { width: 100%; }
+  .telegram-cta__inner { padding: 60px 16px 68px; }
+  .telegram-cta__actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .telegram-cta__actions .btn { width: 100%; }
   .site-footer__grid { grid-template-columns: 1fr; gap: 30px; padding: 48px 16px 32px; }
   .site-footer__bottom { padding: 18px 16px; }
   .btn { min-height: 50px; }
@@ -1068,81 +1071,44 @@ main { padding-top: var(--header-h); }
 .home-about { background: var(--bg); }
 .home-about__img { display: block; width: 100%; height: auto; max-width: 941px; margin: 0 auto; }
 
-/* Task 26 — Telegram bot modal (header «ربات تلگرام» button, owner spec
-   2026-09-20): the visitor provides ONLY their Telegram ID, then the site
-   sends them straight to the Telegram app to start the bot. */
-.tg-dialog__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(2, 4, 6, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
+/* ---------- Telegram bot call-to-action (home, owner spec 2026-09-21) -------
+   The guest control is a plain deep link to https://t.me/<bot>?start=landing —
+   no form, nothing stored. This band is the prominent invitation at the end of
+   the landing page; the header link uses the same URL. */
+.telegram-cta {
+  border-top: 1px solid var(--border);
+  background:
+    radial-gradient(760px 320px at 50% 0%, var(--accent-glow), transparent 70%),
+    linear-gradient(180deg, var(--bg-2), var(--bg));
 }
-.tg-dialog {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 28px 26px 26px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
-}
-.tg-dialog__close {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-2);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-.tg-dialog__close:hover { border-color: var(--accent); color: var(--accent); }
-.tg-dialog__title { font-size: 20px; margin-bottom: 10px; }
-.tg-dialog__text { color: var(--text-2); font-size: 14px; line-height: 1.9; margin-bottom: 18px; }
-.tg-dialog__input {
+.telegram-cta__inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 76px 24px 84px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-2);
-  overflow: hidden;
-  margin-bottom: 14px;
-}
-.tg-dialog__input:focus-within { border-color: var(--border-strong); }
-.tg-dialog__input span {
-  padding: 0 12px;
-  color: var(--accent);
-  font-weight: 700;
-  border-right: 1px solid var(--border);
-  line-height: 48px;
-  user-select: none;
-}
-.tg-dialog__input input {
-  flex: 1;
-  height: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 15px;
-  padding: 0 12px;
-}
-.tg-dialog__form .btn { width: 100%; }
-.tg-dialog__message {
-  margin: 14px 0 0;
-  font-size: 13.5px;
-  color: var(--accent);
-  line-height: 1.8;
   text-align: center;
 }
+.telegram-cta__icon {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 22px;
+}
+.telegram-cta__icon svg { width: 30px; height: 30px; }
+.telegram-cta__title { font-size: clamp(22px, 3.2vw, 32px); margin-bottom: 14px; }
+.telegram-cta__text { color: var(--text-2); max-width: 620px; margin-bottom: 28px; }
+.telegram-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.telegram-cta__hint { color: var(--text-4); font-size: 13px; margin-top: 18px; }

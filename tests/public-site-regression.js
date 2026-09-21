@@ -146,24 +146,35 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
     assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
     check('home: owner header (5 links + ثبت نام/ورود)');
-    // Task 26 (owner spec): the «ربات تلگرام» header button (telegram icon,
-    // next to ثبت نام/ورود) opens a modal that asks ONLY for the Telegram ID,
-    // then sends the user to the Telegram app to start the bot.
-    assert.ok(home.includes('data-telegram-bot="true"'), 'header: ربات تلگرام control present');
-    assert.match(home, /<button[^>]*data-telegram-bot="true"[^>]*>[\s\S]*?<\/svg>[\s\S]*?ربات تلگرام<\/button>/, 'header: ربات تلگرام button with telegram icon');
+    // Owner spec 2026-09-21 — the guest «ربات تلگرام» control is a plain deep
+    // link to the bot (new tab, noopener). It asks for nothing and stores
+    // nothing: the username form + its public write endpoint are gone, so no
+    // typed username can be mistaken for a verified connection.
+    const BOT_URL = 'https://t.me/yasnafitbot?start=landing';
+    assert.ok(home.includes(`href="${BOT_URL}"`), 'header: ربات تلگرام اتصال ساده به t.me/yasnafitbot?start=landing');
+    assert.match(home, /<a[^>]*class="btn btn--ghost btn--sm"[^>]*href="https:\/\/t\.me\/[^"]+"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'header: telegram link opens in a new tab safely');
+    assert.match(home, />ربات تلگرام</, 'header: telegram control keeps its label');
+    assert.doesNotMatch(home, /data-telegram-bot|t\.me\/yasnafitbot"|telegramDialog/, 'header: no telegram modal / no bare bot link');
+    // Prominent invitation at the end of the landing (owner: header + CTA band).
+    const ctaBand = home.match(/<section class="telegram-cta"[\s\S]*?<\/section>/);
+    assert.ok(ctaBand, 'home: telegram CTA band present');
+    assert.ok(ctaBand[0].includes(`href="${BOT_URL}"`), 'CTA band: same deep link');
+    assert.match(ctaBand[0], /اتصال به ربات تلگرام/, 'CTA band: clear button text');
+    assert.match(ctaBand[0], /href="\/student\/register"/, 'CTA band: sign-up path kept next to the bot link');
     const landingJs = await request('/landing.js');
     assert.equal(landingJs.response.status, 200);
-    assert.match(landingJs.data, /tg-dialog/, 'landing.js: telegram bot modal present');
-    const tgApi = await request('/api/telegram-bot');
-    assert.equal(tgApi.response.status, 200);
-    assert.ok('telegram_id' in tgApi.data && 'bot_username' in tgApi.data, 'telegram bot API shape');
-    assert.equal(tgApi.data.bot_username, null, 'bot username unconfigured by default');
-    const tgBad = await request('/api/telegram-bot/connect', { method: 'POST', body: { telegram_id: '   ' } });
-    assert.equal(tgBad.response.status, 400, 'blank telegram id rejected');
-    const tgOk = await request('/api/telegram-bot/connect', { method: 'POST', body: { telegram_id: '@yasnafit_smoke' } });
-    assert.equal(tgOk.response.status, 200);
-    assert.equal(tgOk.data.ok, true);
-    check('home: ربات تلگرام modal button + /api/telegram-bot connect flow');
+    assert.doesNotMatch(landingJs.data, /tg-dialog|telegram-bot|openTelegramDialog/, 'landing.js: telegram modal + removed endpoint calls gone');
+    // The old public endpoints are gone: an unknown /api path falls through to
+    // the coach gate (401), so nothing public accepts a Telegram username.
+    await expectStatus(401, '/api/telegram-bot');
+    await expectStatus(401, '/api/telegram-bot/connect', { method: 'POST', body: { telegram_id: '@yasnafit_smoke' } });
+    // Nothing is written by the public path: the table is untouched by the page.
+    {
+      const readonly = new DatabaseSync(dbPath, { readOnly: true });
+      assert.equal(readonly.prepare('SELECT COUNT(*) n FROM telegram_bot_connections').get().n, 0, 'no telegram connection rows written from the public site');
+      readonly.close();
+    }
+    check('home: ربات تلگرام = deep link (header + CTA band), public write endpoints removed');
     // The previous structural landing AND the full-image landing must be gone;
     // home now uses the same header + footer shell as the other public pages.
     assert.doesNotMatch(home, /hero__content|features__item|article-card--sample|landing-full|home-placeholder/);
@@ -533,12 +544,24 @@ async function waitForServer(timeoutMs = 15000) {
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '@yasnafit_sample' } });
     // Footer social icons render ONLY when the owner configures a real URL (footer
     // is on every public page — verified on /services).
+    // The check is scoped to the footer social block: the guest header carries
+    // the (always-on) «ربات تلگرام» deep link, which is not an owner social link.
+    const footerSocial = doc => (doc.match(/<div class="site-footer__social"[\s\S]*?<\/div>/) || [''])[0];
     const servicesWithSocial = await html('/services');
-    assert.ok(servicesWithSocial.includes('site-footer__social') && servicesWithSocial.includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
+    assert.ok(servicesWithSocial.includes('site-footer__social') && footerSocial(servicesWithSocial).includes('https://t.me/yasnafit_sample'), 'footer social icon appears only with a configured URL');
     await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.contact_telegram': '', 'site.cta_image': '' } });
     const servicesNoSocial = await html('/services');
-    assert.ok(!servicesNoSocial.includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
+    assert.ok(!footerSocial(servicesNoSocial).includes('https://t.me/'), 'no social link without a configured URL (no dead links)');
     check('footer: social icon only when a real URL is configured');
+    // The landing bot link follows «تنظیمات سایت → ربات تلگرام» when a real bot
+    // username is saved, and falls back to the default bot otherwise — the
+    // button must never point at a broken/missing target (owner spec 2026-09-21).
+    await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '@yasnafit_smoke_bot' } });
+    assert.ok((await html('/')).includes('href="https://t.me/yasnafit_smoke_bot?start=landing"'), 'coach-configured bot username drives the landing link');
+    await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': 'not a bot/url' } });
+    assert.ok((await html('/')).includes('href="https://t.me/yasnafitbot?start=landing"'), 'invalid stored username falls back to the default bot');
+    await ok('/api/magazine/admin/settings', { method: 'PUT', cookie: coachCookie, body: { 'site.telegram_bot_username': '' } });
+    check('landing bot link: configured username honoured, invalid value falls back to @yasnafitbot');
     check('unknown settings keys ignored, known keys applied');
   }
 

@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-20** (توسط Agent — **Task 27 (اصلاح ۸): «تصویر بارگذاری نشد» — علت: CSP سراسری سایت فقط تصویر هم‌خاست («img-src self») را قبول داشت و مرورگر تصویر og بیرونی را قبل از دانلود مسدود می‌کرد. حالا `img-src` شامل `https:` است و همهٔ کاورها (og + تصویر خود فید) https ذخیره می‌شوند؛ ۷۱ چک + npm test + e2e سبز**
+> آخرین به‌روزرسانی: **2026-09-21** (جلسهٔ `arena/01a0c4f9-yasnafit` — **دکمهٔ اتصال به ربات تلگرام برای مهمان‌ها روی لندینگ (درخواست مالک): سایت عمومی (لندینگ+مجله) از شاخهٔ `arena/01a0b993-yasnafit` در این شاخه merge شد؛ دکمه حالا لینک سادهٔ `https://t.me/yasnafitbot?start=landing` است (هدر همهٔ صفحات عمومی + بخش CTA انتهای لندینگ)؛ فرم ثبت آیدی، مودال `tg-dialog` و دو endpoint عمومی `/api/telegram-bot*` حذف شدند؛ `npm test` = ۲۱/۲۱ + e2e زنده سبز + `scripts/audit-telegram.js` بازنویسی‌شده. چرخهٔ واقعی ربات همچنان `NOT IMPLEMENTED` (T-20/KI-023)** — جزئیات در §13/§14
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -57,12 +57,13 @@
 
 | مورد | وضعیت تأییدشده |
 |---|---|
-| شاخهٔ جاری | `arena/01a0b993-yasnafit` (از `main` = `6301712` = merge PR #8 «غیرفعال‌کردن 2FA روی لانچر» ساخته شده) |
-| آخرین کامیت | Task 17–22 همه committed (آخرین = کامیت Task 22) — مبنا `6301712` |
-| working tree | **تمیز** — همهٔ Task 17–22 (سایت عمومی + wireframe + بازسازی + launcher + تصویرها + تصویر کامل لندینگ + هدر/دکمه‌ها) committed روی `arena/01a0b993-yasnafit` و push شده (2026-09-20) |
-| local vs origin | شاخهٔ جلسه با origin هم‌خوان است (push شده 2026-09-20)؛ `origin/main` از 2026-09-19 = `8b693cb` (merge‌های جلسات دیگر، بی‌ربط به این شاخه) |
-| PR | **هنوز ساخته نشده** — فقط با تأیید صریح مالک |
-| اقدامات باز | (۱) مالک: apply/merge شاخهٔ جلسه (روش معمول خودش) (۲) T-17 (auto-fetch) فقط با تأیید مالک (۳) T-18 باقی‌مانده: فقط تصویر OG (اختیاری) (۴) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل هنوز بی‌پاسخ است |
+| شاخهٔ جاری | `arena/01a0c4f9-yasnafit` (جلسهٔ 2026-09-21؛ از `main` = `729ab7b` = snapshot مالک ساخته شده؛ تاریخچه‌ها بی‌ارتباط‌اند — بنگرید به هشدار merge پایین) |
+| آخرین کامیت | `052c569` = merge سایت عمومی از `arena/01a0b993-yasnafit` (tip `ed3c780`)؛ کامیت این تسک (دکمهٔ تلگرام + docs) پس از آن |
+| working tree | این تسک **بدون کامیت تا تأیید مالک** در پایان جلسه؛ همهٔ تغییرات روی `arena/01a0c4f9-yasnafit` |
+| local vs origin | شاخهٔ جلسه push می‌شود (همان قاعدهٔ ثابت: کامیت local می‌سوزد)؛ `origin/main` = `729ab7b` — سایت عمومی هنوز روی main نیست |
+| PR | این جلسه: **PR به `main` مورد انتظار است** (مالک merge سایت عمومی + دکمه را خواست). merge فقط با تأیید صریح مالک |
+| ⚠️ هشدار merge (مهم برای جلسات بعد) | `main` = یک کامیت snapshot («Add files via upload») است و تاریخچهٔ شاخهٔ `arena/01a0b993-yasnafit` با آن **بی‌ارتباط** است ⇒ merge فقط با `--allow-unrelated-histories` ممکن بود. با `-X theirs` انجام شد و **تنها فایلی که از `main` جلوتر بود `YASNAFIT-LAUNCHER.bat` بود** (گزینهٔ ۱ به `/coach/login`) که دستی از `main` نگه داشته شد (`git checkout origin/main -- YASNAFIT-LAUNCHER.bat`). بقیهٔ فایل‌ها superset بودند (تأیید با diff؛ صفر حذف از main در `server.js`/`src/migrations.js`). اگر جلسهٔ دیگری روی `arena/01a0b993-yasnafit` کار کند، دوباره‌کاری/تضاد ممکن است |
+| اقدامات باز | (۱) مالک: آپلود/بررسی PR این جلسه (merge سایت عمومی + دکمهٔ تلگرام) (۲) T-20 باقی‌مانده: چرخهٔ واقعی ربات (Update/هویت تأییدشده/outbox) + بازبینی مدل دوم (۳) T-17 (auto-fetch مجله) فقط با تأیید مالک (۴) T-18 باقی‌مانده: فقط تصویر OG (اختیاری) (۵) تصمیم «غیرفعال‌کردن گوگل‌اتنتیکاتور» از جلسهٔ قبل بی‌پاسخ |
 | هشدار Arena | همان درس‌های قبل: بلافاصله بعد از هر کامیت **push کنید** (کامیت local می‌سوزد)؛ قبل از هر کاری `git status` + قضاوت با محتوا نه هش. ⚠️ در این session فایل `data/` چندین بار پاک/بازسازی شده (سندباکس) ⇒ DB فعلی = تازه + داده e2e؛ **هیچ ربطی به DB لوکال/production مالک ندارد** |
 
 ## 6. Railway Deployment
@@ -261,45 +262,61 @@
 * **Task 24 (2026-09-20، درخواست مالک — حذف کامل لندینگ / شروع از نو):** «تمام قسمت‌های لندینگ رو حذف کن — میخوام دوباره شروع کنم» ⇒ کل لندینگ تصویر‌محور (تصویر + کد + CSS + تست‌های خاصش) حذف شد؛ «/» = placeholder مینیمال در پوستهٔ هدر/فوتر مشترک (که دست‌نخورده ماند). منتظر طرح جدید مالک. ✅ ۵۸ گروه + ۱۹/۱۹ + smoke سبز؛ committed + push شده.
 * **Task 25 (2026-09-20، درخواست مالک — بازسازی لندینگ، مرحلهٔ ۳ از ۴: مجله + آمار):** سیستم مجلهٔ موجود تشخیص داده شد ⇒ بخش home زیر درباره من: YASNAFIT MAGAZINE + پیل‌های فیلتر (دکمه، نه چک‌باکس) + کارت‌های مقالهٔ واقعی (تصویر/دسته/عنوان/خلاصه/مطالعه مقاله) + نوار آمار ۴گانه؛ بدون محتوای اختراعی (empty state تمیز). ✅ ۶۱ گروه + e2e سبز + smoke؛ committed + push شده. **مرحلهٔ ۴: منتظر تصویر مالک.**
 
+### Task 28 (2026-09-21، درخواست مالک — دکمهٔ اتصال به ربات تلگرام برای کاربران مهمان) — جلسهٔ `arena/01a0c4f9-yasnafit`
+* **پرامپت مالک:** روی لندینگ یک دکمه برای مهمان‌ها که به `@yasnafitbot` برود (`https://t.me/yasnafitbot?start=landing`). صریحاً: **بدون ذخیرهٔ نام کاربری، بدون تأیید حساب، بدون chat_id؛ فقط لینک‌دهی ساده.** هدف: افزایش بازدید ربات + هدایت به ثبت‌نام در سایت.
+* **تصمیم‌های تأییدشدهٔ مالک (پرسش‌وپاسخ همین جلسه):** (۱) محتوای شاخهٔ `arena/01a0b993-yasnafit` (سایت عمومی لندینگ+مجله) در همین شاخه بیاید (گزینهٔ «پیشنهادی») (۲) فرم ثبت آیدی + ذخیره‌سازی **حذف** شود و دکمه فقط لینک ساده باشد؛ جدول DB دست‌نخورده بماند (۳) جای دکمه: **هدر (جای دکمهٔ فعلی) + یک دکمهٔ برجسته در بخش CTA پایانی** (۴) بقیهٔ پرامپت (بعد از «… باز شود:») هنوز نرسیده؛ ادامه در پیام بعدی مالک.
+* **واقعیت مهم که به مالک گفته شد:** «پیام خوش‌آمدگویی ربات» بدون کد ربات ممکن نیست — BotFather فقط توضیحات/درباره/دستورها را تنظیم می‌کند؛ پاسخ خودکار به `/start` نیاز به یک سرویس دریافت‌کنندهٔ Update دارد (همان TG-01 ممیزی). لینک `?start=landing` فقط به ربات می‌گوید کاربر از لندینگ آمده.
+* **حاصل:** `telegramBotLink()` (پیش‌فرض `yasnafitbot`؛ اگر `site.telegram_bot_username` معتبر باشد همان، وگرنه fallback) + لینک در هدر همهٔ صفحات عمومی + بخش `telegram-cta` در انتهای home (دو دکمه: «اتصال به ربات تلگرام» + «ثبت‌نام در سایت») + حذف فرم/مودال/دو endpoint عمومی + کارت پروفایل شاگرد با متن صادق («شناسهٔ تلگرام»، بدون وعدهٔ ارسال). ✅ `npm test` = ۲۱/۲۱ (public-site = ۶۴ گروه) + `npm run test:e2e` زنده = ok:true + `scripts/audit-telegram.js` بازنویسی‌شده سبز.
+* **محدودیت صادقانه:** در این سندباکس Chromium نصب نیست ⇒ بررسی چشمی/پیکسلی موبایل انجام نشد (فقط CSS/مارک‌آپ + smoke با curl).
+
 
 ## 14. Last Session Handoff
 
+### جلسهٔ `arena/01a0c4f9-yasnafit` — 2026-09-21 (Task 28: دکمهٔ ربات تلگرام برای مهمان‌ها)
+
 ### What was done
-1. **Task 17 (سایت عمومی):** ۷ صفحه SSR فارسی/RTL با SEO (canonical/OG/JSON-LD/sitemap/robots)؛ مسیر دوقلو `/` (ناشناس=عمومی، مربی=SPA)؛ مجله با فیلتر pill + query URL؛ صفحهٔ مقاله با برادکرامب/منابع/مرتبط؛ `src/article-service.js` + `src/public-content-service.js`؛ مایگریشن `031_magazine_public_site` (۴ جدول: `articles`, `article_sources`, `article_related`, `magazine_settings` ⇒ ۵۳ جدول)؛ پنل مربی `/coach/magazine` (CRUD مقاله/دسته + «تنظیمات سایت» شامل `site.{hero,about,cta,og}_image` و auto-fetch خاموش)؛ ۱۹ سوئیت در `package.json`.
-2. **Task 18 (wireframe):** صفحهٔ اصلی دقیقاً ۸ بخش: هیدر (لوگو راست، منو، «ورود» با آیکون) → هیرو (متن راست: eyebrow + تیتر دوخطی خط دوم cyan + «شروع مسیر من»/«آشنایی با من»؛ تصویر چپ: crop 26% 26%) → ۳ ویژگی (برنامه اختصاصی/ارزیابی و پیگیری/مربیگری حرفه‌ای) → درباره (تصویر چپ/متن راست + ۴ کارت آیکون + «مشاهده رزومه») → مجله (تیتر + ۶ pill **لینک** + کارت با badge رنگی/meta/CTA) → نوار آمار ۴ستونه داده‌محور → CTA پایانی دو‌ستونه (`site.cta_image`) → فوتر یک‌ردیفه. خدمات/نتایج از home حذف (صفحاتشان دست‌نخورده).
-3. **تست‌ها:** `tests/public-site-regression.js` ⇒ **۵۴ گروه** (ترتیب DOM، empty-state، cta_image round-trip، footer socials gate، badge رنگ‌ها، pill guard)؛ `npm test` = ۱۹/۱۹ exit 0؛ `npm run test:e2e` روی سرور زنده = ok:true؛ smoke ۱۶ URL (۷ صفحه + category + sitemap/robots + assetها) همه 200.
-4. **مستندات:** ۵ فایل `docs/project-tracking/` (Task 17/18 در CHANGELOG، TD-20، KI-017/018، T-17/18، PROJECT-CONTEXT) + همین حافظه.
-5. **افزونهٔ Task 18 (ریشه):** با درخواست مالک «فقط لندینگ را خواستم ارتقا بدم؛ الان میره تو صفحهٔ مربی» ⇒ «/» برای همه (از جمله مربی نشست‌دار) لندینگ عمومی شد؛ ورودی پنل «/coach/dashboard» (gate + redirect ورود از قبل همین بود) — TD-21 + addendum CHANGELOG + بازنویسی گروه ۱۲ تست.
+1. **merge سایت عمومی:** محتوای `arena/01a0b993-yasnafit` (tip `ed3c780`) با `--allow-unrelated-histories -X theirs` در این شاخه merge شد (کامیت `052c569`) چون لندینگ روی `main` وجود نداشت. تنها رگرسیون ممکن (`YASNAFIT-LAUNCHER.bat` که روی `main` جدیدتر بود) دستی از `main` نگه داشته شد.
+2. **دکمهٔ تلگرام (اسپک مالک):** `server.js` → `TELEGRAM_BOT_DEFAULT_USERNAME` + `telegramBotLink(site)`؛ هدر عمومی (همهٔ ۷ صفحه) حالا `<a target="_blank" rel="noopener noreferrer">` به `https://t.me/yasnafitbot?start=landing` است (قبلاً دکمهٔ مودال) + بخش جدید `telegram-cta` در انتهای صفحهٔ اصلی با دو دکمه (ربات / ثبت‌نام) و یک راهنمای کوتاه.
+3. **حذف مسیر قدیمی:** فرم ثبت آیدی و مودال از `public/landing.js` و استایل‌های `.tg-dialog*` از `public/landing.css` پاک شد؛ `GET /api/telegram-bot` و `POST /api/telegram-bot/connect` از `server.js` حذف شدند (مسیرهای ناشناس `/api` ⇒ ۴۰۱ از گیت مربی). جدول `telegram_bot_connections` و مایگریشن 032 دست‌نخورده.
+4. **کارت پروفایل شاگرد:** عنوان «شناسهٔ تلگرام» + متن بدون وعدهٔ «ربات برنامه را می‌فرستد»؛ ذخیره‌سازی همان فیلد تماس قبلی (`/api/student/profile`).
+5. **تست‌ها:** `tests/public-site-regression.js` (۶۴ گروه: لینک هدر + CTA، نبود مودال، ۴۰۱ بودن اندپوینت‌های حذف‌شده، صفر رکورد در جدول، سناریوی username معتبر/نامعتبر در تنظیمات)، `tests/e2e-workflow.js` (لینک زنده + صفر نوشتن از مسیر عمومی)، `scripts/audit-telegram.js` بازنویسی شد تا قرارداد جدید را بسنجد (نه رفتار حذف‌شده).
+6. **مستندات:** CHANGELOG توسعه (مدخل Task 28 + merge)، PROJECT-CONTEXT، TODO (T-20 نیمه‌بسته)، KNOWN-ISSUES (KI-023 بازنویسی‌شده + HISTORY)، افزودن «به‌روزرسانی پس از ممیزی» به TELEGRAM-AUDIT-2026-09-21.md، و همین حافظه.
 
-### What changed (همه committed + push شده — 2026-09-20)
-**کد:** `server.js` (+۹۶۷ — homeBody/stats/CTA/footer/articleCard/header + ۱۳ آیکن SVG)، `src/migrations.js` (+۱۰۵)، `src/article-service.js` (جدید)، `src/public-content-service.js` (جدید)، `public/landing.css` (جدید — تمام sectionها + responsive 1180/960/640)، `public/landing.js` (جدید — pill guard)، `public/magazine-admin.css/js` (جدید — پنل مجله + فیلد `site.cta_image`)، `public/images/landing/` (SVG placeholderها)، `public/app.js`+`core.js`+`index.html` (لینک «ورود» به `/student/login` + assetهای CSP)، `package.json` (سوئیت جدید)، `tests/e2e-workflow.js`+`migration-regression.js` (assert 031).
-**مستندات:** ۵ فایل docs/project-tracking + `mahdi hellp.md`. **هیچ مایگریشن مخرب/اضافی، هیچ API جدید خارج از docs، `version` = 0.9.1 دست‌نخورده.**
+### What was tested (اجرا شده، نه ادعا)
+* `npm test` → همهٔ ۲۱ سوئیت exit 0 (public-site = ۶۴ گروه).
+* `npm run test:e2e` روی سرور زندهٔ 3020 → `ok:true` (۲ شاگرد، ماه دوم، ایزوله‌سازی، خروج، نسخه 0.9.1).
+* smoke زنده با curl: `GET /` = 200 و دقیقاً ۲ لینک `https://t.me/yasnafitbot?start=landing`؛ `/magazine /about /services /contact` هر کدام ۱ لینک؛ صفر `data-telegram-bot`/`tg-dialog`؛ `GET /api/telegram-bot` = 401 و `POST /api/telegram-bot/connect` = 401.
+* `node scripts/audit-telegram.js` → گزارش `logs/telegram-audit.json` (gitignored): لینک درست در همهٔ صفحات عمومی، نبود فرم، اندپوینت‌ها ۴۰۱، صفر رکورد اتصال، رفتار username معتبر/نامعتبر.
 
-### What was tested
-* `npm test` (۱۹ سوئیت) exit 0 — اجرا شده، نه ادعا.
-* `npm run test:e2e` روی سرور زندهٔ 3020 = ok:true (fresh DB: 31 مایگریشن، ۲۷۰۷ حرکت).
-* smoke زنده: ۱۶/۱۶ URL 200 + HEAD 200.
-* DOM-order check روی HTML زنده: `hero__content` < `hero__media`، `about-preview__content` < `about-preview__media`، `cta-split__content` < `cta-split__media`، توالی offset همهٔ ۸ بخش صحیح؛ صفر services/results در home؛ ۶ pill + ۴ stats + ۴ about-card + ۳ features در HTML.
-
-### What failed
-* (تجربهٔ این session) نوشتار فارسی از طریق اسکریپت/ترمینال می‌تواند **هوموگلیف سیریلیک** داخل فایل جا بیندازد ⇒ بعد از هر نوشتار، ناحیهٔ هدف را با dump codepoint راستی‌آزمایی کنید و رفع را با index-splice (نه literal-match) انجام دهید.
-* (تجربه) `pkill -f "node server.js"` پوستهٔ فراخواننده را هم می‌کشد ⇒ از PID یا `-xf` استفاده کنید.
+### What failed / محدودیت‌ها
+* **Chromium در این سندباکس نیست** ⇒ تست مرورگر/پیکسل و بررسی موبایل انجام نشد؛ فقط مارک‌آپ + CSS + smoke. اگر مالک موبایل تأیید نکرد، اولین کار جلسهٔ بعد اجرای یک بررسی مرورگر است.
+* ادعای «پیام خوش‌آمد ربات» قابل تحقق بدون کد ربات نیست (توضیح داده شد).
 
 ### What remains
-1. ~~**مالک: تصمیم commit + PR**~~ ✅ انجام شد — Task 17–20 committed + push روی `arena/01a0b993-yasnafit` (2026-09-20؛ طبق قاعدهٔ مالک **بدون PR**).
-2. بعد از merge: auto-deploy ⇒ ریست uptime + تست چشمی مالک (هیرو/درباره/CTA، pillها، فوتر، پنل مجله).
-3. **T-18 (باقی‌مانده):** فقط تصویر OG نهایی مالک (اختیاری) → `public/images/landing/` + ست `site.og_image` از «تنظیمات سایت» (KI-018 بسته شد؛ بقیهٔ تصاویر در Task 20 DONE).
-4. ~~**T-19:** جای‌گذاری دکمه‌ها روی لندینگ~~ ✅ انجام شد (Task 22 — هدر بالا با لیست دقیق مالک + ثبت نام/ورود + منوی موبایل؛ مالک هدر را به‌جای دکمه‌روی‌تصویر انتخاب کرد).
-5. **T-17:** موتور auto-fetch (P2، فقط با تأیید مالک).
-6. تصمیم باز «غیرفعال‌کردن گوگل‌اتنتیکاتور» (جلسهٔ قبل) هنوز بی‌پاسخ.
+1. **مالک:** تأیید و merge PR این شاخه (سایت عمومی + دکمهٔ تلگرام). merge ⇒ auto-deploy ⇒ ری‌استارت uptime ملاک انتشار است.
+2. **ادامهٔ پرامپت مالک** (بخش‌های بعد از «… باز شود:») — جلسه منتظر آن است.
+3. **T-20:** چرخهٔ واقعی ربات (دریافت Update، هویت تأییدشده، outbox) + بازبینی مدل دوم. اگر مالک بخواهد «پیام خوش‌آمد خودکار» یا «نوتیفیکیشن در تلگرام» معنا پیدا کند، همین مسیر لازم است.
+4. T-17 (auto-fetch) و T-18-OG: فقط با تأیید مالک.
 
 ### Exact next step for the next Agent
-1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: تمیز روی `arena/01a0b993-yasnafit` — همهٔ کارهای Task 17–20 committed + push شده است).
-2. کار بعدی فقط با درخواست مالک (کارهای باز فعلی: T-17/P2 + T-18-OG اختیاری — فقط با تأیید مالک).
-3. پایان هر تسک: به‌روزرسانی همین فایل + commit + push + گزارش فارسی + بلوک `bat` §17 با نام شاخهٔ جلسه.
-
+1. فقط `mahdi hellp.md` را بخوان؛ بعد `git status --short` (انتظار: تغییرات Task 28 در working tree یا کامیت‌شده روی `arena/01a0c4f9-yasnafit`).
+2. اگر مالک بخش‌های بعدی پرامپت را فرستاد، همان را روی همین شاخه ادامه بده (بدون شاخهٔ جدید).
+3. پایان هر تسک: حافظه + CHANGELOG + commit + push + گزارش فارسی + بلوک `bat` §17 با نام شاخهٔ جلسه.
 
 ## 15. Files Changed Recently
+
+| فایل | تغییر | وضعیت |
+|---|---|---|
+| `server.js` | **Task 28:** `telegramBotLink()` + لینک ربات در هدر عمومی + بخش `telegram-cta` در home + حذف `GET /api/telegram-bot` و `POST /api/telegram-bot/connect` | این جلسه |
+| `public/landing.js`, `public/landing.css` | **Task 28:** حذف مودال/فرم تلگرام و `.tg-dialog*` + استایل `telegram-cta` | این جلسه |
+| `public/student-app.js` | **Task 28:** کارت پروفایل = «شناسهٔ تلگرام» (تماس اختیاری، بدون وعدهٔ ارسال) | این جلسه |
+| `tests/public-site-regression.js`, `tests/e2e-workflow.js` | **Task 28:** گاردهای لینک ساده/حذف مسیر عمومی (۶۴ گروه) | این جلسه |
+| `scripts/audit-telegram.js` | **Task 28:** بازنویسی برای قرارداد جدید (لینک، ۴۰۱، صفر رکورد) | این جلسه |
+| `docs/project-tracking/{CHANGELOG,PROJECT-CONTEXT,TODO,KNOWN-ISSUES,TELEGRAM-AUDIT-2026-09-21}.md` + `mahdi hellp.md` | **Task 28:** مستندسازی تغییر | این جلسه |
+| `YASNAFIT-LAUNCHER.bat` | **merge:** نسخهٔ `main` (گزینهٔ ۱ ⇒ `/coach/login`) نگه داشته شد | کامیت merge `052c569` |
+| ۵۶ فایل سایت عمومی (`server.js`, `src/*`, `public/landing.*`, `public/magazine-admin.*`, `src/migrations.js`, تست‌ها، تصاویر) | **merge:** از `arena/01a0b993-yasnafit` | کامیت merge `052c569` |
+
+### تاریخچه (قبل از merge)
 
 | `server.js` | **Task 17+18 (بدون کامیت):** ۷ صفحهٔ عمومی SSR + API عمومی/مدیریتی + `statsMarkup`/`statsBandMarkup`/`cta-split`/`footerMarkup`/`articleCardMarkup` + ۱۳ آیکن SVG + header «ورود» | uncommitted این session |
 | `src/article-service.js`, `src/public-content-service.js` | **Task 17 (جدید):** CRUD/فیلتر مقالات + تنظیمات سایت (`site.{hero,about,cta,og}_image`، auto-fetch خاموش) | uncommitted |
@@ -363,10 +380,10 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 | محیط | وضعیت | یادداشت |
 |---|---|---|
-| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0b993-yasnafit`) هم‌زمان می‌شود؛ چون `public/*` و `server.js` تغییر کرده **ری‌استارت سرور + `Ctrl+Shift+R` لازم است**؛ DB لوکال دست‌نخورده می‌ماند |
-| Local (سندباکس Agent) | **CURRENT (بدون کامیت)** | شاخهٔ `arena/01a0b993-yasnafit` = base `6301712` + کل Task 17/18 در working tree؛ سرور زنده روی 3020 با DB تازه (۳۱ مایگریشن، ۲۷۰۷ حرکت، داده e2e، بدون مربی provisioned) |
-| Git / GitHub origin | **BEHIND** | `origin/main` = `8b693cb`؛ شاخهٔ جلسه push نشده؛ **PR باز نشده** — فقط با تأیید مالک |
-| `main` | **`6301712` + merge‌های جدید (`8b693cb`)** | سایت عمومی هنوز روی main نیست؛ بعد از merge PR، build باید موفق شود و auto-deploy منتشر کند |
+| Local (لوکال مهدی) | **BEHIND** | با بلوک bat §17 (شاخهٔ `arena/01a0c4f9-yasnafit`) هم‌زمان می‌شود؛ چون `server.js` + `public/*` تغییر کرده **ری‌استارت سرور + `Ctrl+Shift+R` لازم است**؛ DB لوکال دست‌نخورده می‌ماند (هیچ مایگریشن جدیدی در این تسک نبود — بالاترین = 039) |
+| Local (سندباکس Agent) | **CURRENT** | شاخهٔ `arena/01a0c4f9-yasnafit` = merge (`052c569`) + تغییرات Task 28؛ سرور زنده روی 3020 با DB تازهٔ سندباکس (۳۹ مایگریشن، ۲۷۰۷ حرکت، بدون مربی provisioned). ⚠️ DB سندباکس هیچ ربطی به DB لوکال/Production مالک ندارد |
+| Git / GitHub origin | **پس از push این جلسه = CURRENT** | `origin/main` = `729ab7b` (snapshot مالک)؛ سایت عمومی + دکمهٔ تلگرام فقط روی شاخهٔ `arena/01a0c4f9-yasnafit` |
+| `main` | **`729ab7b`** | سایت عمومی هنوز روی main نیست؛ بعد از merge PR، build باید موفق شود و auto-deploy منتشر کند |
 | Railway | **LIVE (0.9.1) — کد سایت عمومی هنوز نیست** | بعد از merge، auto-deploy ⇒ ریست uptime ملاک است. ⚠️ DB production مالک با DB سندباکس **هیچ ارتباطی ندارد**؛ دادهٔ e2e سندباکس نباید به production برسد |
 
 
@@ -376,12 +393,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
-نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0b993-yasnafit`)؛ ساختار بلوک تغییر نکند:
+نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0c4f9-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git fetch origin
-git checkout arena/01a0b993-yasnafit
-git pull --ff-only origin arena/01a0b993-yasnafit
+git checkout arena/01a0c4f9-yasnafit
+git pull --ff-only origin arena/01a0c4f9-yasnafit
 .\YASNAFIT-LAUNCHER.bat
 ```
