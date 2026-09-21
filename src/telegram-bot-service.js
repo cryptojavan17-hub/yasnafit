@@ -35,6 +35,7 @@ const crypto = require('node:crypto');
 const DEFAULT_API_BASE = 'https://api.telegram.org';
 const DEFAULT_PUBLIC_URL = 'https://yasnafit.ir';
 const REGISTER_PATH = '/student/register';
+const LOGIN_PATH = '/student/login';
 const WEBHOOK_PATH = '/api/telegram/webhook';
 const SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const LANDING_START_PARAM = 'landing';
@@ -72,6 +73,7 @@ function getConfig(env = process.env) {
     apiBase,
     publicUrl,
     registerUrl: publicUrl + REGISTER_PATH,
+    loginUrl: publicUrl + LOGIN_PATH,
     webhookOrigin,
     webhookUrl: webhookOrigin ? webhookOrigin + WEBHOOK_PATH : '',
     secret,
@@ -105,46 +107,65 @@ function escapeHtml(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ---- Messages (owner's text, verbatim) ----------------------------------------------
-function welcomeMessage({ registerUrl }) {
-  const link = escapeHtml(registerUrl);
+// ---- Messages ---------------------------------------------------------------------------
+// Owner (2026-09-21, second revision): a respectful welcome first, then guidance. Formal
+// register («شما»), the registration link as an explicit anchor, and one inline button per
+// destination. Account linking is described as something that becomes available after
+// registration — it is not claimed to exist in this bot yet.
+function buttons({ registerUrl, loginUrl }) {
+  return { inline_keyboard: [[{ text: 'ثبت‌نام در سایت', url: registerUrl }], [{ text: 'ورود به پنل شخصی', url: loginUrl }]] };
+}
+
+function welcomeMessage({ registerUrl, loginUrl }) {
+  const register = escapeHtml(registerUrl);
+  const login = escapeHtml(loginUrl);
   const text = [
-    'سلام 👋',
+    'سلام و درود 👋',
+    'به ربات رسمی <b>یسنا فیت</b> خوش آمدید. از اینکه به ما سر زدید سپاسگزاریم.',
     '',
-    'به ربات یسنا فیت خوش اومدی!',
+    'یسنا فیت پلتفرم مربی‌گری آنلاین تناسب اندام است: برنامهٔ تمرینی و تغذیهٔ اختصاصی، ارزیابی تخصصی و پیگیری مستمر زیر نظر مربی.',
     '',
-    'برای دریافت نوتیفیکیشن وقتی مربی برنامه‌ات رو آماده کرد، اول در سایت ثبت‌نام کن.',
+    '📌 <b>راهنمای شروع</b>',
+    '۱) در سایت ثبت‌نام کنید:',
+    `<a href="${register}">${register}</a>`,
+    '۲) فرم ارزیابی را در پنل شخصی خود تکمیل کنید تا مربی برنامهٔ شما را آماده کند.',
+    '۳) پس از ثبت‌نام، امکان اتصال حساب به همین ربات در اختیارتان قرار می‌گیرد تا اعلان آماده‌شدن برنامه را در تلگرام دریافت کنید.',
     '',
-    'بعد از ثبت‌نام می‌تونی دوباره به ربات برگردی و حسابت رو وصل کنی تا پیام‌ها برات ارسال بشه.',
+    'قبلاً ثبت‌نام کرده‌اید؟ ورود به پنل شخصی:',
+    `<a href="${login}">${login}</a>`,
     '',
-    '🌐 ثبت‌نام در سایت:',
-    `<a href="${link}">${link}</a>`
+    'برای مشاهدهٔ دوبارهٔ این راهنما، دستور /help را ارسال کنید.'
   ].join('\n');
   return {
     text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: 'ثبت‌نام در سایت', url: registerUrl }]] }
+    reply_markup: buttons({ registerUrl, loginUrl })
   };
 }
 
-function helpMessage({ registerUrl }) {
-  const link = escapeHtml(registerUrl);
+function helpMessage({ registerUrl, loginUrl }) {
+  const register = escapeHtml(registerUrl);
+  const login = escapeHtml(loginUrl);
   const text = [
-    'راهنمای ربات یسنا فیت',
+    '📖 <b>راهنمای ربات یسنا فیت</b>',
     '',
-    'این ربات فعلاً برای معرفی و راهنمایی ثبت‌نام فعال است. دستورها:',
-    '/start — پیام خوش‌آمد و لینک ثبت‌نام',
+    'این ربات در حال حاضر برای معرفی یسنا فیت و راهنمایی شما تا ثبت‌نام فعال است.',
+    '',
+    'دستورها:',
+    '/start — پیام خوش‌آمد و راهنمای شروع',
     '/help — همین راهنما',
     '',
     '🌐 ثبت‌نام در سایت:',
-    `<a href="${link}">${link}</a>`
+    `<a href="${register}">${register}</a>`,
+    '🔑 ورود به پنل شخصی:',
+    `<a href="${login}">${login}</a>`
   ].join('\n');
   return {
     text,
     parse_mode: 'HTML',
     disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: 'ثبت‌نام در سایت', url: registerUrl }]] }
+    reply_markup: buttons({ registerUrl, loginUrl })
   };
 }
 
@@ -420,6 +441,7 @@ function createBot({ config = getConfig(), api = null, logger = console, sleep =
       username: state.username,
       webhook_url: state.webhook_url || null,
       register_url: config.registerUrl,
+      login_url: config.loginUrl,
       started_at: state.started_at,
       updates_received: state.updates_received,
       replies_sent: state.replies_sent,
@@ -436,6 +458,7 @@ module.exports = {
   DEFAULT_API_BASE,
   DEFAULT_PUBLIC_URL,
   REGISTER_PATH,
+  LOGIN_PATH,
   WEBHOOK_PATH,
   SECRET_HEADER,
   LANDING_START_PARAM,

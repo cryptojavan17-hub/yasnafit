@@ -23,6 +23,7 @@ const bot = require('../src/telegram-bot-service');
 const TOKEN = '1000000000:TEST_fake_token_never_real_AbCdEf';
 const SECRET = 'test-webhook-secret-1';
 const REGISTER = 'https://yasnafit.ir/student/register';
+const LOGIN = 'https://yasnafit.ir/student/login';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yasnafit-telegram-bot-'));
 const dataDir = path.join(dir, 'data');
@@ -158,6 +159,7 @@ let running = null;
     assert.equal(bot.getConfig({ TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_BOT_MODE: 'off' }).enabled, false);
     assert.equal(bot.getConfig({ TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_BOT_MODE: 'webhook' }).misconfigured, true, 'webhook mode without a public URL must be flagged, not silently polled');
     assert.equal(bot.getConfig({ TELEGRAM_BOT_TOKEN: TOKEN, YASNAFIT_PUBLIC_URL: 'https://staging.example/' }).registerUrl, 'https://staging.example/student/register');
+    assert.equal(polling.loginUrl, LOGIN, 'login link must default to the student login page');
     check('token gates the bot; auto mode = webhook with URL, polling without; secret derived or explicit');
   }
 
@@ -183,17 +185,22 @@ let running = null;
     check('/start with landing, without payload and with another payload → welcome');
 
     const text = landing.message.text;
-    for (const line of ['سلام 👋', 'به ربات یسنا فیت خوش اومدی!', 'برای دریافت نوتیفیکیشن وقتی مربی برنامه‌ات رو آماده کرد، اول در سایت ثبت‌نام کن.', 'بعد از ثبت‌نام می‌تونی دوباره به ربات برگردی و حسابت رو وصل کنی تا پیام‌ها برات ارسال بشه.', '🌐 ثبت‌نام در سایت:']) {
-      assert.ok(text.includes(line), `welcome text is missing the owner line: ${line}`);
+    // Owner (second revision): respectful welcome first, then guidance — formal register.
+    for (const line of ['سلام و درود 👋', 'خوش آمدید', 'راهنمای شروع', '۱) در سایت ثبت‌نام کنید:', '۲) فرم ارزیابی', '۳) پس از ثبت‌نام', 'ورود به پنل شخصی', '/help']) {
+      assert.ok(text.includes(line), `welcome text is missing: ${line}`);
     }
+    assert.ok(text.indexOf('خوش آمدید') < text.indexOf('راهنمای شروع'), 'welcome must come before the guidance');
+    for (const informal of ['اومدی', 'می‌تونی', 'برات', 'برنامه‌ات رو']) assert.ok(!text.includes(informal), `informal wording must not appear: ${informal}`);
     assert.ok(text.includes(`<a href="${REGISTER}">${REGISTER}</a>`), 'registration link must be an explicit clickable anchor');
+    assert.ok(text.includes(`<a href="${LOGIN}">${LOGIN}</a>`), 'login link must be an explicit clickable anchor');
     assert.equal(landing.message.parse_mode, 'HTML');
-    assert.deepEqual(landing.message.reply_markup, { inline_keyboard: [[{ text: 'ثبت‌نام در سایت', url: REGISTER }]] });
-    assert.doesNotMatch(text, /<(?!\/?a\b)[^>]*>/, 'only the anchor tag may appear in HTML mode');
-    check('welcome message = owner text verbatim + clickable registration link + inline button');
+    assert.equal(landing.message.disable_web_page_preview, true);
+    assert.deepEqual(landing.message.reply_markup, { inline_keyboard: [[{ text: 'ثبت‌نام در سایت', url: REGISTER }], [{ text: 'ورود به پنل شخصی', url: LOGIN }]] });
+    assert.doesNotMatch(text, /<(?!\/?(?:a|b)\b)[^>]*>/, 'only <a> and <b> may appear in HTML mode');
+    check('welcome = respectful greeting, then step-by-step guidance, register + login links and buttons');
 
     const help = bot.planReply(startUpdate(4, 7, '/help'), config);
-    assert.equal(help.kind, 'help'); assert.ok(help.message.text.includes('/start')); assert.ok(help.message.text.includes(REGISTER));
+    assert.equal(help.kind, 'help'); assert.ok(help.message.text.includes('/start')); assert.ok(help.message.text.includes(REGISTER)); assert.ok(help.message.text.includes(LOGIN));
     const guide = bot.planReply(startUpdate(5, 7, 'سلام، برنامه‌ام کی آماده می‌شه؟'), config);
     assert.equal(guide.kind, 'guide', 'other private text must get the short guide, never silence');
     const sticker = bot.planReply({ update_id: 6, message: { chat: { id: 7, type: 'private' }, sticker: { file_id: 'x' } } }, config);
@@ -266,9 +273,10 @@ let running = null;
     const [sent] = await fake.waitFor('sendMessage');
     assert.equal(sent.params.chat_id, 4242);
     assert.equal(sent.params.parse_mode, 'HTML');
-    assert.ok(sent.params.text.includes('به ربات یسنا فیت خوش اومدی!'));
+    assert.ok(sent.params.text.includes('خوش آمدید') && sent.params.text.includes('راهنمای شروع'));
     assert.ok(sent.params.text.includes(`<a href="${REGISTER}">${REGISTER}</a>`));
     assert.deepEqual(sent.params.reply_markup.inline_keyboard[0][0], { text: 'ثبت‌نام در سایت', url: REGISTER });
+    assert.deepEqual(sent.params.reply_markup.inline_keyboard[1][0], { text: 'ورود به پنل شخصی', url: LOGIN });
     check('valid /start landing → 200 immediately, then sendMessage(welcome) to that chat');
 
     await request(running.base, hookPath, { method: 'POST', body: startUpdate(12, 4242, '/start'), headers: { 'X-Telegram-Bot-Api-Secret-Token': SECRET } });
