@@ -8,6 +8,13 @@
 
 ## 2026-09-21
 
+### Correction 15 (T-17 — coach article actions and visible editor)
+- Coach-table «مشاهده» now opens the validated original HTTP(S) source in a separate tab; articles without a source retain a local read-only preview. Public «مطالعه کامل مطلب» remains internal.
+- Replaced the article's unpositioned body-appended modal with a native top-layer dialog, upper-center placement, viewport bounds, internal scroll and always-visible header/save/close controls. Focus, Escape/outside close, pending state and inline errors are handled. Both table and queue use the same editor; removed duplicate queue action listeners.
+- Editing fetches full detail before offering a save form (list projections omit body). Existing references are initialized correctly. Category change/clear now reaches the API as a numeric ID; partial API edits preserve origin/body/references, and cover clearing works. Existing slugs are visibly read-only. Unpublish/delete use confirmations and pending controls.
+- Verification: `npm test` all 21 suites passed, including added persisted category/cover/origin/body tests. Opt-in `npm run test:magazine-editor-browser` passed with real Chromium, authenticated server and isolated temporary SQLite at desktop 1360×900 and mobile viewport 390×844. Covers source popup, full-text/reference preservation, failed detail/save handling, single submit, queue binding, close/focus, confirmed unpublish/public 404 and delete. No browser page errors. [Geometry/check evidence](evidence/magazine-editor-browser-2026-09-21.json). Screenshots are local ignored files in `logs/magazine-editor-browser/`.
+- Browser test needs Playwright/browser installed separately (optional `YASNAFIT_BROWSER_EXECUTABLE`); no production dependency added. Test body is owned synthetic text; only the outbound destination response is intercepted to avoid publisher availability. This verifies UI/actions, NOT live source ingestion or full third-party copying. No AI-copy feature, schema/auth changes or public navigation reversal.
+
 ### Correction 14 (T-17 — internal article reading, no public original-source referral)
 - Home/magazine SSR and client-rendered card CTA now reads «مطالعه کامل مطلب» and keeps the internal `/magazine/:slug` destination. The article page displays the stored editor body; no external redirect is introduced.
 - Public article/list projections omit source metadata and the public sources footer is removed. Exact legacy auto-generated «مطالعهٔ کامل مطلب در منبع اصلی» paragraphs are suppressed on public reads, including malformed older stored anchors. Coach content and provenance are preserved in storage/admin; validation and dedup still use them. New discovered drafts no longer append this outbound CTA.

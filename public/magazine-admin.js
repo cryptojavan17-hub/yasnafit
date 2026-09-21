@@ -183,6 +183,13 @@
     return `<span class="mag-badge mag-badge--${esc(status)}">${STATUS_LABELS[status] || esc(status)}</span>`;
   }
 
+  function articleSourceUrl(article) {
+    try {
+      const url = new URL(article.source_url || '');
+      return /^https?:$/.test(url.protocol) ? url.href : '';
+    } catch (_) { return ''; }
+  }
+
   function articlesMarkup() {
     const allChecked = state.articles.length > 0 && state.articles.every(a => state.selection.has(a.id));
     const someChecked = state.articles.some(a => state.selection.has(a.id));
@@ -239,7 +246,7 @@
                 <td>${faDate(a.updated_at)}</td>
                 <td>
                   <div class="mag-actions">
-                    <button type="button" class="mag-action" data-action="view" data-id="${a.id}">مشاهده</button>
+                    ${articleSourceUrl(a) ? `<a class="mag-action" data-article-source="${a.id}" href="${esc(articleSourceUrl(a))}" target="_blank" rel="noopener noreferrer" title="مشاهده منبع اصلی">مشاهده</a>` : `<button type="button" class="mag-action" data-action="view" data-id="${a.id}" title="نمایش متن ثبت‌شده؛ منبعی ندارد">مشاهده</button>`}
                     <button type="button" class="mag-action" data-action="edit" data-id="${a.id}">ویرایش</button>
                     ${['DRAFT', 'PENDING_REVIEW', 'REJECTED'].includes(a.status) ? `<button type="button" class="mag-action mag-action--publish" data-action="publish" data-id="${a.id}">تأیید و انتشار</button>` : ''}
                     ${a.status === 'PENDING_REVIEW' || a.status === 'DRAFT' ? `<button type="button" class="mag-action mag-action--reject" data-action="reject" data-id="${a.id}">رد</button>` : ''}
@@ -316,33 +323,72 @@
         renderPane();
       } catch (error) { toast(error.message, true); }
     }));
-    pane.querySelectorAll('.mag-action').forEach(btn => btn.addEventListener('click', async () => {
+    pane.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', async () => {
       const action = btn.dataset.action;
       const id = Number(btn.dataset.id);
       if (action === 'view' || action === 'edit') return articleModal(id, action === 'view' ? 'view' : 'edit');
       const verbs = { publish: 'تأیید و انتشار', reject: 'رد', 'to-review': 'ارسال به بررسی', 'to-draft': 'لغو انتشار', delete: 'حذف' };
       if (action === 'delete' && !window.confirm('این مقاله حذف شود؟')) return;
+      if (action === 'to-draft' && !window.confirm('انتشار این مقاله لغو شود؟ متن و تصویر حفظ می‌شود و از سایت عمومی کنار می‌رود.')) return;
+      const rowButtons = [...btn.closest('tr').querySelectorAll('[data-action]')];
+      const oldLabel = btn.textContent;
+      rowButtons.forEach(b => { b.disabled = true; });
+      btn.textContent = 'در حال انجام…';
       try {
         if (action === 'delete') await api(`/api/magazine/admin/articles/${id}`, { method: 'DELETE' });
         else await api(`/api/magazine/admin/articles/${id}/${action}`, { method: 'POST' });
         toast(`عمل «${verbs[action]}» انجام شد`);
         state.selection.delete(id);
-        renderPane();
+        await renderPane();
       } catch (error) { toast(error.message, true); }
+      finally {
+        rowButtons.forEach(b => { b.disabled = false; });
+        btn.textContent = oldLabel;
+      }
     }));
   }
 
-  function articleModal(id, mode = 'edit') {
+  async function articleModal(id, mode = 'edit') {
+    const opened = document.querySelector('.mag-article-dialog[open]');
+    if (opened) { opened.querySelector('input, button')?.focus({ preventScroll: true }); return; }
     const isView = mode === 'view';
-    const existing = id ? state.articles.find(a => a.id === id) : null;
-    const backdrop = document.createElement('div');
-    backdrop.className = 'modal-backdrop';
-    backdrop.innerHTML = `
-      <form class="modal modal--wide" data-article-form>
+    const opener = document.activeElement;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'mag-article-dialog';
+    dialog.dir = 'rtl';
+    dialog.setAttribute('aria-labelledby', 'magArticleDialogTitle');
+    dialog.innerHTML = '<div class="mag-editor-loading"><h2 id="magArticleDialogTitle">مقاله</h2><p role="status">در حال دریافت متن کامل مقاله…</p></div><button type="button" class="secondary" data-close-modal>بستن</button>';
+    let saving = false;
+    const close = () => { if (!saving) dialog.close(); };
+    dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    dialog.addEventListener('click', event => {
+      if (event.target.closest('[data-close-modal]')) return close();
+      const r = dialog.getBoundingClientRect();
+      if (event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) close();
+    });
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      document.body.classList.remove('mag-article-editor-open');
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+      else document.querySelector('[data-tab="articles"]')?.focus({ preventScroll: true });
+    }, { once: true });
+    document.body.append(dialog);
+    document.body.classList.add('mag-article-editor-open');
+    dialog.showModal();
+    let existing = null;
+    try { if (id) existing = await api(`/api/magazine/admin/articles/${id}`); }
+    catch (error) {
+      if (dialog.isConnected) dialog.innerHTML = `<div class="mag-editor-loading"><h2 id="magArticleDialogTitle">دریافت مقاله ناموفق بود</h2><p role="alert">${esc(error.message)}</p><button type="button" class="secondary" data-close-modal>بستن و تلاش دوباره</button></div>`;
+      return;
+    }
+    if (!dialog.isConnected) return;
+    dialog.innerHTML = `
+      <form class="magazine-admin mag-article-form" data-article-form>
         <div class="modal-head">
-          <h2>${isView ? 'مشاهده مقاله' : existing ? 'ویرایش مقاله' : 'مقاله جدید'}</h2>
+          <h2 id="magArticleDialogTitle">${isView ? 'مشاهده مقاله' : existing ? 'ویرایش مقاله' : 'مقاله جدید'}</h2>
           <button type="button" class="close" data-close-modal aria-label="بستن">×</button>
         </div>
+        <div class="mag-editor-error" role="alert" data-editor-error hidden></div>
         <div class="modal-body">
           ${isView && existing ? `
             <div class="mag-article-view">
@@ -357,7 +403,7 @@
             </div>` : `
             <div class="form-grid">
               <label class="field-label">عنوان *<input class="field" name="title" required maxlength="200" value="${esc(existing?.title || '')}"></label>
-              <label class="field-label">Slug (اختیاری)<input class="field" name="slug" dir="ltr" maxlength="120" placeholder="auto-from-title" value="${esc(existing?.slug || '')}"></label>
+              <label class="field-label">${existing ? 'نشانی مقاله (ثابت)' : 'نشانی مقاله (اختیاری)'}<input class="field" name="slug" ${existing ? 'readonly' : ''} dir="ltr" maxlength="120" placeholder="auto-from-title" value="${esc(existing?.slug || '')}"></label>
               <label class="field-label">دسته‌بندی
                 <select class="field" name="category">
                   <option value="">— بدون دسته —</option>
@@ -383,20 +429,17 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="secondary" data-close-modal>بستن</button>
-          ${isView ? '' : '<button type="submit" class="primary">ذخیره</button>'}
+          ${existing ? `<span class="mag-editor-state">${statusBadge(existing.status)}</span>` : ''}
+          ${isView ? '' : '<button type="submit" class="primary">ذخیره تغییرات</button>'}
         </div>
       </form>`;
-    document.body.append(backdrop);
-    const form = backdrop.querySelector('form');
-    backdrop.querySelectorAll('[data-close-modal]').forEach(btn => btn.addEventListener('click', () => backdrop.remove()));
-    backdrop.addEventListener('click', event => { if (event.target === backdrop) backdrop.remove(); });
-    document.addEventListener('keydown', escClose);
-    function escClose(event) { if (event.key === 'Escape') { backdrop.remove(); document.removeEventListener('keydown', escClose); } }
+    const form = dialog.querySelector('form');
+    (form.querySelector('[name="title"]') || form.querySelector('[data-close-modal]'))?.focus({ preventScroll: true });
 
-    if (isView || !existing) {
+    if (!isView) {
       // sources editor
-      const sourcesList = backdrop.querySelector('#magSourcesList');
-      const addBtn = backdrop.querySelector('#magAddSource');
+      const sourcesList = dialog.querySelector('#magSourcesList');
+      const addBtn = dialog.querySelector('#magAddSource');
       let sources = existing ? [...(existing.sources || [])] : [];
       function renderSources() {
         if (!sourcesList) return;
@@ -423,11 +466,12 @@
     if (!isView) {
       form.addEventListener('submit', async event => {
         event.preventDefault();
+        if (saving) return;
         const fields = Object.fromEntries(new FormData(form));
         const body = {
           title: fields.title,
           slug: fields.slug || undefined,
-          category: fields.category ? fields.category : null,
+          category_id: fields.category ? Number(fields.category) : null,
           cover_image: fields.cover_image,
           summary: fields.summary,
           content: fields.content,
@@ -437,19 +481,27 @@
           sources: form._collectSources ? form._collectSources() : undefined
         };
         try {
-          const submitBtn = form.querySelector('[type="submit"]');
-          if (submitBtn) submitBtn.disabled = true;
+          saving = true;
+          form.setAttribute('aria-busy', 'true');
+          form.querySelector('[data-editor-error]').hidden = true;
+          form.querySelectorAll('button').forEach(b => { b.disabled = true; });
+          form.querySelector('[type="submit"]').textContent = 'در حال ذخیره…';
           let saved;
           if (existing) saved = await api(`/api/magazine/admin/articles/${existing.id}`, { method: 'PUT', body: JSON.stringify(body) });
           else saved = await api('/api/magazine/admin/articles', { method: 'POST', body: JSON.stringify({ ...body, publish: Boolean(form.querySelector('[name="publish"]')?.checked) }) });
           toast(`مقاله «${saved.title}» ذخیره شد`);
-          backdrop.remove();
-          document.removeEventListener('keydown', escClose);
-          renderPane();
+          saving = false;
+          await renderPane();
+          close();
         } catch (error) {
-          toast(error.message, true);
-          const submitBtn = form.querySelector('[type="submit"]');
-          if (submitBtn) submitBtn.disabled = false;
+          const notice = form.querySelector('[data-editor-error]');
+          notice.textContent = error.message;
+          notice.hidden = false;
+        } finally {
+          saving = false;
+          form.removeAttribute('aria-busy');
+          form.querySelectorAll('button').forEach(b => { b.disabled = false; });
+          form.querySelector('[type="submit"]').textContent = 'ذخیره تغییرات';
         }
       });
     }
@@ -1021,11 +1073,6 @@
         });
       });
     });
-    pane.querySelectorAll('[data-news-action]').forEach(btn => {
-      const id2 = Number(btn.dataset.id);
-      const action2 = btn.dataset.newsAction;
-      btn.addEventListener('click', async () => { await newsCardAction(id2, action2); });
-    });
   }
   async function newsCardAction(id, action) {
     try {
@@ -1033,10 +1080,7 @@
         state.reviewId = id;
         await renderPane();
       } else if (action === 'edit') {
-        const article = await api(`/api/magazine/admin/articles/${id}`);
-        state.articles = state.articles.filter(x => x.id !== article.id);
-        state.articles.unshift(article);
-        articleModal(id);
+        await articleModal(id);
       } else if (action === 'image') {
         const item = state.queue.find(x => x.id === id);
         imageModal(id, item ? item.cover_image : '');

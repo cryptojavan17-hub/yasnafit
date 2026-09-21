@@ -357,8 +357,9 @@ function updateArticle(db, id, input) {
     title: input.title !== undefined ? input.title : existing.title,
     summary: input.summary !== undefined ? input.summary : existing.summary,
     content: input.content !== undefined ? input.content : existing.content,
-    category: input.category !== undefined ? (input.category || null) : existing.category_slug,
-    content_origin: input.content_origin,
+    category_id: input.category_id !== undefined ? input.category_id : input.category !== undefined ? null : existing.category_id,
+    category: input.category_id !== undefined ? null : input.category !== undefined ? (input.category || null) : existing.category_slug,
+    content_origin: input.content_origin !== undefined ? input.content_origin : existing.content_origin,
     source_name: input.source_name !== undefined ? input.source_name : existing.source_name,
     source_url: input.source_url !== undefined ? input.source_url : existing.source_url
   };
@@ -367,12 +368,12 @@ function updateArticle(db, id, input) {
   const coverChanged = input.cover_image !== undefined;
   db.prepare(`
     UPDATE magazine_articles
-    SET title=?, summary=?, content=?, category_id=?, cover_image=COALESCE(?, cover_image),
+    SET title=?, summary=?, content=?, category_id=?, cover_image=?,
         content_origin=?, source_name=?, source_url=?, reading_time=?, updated_at=CURRENT_TIMESTAMP
     WHERE id=? AND deleted_at IS NULL
   `).run(
     v.title, v.summary, v.content, v.categoryId,
-    coverChanged ? (cleanText(input.cover_image, 300) || null) : null,
+    coverChanged ? (cleanText(input.cover_image, 300) || null) : existing.cover_image,
     v.origin, v.sourceName || null, v.sourceUrl || null, readingTimeFor(v.content), id
   );
   if (input.sources !== undefined) replaceSources(db, id, input.sources);

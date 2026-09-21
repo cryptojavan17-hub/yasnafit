@@ -405,6 +405,22 @@ async function waitForServer(timeoutMs = 15000) {
     const inOther = await ok('/api/magazine?category=health');
     assert.equal(inOther.articles.length, 0);
     check('category filter works both ways');
+    const healthId = categories.categories.find(c => c.slug === 'health').id;
+    await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { category_id: healthId, content_origin: 'imported', cover_image: 'https://example.com/editor-cover.jpg' } });
+    const movedCategory = await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { category_id: nutritionId } });
+    assert.equal(movedCategory.category_id, nutritionId);
+    assert.equal(movedCategory.content_origin, 'imported');
+    assert.equal(movedCategory.cover_image, 'https://example.com/editor-cover.jpg');
+    assert.match(movedCategory.content, /متن کامل نوشته‌شده توسط مربی/);
+    const clearedFields = await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { category_id: null, cover_image: '' } });
+    assert.equal(clearedFields.category_id, null);
+    assert.equal(clearedFields.cover_image, null);
+    assert.equal(clearedFields.content_origin, 'imported');
+    assert.equal(clearedFields.sources.length, 2);
+    await ok(`/api/magazine/admin/articles/${articleId}`, { method: 'PUT', cookie: coachCookie, body: { category: 'nutrition' } });
+    assert.equal((await ok(`/api/magazine/admin/articles/${articleId}`, { cookie: coachCookie })).category_id, nutritionId);
+    check('editor category ID/slug/clear and cover clear work; partial edit preserves body, origin and references');
+
 
     // Back to draft hides it again.
     await ok(`/api/magazine/admin/articles/${articleId}/to-draft`, { method: 'POST', cookie: coachCookie });

@@ -28,7 +28,8 @@
     "test:public-site": "node tests/public-site-regression.js",
     "test:magazine-discovery": "node tests/magazine-discovery-regression.js",
     "test:e2e": "node tests/e2e-workflow.js",
-    "test:magazine-direct": "node tests/magazine-direct-publishers-regression.js"
+    "test:magazine-direct": "node tests/magazine-direct-publishers-regression.js",
+    "test:magazine-editor-browser": "node tests/magazine-editor-browser.js"
   },
   "engines": {
     "node": ">=22.5"
