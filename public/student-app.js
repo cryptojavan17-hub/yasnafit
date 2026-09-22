@@ -52,9 +52,49 @@
   function toast(message,type='info'){
     document.querySelector('.student-toast')?.remove();const el=document.createElement('div');el.className=`student-toast ${type==='error'?'error':''}`;el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),3600);
   }
+  // اگر شاگرد موقع ثبت‌نام آیدی تلگرام نداده بود، با کلیک روی آیکون تلگرام همین‌جا درخواست می‌شود
+  async function ensureTelegramIdSaved(status){
+    if(status.telegram_id_saved!==false)return true;
+    const typed=prompt('برای دریافت اعلان‌ها در تلگرام، آیدی تلگرام خود را وارد کنید (مثلاً @ali_ahmadi)\n— از تلگرام ← Settings ← Username قابل مشاهده است:');
+    if(typed===null){toast('بدون آیدی تلگرام نمی‌توان اتصال را کامل کرد.','error');return false;}
+    const clean=typed.trim().replace(/^@/,'');
+    if(!/^[A-Za-z0-9_]{5,32}$/.test(clean)){toast('آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi.','error');return false;}
+    await api('/api/student/telegram/id',{method:'PUT',body:jsonBody({telegram_id:clean})});
+    toast('آیدی تلگرام ذخیره شد. ✈️');
+    return true;
+  }
+  // اتصال خودکار تلگرام: پنجره در همان لحظهٔ کلیک باز می‌شود (ضد پاپ‌آپ‌بلاکر)، سپس لینک deep-link تزریق می‌شود
+  async function connectTelegramAuto(onPopupBlocked){
+    const win=window.open('about:blank','_blank');
+    try{
+      const link=await api('/api/student/telegram/link',{method:'POST'});
+      if(win){ win.location=link.deep_link; }
+      else if(typeof onPopupBlocked==='function'){ onPopupBlocked(link); }
+      else { location.href=link.deep_link; }
+      toast('تلگرام باز شد؛ فقط دکمهٔ «Start» را بزنید تا اتصال کامل شود. ✈️');
+      return link;
+    }catch(error){ if(win)win.close(); throw error; }
+  }
   function loading(message='در حال بارگذاری اطلاعات...'){root.innerHTML=`<div class="student-loading"><span class="student-spinner"></span><p>${esc(message)}</p></div>`;}
+  const THEME_TOGGLE_ICONS='<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg>';
+  const COACH_ENTRY='<a class="entry-coach-link" href="/coach/login">ورود مربی</a>';
+  /* لینک کوچک به صفحهٔ اصلی (لندینگ عمومی روی «/») — تصمیم نهایی مالک 2026-09-21: لندینگ جدید = صفحهٔ اصلی */
+  const LANDING_ENTRY='<a class="entry-site-link" href="/">معرفی یسنا فیت</a>';
+  /* راه‌های ارتباطی صفحهٔ اصلی — برای تغییر، فقط مقادیر href را عوض کنید */
+  const CONTACTS=[
+    {id:'instagram',href:'https://instagram.com/exercise._.yasna._',label:'اینستاگرام یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2"/><circle cx="12" cy="12" r="4.1"/><circle class="dot" cx="17.2" cy="6.8" r="1.25"/></svg>'},
+    {id:'telegram',href:'https://t.me/yasnaa1997',label:'تلگرام یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>'},
+    {id:'email',href:'mailto:info@yasnafit.ir',label:'ایمیل یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.6"/><path d="m4.2 7.4 7.8 5.8 7.8-5.8"/></svg>'},
+    {id:'phone',href:'tel:+989150000000',label:'تماس تلفنی با یاسنافیت',
+     svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 5 12.07 19.79 19.79 0 0 1 1.93 3.44 2 2 0 0 1 3.92 1.18h3a2 2 0 0 1 2 1.72c.12 1.05.4 2.07.82 3.03a2 2 0 0 1-.45 2.11L9 9a16 16 0 0 0 6 6l.95-1.32a2 2 0 0 1 2.11-.45c.96.42 1.98.7 3.03.82A2 2 0 0 1 22 16.92z"/></svg>'},
+  ];
+  const CONTACT_LINKS=`<nav class="entry-contact-rail" aria-label="راه‌های ارتباطی با یاسنافیت">${CONTACTS.map(item=>`<a class="contact-ico contact-${item.id}" href="${item.href}" title="${item.label}" aria-label="${item.label}" target="_blank" rel="noopener">${item.svg}</a>`).join('')}</nav>`;
+  function themeFloatButton(){const light=window.YasnafitTheme?window.YasnafitTheme.current()==='light':true;return `<button class="theme-toggle theme-toggle-float" type="button" data-theme-toggle title="${light?'رفتن به تم تاریک':'رفتن به تم روشن'}" aria-label="تغییر تم روشن/تاریک" aria-pressed="${light?'true':'false'}">${THEME_TOGGLE_ICONS}</button>`;}
   function errorPage(title,message,icon='!'){
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-error-icon">${icon}</div><span class="join-brand">YASNAFIT</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="student-error-actions"><button class="secondary" data-retry-reload>تلاش دوباره</button></div><small class="join-meta">برای دریافت لینک جدید با مربی خود تماس بگیرید.</small></div></section>`;
+    root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-error-icon">${icon}</div><span class="join-brand">YASNAFIT</span><h1>${esc(title)}</h1><p>${esc(message)}</p><div class="student-error-actions"><button class="secondary" data-retry-reload>تلاش دوباره</button></div><small class="join-meta">برای دریافت لینک جدید با مربی خود تماس بگیرید.</small></div>${COACH_ENTRY}</section>`;
     root.querySelector('[data-retry-reload]').onclick=()=>location.reload();
   }
   function nav(path){
@@ -63,9 +103,22 @@
   }
   function shell(path,content){
     const navigation=nav(path),name=me?.student?.full_name||'شاگرد',passwordSuggestion=me?.password_change_recommended?'<aside class="password-recommendation"><div><b>پیشنهاد امنیتی</b><span>بهتر است رمز موقت را به یک رمز شخصی حداقل ۸ کاراکتری تغییر دهید.</span></div><a href="/student/change-password">تغییر رمز</a></aside>':'';
-    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>برنامه و ارزیابی شخصی</small>${me?.student?.case_number?`<span class="portal-case-number">پرونده <b>${esc(me.student.case_number)}</b></span>`:''}</div><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${passwordSuggestion}${content}</section></div>${navigation.bottom}</div>`;
+    root.innerHTML=`<div class="student-shell"><header class="student-header"><div class="student-brand"><div class="student-brand-mark">Y</div><div><b>YASNAFIT</b><small>پنل شخصی شما</small></div></div><div class="student-header-user"><div><b>سلام، ${esc(name)} 👋</b><small>برنامه و ارزیابی شخصی</small>${me?.student?.case_number?`<span class="portal-case-number">پرونده <b>${esc(me.student.case_number)}</b></span>`:''}</div><button class="theme-toggle" id="studentTgConnect" type="button" title="اتصال تلگرام — دریافت اعلان‌ها در تلگرام" aria-label="اتصال تلگرام"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 4.6 19 19.3c-.2 1-0.8 1.2-1.6 0.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.9.4l.3-4.6L18.6 7c.4-.3-.1-.5-.6-.2L8 13.2l-4.4-1.4c-1-.3-1-1 .2-1.4L20.6 3.2c.8-.3 1.5.2 1.3 1.4z"/></svg></button><button class="theme-toggle" id="studentThemeToggle" type="button" data-theme-toggle title="تغییر تم روشن/تاریک" aria-label="تغییر تم روشن/تاریک" aria-pressed="false"><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 13.4A8.4 8.4 0 0 1 10.6 3.8 8.4 8.4 0 1 0 20.2 13.4Z"/></svg></button><button data-student-logout class="student-header-logout" title="خروج" aria-label="خروج">⇥</button></div></header><div class="student-layout">${navigation.side}<section class="student-main">${passwordSuggestion}${content}</section></div>${navigation.bottom}</div>`;
     root.querySelectorAll('[data-student-logout]').forEach(button=>button.addEventListener('click',logout));
+    const tgConnectBtn=root.querySelector('#studentTgConnect');
+    if(tgConnectBtn)tgConnectBtn.addEventListener('click',async()=>{
+      tgConnectBtn.disabled=true;
+      try{
+        const status=await api('/api/student/telegram/status');
+        if(!status.configured){toast('اتصال تلگرام هنوز فعال نشده است؛ از مربی خود بخواهید ربات را در پنل مدیریتی فعال کند.','error');return;}
+        if(status.telegram&&status.telegram.connected){location.href='/student/profile';return;}
+        if(!await ensureTelegramIdSaved(status))return;
+        await connectTelegramAuto(link=>{ location.href=link.deep_link; });
+      }catch(error){ toast(error.message,'error'); }
+      finally{ if(tgConnectBtn)tgConnectBtn.disabled=false; }
+    });
     if(window.YasnaJalali)window.YasnaJalali.autoInit();
+    if(window.YasnafitTheme)window.YasnafitTheme.apply(window.YasnafitTheme.current());
   }
   async function logout(){
     try{await api('/api/student/logout',{method:'POST'});}catch(error){}
@@ -136,7 +189,7 @@
     const provinceOptionsHtml = Object.keys(IRAN_PROVINCES_AND_CITIES).map(prov => `<option value="${esc(prov)}">${esc(prov)}</option>`).join('');
 
     root.innerHTML = `
-      <section class="hero-login-stage" dir="rtl">
+      <section class="hero-login-stage" dir="rtl">${themeFloatButton()}
         <div id="authLoginPanel" class="hero-login-frame" style="${activeTab==='login'?'':'display:none;'}">
           <img src="/login-hero.png" alt="" class="hero-login-art" draggable="false">
           <form class="hero-login-hotspots" id="studentLoginForm" autocomplete="on" novalidate>
@@ -157,6 +210,7 @@
             <button type="submit" class="hotspot hotspot-submit" id="btnLoginSubmit" aria-label="ورود"></button>
             <button type="button" class="hotspot hotspot-register" id="btnGoToRegister" aria-label="حساب کاربری ندارید؟ ثبت‌نام کنید"></button>
           </form>
+          ${CONTACT_LINKS}
         </div>
 
         <div id="authRegisterPanel" class="hero-register-stage" style="${activeTab==='register'?'display:block;':'display:none;'}">
@@ -255,6 +309,20 @@
                   </div>
                 </div>
 
+                <div class="luxury-field" id="regTelegramBlock">
+                  <label class="luxury-checkbox"><input type="checkbox" name="telegram_opt_in" id="regTelegramOpt"><span>🔔 اگر مایلید به‌محض آماده‌شدن برنامه‌تان توسط مربی، در تلگرام خبردار شوید این تیک را بزنید.</span></label>
+                  <div id="regTelegramIdWrap" style="display:none;margin-top:10px;">
+                    <label for="regTelegramId">آیدی تلگرام *</label>
+                    <div class="luxury-input-wrap">
+                      <span class="input-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.9 4.6 19 19.3c-.2 1-0.8 1.2-1.6 0.8l-4.5-3.3-2.2 2.1c-.2.2-.4.4-.9.4l.3-4.6L18.6 7c.4-.3-.1-.5-.6-.2L8 13.2l-4.4-1.4c-1-.3-1-1 .2-1.4L20.6 3.2c.8-.3 1.5.2 1.3 1.4z"/></svg>
+                      </span>
+                      <input id="regTelegramId" name="telegram_id" dir="ltr" placeholder="@username" maxlength="32" autocomplete="off">
+                    </div>
+                    <small style="font-size:11px;color:rgba(255,255,255,.55);display:block;margin-top:5px;">آیدی تلگرام شما با @ شروع می‌شود (مثلاً @ali_ahmadi) — از تلگرام ← Settings ← Username.</small>
+                  </div>
+                </div>
+
                 <label class="luxury-checkbox"><input type="checkbox" name="terms_accepted" id="regTerms" required checked><span>شرایط استفاده و حریم خصوصی سامانه ورزشی یاسنافیت را می‌پذیرم.</span></label>
 
                 <button type="submit" class="luxury-submit" id="btnRegisterSubmit"><span>ثبت‌نام</span></button>
@@ -265,6 +333,8 @@
               </form>
             </div>
         </div>
+        ${LANDING_ENTRY}
+        ${COACH_ENTRY}
       </section>
     `;
 
@@ -293,6 +363,20 @@
     const goToLogBtn = root.querySelector('#btnGoToLogin');
     if (goToRegBtn) goToRegBtn.onclick = () => switchToTab('register');
     if (goToLogBtn) goToLogBtn.onclick = () => switchToTab('login');
+
+    // تیک رضایت اعلان تلگرام → فیلد آیدی تلگرام ظاهر و الزامی می‌شود
+    const tgOpt = root.querySelector('#regTelegramOpt');
+    const tgWrap = root.querySelector('#regTelegramIdWrap');
+    const tgInput = root.querySelector('#regTelegramId');
+    if (tgOpt && tgWrap && tgInput) {
+      const syncTg = () => {
+        tgWrap.style.display = tgOpt.checked ? '' : 'none';
+        tgInput.required = tgOpt.checked;
+        if (!tgOpt.checked) tgInput.value = '';
+      };
+      tgOpt.addEventListener('change', syncTg);
+      syncTg();
+    }
 
     const provSelect = root.querySelector('#regProvince');
     const citySelect = root.querySelector('#regCity');
@@ -465,6 +549,8 @@
         const height = form.get('height') ? Number(normalizeNumber(form.get('height'))) : null;
         const weight = form.get('weight') ? Number(normalizeNumber(form.get('weight'))) : null;
         const termsAccepted = form.get('terms_accepted') === 'on' || form.get('terms_accepted') === 'true';
+        const telegramOptIn = form.get('telegram_opt_in') === 'on' || form.get('telegram_opt_in') === 'true';
+        const rawTelegramId = String(form.get('telegram_id')||'').trim();
 
         if(!firstName || firstName.length < 2){ showRegErr('لطفاً نام خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
         if(!lastName || lastName.length < 2){ showRegErr('لطفاً نام خانوادگی خود را وارد فرمایید (حداقل ۲ حرف).'); return; }
@@ -476,11 +562,18 @@
         if(!password || password.length < 8){ showRegErr('رمز عبور باید حداقل ۸ کاراکتر باشد.'); return; }
         if(password !== confirmPassword){ showRegErr('تکرار رمز عبور با رمز عبور وارد شده مطابقت ندارد.'); return; }
         if(!termsAccepted){ showRegErr('لطفاً تیک پذیرش شرایط استفاده و قوانین سامانه را بزنید.'); return; }
+        let telegramId = '';
+        if(telegramOptIn){
+          if(!rawTelegramId){ showRegErr('چون تیک دریافت اعلان تلگرام را زده‌اید، وارد کردن آیدی تلگرام الزامی است.'); const w=root.querySelector('#regTelegramId'); if(w)w.focus(); return; }
+          const clean = rawTelegramId.replace(/^@/,'');
+          if(!/^[A-Za-z0-9_]{5,32}$/.test(clean)){ showRegErr('آیدی تلگرام معتبر نیست — ۵ تا ۳۲ حرف انگلیسی/عدد/زیرخط، مثل @ali_ahmadi.'); const w2=root.querySelector('#regTelegramId'); if(w2)w2.focus(); return; }
+          telegramId = clean;
+        }
 
         if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = '<span>⏳</span> <span>در حال ثبت...</span>'; }
 
         try{
-          const payload = { full_name: fullName, mobile: completeMobile(rawMobile), date_of_birth: dob, province, city, address, password, confirm_password: confirmPassword, goal, gender, height, weight, terms_accepted: termsAccepted };
+          const payload = { full_name: fullName, mobile: completeMobile(rawMobile), date_of_birth: dob, province, city, address, password, confirm_password: confirmPassword, goal, gender, height, weight, terms_accepted: termsAccepted, telegram_opt_in: telegramOptIn, telegram_id: telegramId };
           const result = await api('/api/student/auth/register', { method: 'POST', body: jsonBody(payload) });
           const caseNum = result.student?.case_number || '';
           showRegSucc(`ثبت‌نام با موفقیت انجام شد! ${caseNum ? `(شماره پرونده: <strong>${esc(caseNum)}</strong>)` : ''} در حال انتقال...`);
@@ -888,8 +981,47 @@
   }
   async function renderProfile(){
     loading();if(!await loadMe())return;const {student}=await api('/api/student/profile');
-    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="text" name="date_of_birth" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form><section class="student-card" style="margin-top:10px"><h2>امنیت حساب</h2><p>رمز شخصی خود را در هر زمان می‌توانید تغییر دهید.</p><div class="student-actions"><a class="secondary" href="/student/change-password">تغییر رمز عبور</a></div></section>`);
+    shell('/student/profile',`<div class="student-page-head"><h1>پروفایل من</h1><p>ویرایش این اطلاعات، ارزیابی‌های تاریخی را تغییر نمی‌دهد.</p></div><form class="student-card" id="profileForm"><div class="student-profile-grid"><label>نام و نام خانوادگی<input name="full_name" required maxlength="100" value="${esc(student.full_name)}"></label><label>موبایل<input name="mobile" maxlength="20" value="${esc(student.mobile)}"></label><label>تاریخ تولد<input type="text" name="date_of_birth" data-jalali placeholder="مثلاً ۱۳۷۵/۰۴/۱۵" value="${esc(student.date_of_birth||'')}"></label><label>جنسیت<select name="gender"><option value="unspecified">ترجیح می‌دهم نگویم</option><option value="female" ${student.gender==='female'?'selected':''}>خانم</option><option value="male" ${student.gender==='male'?'selected':''}>آقا</option></select></label><label>محل تمرین<select name="preferred_location"><option value="gym" ${student.preferred_location==='gym'?'selected':''}>باشگاه</option><option value="home" ${student.preferred_location==='home'?'selected':''}>منزل</option></select></label><label class="wide">هدف تمرینی<textarea name="goal" maxlength="4000">${esc(student.goal)}</textarea></label><label class="wide">محدودیت‌ها<textarea name="limitations" maxlength="4000">${esc(student.limitations)}</textarea></label><label class="wide">آسیب‌ها<textarea name="injuries" maxlength="4000">${esc(student.injuries)}</textarea></label></div><div class="student-actions"><button class="primary">ذخیره پروفایل</button></div></form><section class="student-card" style="margin-top:10px"><h2>امنیت حساب</h2><p>رمز شخصی خود را در هر زمان می‌توانید تغییر دهید.</p><div class="student-actions"><a class="secondary" href="/student/change-password">تغییر رمز عبور</a></div></section><section class="student-card" id="telegramCard" style="margin-top:10px"><h2>🔔 اتصال تلگرام</h2><div id="telegramBody"><p>در حال دریافت وضعیت…</p></div></section>`);
     document.querySelector('#profileForm').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await api('/api/student/profile',{method:'PUT',body:jsonBody(Object.fromEntries(new FormData(event.currentTarget)))});toast('پروفایل ذخیره شد.');}catch(error){toast(error.message,'error');}finally{button.disabled=false;}};
+    renderTelegramCard();
+  }
+
+  async function renderTelegramCard(){
+    const host=document.querySelector('#telegramBody');if(!host)return;
+    let data;
+    try{ data=await api('/api/student/telegram/status'); }
+    catch(error){ host.innerHTML=`<p>وضعیت تلگرام دریافت نشد.</p>`; return; }
+    if(!data.configured){ host.innerHTML=`<p>اتصال تلگرام هنوز فعال نشده است؛ مربی می‌تواند از پنل مدیریتی، بخش «سیستم ← تنظیمات تلگرام» آن را فعال کند.</p>`; return; }
+    const t=data.telegram;
+    const prefLabels={workout:'🏋️ اعلان‌های تمرینی',nutrition:'🥗 اعلان‌های تغذیه',messages:'💬 پیام‌های مربی',reminders:'⏰ یادآورها',system:'🛡 اعلان‌های سیستم'};
+    const prefRows=data.preferences?Object.keys(prefLabels).map(key=>`<label class="tg-pref"><input type="checkbox" data-tg-pref="${key}" ${Number(data.preferences[key])===1?'checked':''} ${t.connected?'':'disabled'}> ${prefLabels[key]}</label>`).join(''):'';
+    if(t.connected){
+      host.innerHTML=`<p>وضعیت: <b style="color:var(--success)">✅ متصل</b>${t.telegram_username?` — @${esc(t.telegram_username)}`:''}<br><small>از تاریخ: ${esc(t.linked_at||'—')}</small></p>${prefRows?`<div class="tg-prefs">${prefRows}</div>`:''}<div class="student-actions"><button class="secondary" id="tgUnlink">قطع اتصال تلگرام</button></div>`;
+      document.querySelector('#tgUnlink').onclick=async()=>{
+        if(!confirm('اتصال تلگرام قطع شود؟ تا اتصال مجدد، اعلان‌ها دریافت نمی‌شوند.'))return;
+        try{ await api('/api/student/telegram/unlink',{method:'POST'});toast('اتصال تلگرام قطع شد.');renderTelegramCard(); }
+        catch(error){ toast(error.message,'error'); }
+      };
+    }else{
+      host.innerHTML=`<p>با یک کلیک به ربات وصل شوید و اعلان‌های برنامه را در تلگرام بگیرید.</p><div class="student-actions"><button class="primary" id="tgLink">✈️ اتصال خودکار به تلگرام</button></div><div id="tgLinkBox"></div>`;
+      document.querySelector('#tgLink').onclick=async()=>{
+        const box=document.querySelector('#tgLinkBox');const button=document.querySelector('#tgLink');button.disabled=true;
+        try{
+          if(!await ensureTelegramIdSaved(data))return;
+          await connectTelegramAuto(link=>{
+            // پشتیبان: اگر مرورگر پنجرهٔ تلگرام را مسدود کرد، لینک و کد دستی نمایش داده می‌شود
+            box.innerHTML=`<p style="margin-top:8px">۱. روی دکمهٔ زیر بزنید و در تلگرام «Start» کنید:<br><a class="primary" style="display:inline-block;margin-top:6px" href="${esc(link.deep_link)}" target="_blank" rel="noopener">رفتن به ربات @${esc(link.bot_username)}</a></p><p style="margin-top:8px">۲. یا این کد را در ربات بفرستید (<small>اعتبار ${link.ttl_minutes} دقیقه — یک‌بارمصرف</small>):<br><code id="tgCode" style="display:inline-block;margin-top:6px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:8px;direction:ltr;user-select:all">${esc(link.link_code)}</code></p><p><small>پس از /start در تلگرام، همین صفحه را دوباره باز کنید.</small></p>`;
+          });
+        }catch(error){ toast(error.message,'error'); }
+        finally{ button.disabled=false; }
+      };
+    }
+    host.querySelectorAll('[data-tg-pref]').forEach(input=>{
+      input.onchange=async()=>{
+        try{ await api('/api/student/telegram/preferences',{method:'PUT',body:jsonBody({key:input.dataset.tgPref,enabled:input.checked})});toast('تنظیم اعلان ذخیره شد.'); }
+        catch(error){ toast(error.message,'error');input.checked=!input.checked; }
+      };
+    });
   }
 
   async function renderWorkouts(){
@@ -910,15 +1042,15 @@
     shell('/student/profile',`<div class="student-page-head"><h1>تغییر رمز عبور</h1><p>این کار اختیاری است و هر زمان بخواهید می‌توانید انجام دهید.</p></div><section class="student-card password-change-card">${form}</section>`);
     document.querySelector('#passwordChangeForm').onsubmit=async event=>{event.preventDefault();const body=Object.fromEntries(new FormData(event.currentTarget)),button=event.currentTarget.querySelector('button');button.disabled=true;try{const result=await api('/api/student/auth/change-password',{method:'POST',body:jsonBody(body)});toast('رمز شخصی با موفقیت ثبت شد.');location.replace(result.next_route);}catch(error){toast(error.message,'error');button.disabled=false;}};
   }
-  function renderSuccess(){root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><span class="join-brand">YASNAFIT</span><h1>اطلاعات شما با موفقیت ارسال شد</h1><p>متشکریم. اطلاعات و تصاویر شما برای مربی ارسال شد.</p><p>پس از بررسی مربی، برنامه تمرینی شما در پنل شخصی‌تان قرار خواهد گرفت.</p><a class="primary" href="/student/dashboard">ورود به پنل شخصی</a></div></section>`;}
+  function renderSuccess(){root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-success-icon">✓</div><span class="join-brand">YASNAFIT</span><h1>اطلاعات شما با موفقیت ارسال شد</h1><p>متشکریم. اطلاعات و تصاویر شما برای مربی ارسال شد.</p><p>پس از بررسی مربی، برنامه تمرینی شما در پنل شخصی‌تان قرار خواهد گرفت.</p><a class="primary" href="/student/dashboard">ورود به پنل شخصی</a></div>${COACH_ENTRY}</section>`;}
   async function renderLogout(){
     try{await api('/api/student/logout',{method:'POST'});}catch(error){}
-    root.innerHTML=`<section class="student-auth-page"><div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره از شماره همراه و رمز شخصی استفاده کنید.</p><a class="primary" href="/student/login">ورود دوباره</a></div></section>`;
+    root.innerHTML=`<section class="student-auth-page">${themeFloatButton()}<div class="join-card"><div class="student-success-icon">✓</div><h1>با موفقیت خارج شدید</h1><p>نشست شما بسته شد. برای ورود دوباره از شماره همراه و رمز شخصی استفاده کنید.</p><a class="primary" href="/student/login">ورود دوباره</a></div>${COACH_ENTRY}</section>`;
   }
   async function start(){
     const path=location.pathname;
     if(path.startsWith('/join/'))return renderJoin();
-    if(path==='/student/login')return renderLogin();
+    if(path==='/student/login')return renderLogin(); // the domain root is the SSR landing (server.js), not this shell
     if(path==='/student/register')return renderRegister();
     if(path==='/student/logout')return renderLogout();
     const pages={

@@ -354,6 +354,14 @@ Audited:
   `version`, `uptime`); row counts, port and schema version need `?detailed=1` plus a coach
   session. `GET /api/build` (git stamp, file mtimes, feature markers) requires a coach session.
   `POST /api/test/reset-rate-limit` disappears when `NODE_ENV=production`.
+- **Telegram bot (`src/telegram-service.js` + `src/notification-service.js`):** the only inbound
+  bot route is `POST /api/telegram/webhook`, resolved before the coach gate; it answers `503`
+  while the bot is unconfigured and `401` unless `X-Telegram-Bot-Api-Secret-Token` matches the
+  configured webhook secret (constant-time compare). The token is read from `TELEGRAM_BOT_TOKEN`
+  or from the coach-only settings page and is never logged. Account linking uses one-time
+  hashed link codes (15 min TTL) issued to a signed-in student/coach; a guest `/start` (including
+  the landing deep link `?start=landing`) only receives the welcome/guidance message — nothing
+  is stored for guests. Long polling (`TELEGRAM_POLLING=1`) is for local development only.
 - **Error text:** `sendCaughtError()` keeps the Persian validation messages a service raises
   on purpose, but logs and replaces anything that looks like a SQLite/library complaint, so
   internal messages never reach the browser.

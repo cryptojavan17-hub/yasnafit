@@ -18,6 +18,8 @@ function genUUID(){
 function normalizeProgramInput(input){
   // Ensure program has days array with proper structure
   const program = JSON.parse(JSON.stringify(input)); // deep clone
+  // نسخهٔ سند فقط ۱ یا ۲ است؛ مقدار گم‌شده/مخدوش (مثلاً شمارندهٔ ردیف) به ثابتِ سرور برمی‌گردد
+  program.version = [1,2].includes(Number(program.version)) ? Number(program.version) : 2;
 
   if(!program.days) program.days = program.program_data?.days || [];
 
@@ -163,8 +165,11 @@ function buildProgramFromDB(db, programId){
     };
   });
 
+  // نسخهٔ سند برنامه (۱ یا ۲) ثابتِ سرور است؛ version ردیف DB شمارندهٔ همگام‌سازی است و
+  // نباید در programData درز کند — وگرنه ولیدیشن ذخیره بعدی را با «نسخه برنامه باید 1 یا 2 باشد» می‌بندد.
   const programData = {
-    version: program.version||2,
+    version: 2,
+    program_version: program.version||1,
     days: fullDays
   };
 

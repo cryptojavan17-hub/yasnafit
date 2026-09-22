@@ -8,7 +8,7 @@
 /* Shared page canvas and typography */
 body,.student-body,.student-portal{
   background:
-    radial-gradient(circle at 50% -18%,rgba(59,130,246,.1),transparent 32%),
+    radial-gradient(circle at 50% -18%,var(--bg-glow-accent),transparent 32%),
     var(--bg);
   color:var(--text-primary);
 }
@@ -153,7 +153,7 @@ tbody tr,tbody tr:nth-child(even){background:transparent}
 tbody tr:hover{background:var(--accent-surface)}
 
 /* Forms, modals and drawers */
-.modal-backdrop,.student-modal-backdrop,.drawer-backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(10px)}
+.modal-backdrop,.student-modal-backdrop,.drawer-backdrop{background:var(--backdrop-strong);backdrop-filter:blur(10px)}
 .modal,.student-modal{padding:var(--component-padding);border-radius:var(--component-radius-lg)}
 .modal-head,.student-modal-head,.drawer-header{min-height:44px;padding:8px 0 10px;border-color:var(--component-border)}
 .form-grid,.form-row{gap:var(--component-gap)}

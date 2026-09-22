@@ -113,6 +113,19 @@ assert.ok(html.includes('MAX') || html.includes('توان'), 'HTML must include 
 assert.ok(html.includes('روز استراحت و ریکاوری فعال'), 'HTML must render rest day card');
 assert.ok(html.includes('حداقل ۸ ساعت خواب شبانه'), 'HTML must render coach note');
 
+console.log('--- 3b. Print hygiene: no (جلالی), no blank pages ---');
+assert.ok(!pdfJsCode.includes('(جلالی)'), 'PDF sheet must not print the (جلالی) suffix anywhere');
+assert.ok(html.includes('دوره اجرای برنامه'), 'program period label stays, suffix removed');
+// صفحهٔ خالی ۱: پنل پشت‌زمینه باید کامل از چیدمان چاپ خارج شود (نه visibility:hidden که فضا اشغال می‌کند)
+assert.ok(pdfCss.includes('body > *:not(.pdf-preview-modal) {'), 'print must display:none everything outside the PDF modal');
+assert.ok(!/body \* {\s*visibility: hidden;/.test(pdfCss.replace(/\r/g,'')), 'visibility:hidden approach (source of blank pages) must be gone');
+// صفحهٔ خالی ۲: کارت روزِ بلند در چاپ باید بتواند به صفحهٔ بعد ادامه دهد
+assert.ok(/\.pdf-day-card {\s*page-break-inside: auto;\s*break-inside: auto;/.test(pdfCss), 'tall day cards must flow across pages in print');
+// صفحهٔ خالی ۳: قفل اسکرول body با کلاس باشد نه inline (تا چاپ خنثی‌اش کند)
+assert.ok(pdfJsCode.includes("document.body.classList.add('pdf-modal-open')"), 'body scroll lock must be class-based');
+assert.ok(!/document\.body\.style\.overflow\s*=\s*'hidden'/.test(pdfJsCode), 'inline body overflow hidden must be gone');
+assert.ok(pdfCss.includes('body.pdf-modal-open {'), 'screen scroll lock class exists in CSS');
+
 console.log('--- 4. Testing PDF Triggers in Builder, Student App & CRM ---');
 const builderJs = fs.readFileSync(path.join(publicDir, 'program-builder.js'), 'utf8');
 assert.ok(builderJs.includes('openProgramPDF'), 'program-builder.js must call openProgramPDF');

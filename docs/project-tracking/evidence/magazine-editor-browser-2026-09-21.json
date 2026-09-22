@@ -1,0 +1,42 @@
+{
+  "date": "2026-09-21",
+  "scope": "Coach UI/actions against real local authenticated API; temporary DB and owned synthetic content. Source popup response intercepted, not live publisher ingestion.",
+  "desktop_viewport": {
+    "width": 1360,
+    "height": 900
+  },
+  "mobile_viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "ok": true,
+  "desktop": {
+    "x": 230,
+    "y": 36,
+    "width": 900,
+    "height": 840
+  },
+  "mobile": {
+    "x": 8,
+    "y": 12,
+    "width": 374,
+    "height": 820
+  },
+  "console_page_errors": [],
+  "checks": [
+    "source-navigation",
+    "full-body-preserved",
+    "reference-editor",
+    "category-update-clear",
+    "save-error-retry",
+    "single-submit",
+    "unpublish",
+    "delete",
+    "escape-focus",
+    "single-queue-handler",
+    "failed-detail-safe",
+    "source-less-preview",
+    "outside-close",
+    "desktop-mobile-bounds"
+  ]
+}

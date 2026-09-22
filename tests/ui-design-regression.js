@@ -9,6 +9,8 @@ const launcher=fs.readFileSync(path.join(root,'YASNAFIT-LAUNCHER.bat'),'utf8');
 assert.doesNotMatch(launcher,/Update Yasnafit from GitHub|Import Exercise Images|:UPDATE|:IMPORT_IMAGES/,'removed launcher maintenance actions returned');
 assert.match(launcher,/echo 5\. Exit/,'launcher exit option is not compactly renumbered');
 assert.match(launcher,/Select an option \(1-5\)/,'launcher prompt still advertises removed options');
+assert.match(launcher,/start "" "http:\/\/localhost:%PORT%\/"/,'the launcher must open the student-facing homepage (domain root)');
+assert.doesNotMatch(launcher,/start "" "http:\/\/localhost:%PORT%\/coach\/login"/,'the launcher must not deep-link the coach login anymore');
 const cssFiles=['theme.css','styles.css','dark-theme.css','exercises.css','program-builder.css','releases.css','students.css','student-app.css','unified-components.css'];
 const coachCssFiles=cssFiles.filter(file=>file!=='student-app.css');
 const css=Object.fromEntries(cssFiles.map(file=>[file,fs.readFileSync(path.join(publicDir,file),'utf8')]));
@@ -83,6 +85,64 @@ assert.match(studentHtml,/width=device-width/,'student shell misses mobile viewp
 assert.match(css['student-app.css'],/@media\(max-width:800px\)/,'student portal misses tablet/mobile layout');
 assert.match(css['student-app.css'],/@media\(max-width:560px\)/,'student onboarding misses narrow mobile layout');
 assert.match(css['student-app.css'],/\.onboarding-error\.visible/,'student onboarding misses persistent validation feedback');
+/* ── تم روشن پیش‌فرض + سوییچر در همهٔ صفحات شاگرد (قرارداد کاربر) ── */
+assert.match(studentHtml,/theme-color" content="#eef1f6"/,'student shell default browser chrome must be LIGHT');
+assert.ok(studentHtml.indexOf('<script src="/theme-toggle.js"></script>')<studentHtml.indexOf('/theme.css'),'student shell must apply the theme before stylesheets');
+assert.match(css['student-app.css'].replace(/\n/g,' '), new RegExp('\\.onboarding-card\\{'),'student onboarding card rule moved');
+/* ── صفحهٔ اصلی دامنه = لندینگ عمومی (تصمیم نهایی مالک 2026-09-21)؛ صفحهٔ ورود شاگرد روی /student/login با لینک کوچک ورود مربی ── */
+{
+  const serverSrc=fs.readFileSync(path.join(root,'server.js'),'utf8');
+  assert.match(serverSrc,/const LANDING_PATH = '\/';/,'the SSR landing must be mounted on the domain root');
+  assert.match(serverSrc,/url\.pathname===LANDING_LEGACY_PATH \|\| url\.pathname==='\/index\.html'\) && isSafeMethod\)\{\s*\n\s*res\.writeHead\(301/,'/home and /index.html must redirect permanently to the landing');
+  assert.ok(!/if\(url\.pathname==='\/'\|\|url\.pathname==='\/index\.html'\)\{[\s\S]{0,400}'student\.html'/.test(serverSrc),'the domain root must not serve the student shell any more');
+  const studentAppSrc=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+  assert.match(studentAppSrc,/entry-site-link" href="\/">معرفی یسنا فیت<\/a>/,'the student entry page must link back to the landing on /');
+  assert.match(studentAppSrc,/entry-coach-link" href="\/coach\/login">ورود مربی<\/a>/,'the entry pages must carry a small coach-login link');
+  assert.ok(!studentAppSrc.includes('OWNER_MARK')&&!studentAppSrc.includes('owner-mark'),'the landing page must NOT render the ownership mark (owner removed it from the login screen; it lives in LICENSE/package.json)');
+  for(const f of ['package.json','LICENSE']){
+    assert.ok(fs.readFileSync(path.join(root,f),'utf8').includes('mehdi.javan.64@gmail.com'),f+' must credit the owner/developer (mehdi.javan.64@gmail.com)');
+  }
+  const bannedPersona=['crypto.javan17'];
+  for(const persona of bannedPersona){
+    for(const dir of ['public','src']){
+      const dirPath=path.join(root,dir);
+      for(const file of fs.readdirSync(dirPath)){
+        if(!/\.(js|html|css)$/.test(file))continue;
+        const text=fs.readFileSync(path.join(dirPath,file),'utf8');
+        assert.ok(!text.includes(persona),`${dir}/${file} still references ${persona} — the owner identity is mehdi.javan.64@gmail.com`);
+      }
+    }
+  }
+  assert.match(studentAppSrc,/if\(path==='\/student\/login'\)return renderLogin\(\);/,'the student login scene must stay on /student/login');
+  assert.ok(!/path==='\/'\|\|path==='\/index\.html'\)return renderLogin/.test(studentAppSrc),'the student shell must not claim the domain root');
+  assert.ok((studentAppSrc.match(/\$\{COACH_ENTRY\}/g)||[]).length>=4,'coach link must appear on login/register/error/success scenes');
+  assert.match(studentAppSrc,/const CONTACTS=\[/,'the landing page contact list is missing');
+  for(const marker of ['instagram.com/','t.me/','mailto:','tel:']){
+    assert.ok(studentAppSrc.includes(marker),'contact rail must carry: '+marker);
+  }
+  assert.match(studentAppSrc,/\$\{CONTACT_LINKS\}/,'the contact rail must render on the landing stage');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-contact-rail\{position:absolute;[^}]*bottom:22px;left:26px/,'the contact rail must sit inside the art frame, under the quote, bottom-left');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8'),/hotspot-register[^]*?\$\{CONTACT_LINKS\}/,'the rail must live inside the hero art frame (below the quote text)');
+  assert.match(fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8'),/\.entry-coach-link\{position:absolute/,'the coach-login pill must sit pinned at the bottom of the landing page');
+  assert.ok(!fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8').includes('.owner-mark'),'the ownership mark CSS must stay off the landing page');
+}
+{
+  const studentApp=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
+  assert.match(studentApp,/function themeFloatButton\(\)/,'student-app must build the floating theme toggle');
+  assert.ok((studentApp.match(/\$\{themeFloatButton\(\)\}/g)||[]).length>=4,'floating toggle must cover login/register/error/success scenes');
+  assert.ok(studentApp.includes('id="studentThemeToggle"'),'logged-in shell keeps its inline header toggle');
+  const wizardSrc=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
+  assert.ok(wizardSrc.includes('const THEME_TOGGLE_BTN=')&&wizardSrc.includes('${THEME_TOGGLE_BTN}'),'assessment wizard must carry the theme toggle in its header');
+  const studentCss=fs.readFileSync(path.join(publicDir,'student-app.css'),'utf8');
+  for(const banned of ['rgba(7,7,7','rgba(10,10,12','rgba(14,14,16','rgba(22,22,25','rgba(11,11,13','rgba(5, 5, 5']){
+    assert.ok(!studentCss.includes(banned),'student-app.css still hardcodes a dark surface: '+banned);
+  }
+  const luxury=fs.readFileSync(path.join(publicDir,'luxury-login.css'),'utf8');
+  assert.doesNotMatch(luxury,/--text-primary:\s*#f5f5f5/,'auth scene must not pin dark tokens (light is the default)');
+  assert.match(luxury,/\.luxury-input-wrap \{[^}]*background:\s*var\(--surface-inset\)/,'register inputs must follow theme tokens');
+  assert.match(fs.readFileSync(path.join(publicDir,'theme.css'),'utf8'),/data-theme="light"\]\s*\{[^}]*--bg:\s*#eef1f6/,'light theme token block must define the light background');
+}
+
 const studentAppSource=fs.readFileSync(path.join(publicDir,'student-app.js'),'utf8');
 const wizardSource=fs.readFileSync(path.join(publicDir,'assessment-wizard.js'),'utf8');
 const coreSource=fs.readFileSync(path.join(publicDir,'core.js'),'utf8');
@@ -124,7 +184,7 @@ assert.match(studentsSource,/`لینک ورود:\\n\$\{absolute\}\\n\\nرمز م
 assert.doesNotMatch(studentsSource,/لینک ورود Yasnafit:|شماره پرونده: \$\{result\.case_number\}/,'shared login text still contains removed labels');
 assert.match(fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8'),/student_case_number|s\.case_number/,'program pages do not display case numbers');
 assert.match(studentAppSource,/result\.case_number/,'join page does not display the permanent case number');
-assert.match(reviewSource,/coach-review-group/,'organized assessment summary is missing');
+assert.match(reviewSource,/rvw-card/,'organized assessment summary is missing (rvw cards)');
 assert.match(reviewSource,/action==='approve'[^\n]+programs\/exercise\/form\?student_id=\$\{student\.id\}&assessment_id=\$\{id\}/,'approval does not continue to Program Builder');
 const builderSource=fs.readFileSync(path.join(publicDir,'program-builder.js'),'utf8');
 assert.match(builderSource,/loadAssessmentContext/,'Program Builder does not load its approved assessment context');

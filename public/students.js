@@ -558,6 +558,7 @@
     content.innerHTML='<div class="students-loading">در حال دریافت پرونده شاگرد...</div>';
     try{
       const [data,performance,messageData]=await Promise.all([api(`/api/students/${studentId}`),api(`/api/students/${studentId}/performance`),api(`/api/students/${studentId}/messages`)]);
+      const telegramStatusPromise=api(`/api/students/${studentId}/telegram`).catch(()=>null);
       const student=data.student,summary=data.summary,internalStudentId=student.id,caseNumber=student.case_number;
       document.querySelector('#breadcrumb').textContent='پرونده شاگرد';
 
@@ -617,6 +618,7 @@
                 <div><span>شماره پرونده</span><b class="case-number-value">${esc(student.case_number)}</b></div>
                 <div><span>نام</span><b>${esc(student.full_name)}</b></div>
                 <div><span>موبایل</span><b dir="ltr">${esc(student.mobile||'—')}</b></div>
+                <div><span>تلگرام</span><b id="tgCoachStatusLine">در حال بررسی…</b></div>
                 <div><span>هدف</span><b>${esc(student.goal||'—')}</b></div>
                 <div><span>قد</span><b>${student.height ? student.height + ' cm' : '—'}</b></div>
                 <div><span>وزن</span><b>${student.weight ? student.weight + ' kg' : '—'}</b></div>
@@ -687,13 +689,14 @@
                 <h2>📊 وضعیت فعلی</h2>
               </div>
               <dl>
-                <div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.assessment_number} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div>
+                <div><dt>ارزیابی</dt><dd>${data.current_assessment?`شماره ${data.current_assessment.id} — ${esc(assessmentLabels[data.current_assessment.status]||fa(data.current_assessment.status))}`:'ثبت نشده'}</dd></div>
                 <div><dt>برنامه</dt><dd>${data.current_program?`${esc(data.current_program.title)} — ${esc(programLabels[data.current_program.status]||fa(data.current_program.status))}`:'اختصاص نیافته'}</dd></div>
                 <div><dt>بازه برنامه</dt><dd>${data.current_program?`${formatDate(data.current_program.start_date)} تا ${formatDate(data.current_program.end_date)}`:'—'}</dd></div>
                 <div><dt>ارزیابی بعدی</dt><dd>${esc(nextLabels[summary.next_assessment_status]||fa(summary.next_assessment_status))}</dd></div>
               </dl>
-              ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.assessment_number}</button>`:''}
+              ${data.current_assessment?`<button class="btn btn-secondary full" style="margin-top:10px;font-weight:750;" data-review-assessment="${data.current_assessment.id}">📋 بررسی ارزیابی #${data.current_assessment.id}</button>`:''}
               ${data.current_assessment?.status==='APPROVED'?`<button class="primary full" data-create-program="${data.current_assessment.id}" style="margin-top:8px;">ساخت برنامه ماهانه</button>`:''}
+              <button class="btn btn-secondary full" data-telegram-notify="${internalStudentId}" style="margin-top:8px;font-weight:750;">📣 ارسال اعلان به تلگرام شاگرد</button>
             </section>
 
             <!-- 3. لینک‌های دعوت سریع -->
@@ -765,6 +768,15 @@
         const shareMsg=`لینک ورود:\n${location.origin}/student/login\n\nرمز موقت:\n${tempPass}`;
         await copyText(shareMsg);button.textContent='کپی شد ✓';
       });
+      // وضعیت تلگرام شاگرد — بعد از رندر پرونده
+      telegramStatusPromise.then(tg=>{
+        const line=content.querySelector('#tgCoachStatusLine');if(!line)return;
+        if(!tg){ line.textContent='—'; return; }
+        const t=tg&&tg.telegram?tg.telegram:{connected:false,status:'never_linked'};
+        const faMap={active:'✅ متصل',blocked:'🚫 ربات بلاک شده',invalid:'⚠ شناسهٔ چت نامعتبر',unlinked:'قطع شده',never_linked:'—'};
+        const last=t.last_success?`آخرین اعلان موفق: ${t.last_success.type}`:(t.last_failure?`آخرین خطا: ${t.last_failure.type}`:'اعلانی ارسال نشده');
+        line.textContent=`${faMap[t.status]||t.status}${t.telegram_username?` (@${t.telegram_username})`:''} — ${last}`;
+      });
       content.querySelector('[data-back-students]').onclick=()=>{location.href='/users-list';};
       content.querySelectorAll('[data-new-invite]').forEach(button=>button.onclick=async()=>{try{await generateInvitation(internalStudentId);setTimeout(()=>loadStudentDetail(caseNumber),300);}catch(error){alert(error.message);}});
       content.querySelector('[data-request-assessment]').onclick=async()=>{try{await generateInvitation(internalStudentId,'لینک ارزیابی جدید ایجاد شد');}catch(error){alert(error.message);}};
@@ -776,6 +788,21 @@
         if(window.openProgramPDF) window.openProgramPDF(progId);
       });
       content.querySelectorAll('[data-create-program]').forEach(button=>button.onclick=()=>{location.href=`/programs/exercise/form?student_id=${internalStudentId}&assessment_id=${button.dataset.createProgram}`;});
+      content.querySelectorAll('[data-telegram-notify]').forEach(button=>button.onclick=async()=>{
+        if(button.disabled)return;
+        const original=button.textContent;
+        button.disabled=true;button.textContent='⏳ در حال ارسال…';
+        try{
+          const r=await api(`/api/students/${button.dataset.telegramNotify}/telegram-notify`,{method:'POST'});
+          if(r.delivered){button.textContent='✅ پیام در صف ارسال ربات قرار گرفت';}
+          else{button.textContent='⚠️ '+((r.message||'').slice(0,40));}
+          alert(r.message||'انجام شد.');
+          setTimeout(()=>{button.textContent=original;button.disabled=false;},3000);
+        }catch(error){
+          alert(error.message);
+          button.textContent=original;button.disabled=false;
+        }
+      });
       content.querySelectorAll('[data-copy-cached]').forEach(button=>button.onclick=async()=>{await copyText(generatedLinks.get(Number(internalStudentId)));button.textContent='کپی شد ✓';});
       content.querySelectorAll('[data-revoke-invite]').forEach(button=>button.onclick=async()=>{if(!confirm('این لینک لغو شود؟'))return;try{await api(`/api/student-invites/${button.dataset.revokeInvite}/revoke`,{method:'POST'});await loadStudentDetail(caseNumber);}catch(error){alert(error.message);}});
       content.querySelector('#coachMessageForm').onsubmit=async event=>{event.preventDefault();const body=new FormData(event.currentTarget).get('body');try{await api(`/api/students/${studentId}/messages`,{method:'POST',body:JSON.stringify({body})});await loadStudentDetail(caseNumber)}catch(error){alert(error.message)}};
