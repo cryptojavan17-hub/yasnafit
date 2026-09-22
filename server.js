@@ -3156,7 +3156,7 @@ function sendPublicPage(req, res, { kind, path }) {
   // Task 25 (PART 2 — owner clarification 2026-09-20): the /about page is the
   // NEW about page — the complete About Me.png reference (no crop, no HTML text
   // duplication, same sizing rule as the hero/landing section).
-  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT"></section>';
+  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT"></section>';
   const body = kind === 'home' ? ''
     : kind === 'about' ? aboutBody
     : kind === 'services' ? servicesBody(ctx)
@@ -3189,10 +3189,10 @@ function sendPublicPage(req, res, { kind, path }) {
   ${headerMarkup(path, coachAuthorized, telegramUrl)}
   <main id="main">
     <div class="home-hero">
-      <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
+      <img class="home-hero__img" src="/images/landing/hero.jpg" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
     </div>
     <section id="about" class="home-about">
-      <img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT" loading="lazy">
+      <img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT" loading="lazy">
     </section>
     <section class="magazine magazine--home" aria-label="YASNAFIT MAGAZINE">
       <div class="magazine--home__head">

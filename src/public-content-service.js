@@ -210,7 +210,7 @@ const SITE_SETTINGS_DEFAULTS = {
   'site.hero_image': '/images/landing/hero-woman.jpg',
   'site.about_image': '/images/landing/about-woman.jpg',
   'site.cta_image': '/images/landing/cta-woman.jpg',
-  'site.og_image': '/login-hero.png',
+  'site.og_image': '/login-hero.jpg',
   'site.contact_telegram': '',
   'site.telegram_bot_username': '',
   'site.contact_instagram': '',
