@@ -6,6 +6,13 @@
 
 ---
 
+## 2026-09-22
+
+### PR #9 merged into `main` (owner request — Railway auto-deploys from `main`)
+- `main` = merge commit `b350b66` (parents `729ab7b` snapshot + `117949f` branch tip); tree identical to `arena/01a0c4f9-yasnafit`. First time the public site, the `01a085de` lineage (full Telegram integration, single-step coach login, analytics, light theme…) and Tasks 28–31 reach `main`.
+- Pre-merge evidence: Railway build command passes locally; `npm test` = 31/31; upgrade simulation from the current production database lineage (30 migrations + existing coach `crypto.javan17@gmail.com` with TOTP) applied 14 additive migrations without errors, health 200, landing on `/`, coach login with the existing email works single-step.
+- Not observable from the build sandbox: the Railway deployment itself (no network access to Railway). Owner verifies: uptime reset on `GET /api/health`, log lines `✅ 031_telegram_integration … ✅ 039_magazine_direct_persian_publishers`, `/` = landing, coach login.
+
 ## 2026-09-21
 
 ### Task 31 — owner: «صفحهٔ لندینگ جدید رو بزار صفحهٔ اصلیم» — the new landing is the home page again
