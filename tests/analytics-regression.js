@@ -163,7 +163,7 @@ assert.doesNotMatch(telegramSrc, /callback_data: 'noop:/, 'dead noop buttons mus
 const { execFileSync } = require('node:child_process');
 assert.ok(!server.includes("path.join(__dirname, 'data', 'assessments')"), 'the photo endpoint must not hardcode the repo data path (breaks volume deployments with 403)');
 assert.match(server, /const assessmentsRoot = path\.resolve\(storagePaths\.assessmentsDir\);/, 'the photo endpoint must validate against the active storage root');
-const probed = execFileSync(process.execPath, ['-e', "console.log(require('" + path.join(root, 'src/storage-paths.js') + "').assessmentsDir)"], {
+const probed = execFileSync(process.execPath, ['-e', 'console.log(require(' + JSON.stringify(path.join(root, 'src/storage-paths.js')) + ').assessmentsDir)'], {
   env: { ...process.env, YASNAFIT_DATA_DIR: '/tmp/volume-probe' },
 }).toString().trim();
 assert.equal(probed, path.resolve('/tmp/volume-probe/assessments'), 'assessmentsDir must follow YASNAFIT_DATA_DIR (volume) — this is the root the photo check uses');
