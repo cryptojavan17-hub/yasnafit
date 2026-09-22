@@ -8,6 +8,14 @@
 
 ## 2026-09-22
 
+### کیت ویندوز `deploy/windows/` + اینستاگرام PDF مربی
+
+- **کیت (اجرا نشده):** `deploy/windows/deploy.cmd` با CRLF و `deploy/windows/Deploy-Yasnafit.ps1` با UTF-8 BOM. اکشن‌ها: `deploy`، `update`، `start`، `stop`، `restart`، `status`، `logs`، `backup`. برای Windows PowerShell 5.1 و PowerShell 7 نوشته شده. در سندباکسِ ساخت PowerShell نبود؛ اسکریپت اجرا نشد. قفل ایستا: `tests/windows-deploy-kit-regression.js` (`npm run test:windows-kit` داخل `npm test`). راهنما: `deploy/windows/README-WINDOWS.md`. نمونهٔ بدون توکن: `deploy/windows/yasnafit.env.example`. `.gitignore`: `deploy/windows/yasnafit.env` و `deploy/windows/app/`.
+- **PDF:** هندل `@exercise_yasna` در هدر، فوتر و متن ساده. `CONTACTS` ورود شاگرد در `public/student-app.js` عوض نشد — یکسان‌سازی منتظر پاسخ مالک است.
+- **تست:** `npm test` = ۳۲/۳۲، exit 0 (شامل `test:program-pdf` و `test:windows-kit`). اسکریپت ویندوز اجرا نشده است.
+
+## 2026-09-22
+
 ### PR #9 merged into `main` (owner request — Railway auto-deploys from `main`)
 - `main` = merge commit `b350b66` (parents `729ab7b` snapshot + `117949f` branch tip); tree identical to `arena/01a0c4f9-yasnafit`. First time the public site, the `01a085de` lineage (full Telegram integration, single-step coach login, analytics, light theme…) and Tasks 28–31 reach `main`.
 - Pre-merge evidence: Railway build command passes locally; `npm test` = 31/31; upgrade simulation from the current production database lineage (30 migrations + existing coach `crypto.javan17@gmail.com` with TOTP) applied 14 additive migrations without errors, health 200, landing on `/`, coach login with the existing email works single-step.

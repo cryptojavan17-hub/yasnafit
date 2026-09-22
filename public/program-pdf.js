@@ -8,6 +8,9 @@
   const win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  const COACH_INSTAGRAM = '@exercise_yasna';
+  const COACH_INSTAGRAM_URL = 'https://instagram.com/exercise_yasna';
+
   const muscleNames = {
     front_deltoid_anterior: 'سرشانه جلو',
     front_deltoid_lateral: 'سرشانه میانی',
@@ -277,6 +280,7 @@
               <div>
                 <h2 class="pdf-brand-title">سامانه مدیریت و مربیگری یسنافیت</h2>
                 <div class="pdf-brand-subtitle">Yasnafit Professional Coaching & Fitness Platform</div>
+                <div class="pdf-brand-contact">اینستاگرام مربی: <a class="pdf-brand-contact__handle" dir="ltr" href="${COACH_INSTAGRAM_URL}">${esc(COACH_INSTAGRAM)}</a></div>
               </div>
             </div>
             <div class="pdf-stamp-badge">
@@ -350,6 +354,7 @@
         <footer class="pdf-footer">
           <span>طراحی و تنظیم در سامانه هوشمند بدنسازی و مربیگری یسنافیت (Yasnafit)</span>
           <span>برنامه تمرینی اختصاصی • غیرقابل انتقال به غیر</span>
+          <span>اینستاگرام مربی: <span dir="ltr">${esc(COACH_INSTAGRAM)}</span></span>
           <span>تاریخ صدور: ${today}</span>
         </footer>
       </div>
@@ -366,6 +371,7 @@
 
     let text = `🏋️ ${title}\n👤 ورزشکار: ${studentName}\n🗓️ بازه: ${startDate} تا ${endDate}\n`;
     if (program.coach_note) text += `💬 یادداشت مربی: ${program.coach_note}\n`;
+    text += `📸 اینستاگرام مربی: ${COACH_INSTAGRAM}\n`;
     text += `\n${'═'.repeat(30)}\n`;
 
     days.forEach((day, dIdx) => {

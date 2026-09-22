@@ -1,7 +1,7 @@
 # MAHDI HELLP — YASNAFIT PERSISTENT AGENT MEMORY
 
 > **این فایل حافظهٔ دائمی پروژه است.** اولین کاری که هر Agent/Arena جدید باید بکند: فقط همین فایل را بخواند، سپس سراغ فایل‌های مرتبط با تسک جاری برود. **کل مخزن یا همهٔ مستندات را ناخوانده باز نکنید.**
-> آخرین به‌روزرسانی: **2026-09-21** (جلسهٔ `arena/01a0c4f9-yasnafit` — **Task 31 (آخرین کار): به دستور مالک «صفحهٔ لندینگ جدید رو بزار صفحهٔ اصلیم» ⇒ «/» = لندینگ جدید برای همه (TD-52)؛ `/home` و `/index.html` ⇒ 301؛ ورود شاگرد روی `/student/login`؛ فوتر لندینگ لینک کوچک «ورود مربی»؛ آنالیتیکس صفحات عمومی؛ `npm test` = ۳۱/۳۱، e2e زنده سبز.** پیش از آن Task 30: شاخهٔ `arena/01a085de-yasnafit` (۴۹ کامیت: یکپارچه‌سازی کامل تلگرام، تم روشن، ورود مربی تک‌مرحله‌ای، `/` = ورود شاگرد و …) به انتخاب مالک در همین شاخه merge شد؛ سرویس مینیمال Task 29 حذف شد؛ پیام مهمان ربات = خوش‌آمد محترمانه + راهنما (در `src/telegram-service.js`)؛ «/» = صفحهٔ ورود شاگرد، لندینگ روی `/home`؛ `npm test` = ۳۱/۳۱؛ e2e زنده سبز. پذیرش زنده با ربات واقعی هنوز توسط مالک انجام نشده.** پیش از آن Task 29: ربات `@yasnafitbot` حالا سمت سرور به `/start` جواب می‌دهد** — `src/telegram-bot-service.js` بدون وابستگی؛ webhook `POST /api/telegram/webhook` (پروداکشن، secret header) یا long polling (لوکال)؛ توکن فقط از `TELEGRAM_BOT_TOKEN`؛ هیچ ذخیره‌ای؛ تست با Bot API جعلی = ۱۹ گروه، `npm test` = ۲۲/۲۲؛ **پذیرش با ربات زنده هنوز توسط مالک انجام نشده** (`DEPLOYMENT.md` §۱۰). پیش از آن در همین جلسه: **دکمهٔ اتصال به ربات تلگرام برای مهمان‌ها روی لندینگ (درخواست مالک): سایت عمومی (لندینگ+مجله) از شاخهٔ `arena/01a0b993-yasnafit` در این شاخه merge شد؛ دکمه حالا لینک سادهٔ `https://t.me/yasnafitbot?start=landing` است (هدر همهٔ صفحات عمومی + بخش CTA انتهای لندینگ)؛ فرم ثبت آیدی، مودال `tg-dialog` و دو endpoint عمومی `/api/telegram-bot*` حذف شدند؛ `npm test` = ۲۱/۲۱ + e2e زنده سبز + `scripts/audit-telegram.js` بازنویسی‌شده. چرخهٔ واقعی ربات همچنان `NOT IMPLEMENTED` (T-20/KI-023)** — جزئیات در §13/§14
+> آخرین به‌روزرسانی: **2026-09-22** (جلسهٔ `arena/01a0ca01-yasnafit` — **کیت ویندوز `deploy/windows/` نوشته شد ولی در سندباکس اجرا نشد (PowerShell نیست) + اینستاگرام PDF `@exercise_yasna`؛ `CONTACTS` ورود شاگرد عوض نشد.** پیش از آن جلسهٔ `arena/01a0c4f9-yasnafit` — **Task 31 (آخرین کار): به دستور مالک «صفحهٔ لندینگ جدید رو بزار صفحهٔ اصلیم» ⇒ «/» = لندینگ جدید برای همه (TD-52)؛ `/home` و `/index.html` ⇒ 301؛ ورود شاگرد روی `/student/login`؛ فوتر لندینگ لینک کوچک «ورود مربی»؛ آنالیتیکس صفحات عمومی؛ `npm test` = ۳۱/۳۱، e2e زنده سبز.** پیش از آن Task 30: شاخهٔ `arena/01a085de-yasnafit` (۴۹ کامیت: یکپارچه‌سازی کامل تلگرام، تم روشن، ورود مربی تک‌مرحله‌ای، `/` = ورود شاگرد و …) به انتخاب مالک در همین شاخه merge شد؛ سرویس مینیمال Task 29 حذف شد؛ پیام مهمان ربات = خوش‌آمد محترمانه + راهنما (در `src/telegram-service.js`)؛ «/» = صفحهٔ ورود شاگرد، لندینگ روی `/home`؛ `npm test` = ۳۱/۳۱؛ e2e زنده سبز. پذیرش زنده با ربات واقعی هنوز توسط مالک انجام نشده.** پیش از آن Task 29: ربات `@yasnafitbot` حالا سمت سرور به `/start` جواب می‌دهد** — `src/telegram-bot-service.js` بدون وابستگی؛ webhook `POST /api/telegram/webhook` (پروداکشن، secret header) یا long polling (لوکال)؛ توکن فقط از `TELEGRAM_BOT_TOKEN`؛ هیچ ذخیره‌ای؛ تست با Bot API جعلی = ۱۹ گروه، `npm test` = ۲۲/۲۲؛ **پذیرش با ربات زنده هنوز توسط مالک انجام نشده** (`DEPLOYMENT.md` §۱۰). پیش از آن در همین جلسه: **دکمهٔ اتصال به ربات تلگرام برای مهمان‌ها روی لندینگ (درخواست مالک): سایت عمومی (لندینگ+مجله) از شاخهٔ `arena/01a0b993-yasnafit` در این شاخه merge شد؛ دکمه حالا لینک سادهٔ `https://t.me/yasnafitbot?start=landing` است (هدر همهٔ صفحات عمومی + بخش CTA انتهای لندینگ)؛ فرم ثبت آیدی، مودال `tg-dialog` و دو endpoint عمومی `/api/telegram-bot*` حذف شدند؛ `npm test` = ۲۱/۲۱ + e2e زنده سبز + `scripts/audit-telegram.js` بازنویسی‌شده. چرخهٔ واقعی ربات همچنان `NOT IMPLEMENTED` (T-20/KI-023)** — جزئیات در §13/§14
 > هر مقدار تأییدنشده با برچسب `UNKNOWN — needs verification` آمده است. هیچ مقدار اختراعی در این فایل نیست.
 
 ---
@@ -57,7 +57,7 @@
 
 | مورد | وضعیت تأییدشده |
 |---|---|
-| شاخهٔ جاری | `arena/01a0c4f9-yasnafit` (جلسهٔ 2026-09-21؛ از `main` = `729ab7b` = snapshot مالک ساخته شده؛ تاریخچه‌ها بی‌ارتباط‌اند — بنگرید به هشدار merge پایین) |
+| شاخهٔ جاری | `arena/01a0ca01-yasnafit` (جلسهٔ 2026-09-22) |
 | آخرین کامیت | `052c569` merge سایت عمومی ← `513cc0d` Task 28 ← `b5245b7` Task 29 ← `e029754` بازنگری متن ← `50a497c` merge `01a085de` + Task 30 ← **کامیت Task 31 (لندینگ = صفحهٔ اصلی) — push‌شده** |
 | working tree | تمیز پس از commit+push Task 31؛ همهٔ تغییرات روی `arena/01a0c4f9-yasnafit` |
 | local vs origin | شاخهٔ جلسه push شده (قاعدهٔ ثابت: بلافاصله بعد از هر کامیت push)؛ `origin/main` = `729ab7b` — سایت عمومی + ربات هنوز روی main نیست |
@@ -130,7 +130,7 @@
 ## 9. Important Project Rules (قواعد دائمی)
 
 **کاری/ابزاری**
-1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسهٔ جاری (فعلاً `arena/01a0b993-yasnafit`). push فقط به همان شاخه.
+1. هرگز مستقیم روی `main` کار نکن؛ فقط شاخهٔ Arena جلسهٔ جاری (فعلاً `arena/01a0ca01-yasnafit`). push فقط به همان شاخه.
 2. **دستکاری/بازنویسی تاریخچه و force-push ممنوع.** قبل از pull/reset/checkout/rebase اول `git status` و شاخه را چک کن؛ `git reset --hard` روی ماشین مهدی فقط با اجازهٔ صریح.
 3. هیچ داده/حرکت/شاگرد غیرواقعی (fake) ساخته نشود؛ حرکات فقط از دیتاست ۲۷۰۷تایی.
 4. فایل/رسانه خصوصی شاگرد هرگز از `public/` سرو نشود؛ ریشهٔ فایل‌ها با `isSafePath` محدود شود.
@@ -154,6 +154,9 @@
 ---
 
 ## 10. Current Completed Work (فقط کارهای واقعاً انجام‌شده)
+
+- **2026-09-22 — کیت ویندوز (نوشته شد، اجرا نشد):** `deploy/windows/deploy.cmd` + `Deploy-Yasnafit.ps1` + `yasnafit.env.example` + `README-WINDOWS.md`. قفل ایستا `tests/windows-deploy-kit-regression.js` داخل `npm test`. PowerShell در سندباکس نبود؛ اجرای واقعی روی ویندوز مالک مانده است.
+- **2026-09-22 — اینستاگرام PDF:** `@exercise_yasna` در هدر/فوتر/متن سادهٔ `public/program-pdf.js`. `CONTACTS` ورود شاگرد (`exercise._.yasna._`) عمداً عوض نشد.
 
 * **2026-09-21** — **Task 31 (جلسهٔ `arena/01a0c4f9-yasnafit` — «صفحهٔ لندینگ جدید رو بزار صفحهٔ اصلیم»):** «/» = لندینگ SSR برای همه (`LANDING_PATH='/'`)؛ بلوک «`/` ⇒ student.html» حذف؛ `/home` و `/index.html` ⇒ 301 به `/` (query حفظ می‌شود)؛ پوستهٔ شاگرد فقط `/student/login` (پیل «معرفی یسنا فیت» ⇒ `/`، پیل «ورود مربی» سر جایش)؛ فوتر لندینگ لینک کوچک «ورود مربی» (`.site-footer__coach`)؛ `recordVisit` برای صفحات عمومی (لندینگ با مسیر `'/'`)؛ sitemap فقط `/`. تست‌ها: `ui-design-regression` (قرارداد ریشه بازنویسی)، `public-site` = ۶۶ گروه، e2e، magazine-discovery، audit script. ✅ `npm test` = ۳۱/۳۱ • e2e زنده `ok:true` • smoke: `/`=۲۰۰ لندینگ (hero + ۲ لینک ربات + فوتر مربی)، `/home`=۳۰۱، `/index.html`=۳۰۱، `/student/login`=۲۰۰. TD-52 (TD-50 منسوخ).
 * **2026-09-21** — **Task 30 (جلسهٔ `arena/01a0c4f9-yasnafit` — ادغام خط `01a085de` + پیام مهمان محترمانه + «/» = ورود شاگرد):** (۱) **کشف:** پیام «⚠️ کد اتصال نامعتبر است…» که مالک از ربات می‌دید، کد `src/telegram-service.js` شاخهٔ `arena/01a085de-yasnafit` بود (۴۹ کامیت ۹–۱۹ سپتامبر که هرگز به main نرسیده بود؛ روی ویندوز مالک اجرا می‌شود). (۲) **ادغام (انتخاب مالک):** `git merge` واقعی با پایهٔ `6301712`؛ ۸ conflict دستی؛ مایگریشن‌ها هر دو مجموعه با نام یکتا (`031_telegram_integration…035` سپس `031_public_site_content…039`)؛ سرویس مینیمال Task 29 (`src/telegram-bot-service.js`, `tests/telegram-bot-regression.js`, `scripts/telegram-webhook.js`) حذف. (۳) **پیام مهمان:** در `src/telegram-service.js`: `/start`, `/start landing|site|web|home|start` ⇒ خوش‌آمد محترمانه + «راهنمای شروع» (ثبت‌نام → ارزیابی → اتصال از «پروفایل من → اتصال تلگرام») + لینک ورود + ۲ دکمه؛ `/help`/متن دیگر مهمان ⇒ راهنمای کوتاه؛ کد نامعتبر ⇒ توضیح مؤدبانه + راهنما. (۴) **«/» = صفحهٔ ورود/ثبت‌نام شاگرد** (پیل «ورود مربی» + پیل جدید «معرفی یسنا فیت» → `/home`)؛ **لندینگ روی `/home`** (`LANDING_PATH`؛ هدر/فوتر/لوگو/breadcrumb/sitemap/landing.js). (۵) **از خط `01a085de` پذیرفته شد:** ورود مربی تک‌مرحله‌ای + ایمیل قفل `mehdi.javan.64@gmail.com`، تم روشن، بازبینی ارزیابی، autosave، backup/restore، آنالیتیکس، ... (۶) `telegramBotLink()` لندینگ ⇒ اول `telegramService.config().username`. ✅ `npm test` = **۳۱/۳۱** (یک اصلاح واقعی CSS برای گارد موبایل آن‌ها) • public-site = ۶۵ گروه • e2e زنده `ok:true` • smoke: `/`=۲۰۰ student shell، `/home`=۲۰۰ لندینگ با ۲ لینک ربات، `/coach/2fa`=۳۰۳، webhook بدون پیکربندی=۵۰۳. ❗ پذیرش با ربات واقعی: مالک.
@@ -255,6 +258,10 @@
 
 ## 13. Current Task
 
+### کار جاری (2026-09-22، `arena/01a0ca01-yasnafit`)
+
+کیت ویندوز و اینستاگرام PDF نوشته شده‌اند. **اسکریپت PowerShell در این سندباکس اجرا نشده** (PowerShell نصب نیست). قدم بعدی مالک: روی ویندوز `deploy.cmd status` و بعد `deploy.cmd update -NoBrowser`، و پاسخ به این پرسش که آیا `CONTACTS` ورود شاگرد هم باید `@exercise_yasna` شود یا `exercise._.yasna._` بماند.
+
 * **عنوان (جلسهٔ جاری، 2026-09-19 — `arena/01a0b993-yasnafit`):** **Task 17 (شماره‌گذاری docs): سایت عمومی YASNAFIT — ۷ صفحه SSR (لندینگ + مجله + مقالات) + پنل ویرایشی محتوای مربی `/coach/magazine` + مایگریشن 031**، و روی آن **Task 18: تطبیق دقیق صفحهٔ اصلی با wireframe `newlanding.png`** (۸ بخش به ترتیب، تصویر چپ/متن راست عمداً، نوار آمار داده‌محور، CTA دو‌ستونه با `site.cta_image`، فوتر یک‌ردیفه، pillهای مجله به‌عنوان لینک به فیلتر موجود، و روی اون بازسازی کامل صفحهٔ اصلی دقیقاً طبق wireframe** (متن‌های verbatim، ۴ کارت نمونه مجله، بج/آمار/CTA/فوتر، socials سه‌گانه).
 * **مبنای wireframe:** تصویر `newlanding.png` (در ریشهٔ remote main) **فقط** نقش blueprint دارد — نه سایت، نه background، نه منبع عکس. ترکیب چپ/راست عمداً آینه نیست (DOM RTL، متن=اولین فرزند).
 * **قواعد اجرا (مالک):** عکس شخص فقط مالک/پلاسی‌هولدر برند (هرگز تولید/جستجوی تصویر)؛ آمار و اطلاعات شخصی فقط از داده/تنظیمات (پیش‌فرض: ۴ عبارت کیفی)؛ بدون دکمهٔ مرده، بدون سیستم فیلتر/اداری دوم، بدون واژهٔ AI در UI؛ همهٔ تنظیمات از پنل مربی موجود.
@@ -294,6 +301,14 @@
 
 
 ## 14. Last Session Handoff
+
+### جلسهٔ `arena/01a0ca01-yasnafit` — 2026-09-22 (کیت ویندوز + اینستاگرام PDF)
+
+- cherry-pick `2d2bc40` ⇒ `2ebcaf1` (push شده).
+- PDF: `@exercise_yasna` در سه جایگاه. `public/student-app.js` خط `CONTACTS` عوض نشد.
+- کیت: `deploy/windows/` با CRLF برای `deploy.cmd` و UTF-8 BOM برای `Deploy-Yasnafit.ps1`. اجرا نشده.
+- پرسش باز مالک: یکسان‌سازی هندل ورود شاگرد با هندل PDF.
+
 
 ### جلسهٔ `arena/01a0c4f9-yasnafit` — 2026-09-21 (Task 28: دکمهٔ ربات تلگرام برای مهمان‌ها + Task 29: ربات پاسخ‌گوی `/start`)
 
@@ -346,6 +361,15 @@
 
 | فایل | تغییر | وضعیت |
 |---|---|---|
+| `deploy/windows/Deploy-Yasnafit.ps1` | کیت ویندوز — نوشته شد، اجرا نشد | 2026-09-22 |
+| `deploy/windows/deploy.cmd` | راه‌انداز CRLF | 2026-09-22 |
+| `deploy/windows/README-WINDOWS.md` | راهنمای فارسی سه حالت اجرا | 2026-09-22 |
+| `deploy/windows/yasnafit.env.example` | نمونهٔ بدون توکن | 2026-09-22 |
+| `tests/windows-deploy-kit-regression.js` + `package.json` | قفل ایستا داخل `npm test` | 2026-09-22 |
+| `public/program-pdf.js` / `public/program-pdf.css` | هندل `@exercise_yasna` | 2026-09-22 |
+| `tests/program-pdf-regression.js` | قفل سه جایگاه PDF | 2026-09-22 |
+| `.gitignore` | `deploy/windows/yasnafit.env` و `deploy/windows/app/` | 2026-09-22 |
+
 | `server.js`, `public/landing.{js,css}`, `public/student-app.js`, `tests/{ui-design-regression,public-site-regression,e2e-workflow,magazine-discovery-regression}.js`, `scripts/audit-telegram.js`, docs | **Task 31:** «/» = لندینگ، `/home`/`/index.html` ⇒ 301، فوتر «ورود مربی»، آنالیتیکس صفحات عمومی | این جلسه |
 | **merge `origin/arena/01a085de-yasnafit`** (۸۰+ فایل: `src/telegram-service.js`, `src/notification-service.js`, `src/analytics-service.js`, `public/telegram-settings.*`, `public/theme-toggle.js`, `public/theme-meta.js`, ۱۱ تست جدید، `docs/marketing/*`, `.env.example`, `LICENSE`, تغییرات گستردهٔ `server.js`/`public/*`) | **Task 30:** ادغام خط کامل | این جلسه |
 | `server.js` | **Task 30:** حل conflict، حذف روت/استارت ربات مینیمال، `LANDING_PATH='/home'` + روت لندینگ/nav/brand/breadcrumb/sitemap، `telegramBotLink()` ⇒ `telegramService.config().username` اول | این جلسه |
@@ -448,12 +472,12 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
-نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0c4f9-yasnafit`)؛ ساختار بلوک تغییر نکند:
+نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0ca01-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
 git fetch origin
-git checkout arena/01a0c4f9-yasnafit
-git pull --ff-only origin arena/01a0c4f9-yasnafit
+git checkout arena/01a0ca01-yasnafit
+git pull --ff-only origin arena/01a0ca01-yasnafit
 .\YASNAFIT-LAUNCHER.bat
 ```
