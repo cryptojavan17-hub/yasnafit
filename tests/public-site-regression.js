@@ -124,7 +124,7 @@ async function waitForServer(timeoutMs = 15000) {
     // duplicated HTML text).
     assert.match(home, /<html[^>]+lang="fa"[^>]+dir="rtl"/);
     assert.match(home, /class="home-hero"/, 'home: hero section present');
-    assert.match(home, /src="\/images\/landing\/hero\.png"/, 'home: hero = owner Hero.png in FULL');
+    assert.match(home, /src="\/images\/landing\/hero\.jpg"/, 'home: hero = owner Hero image in FULL');
     assert.doesNotMatch(home, /hero-photo|landing2\.png/, 'home: no cropped/old images referenced');
     assert.doesNotMatch(home, /home-hero__logo|home-hero__title|home-hero__lead/, 'home: no duplicated HTML text (text is part of the image)');
     assert.match(home, /<title>YASNAFIT \| بدنی قوی‌تر، زندگی بهتر<\/title>/);
@@ -248,7 +248,7 @@ async function waitForServer(timeoutMs = 15000) {
     // (فلسفه مربیگری / در انتظار تکمیل / گواهی‌نامه‌ها) must be gone.
     const aboutPage = await html('/about');
     assert.match(aboutPage, /<section id="about" class="home-about">/, '/about: new about section rendered');
-    assert.match(aboutPage, /class="home-about__img" src="\/images\/landing\/about-me\.png"/, '/about: full About Me.png used');
+    assert.match(aboutPage, /class="home-about__img" src="\/images\/landing\/about-me\.jpg"/, '/about: full About Me.png used');
     assert.doesNotMatch(aboutPage, /فلسفه مربیگری|در انتظار تکمیل|گواهی‌نامه|about-page|about-block/, '/about: no old page content');
     check('/about: new page = full About Me.png, all old content gone');
 

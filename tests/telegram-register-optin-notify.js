@@ -78,7 +78,9 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
     telegramService.setPreference(db, studentId, 'workout', false);
     const r2 = notificationService.emit(db, { type: 'PROGRAM_ASSIGNED', studentId, title: 'ت', body: 'ب', dedupKey: `x:${Date.now()}` });
     assert.equal(r2.skipped, 'preference_disabled', 'student preference must be respected');
-    fs.rmSync(dir, { recursive: true, force: true });
+    // Windows can still hold handles right after the loop → EPERM would turn a
+    // passing run into exit 1; a leftover temp dir is harmless.
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
   }
 
   // ─── ۳. سیم‌کشی UI و مسیر سرور ───
@@ -93,7 +95,7 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
     const authSvc = read('src/student-auth-service.js');
     assert.ok(authSvc.includes("code: 'TELEGRAM_ID_REQUIRED'"), 'server-side opt-in enforcement');
-    assert.ok(/telegram_id,\n\s*version, created_at, updated_at/.test(authSvc), 'telegram_id persisted at signup');
+    assert.ok(/telegram_id,\r?\n\s*version, created_at, updated_at/.test(authSvc), 'telegram_id persisted at signup');
 
     const server = read('server.js');
     assert.ok(/\/api\\\/students\\\/\(\\d\+\)\\\/telegram-notify/.test(server), 'coach notify route exists');
