@@ -58,9 +58,9 @@
 | مورد | وضعیت تأییدشده |
 |---|---|
 | شاخهٔ جاری | `arena/01a0ca01-yasnafit` (جلسهٔ 2026-09-22) |
-| آخرین کامیت | `052c569` merge سایت عمومی ← `513cc0d` Task 28 ← `b5245b7` Task 29 ← `e029754` بازنگری متن ← `50a497c` merge `01a085de` + Task 30 ← **کامیت Task 31 (لندینگ = صفحهٔ اصلی) — push‌شده** |
-| working tree | تمیز پس از commit+push Task 31؛ همهٔ تغییرات روی `arena/01a0c4f9-yasnafit` |
-| local vs origin | شاخهٔ جلسه push شده (قاعدهٔ ثابت: بلافاصله بعد از هر کامیت push)؛ `origin/main` = `729ab7b` — سایت عمومی + ربات هنوز روی main نیست |
+| آخرین کامیت | `5f3f258` — کیت ویندوز `deploy/windows/` + هندل PDF `@exercise_yasna` (push شده به `arena/01a0ca01-yasnafit`) |
+| working tree | تمیز پس از همان کامیت |
+| local vs origin | شاخهٔ جلسه push شده؛ `origin/main` = `b350b66` (merge PR #9) |
 | PR | **PR #9 — MERGED 2026-09-22 08:49Z** (merge commit `b350b66` روی `main`؛ به درخواست صریح مالک برای auto-deploy Railway): https://github.com/cryptojavan17-hub/yasnafit/pull/9 — شامل سایت عمومی + ربات کامل تلگرام (خط `01a085de`) + «/» = لندینگ جدید (Task 31). شاخهٔ جلسه با `--ff-only` به `b350b66` رسید و بعد از آن فقط کامیت‌های docs دارد. merge فقط با تأیید صریح مالک؛ ⚠️ چون `main` snapshot است، merge این PR = اولین‌بار رسیدن خط `01a085de` به `main`/Railway (مایگریشن‌های 031–035 آن روی Volume اعمال می‌شود؛ افزودنی و امن) |
 | ✅ **بلوکر PR #9 حل شد (Task 30)** | مالک «ادغام نسخهٔ کامل» را انتخاب کرد ⇒ `arena/01a085de-yasnafit` (tip `3cc9b1f`) در همین شاخه merge شد (TD-51)؛ PR #9 حالا شامل هر سه خط است (سایت عمومی + ربات کامل + Task 30). ربات قدیمی روی **کامپیوتر ویندوز مالک** اجرا می‌شود (پاسخ مالک) ⇒ بعد از pull همان کد به‌روز می‌شود. جزئیات کشف در سطر بعد (تاریخی) |
 | 🛑 (تاریخی) بلوکر PR #9 (کشف 2026-09-21) | متن «⚠️ کد اتصال نامعتبر است…» که مالک از ربات می‌بیند از **شاخهٔ merge‌نشدهٔ `arena/01a085de-yasnafit`** (tip `3cc9b1f`، ۹ تا ۱۹ سپتامبر) می‌آید: یکپارچه‌سازی کامل تلگرام (کد اتصال یک‌بارمصرف، پنل «سیستم → تنظیمات تلگرام»، اعلان‌ها، آنالیتیکس بازدید، تم روشن، ۲۴ فایل منحصربه‌فرد، مایگریشن‌های `031_telegram_integration…035_visitor_registration_events`، و `/` = صفحهٔ ورود شاگرد). یعنی **یک پروسه با آن کد الان توکن ربات را دارد** (کجا؟ `UNKNOWN — needs verification`؛ `main` آن فایل‌ها را ندارد). ⇒ **PR #9 تا تصمیم مالک merge نشود** — deploy آن روی چنین production‌ای آن قابلیت‌ها را حذف می‌کند. dry-run merge آن شاخه در worktree موقت: پایهٔ مشترک `6301712`، فقط ۸ فایل conflict (`server.js` ۲ هانک کوچک، `src/migrations.js` الحاق لیست، `public/student-app.js`, `package.json`, `tests/e2e-workflow.js`, ۳ سند) ⇒ ادغام شدنی است. پرسش‌ها به مالک داده شد (کدام خط تلگرام بماند / ربات کجا اجراست / معنی «صفحهٔ لوگین = صفحهٔ اصلی») |
@@ -473,6 +473,15 @@ LOCAL (مهدی / ویندوز)  →  GIT (شاخهٔ Arena)  →  GITHUB (origi
 ## 17. دستورات اجرای پروژه (پایان هر گزارش — قاعدهٔ ثابت)
 
 نام شاخه در بلوک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0ca01-yasnafit`)؛ ساختار بلوک تغییر نکند:
+
+```bat
+cd C:\Users\MAHDI\Desktop\yasnafit-git
+git fetch origin
+git checkout arena/01a0ca01-yasnafit
+git pull --ff-only origin arena/01a0ca01-yasnafit
+.\YASNAFIT-LAUNCHER.bat
+```
+�ک زیر باید با **شاخهٔ جلسهٔ جاری** جایگزین شود (فعلاً `arena/01a0ca01-yasnafit`)؛ ساختار بلوک تغییر نکند:
 
 ```bat
 cd C:\Users\MAHDI\Desktop\yasnafit-git
