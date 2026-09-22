@@ -595,6 +595,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   console.log('\n'+(failures? `${failures} FAILURES` : 'ALL SMOKE CHECKS PASSED'));
   server.kill('SIGKILL');feedServer.close();
-  fs.rmSync(dir,{recursive:true,force:true});
+  // Windows keeps handles for a moment after SIGKILL → rmSync throws EPERM and
+  // would turn a fully passing run into exit 1. A leftover temp dir is harmless.
+  try{fs.rmSync(dir,{recursive:true,force:true});}catch(e){/* ignore */}
   process.exit(failures?1:0);
 })().catch(e=>{console.error('SMOKE CRASH',e);process.exit(1);});

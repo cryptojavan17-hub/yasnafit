@@ -191,7 +191,7 @@
     root.innerHTML = `
       <section class="hero-login-stage" dir="rtl">${themeFloatButton()}
         <div id="authLoginPanel" class="hero-login-frame" style="${activeTab==='login'?'':'display:none;'}">
-          <img src="/login-hero.png" alt="" class="hero-login-art" draggable="false">
+          <img src="/login-hero.jpg" alt="" class="hero-login-art" draggable="false">
           <form class="hero-login-hotspots" id="studentLoginForm" autocomplete="on" novalidate>
             <div class="hotspot field-box field-phone">
               <input id="loginMobile" name="mobile" type="tel" inputmode="numeric" maxlength="11" autocomplete="username" dir="ltr" aria-label="شماره همراه">

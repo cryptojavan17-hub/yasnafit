@@ -24,7 +24,7 @@ assert.ok(deploymentDoc,'DEPLOYMENT.md must document how the app is exposed on a
 
 // --- 1. dead files stay deleted -----------------------------------------------------
 const deleted=[
-  'login-hero.png',                       // duplicate of public/login-hero.png
+  'login-hero.png',                       // old duplicate of the live login hero (now public/login-hero.jpg)
   'public/assets/hero-login.jpg',         // duplicate of public/images/auth-hero.jpg
   'public/yasnafit-students-dashboard-mockup.png',
   'public/student-portal.js',             // superseded by public/student-app.js
@@ -50,16 +50,16 @@ for(const file of scanned){
   const text=fs.readFileSync(file,'utf8');
   for(const dead of deleted){
     const name=path.basename(dead);
-    if(name==='login-hero.png')continue;                    // the live copy keeps this name
+    if(name==='login-hero.png')continue;                    // legacy name: only the dead root copy must stay gone
     const referenced=new RegExp(`[\"'/( ]${name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`);
     assert.ok(!referenced.test(text),`${path.relative(root,file)} still references deleted ${dead}`);
   }
 }
 
 // The login hero artwork must stay wired, otherwise the deleted duplicate breaks the page.
-assert.ok(exists('public/login-hero.png'),'public/login-hero.png (the live hero image) is missing');
-assert.match(read('public/student-app.js'),/\/login-hero\.png/,'the student login screen no longer loads the hero image');
-assert.match(read('public/luxury-login.css'),/login-hero\.png/,'the login stylesheet lost the hero image');
+assert.ok(exists('public/login-hero.jpg'),'public/login-hero.jpg (the live hero image) is missing');
+assert.match(read('public/student-app.js'),/\/login-hero\.jpg/,'the student login screen no longer loads the hero image');
+assert.match(read('public/luxury-login.css'),/login-hero\.jpg/,'the login stylesheet lost the hero image');
 // The luxury login/register scene is a hardcoded dark artwork; its tokens must stay pinned dark
 // (stored 'light' theme must not invert text color — typed input became invisible once).
 assert.doesNotMatch(read('public/luxury-login.css'),/--surface:\s*#101010/, 'the auth scene must not pin dark surface tokens anymore');

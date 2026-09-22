@@ -256,7 +256,7 @@ assert.match(css['student-app.css'],/min-height:42px/,'compact touch target rule
 assert.doesNotMatch(wizardSource,/name="bodyPhotoPreference"/,'optional photos still force a preference choice');
 assert.match(wizardSource,/\['front_flex','back_flex','side'\]/,'three optional photo slots are missing');
 assert.match(wizardSource,/بدون هیچ فایلی می‌توانید ادامه دهید/,'optional photo wording is missing');
-for(const guide of ['female-front-flex.png','female-back-flex.png','female-side.png'])assert.match(css['student-app.css'],new RegExp(`guides/${guide.replace('.', '\\.')}`),`educational guide is missing: ${guide}`);
+for(const guide of ['female-front-flex.jpg','female-back-flex.jpg','female-side.jpg'])assert.match(css['student-app.css'],new RegExp(`guides/${guide.replace('.', '\\.')}`),`educational guide is missing: ${guide}`);
 assert.match(wizardSource,/id="skipPhotos"/,'photo step cannot be skipped');
 assert.doesNotMatch(wizardSource,/عکس‌های جلو، پشت و بغل الزامی/,'photo submission became mandatory again');
 assert.doesNotMatch(studentHtml,/sidebar|coach-submissions|src="\/app\.js"/,'student shell includes coach UI assets');
