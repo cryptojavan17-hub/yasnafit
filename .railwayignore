@@ -1,0 +1,22 @@
+# Exclude huge / non-deployable paths from `railway up` uploads.
+# Root cause of "Failed to create code snapshot ... operation timed out":
+# .git alone is ~4.4 GB.
+.git
+node_modules
+data
+backups
+logs
+__pycache__
+*.pid
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+# Large local-only assets (also gitignored)
+public/assets/images/exercises/imported
+public/assets/videos
+assets
+public/image
+# Big local screenshots at repo root
+*.png
+*.psd
