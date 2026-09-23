@@ -856,7 +856,7 @@ function syncProgressFromSummary(summary) {
   progressState.items_found = summary.fetched;
 }
 
-async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered = false } = {}) {
+async function runDiscovery(db, { diagnosticUnfiltered = false } = {}) {
   if (progressState.running) { const e = new Error('بررسی دیگری در حال اجراست'); e.statusCode = 409; throw e; }
   // Request-local only: neither scheduler nor following normal runs inherit it.
   diagnosticUnfiltered = diagnosticUnfiltered === true;
@@ -1005,7 +1005,6 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
   progressState.phase = 'draft';
   // Pass 2: original publisher metadata and image extraction, without AI.
   const usedImages = new Set();
-  let actionable = 0;
   for (const c of toProcess) {
     const { source, discoveryId, itemReport } = c;
     progressState.current_source = source.name;
@@ -1013,7 +1012,7 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
       const result = await processDiscovery(db, { id: discoveryId }, { usedImages, diagnosticUnfiltered });
       if (result && result.notPrepared) { summary.not_prepared += 1; }
       else if (result && result.skipped) { summary.rejected += 1; }
-      else if (result && result.article) { summary.drafted += 1; actionable += 1; }
+      else if (result && result.article) { summary.drafted += 1; }
       else { throw new Error('No persisted article returned by discovery'); }
     } catch (e) {
       summary.failed += 1;
@@ -1028,17 +1027,8 @@ async function runDiscovery(db, { notifyAudience = 'coach', diagnosticUnfiltered
     progressState.items_done += 1;
     syncProgressFromSummary(summary);
   }
-  // Notification only when the coach has actionable review items.
-  if (actionable > 0 && notifyAudience === 'coach') {
-    const engagement = require('./engagement-service');
-    engagement.notify(db, {
-      audienceType: 'coach',
-      type: 'magazine_review_ready',
-      title: '📰 مطالب جدید برای بررسی آماده است',
-      body: `📰 ${actionable} مطلب جدید برای بررسی آماده است.`,
-      entityType: 'magazine_discovery'
-    });
-  }
+  // Owner request (2026-09-23): the magazine section must stay silent in the
+  // coach notification panel — no «مطالب جدید برای بررسی آماده است» notices.
   // Backfill: drafts discovered before image support (or whose og fetch
   // failed) get another chance to receive their own source image. The same
   // image is never handed to a DIFFERENT story (same source_url may keep it).

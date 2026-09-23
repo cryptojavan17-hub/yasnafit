@@ -512,10 +512,10 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   r=await j('/api/magazine/admin/discover',{method:'POST',body:'{}'});
   check('discover#2: 0 new drafts, 12 duplicates (+2 re-filtered: 2017/2020)', r.data.drafted===0 && r.data.duplicates===12 && r.data.filtered===2, JSON.stringify(r.data));
 
-  // notification
+  // notification: magazine stays silent in the coach panel (owner request 2026-09-23)
   r=await j('/api/coach/notifications');
   const note=(r.data.notifications||[]).find(n=>n.type==='magazine_review_ready');
-  check('coach in-app notification after discovery (📰)', Boolean(note) && note.body.includes('📰') && note.body.includes('مطلب جدید برای بررسی آماده است'), note?note.body:'none');
+  check('magazine discovery sends NO coach notification (removed)', !note, note?note.body:'none');
 
   // settings: fetch_interval validation
   r=await j('/api/magazine/admin/settings',{method:'PUT',body:JSON.stringify({'magazine.fetch_interval':'13'})});

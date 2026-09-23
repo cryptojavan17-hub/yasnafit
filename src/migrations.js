@@ -1799,6 +1799,14 @@ const migrations = [
       const ins = db.prepare("INSERT OR IGNORE INTO magazine_sources (stable_id,name,feed_url,fetch_format,category_slug,source_type,is_active,fetch_interval_h,source_tier) VALUES (?,?,?,?,?,'rss',1,12,2)");
       for (const source of publishers) ins.run(...source);
     }
+  },
+  {
+    id: '040_remove_magazine_coach_notifications',
+    description: 'Owner request (2026-09-23): the magazine section must not notify the coach panel — sending is removed from the discovery service and existing «magazine_review_ready» coach notifications are soft-deleted.',
+    up(db) {
+      if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='notifications'").get()) return;
+      db.prepare("UPDATE notifications SET deleted_at=CURRENT_TIMESTAMP WHERE audience_type='coach' AND type='magazine_review_ready' AND deleted_at IS NULL").run();
+    }
   }
 ];
 
