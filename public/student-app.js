@@ -84,7 +84,7 @@
   const CONTACTS=[
     {id:'instagram',href:'https://instagram.com/exercise._.yasna._',label:'اینستاگرام یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2"/><circle cx="12" cy="12" r="4.1"/><circle class="dot" cx="17.2" cy="6.8" r="1.25"/></svg>'},
-    {id:'telegram',href:'https://t.me/yasnaa1997',label:'تلگرام یاسنافیت',
+    {id:'telegram',href:'https://t.me/yasnafitbot',label:'تلگرام یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>'},
     {id:'email',href:'mailto:info@yasnafit.ir',label:'ایمیل یاسنافیت',
      svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.6"/><path d="m4.2 7.4 7.8 5.8 7.8-5.8"/></svg>'},

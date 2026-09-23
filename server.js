@@ -2619,7 +2619,9 @@ async function handleCoachEngagement(req,res,url){
     try{
       const body=await readBody(req);
       const view=telegramService.saveCoachSettings(db,{bot_token:body.bot_token,bot_username:body.bot_username,webhook_secret:body.webhook_secret,public_url:body.public_url,polling:body.polling});
-      if(view.configured && view.polling) telegramService.startPolling(db);
+      // ذخیرهٔ توکن نباید به خاطر شکست ثبت دستورها یا حلقهٔ retry شکست بخورد.
+      try{ await telegramService.armConfiguredRuntime(db); }
+      catch(error){ console.log('[Telegram] فعال‌سازی بعد از ذخیرهٔ تنظیمات ناموفق بود:', error.message); }
       auditService.record(db,{actorType:'coach',action:'telegram.settings_updated',entityType:'telegram_account',metadata:{source:view.source,configured:view.configured}});
       log('تنظیمات تلگرام به‌روزرسانی شد',`منبع: ${view.source}${view.configured?'':' (ناقص — توکن تنظیم نشده)'}`);
       return send(res,200,view);
@@ -2672,7 +2674,7 @@ async function handleCoachEngagement(req,res,url){
     }
   }
 
-  const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
+  const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
   const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}}
   const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
   const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=studentIdByReference(auditMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
@@ -3621,7 +3623,9 @@ async function api(req,res,url){
       return send(res, 200, { ok: true });
     }
     if(p==='/api/telegram/webhook'){
-      // امنیت از طریق هدر مخفی تلگرام؛ تلگرام نیاز به کوکی/سشن ندارد
+      // sameOrigin مثل بقیهٔ endpointهای تغییردهنده. تلگرام معمولاً Origin نمی‌فرستد و sameOrigin آن را می‌پذیرد.
+      // اگر Origin بیگانه باشد ولی هدر رمز وب‌هوک آمده باشد، رد نمی‌کنیم تا وب‌هوک واقعی نشکند؛ رمز جداگانه سنجیده می‌شود.
+      if(!sameOrigin(req) && !req.headers['x-telegram-bot-api-secret-token']) return sendError(res,403,'مبدأ درخواست مجاز نیست');
       const verdict=telegramService.verifyWebhookSecret(req.headers['x-telegram-bot-api-secret-token']);
       if(!telegramService.isConfigured())return sendError(res,503,'تلگرام پیکربندی نشده است');
       if(!verdict.ok)return sendError(res,401,'امضای وب‌هوک تلگرام نامعتبر است');
