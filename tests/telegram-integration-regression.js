@@ -340,7 +340,7 @@ assert.match(hookChunk, /portalLink\(`\/assessments\/\$\{submitted\.id\}`\)/, 't
 assert.match(hookChunk, /لینک بررسی/, 'the link line must be labeled لینک بررسی for the coach');
 const nsSrc = fs.readFileSync(path.join(__dirname, '../src/notification-service.js'), 'utf8');
 assert.match(nsSrc, /ASSESSMENT_READY:\s*\{ category: 'system' \}/, 'ASSESSMENT_READY must be a typed event in the existing notification catalog');
-assert.match(nsSrc, /audience === 'coach'\n\s*\? coachRecipientFor/, 'coach recipient must resolve via coachRecipientFor (chat-pinned fan-out rows)');
+assert.match(nsSrc, /audience === 'coach'\r?\n\s*\? coachRecipientFor/, 'coach recipient must resolve via coachRecipientFor (chat-pinned fan-out rows)');
 assert.match(nsSrc, /function coachRecipientFor/, 'the coach recipient resolver must exist');
 assert.match(nsSrc, /coachActiveAccounts\(db,/, 'emit must fan out to all active coach accounts');
 assert.match(nsSrc, /:acc\$\{target\.id\}/, 'fan-out rows must suffix the dedup key with the account id');

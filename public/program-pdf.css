@@ -164,6 +164,19 @@ body.pdf-modal-open {
   font-weight: 600;
 }
 
+.pdf-brand-contact {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pdf-text-muted);
+}
+
+.pdf-brand-contact__handle {
+  color: var(--pdf-text);
+  text-decoration: none;
+  unicode-bidi: isolate;
+}
+
 .pdf-stamp-badge {
   padding: 5px 12px;
   border: 1px solid var(--pdf-border-strong);

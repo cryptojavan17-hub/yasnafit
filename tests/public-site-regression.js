@@ -124,7 +124,7 @@ async function waitForServer(timeoutMs = 15000) {
     // duplicated HTML text).
     assert.match(home, /<html[^>]+lang="fa"[^>]+dir="rtl"/);
     assert.match(home, /class="home-hero"/, 'home: hero section present');
-    assert.match(home, /src="\/images\/landing\/hero\.png"/, 'home: hero = owner Hero.png in FULL');
+    assert.match(home, /src="\/images\/landing\/hero\.jpg"/, 'home: hero = owner Hero image in FULL');
     assert.doesNotMatch(home, /hero-photo|landing2\.png/, 'home: no cropped/old images referenced');
     assert.doesNotMatch(home, /home-hero__logo|home-hero__title|home-hero__lead/, 'home: no duplicated HTML text (text is part of the image)');
     assert.match(home, /<title>YASNAFIT \| بدنی قوی‌تر، زندگی بهتر<\/title>/);
@@ -196,9 +196,9 @@ async function waitForServer(timeoutMs = 15000) {
     for (const label of ['شاگرد موفق', 'سال تجربه', 'برنامه اختصاصی', 'رضایت شاگردان']) assert.ok(statsBlock.includes(label), `home stats label: ${label}`);
     for (const value of [faDigits('500+'), faDigits('17+'), faDigits('120+'), faDigits('98') + '٪']) assert.ok(statsBlock.includes(value), `home stats value: ${value}`);
     assert.match(home, /class="site-footer"/, 'home: footer shell like the other public pages');
-    const heroImg = await request('/images/landing/hero.png');
+    const heroImg = await request('/images/landing/hero.jpg');
     assert.equal(heroImg.response.status, 200, 'full hero image served');
-    assert.match(heroImg.response.headers.get('content-type') || '', /image\/png/);
+    assert.match(heroImg.response.headers.get('content-type') || '', /image\/jpeg/);
     const oldCrop = await request('/images/landing/hero-photo.png');
     assert.equal(oldCrop.response.status, 404, 'cropped photo no longer served');
     const designImg = await request('/images/landing/landing2.png');
@@ -208,10 +208,10 @@ async function waitForServer(timeoutMs = 15000) {
     // About Me.png served complete (no crop, no HTML text duplication), same
     // sizing rule as the hero image.
     assert.match(home, /<section id="about" class="home-about">/, 'about section present below the hero');
-    assert.match(home, /class="home-about__img" src="\/images\/landing\/about-me\.png"/, 'about section uses the full About Me.png');
-    const aboutImg = await request('/images/landing/about-me.png');
+    assert.match(home, /class="home-about__img" src="\/images\/landing\/about-me\.jpg"/, 'about section uses the full About Me image');
+    const aboutImg = await request('/images/landing/about-me.jpg');
     assert.equal(aboutImg.response.status, 200, 'about image served');
-    assert.match(aboutImg.response.headers.get('content-type') || '', /image\/png/);
+    assert.match(aboutImg.response.headers.get('content-type') || '', /image\/jpeg/);
     assert.doesNotMatch(home, /hero-woman|cta-woman|about-woman/, 'home: no orphaned placeholder photos referenced');
     check('home: about section = full About Me.png below the hero');
 
@@ -222,7 +222,7 @@ async function waitForServer(timeoutMs = 15000) {
     check('home: CSP script-src self');
 
     for (const [route, markers] of [
-      ['/about', ['home-about', 'about-me.png']],
+      ['/about', ['home-about', 'about-me.jpg']],
       ['/services', ['برنامه تمرینی اختصاصی', 'ارزیابی بدن', 'مربیگری آنلاین']],
       ['/results', ['نتایج', 'تبدیلات واقعی']],
       ['/contact', ['شروع همکاری']],
@@ -248,7 +248,7 @@ async function waitForServer(timeoutMs = 15000) {
     // (فلسفه مربیگری / در انتظار تکمیل / گواهی‌نامه‌ها) must be gone.
     const aboutPage = await html('/about');
     assert.match(aboutPage, /<section id="about" class="home-about">/, '/about: new about section rendered');
-    assert.match(aboutPage, /class="home-about__img" src="\/images\/landing\/about-me\.png"/, '/about: full About Me.png used');
+    assert.match(aboutPage, /class="home-about__img" src="\/images\/landing\/about-me\.jpg"/, '/about: full About Me.png used');
     assert.doesNotMatch(aboutPage, /فلسفه مربیگری|در انتظار تکمیل|گواهی‌نامه|about-page|about-block/, '/about: no old page content');
     check('/about: new page = full About Me.png, all old content gone');
 

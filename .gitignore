@@ -18,3 +18,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Windows deploy kit — local secrets and a cloned app next to the kit
+deploy/windows/yasnafit.env
+deploy/windows/app/

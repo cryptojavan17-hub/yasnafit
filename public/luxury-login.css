@@ -1,9 +1,9 @@
-/* Login page = exact login-hero.png mockup with hotspot controls only */
+/* Login page = exact login-hero.jpg mockup with hotspot controls only */
 
 /* این صحنه، آرت ثابت تاریک برند است (hero mockup). توکن‌ها روی مقادیر تاریک پین می‌شوند تا
    تم روشنِ پنل (data-theme="light" از localStorage) رنگ متن/فیلدهای همین صفحه را وارونه نکند —
    وگرنه متنِ تایپ‌شدهٔ کاربر روی کارت تاریک نامرئی می‌شود. مقادیر = همان بلوک :root در theme.css */
-/* Login page = exact login-hero.png mockup with hotspot controls only */
+/* Login page = exact login-hero.jpg mockup with hotspot controls only */
 
 /* صحنه‌های ورود/ثبت‌نام توکن‌های سراسری تم را پیروی می‌کنند (پیش‌فرض روشن؛ دارک با سوییچر).
    آرت hero یک پوستر تاریک برند است و در هر دو تم تاریک می‌ماند — فقط قاب/پس‌زمینه تم‌آگاه است. */

@@ -77,7 +77,7 @@ assert.doesNotMatch(editBlock,/data-open-student|location\.href/,'the dialog nav
 // 2b) Every state variable the dialog reads must also be declared in it — a missing
 // declaration inside an async handler silently kills the save button (ReferenceError).
 const dialogDeclarations=new Set();
-for(const line of editBlock.split('\n')){
+for(const line of editBlock.split(/\r?\n/)){
   const head=line.match(/^\s*(?:let|const)\s+(.*)$/);
   if(!head)continue;
   for(const part of head[1].split(',')){

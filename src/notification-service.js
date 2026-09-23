@@ -265,6 +265,7 @@ async function processDue(db, { limit = 15, pauseMs = 400 } = {}){
 }
 
 let retryTimer = null;
+function isRetryLoopRunning(){ return Boolean(retryTimer); }
 function startRetryLoop(db, intervalMs = 60000){
   if(retryTimer) return;
   retryTimer = setInterval(() => {
@@ -273,6 +274,11 @@ function startRetryLoop(db, intervalMs = 60000){
   if(retryTimer.unref) retryTimer.unref();
 }
 function stopRetryLoop(){ if(retryTimer){ clearInterval(retryTimer); retryTimer = null; } }
+function restartRetryLoop(db, intervalMs = 60000){
+  stopRetryLoop();
+  startRetryLoop(db, intervalMs);
+  return isRetryLoopRunning();
+}
 
 function escapeHtml(text){ return String(text ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function listForStudent(db, studentId, limit = 10){
@@ -295,5 +301,5 @@ function integrationStatus(db){
 
 module.exports = {
   TYPES, CATEGORY_LABELS, emit, attemptDelivery, processDue, mirrorInAppNotification, MIRROR_MAP,
-  startRetryLoop, stopRetryLoop, listForStudent, integrationStatus, statusFa, portalLink,
+  startRetryLoop, stopRetryLoop, restartRetryLoop, isRetryLoopRunning, listForStudent, integrationStatus, statusFa, portalLink,
 };
