@@ -398,6 +398,10 @@ async function handleMessage(db, message){
       await sendMessage(db, chat.chat_id,
         `سلام ${studentName} 👋\n✅ حساب شما با موفقیت به یسنا فیت متصل شد.\n\nاز این پس اعلان‌های برنامه‌ها و پیام‌های مربی را همین‌جا دریافت می‌کنید.`,
         mainKeyboard(db, student_id));
+      try{
+        const analytics = _analytics();
+        if(analytics) analytics.recordEvent(db, { eventType:'telegram_connect', path:'/telegram', userAgent:'' });
+      }catch(error){ console.log('[Telegram] analytics connect event skipped:', error.message); }
       try{ getServices().notificationService.emit(db, { type: 'TELEGRAM_CONNECTED', studentId: student_id, dedupKey: `telegram_connected:${chat.chat_id}` }); }catch(e){ console.log('[Telegram] TELEGRAM_CONNECTED emit failed:', e.message); }
       return { handled: true, linked: student_id };
     }catch(error){ studentError = error; }
@@ -540,15 +544,16 @@ async function sendVisitStats(db, chatId){
   const data = analytics.visitSummary(db, 7);
   const s = data.summary;
   const fa = n => Number(n || 0).toLocaleString('fa-IR');
-  const visitors = (data.visitors || []).slice(0, 10);
+  const visitors = (data.visitors || []).slice(0, 8);
   const blocks = visitors.map(v => {
     const flag = analytics.flagOf(v.country_code);
     const device = analytics.deviceFa(v.device);
     const reg = v.registrations > 0 ? '✅ ثبت‌نام کرده' : '❌ ثبت‌نام نکرده';
     const online = v.online ? ' 🟢' : '';
-    return `${flag} <b>${escapeHtml(v.ip || '—')}</b>${online} — ${device}${v.browser && v.browser !== 'سایر' ? ` (${escapeHtml(v.browser)})` : ''}\n🌍 ${escapeHtml(v.country_name || 'نامشخص')} | 📄 ${fa(v.views)} بازدید صفحه\n⏰ ورود: ${v.first_fa}\n⏱ آخرین: ${v.last_fa} | مدت حضور: ~${v.duration_fa}\n${reg}`;
+    const where = [v.country_name, v.city].filter(Boolean).join('، ') || 'نامشخص';
+    return `${flag} <b>${escapeHtml(v.visitor_label || 'visitor_…')}</b>${online} — ${device}${v.browser && v.browser !== 'سایر' ? ` (${escapeHtml(v.browser)})` : ''}\n🌍 ${escapeHtml(where)} | 📄 ${fa(v.views)} بازدید صفحه\n⏰ ورود: ${v.first_fa}\n⏱ آخرین: ${v.last_fa} | مدت حضور: ${v.duration_fa}\n${reg}`;
   });
-  const header = `📈 <b>آمار بازدید سایت — بازدیدکننده به بازدیدکننده</b>\n\nامروز: ${fa(s.today_views)} بازدید • ${fa(s.today_ips)} IP یکتا\n۷ روز: ${fa(s.day7_views)} بازدید • ${fa(s.day7_ips)} IP یکتا\nکل: ${fa(s.total_views)} بازدید • ${fa(s.total_ips)} IP یکتا\n\n<b>آخرین IPها:</b>`;
+  const header = `📈 <b>آمار بازدید سایت</b>\n\nامروز: ${fa(s.today_views)} بازدید • ${fa(s.today_visitors || s.today_ips)} IP یکتا\n۷ روز: ${fa(s.day7_views)} بازدید • ${fa(s.day7_ips)} IP یکتا\nکل: ${fa(s.total_views)} بازدید • ${fa(s.total_ips)} IP یکتا\nنشست: ${fa(s.sessions)} • میانگین مدت نشست: ${s.average_session_fa || '—'}\n\n<b>بازدیدکنندگان (بدون IP خام):</b>`;
   await sendMessage(db, chatId, blocks.length ? header + '\n\n' + blocks.join('\n\n━━━━━━━━━━━\n\n') : header + '\nهنوز بازدیدی ثبت نشده است.');
 }
 async function sendCoachNotifications(db, chatId){

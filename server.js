@@ -68,6 +68,52 @@ try{
   analyticsService.startGeoResolver(db);
 }catch(error){ console.log('[Analytics] شروع سرویس تحلیل ناموفق:',error.message); }
 
+function trackPublicHtml(req, res, pathname){
+  // کوکی قبل از writeHead ست می‌شود؛ درج دیتابیس بعد از پاسخ تا صفحه معطل نماند.
+  try{
+    const visitor = analyticsService.ensureVisitor(req, res);
+    const snap = analyticsService.snapshotRequest(req, pathname, visitor);
+    setImmediate(() => {
+      try{ analyticsService.commitSnapshot(db, snap); }
+      catch(error){ console.log('[Analytics] visit skipped:', error.message); }
+    });
+  }catch(error){ console.log('[Analytics] visit skipped:', error.message); }
+}
+function scheduleAnalyticsEvent(req, res, eventType, pathname){
+  try{
+    const visitorId = analyticsService.ensureVisitor(req, res).id;
+    const userAgent = String(req.headers && req.headers['user-agent'] || '').slice(0, 300);
+    setImmediate(() => {
+      try{ analyticsService.recordEvent(db, { eventType, path: pathname, visitorId, userAgent, req }); }
+      catch(error){ console.log('[Analytics] event skipped:', error.message); }
+    });
+  }catch(error){ console.log('[Analytics] event skipped:', error.message); }
+}
+function recordAnalyticsEvent(req, res, eventType, pathname){
+  try{
+    const visitorId = analyticsService.ensureVisitor(req, res).id;
+    analyticsService.recordEvent(db, {
+      eventType,
+      path: pathname,
+      visitorId,
+      userAgent: String(req.headers && req.headers['user-agent'] || '').slice(0, 300),
+      req
+    });
+    return visitorId;
+  }catch(error){
+    console.log('[Analytics] event skipped:', error.message);
+    return null;
+  }
+}
+function analyticsSetCookies(res, extra){
+  const prior = typeof res.getHeader === 'function' ? res.getHeader('Set-Cookie') : null;
+  const cookies = [].concat(extra || [], prior || []).filter(Boolean).map(String);
+  const unique = [];
+  for(const cookie of cookies) if(!unique.includes(cookie)) unique.push(cookie);
+  if(!unique.length) return extra || undefined;
+  return unique.length === 1 ? unique[0] : unique;
+}
+
 telegramService.applyDbSettings(db);
 if(telegramService.isConfigured()){
   console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — منبع: ${telegramService.settingsView(db).source === 'env' ? 'متغیر محیطی' : 'تنظیمات پنل مربی'} | webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ رمز وب‌هوک تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
@@ -268,8 +314,9 @@ async function handleCoachAuth(req,res,url){
     const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:true});
     if(result.error) return coachAuthError(res,result.error,result.message);
     log('ورود مربی', result.coach?.email||'');
+    recordAnalyticsEvent(req,res,'login','/coach/login');
     return send(res,200,{ok:true,next:'/coach/dashboard',coach:result.coach,expires_at:result.expires_at},{
-      'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
+      'Set-Cookie':analyticsSetCookies(res, coachAuthService.sessionCookie(req,result.raw_session))
     });
   }
   if(p==='/api/coach/auth/forgot' && req.method==='POST'){
@@ -1614,9 +1661,10 @@ async function handleStudentAuth(req,res,url){
     invitationId=consumed.invitation_id;
   }
   const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRecommended=authenticated.student.password_state!=='PERSONAL';
-  if(invitationId) analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id});
+  const loginVisitorId=recordAnalyticsEvent(req,res,'login','/student/login');
+  if(invitationId) analyticsService.recordRegistration(db,{ip:analyticsService.analyticsClientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id,visitorId:loginVisitorId,userAgent:req.headers['user-agent']||''});
   auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_recommended:passwordChangeRecommended,via_invitation:Boolean(invitationId)}});
-  return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+  return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':analyticsSetCookies(res, studentSessionService.sessionCookie(req,session.raw_session))});
 }
 
 async function handleStudentRegister(req,res,url){
@@ -1628,7 +1676,8 @@ async function handleStudentRegister(req,res,url){
     const body=await readBody(req);
     const created=studentAuthService.registerStudent(db,body);
     const session=studentSessionService.createStudentSession(db,created.id,null);
-    analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'student',label:created.full_name,studentId:created.id});
+    const visitorId=(()=>{ try{ return analyticsService.ensureVisitor(req,res).id; }catch(error){ console.log('[Analytics] visitor skipped:', error.message); return null; } })();
+    analyticsService.recordRegistration(db,{ip:analyticsService.analyticsClientIp(req),kind:'student',label:created.full_name,studentId:created.id,visitorId,userAgent:req.headers['user-agent']||''});
     log('ثبت‌نام شاگرد جدید آزاد',`${created.case_number} - ${created.full_name}`);
     auditService.record(db,{
       actorType:'student',
@@ -1645,7 +1694,7 @@ async function handleStudentRegister(req,res,url){
       next_route:studentNextRoute(created.id),
       student:studentSessionService.safeStudent(created),
       expires_at:session.expires_at
-    },{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+    },{'Set-Cookie':analyticsSetCookies(res, studentSessionService.sessionCookie(req,session.raw_session))});
   }catch(error){
     return sendCaughtError(res,error);
   }
@@ -3266,6 +3315,7 @@ function sendPublicPage(req, res, { kind, path }) {
     'Referrer-Policy': 'no-referrer',
     'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
   };
+  if(req.method === 'GET') trackPublicHtml(req, res, path);
   if (req.method === 'HEAD') {
     res.writeHead(200, publicHeaders);
     return res.end();
@@ -3806,8 +3856,10 @@ async function api(req,res,url){
     if(p.startsWith('/api/analytics/')){
       if(requireCoach(req,res)) return true;
       if(p==='/api/analytics/visits' && req.method==='GET'){
-        const days=Math.min(365,Math.max(1,Number(url.searchParams.get('days'))||30));
-        return send(res,200,analyticsService.visitSummary(db,days));
+        return send(res,200,analyticsService.visitSummary(db,analyticsService.rangeFromQuery(url.searchParams)));
+      }
+      if(p==='/api/analytics/export' && req.method==='GET'){
+        return send(res,200,analyticsService.exportAnalytics(db,analyticsService.rangeFromQuery(url.searchParams)));
       }
       return sendError(res,404,'مسیر API پیدا نشد');
     }
@@ -3905,7 +3957,6 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
     if(coachAuthPages[url.pathname] && req.method==='GET'){
@@ -3914,7 +3965,6 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
 
@@ -3922,12 +3972,12 @@ const server=http.createServer(async(req,res)=>{
     const isStudentPage=['/student/login','/student/register','/student/diet','/student/supplement','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
       const authenticated=isJoinPage || url.pathname==='/student/login' || url.pathname==='/student/register' || Boolean(studentSessionService.resolveStudentSession(db,req));
+      if(url.pathname==='/student/register' && authenticated) scheduleAnalyticsEvent(req,res,'register_start','/student/register');
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
@@ -3952,10 +4002,6 @@ const server=http.createServer(async(req,res)=>{
       url.pathname===LANDING_PATH
     );
     if(isPublicPageRoute){
-      // Site-visit analytics (merged from the 01a085de lineage): the landing is the home
-      // page, so it is recorded as '/', the other public pages under their own path.
-      if(req.method==='GET' && url.pathname===LANDING_PATH) analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
-      else if(req.method==='GET') analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return sendPublicPage(req,res,{kind:url.pathname===LANDING_PATH?'home':url.pathname.slice(1),path:url.pathname});
     }
 
@@ -4072,7 +4118,6 @@ const server=http.createServer(async(req,res)=>{
     }
     const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
     res.writeHead(200,spaHeaders);
-    analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
     console.error('[Server Error]', error);

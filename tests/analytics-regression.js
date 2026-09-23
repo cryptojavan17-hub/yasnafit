@@ -40,7 +40,8 @@ assert.equal(analytics.isPrivateIp('5.253.10.9'), false);
 
 // ─── ۲. ثبت بازدید واقعی (بات‌ها نه؛ IPهای خصوصی با برچسب شبکهٔ محلی) ───
 assert.equal(analytics.recordVisit(db, { ip: '5.253.10.9', path: '/', userAgent: 'Mozilla/5.0 (iPhone) Safari' }), true);
-assert.equal(analytics.recordVisit(db, { ip: '31.7.90.11', path: '/coach/login', userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120' }), true);
+assert.equal(analytics.recordVisit(db, { ip: '31.7.90.11', path: '/about', userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120' }), true);
+assert.equal(analytics.recordVisit(db, { ip: '31.7.90.11', path: '/coach/login', userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120' }), false, 'coach login is not a public pageview');
 assert.equal(analytics.recordVisit(db, { ip: '127.0.0.1', path: '/', userAgent: 'Mozilla/5.0 (X11; Linux) Firefox/121' }), true);
 assert.equal(analytics.recordVisit(db, { ip: '1.2.3.4', path: '/', userAgent: 'curl/8.0' }), false, 'bots must not be counted');
 const resolved = analytics.resolveIps(db, ['127.0.0.1'], async () => { throw new Error('no network in test'); });
@@ -62,24 +63,25 @@ analytics.recordRegistration(db, { ip: '5.253.10.9', kind: 'student', label: 'ش
 const overview = analytics.visitorOverview(db, 50);
 assert.equal(overview.length, 3, 'each unique IP is one visitor row');
 for(let i = 1; i < overview.length; i++) assert.ok(overview[i-1].last_at >= overview[i].last_at, 'visitors are ordered by last activity');
-const regVisitor = overview.find(v => v.ip === '5.253.10.9');
-assert.ok(regVisitor, 'every visited IP appears in the overview');
+const regVisitor = overview.find(v => v.visitor_id === analytics.legacyVisitorId('5.253.10.9', 'Mozilla/5.0 (iPhone) Safari'));
+assert.ok(regVisitor, 'every visited visitor id appears in the overview');
+assert.ok(!('ip' in regVisitor), 'raw IP must not be returned to the coach UI');
 assert.ok(regVisitor.views >= 1 && regVisitor.duration_fa.length > 0 && regVisitor.first_fa && regVisitor.last_fa, 'duration and entry times must be humanized');
 assert.equal(regVisitor.registrations, 1, 'the registration must be linked to its IP');
-assert.equal(overview.find(v => v.ip === '31.7.90.11').registrations, 0, 'other IPs are not registered');
+assert.equal(overview.find(v => v.visitor_id === analytics.legacyVisitorId('31.7.90.11', 'Mozilla/5.0 (Windows NT 10.0) Chrome/120')).registrations, 0, 'other visitors are not registered');
 const summaryWithVisitors = analytics.visitSummary(db, 30);
 assert.ok(Array.isArray(summaryWithVisitors.visitors) && summaryWithVisitors.visitors.length >= 2, 'visitSummary must embed the visitors table');
 
 // ─── ۴. ثبت بازدید باید به نقاط سرو HTML سرور وصل باشد ───
-for(const marker of ["analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']})",
-                     "analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']})"]){
-  assert.ok(server.includes(marker), 'server must record visits at HTML serve points: ' + marker.slice(0, 70));
-}
+assert.match(server, /function trackPublicHtml\(req, res, pathname\)/, 'public HTML must be tracked without blocking the response');
+assert.match(server, /setImmediate\(\(\) => \{/, 'analytics inserts must leave the request path');
+assert.match(server, /if\(req\.method === 'GET'\) trackPublicHtml\(req, res, path\)/, 'magazine articles and public pages share one tracker');
+assert.equal((server.match(/analyticsService\.recordVisit\(/g) || []).length, 0, 'private pages must not call recordVisit');
 assert.match(server, /analyticsService\.cleanup\(db\)/, 'old visits must be pruned on boot');
 assert.match(server, /analyticsService\.startGeoResolver\(db\)/, 'the geo resolver must start on boot');
 assert.match(server, /if\(p\.startsWith\('\/api\/analytics\/'\)\)\{\s*if\(requireCoach\(req,res\)\) return true;/, 'the analytics API must be coach-only');
 assert.match(server, /telegramService\.registerCommands\(\)\.catch\(\(\)=>\{\}\);/, 'bot menu commands must be registered when configured');
-assert.match(server, /analyticsService\.recordRegistration\(db,\{ip:requestSecurity\.clientIp\(req\),kind:'student'/, 'free registrations must record the visitor IP');
+assert.match(server, /analyticsService\.recordRegistration\(db,\{ip:analyticsService\.analyticsClientIp\(req\),kind:'student'/, 'free registrations must record the analytics visitor IP');
 assert.match(server, /if\(invitationId\) analyticsService\.recordRegistration\(/, 'invite first-login must record the visitor IP');
 assert.match(read('src/migrations.js'), /035_visitor_registration_events/, 'the registration events migration must exist');
 
@@ -129,7 +131,8 @@ assert.match(sent.at(-1).payload.text, /در انتظار بررسی نیست/);
 await send('/visits', 111);
 const visitMsg = sent.at(-1).payload.text;
 assert.match(visitMsg, /آمار بازدید سایت/);
-assert.ok(visitMsg.includes('5.253.10.9'), 'the message must list each visitor IP');
+assert.match(visitMsg, /visitor_/, 'the message must list anonymous visitor ids');
+assert.doesNotMatch(visitMsg, /5\.253\.10\.9/, 'the bot must not reveal a raw IP');
 assert.match(visitMsg, /ثبت‌نام کرده/, 'registered IPs must be labeled');
 assert.match(visitMsg, /مدت حضور/, 'dwell time must be shown');
 assert.match(visitMsg, /ورود:/, 'entry time must be shown');

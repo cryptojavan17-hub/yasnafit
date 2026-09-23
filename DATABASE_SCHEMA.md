@@ -1,7 +1,7 @@
 # Yasnafit - Authoritative Database Schema
 
 ## Schema Version
-Current: `039_magazine_direct_persian_publishers` stored in `settings` table and `schema_migrations`
+Current: `040_analytics_privacy` stored in `settings` table and `schema_migrations`
 
 ## Direct publisher sources (migration 039)
 

@@ -543,3 +543,13 @@ tbody tr:last-child td { border-bottom: 0; }
 .visit-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:750;white-space:nowrap}
 .visit-badge.yes{background:var(--success-surface);border:1px solid var(--success-border);color:var(--success)}
 .visit-badge.no{background:var(--surface-3);border:1px solid var(--border);color:var(--text-muted)}
+.visit-id{direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+.visit-funnel{display:flex;gap:8px;flex-wrap:wrap}
+.visit-funnel article{flex:1;min-width:140px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--glass)}
+.visit-funnel strong{display:block;margin-top:4px;font-size:22px}
+.visit-funnel small,.visit-funnel span{color:var(--text-muted);font-size:11px}
+.visit-journey{margin:0;padding-right:18px;display:flex;flex-direction:column;gap:8px}
+.visit-journey li{color:var(--text-secondary);font-size:13px}
+.visit-custom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.visit-custom input{background:var(--surface-3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+.visit-ranges a.secondary{text-decoration:none;display:inline-flex;align-items:center}
