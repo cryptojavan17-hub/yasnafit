@@ -14,7 +14,6 @@ window.addEventListener('error',event=>{
 
 const sidebarMenu = [
   ['داشبورد','/coach/dashboard','🏠'],
-  ['آمار و تحلیل سایت','/coach/analytics','📊'],
   ['شاگردان',null,'👥',[
     ['لیست شاگردان','/users-list'],
     ['ارزیابی‌های در انتظار','/students/submissions']
@@ -29,6 +28,7 @@ const sidebarMenu = [
     ['بانک برنامه','/programs/exercise/movements-list']
   ]],
   ['سیستم',null,'📦',[
+    ['آمار و تحلیل سایت','/coach/analytics'],
     ['پیکربندی هوش مصنوعی (AI)','/settings/ai'],
     ['تنظیمات تلگرام','/settings/telegram'],
     ['تنظیمات و پشتیبان','/coach/settings'],

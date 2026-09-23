@@ -257,7 +257,9 @@ check('10_about_no_coach_page_view_but_structure_kept', () => {
 });
 
 check('11_ui_and_routes_static', () => {
-  assert.ok(appSrc.includes("['آمار و تحلیل سایت','/coach/analytics','📊']"), 'the coach menu needs the analytics entry');
+  assert.ok(!appSrc.includes("['آمار و تحلیل سایت','/coach/analytics','📊']"), 'analytics must not be a top-level menu item (owner request: it lives under «سیستم»)');
+  const systemMenu = appSrc.slice(appSrc.indexOf("['سیستم'"), appSrc.indexOf('];', appSrc.indexOf("['سیستم'")));
+  assert.ok(systemMenu.length > 0 && systemMenu.includes("['آمار و تحلیل سایت','/coach/analytics']"), 'the analytics entry must be the first item of the «سیستم» submenu');
   assert.match(appSrc, /\['آمار بازدید','\/coach\/visits'\]/, 'the legacy route label stays');
   assert.match(appSrc, /route==='\/coach\/analytics' && window\.renderAnalyticsDashboard/, 'the new route must be wired');
   assert.match(coreSrc, /window\.renderAnalyticsDashboard=async function/, 'the dashboard renderer must exist');
