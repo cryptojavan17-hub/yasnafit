@@ -19,6 +19,7 @@ const GEO_HTTPS = 'https://ipwho.is/';
 const CF_V4 = ['173.245.48.0/20','103.21.244.0/22','103.22.200.0/22','103.31.4.0/22','141.101.64.0/18','108.162.192.0/18','190.93.240.0/20','188.114.96.0/20','197.234.240.0/22','198.41.128.0/17','162.158.0.0/15','104.16.0.0/13','104.24.0.0/14','172.64.0.0/13','131.0.72.0/22'];
 const CF_V6 = ['2400:cb00::/32','2606:4700::/32','2803:f800::/32','2405:b500::/32','2405:8100::/32','2a06:98c0::/29','2c0f:f248::/32'];
 const PUBLIC_EXACT = new Set(['/', '/about', '/services', '/results', '/magazine', '/contact']);
+const PUBLIC_JOIN = new RegExp('^/join/[A-Za-z0-9_-]{32,120}$');
 const EVENT_TYPES = new Set(['landing_view', 'coach_page_view', 'register_start', 'registration_complete', 'login', 'telegram_connect', 'page_view']);
 const SENSITIVE_QUERY = /token|password|passwd|secret|code|session|key|auth|jwt|cookie/i;
 const BOT_RE = /bot|spider|crawler|slurp|curl|wget|python-requests|headless|preview|facebookexternalhit|embedly|monitor|uptime|pingdom|healthcheck|kube-probe|bytespider|petalbot|ahrefs|semrush/i;
@@ -147,12 +148,14 @@ function cleanPath(value){
 }
 function isPublicAnalyticsPath(path){
   if(PUBLIC_EXACT.has(path)) return true;
+  if(PUBLIC_JOIN.test(path)) return true;
   return /^\/magazine\/[^/?#]{1,600}$/.test(path);
 }
 function pageLabel(path){
   const labels = { '/':'Home', '/about':'About', '/services':'Services', '/magazine':'Magazine', '/results':'Results', '/contact':'Contact' };
   if(labels[path]) return labels[path];
   if(path.startsWith('/magazine/')) return 'Article';
+  if(path.startsWith('/join/')) return 'Invite';
   return 'Other';
 }
 function sanitizeUtm(value){
@@ -391,6 +394,17 @@ function commitSnapshot(db, snap){
     return true;
   }catch(error){ return false; }
 }
+function sessionForEvent(db, visitorId, at){
+  if(!visitorId) return null;
+  const atMs = stampMs(at);
+  if(!Number.isFinite(atMs)) return null;
+  try{
+    const open = db.prepare('SELECT session_key, last_seen_at FROM analytics_sessions WHERE visitor_id=? ORDER BY last_seen_at DESC, id DESC LIMIT 1').get(visitorId);
+    if(!open) return null;
+    const last = stampMs(open.last_seen_at);
+    return Number.isFinite(last) && Math.abs(atMs - last) <= SESSION_IDLE_MS ? open.session_key : null;
+  }catch(error){ return null; }
+}
 function recordEvent(db, input = {}){
   try{
   const eventType = String(input.eventType || '');
@@ -400,7 +414,7 @@ function recordEvent(db, input = {}){
   const path = cleanPath(input.path || '/');
   const attr = attributionFrom(input.req, input);
   db.prepare('INSERT INTO analytics_events(stable_id, occurred_at, visitor_id, session_id, event_type, path, traffic_source, utm_source, utm_medium, utm_campaign) VALUES(?,?,?,?,?,?,?,?,?,?)')
-    .run(uuid(), at, input.visitorId || null, input.sessionId || null, eventType, path, input.trafficSource || attr.trafficSource, attr.utmSource, attr.utmMedium, attr.utmCampaign);
+    .run(uuid(), at, input.visitorId || null, (input.sessionId || sessionForEvent(db, input.visitorId, at)) || null, eventType, path, input.trafficSource || attr.trafficSource, attr.utmSource, attr.utmMedium, attr.utmCampaign);
   return true;
   }catch(error){ return false; }
 }
@@ -418,12 +432,12 @@ function publicVisits(db, start, end){
   return db.prepare(`SELECT id, visited_at, ip, country_code, country_name, city, device, browser, os, path,
       visitor_id, session_id, traffic_source, utm_source, utm_medium, utm_campaign
     FROM site_visits
-    WHERE COALESCE(is_public, CASE WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR path LIKE '/magazine/%' THEN 1 ELSE 0 END)=1
+    WHERE COALESCE(is_public, CASE WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR path LIKE '/magazine/%' OR (path LIKE '/join/%' AND path NOT LIKE '/join/%/%') THEN 1 ELSE 0 END)=1
       AND visited_at>=? AND visited_at<?
     ORDER BY visited_at ASC, id ASC`).all(start, end);
 }
 function countEvents(db, type, start, end){
-  return db.prepare('SELECT COUNT(*) AS n, COUNT(DISTINCT visitor_id) AS visitors FROM analytics_events WHERE event_type=? AND occurred_at>=? AND occurred_at<?').get(type, start, end);
+  return db.prepare('SELECT COUNT(*) AS n, COUNT(DISTINCT visitor_id) AS visitors, COUNT(DISTINCT session_id) AS sessions FROM analytics_events WHERE event_type=? AND occurred_at>=? AND occurred_at<?').get(type, start, end);
 }
 function sessionRows(db, start, end){
   return db.prepare('SELECT session_key, visitor_id, started_at, last_seen_at, pageviews, landing_path, exit_path, device, country_code FROM analytics_sessions WHERE last_seen_at>=? AND started_at<?').all(start, end);
@@ -590,15 +604,16 @@ function visitSummary(db, input = 30){
   const browserGroups = tally(inRange.map(row => ({ ...row, browser_group: browserGroup(row.browser) })), 'browser_group');
   const events = ['landing_view', 'coach_page_view', 'register_start', 'registration_complete', 'login', 'telegram_connect'].map(type => {
     const row = countEvents(db, type, window.start, window.end);
-    return { event_type: type, count: row.n, visitors: row.visitors };
+    return { event_type: type, count: row.n, visitors: row.visitors, sessions: row.sessions };
   });
+  const eventSessions = type => (events.find(item => item.event_type === type) || {}).sessions || 0;
   const registerStart = events.find(item => item.event_type === 'register_start').count;
   const registerComplete = events.find(item => item.event_type === 'registration_complete').count;
   const rate = (num, den) => den > 0 ? Math.round(num / den * 1000) / 10 : 0;
   const onlineCutoff = new Date(nowMs - ONLINE_MS).toISOString();
   const onlineHits = db.prepare(`SELECT visitor_id, path, country_name, city, device, visited_at
     FROM site_visits
-    WHERE COALESCE(is_public, CASE WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR path LIKE '/magazine/%' THEN 1 ELSE 0 END)=1
+    WHERE COALESCE(is_public, CASE WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR path LIKE '/magazine/%' OR (path LIKE '/join/%' AND path NOT LIKE '/join/%/%') THEN 1 ELSE 0 END)=1
       AND visited_at>=?
     ORDER BY visited_at DESC, id DESC`).all(onlineCutoff);
   const onlineSeen = new Set();
@@ -615,7 +630,7 @@ function visitSummary(db, input = 30){
       last_fa: faDateTime(row.visited_at),
     });
   }
-  const faPage = path => ({ '/':'خانه', '/about':'درباره من', '/services':'خدمات', '/results':'نتایج', '/magazine':'مجله', '/contact':'تماس' }[path] || (String(path || '').startsWith('/magazine/') ? 'مقاله' : 'صفحه'));
+  const faPage = path => ({ '/':'خانه', '/about':'درباره من', '/services':'خدمات', '/results':'نتایج', '/magazine':'مجله', '/contact':'تماس' }[path] || (String(path || '').startsWith('/magazine/') ? 'مقاله' : (String(path || '').startsWith('/join/') ? 'دعوت' : 'صفحه')));
   const registeredVisitors = new Set(registrations.map(row => row.visitor_id).filter(Boolean));
   const journeys = [];
   for(const hits of bySession.values()){
@@ -679,8 +694,8 @@ function visitSummary(db, input = 30){
     journey: [
       { step: 'Home', sessions: new Set(inRange.filter(row => row.path === '/').map(row => row.session_id)).size },
       { step: 'About', sessions: new Set(inRange.filter(row => row.path === '/about').map(row => row.session_id)).size },
-      { step: 'Coach', sessions: countEvents(db, 'coach_page_view', window.start, window.end).n },
-      { step: 'Register', sessions: registerStart },
+      { step: 'Coach', sessions: eventSessions('coach_page_view') },
+      { step: 'Register', sessions: eventSessions('register_start') },
     ],
     journeys,
     funnel: {

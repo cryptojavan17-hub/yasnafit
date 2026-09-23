@@ -3973,6 +3973,9 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
       const authenticated=isJoinPage || url.pathname==='/student/login' || url.pathname==='/student/register' || Boolean(studentSessionService.resolveStudentSession(db,req));
       if(url.pathname==='/student/register' && authenticated) scheduleAnalyticsEvent(req,res,'register_start','/student/register');
+      // The invitation landing (/join/<token>) is a public page. The student shell is served for
+      // any /join/... path, so record only real invite-token shapes as public pageviews.
+      if(isJoinPage && analyticsService.isPublicAnalyticsPath(url.pathname)) trackPublicHtml(req, res, url.pathname);
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',

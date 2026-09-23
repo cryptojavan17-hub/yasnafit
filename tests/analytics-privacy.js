@@ -82,7 +82,9 @@ check('5_ipv6_cloudflare_peer', () => {
 });
 
 check('6_client_ip_unchanged', () => {
-  assert.match(security, /function clientIp\(req\)\{\n  const forwarded=TRUST_PROXY\?firstHeader\(req\?\.headers\?\.\['x-forwarded-for'\]\):'';\n  return forwarded\|\|req\?\.socket\?\.remoteAddress\|\|'unknown';\n\}/);
+  assert.ok(security.includes('function clientIp(req){'), 'clientIp signature must not change');
+  assert.ok(security.includes("const forwarded=TRUST_PROXY?firstHeader(req?.headers?.['x-forwarded-for']):'';"), 'clientIp must keep reading only the first X-Forwarded-For hop');
+  assert.ok(security.includes("return forwarded||req?.socket?.remoteAddress||'unknown';"), 'clientIp must fall back to the socket address');
   assert.doesNotMatch(security, /cf-connecting-ip/i);
   assert.doesNotMatch(security, /CF-Connecting-IP/);
 });
@@ -408,6 +410,37 @@ check('27_events_and_pages_table', () => {
   assert.equal(db.prepare(`SELECT COUNT(*) n FROM site_visits WHERE path LIKE '/coach/%' OR path LIKE '/student/%'`).get().n, 0);
 });
 
+check('28_journey_steps_count_sessions', () => {
+  const db = freshDb();
+  const visitor = 'visitor_journey0001';
+  analytics.recordVisit(db, { ip:'203.0.113.150', path:'/about', userAgent:ua.chrome, visitorId:visitor, at:'2026-09-23T09:00:00.000Z' });
+  analytics.recordVisit(db, { ip:'203.0.113.150', path:'/about', userAgent:ua.chrome, visitorId:visitor, at:'2026-09-23T09:05:00.000Z' });
+  analytics.recordEvent(db, { eventType:'coach_page_view', visitorId:visitor, path:'/about', at:'2026-09-23T09:00:00.000Z', userAgent:ua.chrome });
+  analytics.recordEvent(db, { eventType:'coach_page_view', visitorId:visitor, path:'/about', at:'2026-09-23T09:05:00.000Z', userAgent:ua.chrome });
+  analytics.recordEvent(db, { eventType:'register_start', visitorId:visitor, path:'/student/register', at:'2026-09-23T09:10:00.000Z', userAgent:ua.chrome });
+  const summary = analytics.visitSummary(db, { range:'today', now:'2026-09-23T12:00:00.000Z' });
+  const coachEvent = summary.events.find(row => row.event_type === 'coach_page_view');
+  assert.equal(coachEvent.count, 2, 'two coach events were recorded');
+  assert.equal(coachEvent.sessions, 1, 'events carry their session id');
+  assert.equal(summary.journey.find(row => row.step === 'Coach').sessions, 1, 'journey counts sessions, not events');
+  assert.equal(summary.journey.find(row => row.step === 'Register').sessions, 1, 'register step counts sessions too');
+  assert.equal(summary.funnel.register_start, 1, 'the funnel keeps counting events');
+});
+
+check('29_join_landing_pageview', () => {
+  const token = 'aB3_-xyz'.repeat(9).slice(0, 43);
+  assert.equal(analytics.isPublicAnalyticsPath('/join/' + token), true, 'invitation landing is a public page');
+  assert.equal(analytics.isPublicAnalyticsPath('/join/short'), false, 'garbage tokens are not a landing');
+  assert.equal(analytics.isPublicAnalyticsPath('/join/a/b'), false, 'nested paths are not the landing');
+  assert.equal(analytics.isPublicAnalyticsPath('/join/'), false);
+  const db = freshDb();
+  assert.equal(analytics.recordVisit(db, { ip:'203.0.113.160', path:'/join/' + token, userAgent:ua.chrome, visitorId:'visitor_join000001' }), true);
+  assert.equal(analytics.recordVisit(db, { ip:'203.0.113.160', path:'/join/short', userAgent:ua.chrome, visitorId:'visitor_join000001' }), false);
+  const summary = analytics.visitSummary(db, { range:'today', now:'2026-09-23T12:00:00.000Z' });
+  assert.equal(summary.pages.some(page => page.label === 'Invite'), true, 'join landing appears in the public pages table');
+  assert.ok(server.includes('analyticsService.isPublicAnalyticsPath(url.pathname)'), 'server tracks the invitation landing on the SPA fallback');
+});
+
 const names = Object.keys(results);
-assert.equal(names.length, 27, 'the privacy suite must execute all 27 cases');
+assert.equal(names.length, 29, 'the privacy suite must execute all 29 cases');
 console.log(JSON.stringify({ ok: true, cases: names.length, results }));

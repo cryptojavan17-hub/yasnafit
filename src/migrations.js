@@ -1822,7 +1822,7 @@ const migrations = [
       ensureColumn('ip_geo_cache', 'city', 'TEXT');
       db.exec(`
         UPDATE site_visits SET is_public=CASE
-          WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR (path LIKE '/magazine/%' AND path NOT LIKE '/magazine/%/%') THEN 1
+          WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR (path LIKE '/magazine/%' AND path NOT LIKE '/magazine/%/%') OR (path LIKE '/join/%' AND path NOT LIKE '/join/%/%') THEN 1
           ELSE 0 END
         WHERE is_public IS NULL;
         CREATE TABLE IF NOT EXISTS analytics_sessions (
