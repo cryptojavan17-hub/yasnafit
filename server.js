@@ -3864,6 +3864,39 @@ async function api(req,res,url){
       return sendError(res,404,'مسیر API پیدا نشد');
     }
 
+    // داشبورد «آمار و تحلیل سایت» — فقط مربی، فقط خواندنی؛ داده از همان جداول Analytics
+    if(p.startsWith('/api/coach/analytics')){
+      if(requireCoach(req,res)) return true;
+      if(req.method!=='GET') return sendError(res,405,'متد مجاز نیست');
+      const dashRange=analyticsService.rangeFromQuery(url.searchParams);
+      if(p==='/api/coach/analytics/summary') return send(res,200,analyticsService.dashSummary(db,dashRange));
+      if(p==='/api/coach/analytics/timeseries') return send(res,200,analyticsService.dashTimeseries(db,dashRange));
+      if(p==='/api/coach/analytics/pages') return send(res,200,analyticsService.dashPages(db,dashRange));
+      if(p==='/api/coach/analytics/visitors'){
+        return send(res,200,analyticsService.dashVisitors(db,{
+          ...dashRange,
+          page:url.searchParams.get('page')||1,
+          page_size:url.searchParams.get('page_size')||10,
+          q:url.searchParams.get('q')||'',
+          device:url.searchParams.get('device')||'',
+          source:url.searchParams.get('source')||'',
+          country:url.searchParams.get('country')||'',
+        }));
+      }
+      const dashVisitorMatch=p.match(/^\/api\/coach\/analytics\/visitors\/([A-Za-z0-9_]{1,48})$/);
+      if(dashVisitorMatch){
+        const detail=analyticsService.dashVisitorDetail(db,dashVisitorMatch[1]);
+        if(!detail) return sendError(res,404,'بازدیدکننده پیدا نشد');
+        return send(res,200,detail);
+      }
+      if(p==='/api/coach/analytics/sources') return send(res,200,analyticsService.dashSources(db,dashRange));
+      if(p==='/api/coach/analytics/devices') return send(res,200,analyticsService.dashDevices(db,dashRange));
+      if(p==='/api/coach/analytics/geo') return send(res,200,analyticsService.dashGeo(db,dashRange));
+      if(p==='/api/coach/analytics/journey') return send(res,200,analyticsService.dashJourney(db,dashRange));
+      if(p==='/api/coach/analytics/funnel') return send(res,200,analyticsService.dashFunnel(db,dashRange));
+      return sendError(res,404,'مسیر API پیدا نشد');
+    }
+
     if(p==='/api/backup'||p.startsWith('/api/backup/')){
       const r = await handleBackup(req,res,url);
       if(r) return r;

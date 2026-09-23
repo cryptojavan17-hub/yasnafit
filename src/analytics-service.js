@@ -167,7 +167,10 @@ function referrerHost(value){
   const text = String(value || '').trim();
   if(!text || SENSITIVE_QUERY.test(text)) return '';
   try{ return new URL(text).hostname.replace(/^www\./, '').toLowerCase().slice(0, 120); }
-  catch(error){ return ''; }
+  catch(error){
+    if(/^[A-Za-z0-9.-]{1,120}$/.test(text)) return text.replace(/^www\./i, '').toLowerCase();
+    return '';
+  }
 }
 function classifySource(utmSource, referrer){
   const utm = String(utmSource || '').toLowerCase();
@@ -300,6 +303,8 @@ function resolveWindow(input, nowDate){
       key = 'yesterday'; startKey = addDateKey(today, -1); endKey = today;
     }else if(asked === '30d' || asked === '30'){
       key = '30d'; startKey = addDateKey(today, -29);
+    }else if(asked === '90d' || asked === '90'){
+      key = '90d'; startKey = addDateKey(today, -89);
     }else if(asked === '7d' || asked === '7'){
       key = '7d'; startKey = addDateKey(today, -6);
     }else if(asked === 'custom' && /^\d{4}-\d{2}-\d{2}$/.test(input.from || '') && /^\d{4}-\d{2}-\d{2}$/.test(input.to || '') && input.from <= input.to){
@@ -390,7 +395,6 @@ function commitSnapshot(db, snap){
   try{
     if(!snap || !recordVisit(db, snap)) return false;
     if(snap.path === '/') recordEvent(db, { ...snap, eventType: 'landing_view' });
-    if(snap.path === '/about') recordEvent(db, { ...snap, eventType: 'coach_page_view' });
     return true;
   }catch(error){ return false; }
 }
@@ -430,7 +434,7 @@ function recordRegistration(db, input = {}){
 }
 function publicVisits(db, start, end){
   return db.prepare(`SELECT id, visited_at, ip, country_code, country_name, city, device, browser, os, path,
-      visitor_id, session_id, traffic_source, utm_source, utm_medium, utm_campaign
+      visitor_id, session_id, traffic_source, referrer, utm_source, utm_medium, utm_campaign
     FROM site_visits
     WHERE COALESCE(is_public, CASE WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR path LIKE '/magazine/%' OR (path LIKE '/join/%' AND path NOT LIKE '/join/%/%') THEN 1 ELSE 0 END)=1
       AND visited_at>=? AND visited_at<?
@@ -809,10 +813,518 @@ function exportAnalytics(db, input){
   return stripPrivate({ exported_at: new Date().toISOString(), timezone: 'Asia/Tehran', ...visitSummary(db, input) });
 }
 
+// ── داشبورد «آمار و تحلیل سایت» — فقط خواندنی، بدون IP/User-Agent خام ──
+const DASH_KEY_PAGES = new Set(['/about', '/services', '/contact']);
+function pageFa(path){
+  const labels = { '/': 'صفحه اصلی', '/about': 'درباره من', '/services': 'خدمات', '/magazine': 'مجله', '/results': 'نتایج', '/contact': 'تماس' };
+  if(labels[path]) return labels[path];
+  if(String(path || '').startsWith('/magazine/')) return 'مقاله';
+  if(String(path || '').startsWith('/join/')) return 'دعوت';
+  return 'صفحه';
+}
+function dashNow(input){ return input && input.now ? new Date(input.now) : new Date(); }
+function dashRegistrations(db, win){
+  return db.prepare('SELECT id, occurred_at, visitor_id, kind FROM registration_events WHERE occurred_at>=? AND occurred_at<?').all(win.start, win.end);
+}
+function dashEventRows(db, type, win){
+  return db.prepare('SELECT visitor_id, session_id, occurred_at FROM analytics_events WHERE event_type=? AND occurred_at>=? AND occurred_at<?').all(type, win.start, win.end);
+}
+function dashDistinct(rows, key){ return new Set(rows.map(row => row[key]).filter(Boolean)).size; }
+function dashPercent(value, total){ return total > 0 ? Math.round(value / total * 1000) / 10 : 0; }
+function dashOnlineRows(db, now){
+  const cutoff = new Date(now.getTime() - ONLINE_MS).toISOString();
+  const hits = publicVisits(db, cutoff, '9999-12-31T00:00:00.000Z');
+  const seen = new Set();
+  const out = [];
+  for(let i = hits.length - 1; i >= 0; i--){
+    const row = hits[i];
+    if(!row.visitor_id || seen.has(row.visitor_id)) continue;
+    seen.add(row.visitor_id);
+    out.push({
+      visitor_id: row.visitor_id,
+      visitor_label: visitorLabel(row.visitor_id),
+      path: row.path,
+      country_code: row.country_code || null,
+      country_name: row.country_name || null,
+      city: row.city || null,
+      device: row.device,
+      browser: row.browser,
+      last_at: row.visited_at,
+      last_fa: faDateTime(row.visited_at),
+    });
+    if(out.length >= 30) break;
+  }
+  return out;
+}
+function dashReturningMaps(db){
+  const firstEver = new Map();
+  for(const row of db.prepare('SELECT visitor_id, MIN(visited_at) AS first_at FROM site_visits WHERE visitor_id IS NOT NULL GROUP BY visitor_id').all()){
+    firstEver.set(row.visitor_id, row.first_at);
+  }
+  const sessionsEver = new Map();
+  for(const row of db.prepare('SELECT visitor_id, COUNT(*) AS n FROM analytics_sessions GROUP BY visitor_id').all()){
+    sessionsEver.set(row.visitor_id, row.n);
+  }
+  return { firstEver, sessionsEver };
+}
+function dashVisitorStats(db, win, rows, sessions){
+  const { firstEver, sessionsEver } = dashReturningMaps(db);
+  const map = new Map();
+  for(const row of rows){
+    if(!row.visitor_id) continue;
+    if(!map.has(row.visitor_id)) map.set(row.visitor_id, { ...row, views: 0, first_at: row.visited_at, last_at: row.visited_at, sessions: new Set() });
+    const item = map.get(row.visitor_id);
+    item.views += 1;
+    if(row.visited_at < item.first_at) item.first_at = row.visited_at;
+    if(row.visited_at >= item.last_at){
+      item.last_at = row.visited_at;
+      item.path = row.path;
+      item.device = row.device;
+      item.browser = row.browser;
+      item.os = row.os;
+      item.country_code = row.country_code || item.country_code;
+      item.country_name = row.country_name || item.country_name;
+      item.city = row.city || item.city;
+      item.traffic_source = row.traffic_source || item.traffic_source;
+    }
+    if(row.session_id) item.sessions.add(row.session_id);
+  }
+  const regByVisitor = new Map();
+  for(const row of db.prepare('SELECT visitor_id, kind, occurred_at FROM registration_events').all()){
+    if(!row.visitor_id) continue;
+    if(!regByVisitor.has(row.visitor_id)) regByVisitor.set(row.visitor_id, []);
+    regByVisitor.get(row.visitor_id).push(row);
+  }
+  return [...map.values()].map(item => {
+    const sessionDurations = sessions.filter(session => session.visitor_id === item.visitor_id)
+      .map(session => stampMs(session.last_seen_at) - stampMs(session.started_at)).filter(value => value > 0);
+    const duration = average(sessionDurations);
+    const regs = regByVisitor.get(item.visitor_id) || [];
+    const first = firstEver.get(item.visitor_id);
+    return {
+      visitor_id: item.visitor_id,
+      visitor_label: visitorLabel(item.visitor_id),
+      country_code: item.country_code || null,
+      country_name: item.country_name || null,
+      city: item.city || null,
+      device: item.device,
+      browser: item.browser,
+      os: item.os,
+      views: item.views,
+      sessions: item.sessions.size,
+      path: item.path,
+      traffic_source: item.traffic_source || 'Direct',
+      first_at: item.first_at,
+      last_at: item.last_at,
+      first_fa: faDateTime(item.first_at),
+      last_fa: faDateTime(item.last_at),
+      duration_ms: duration,
+      duration_fa: humanizeDuration(duration),
+      registrations: regs.length,
+      registered: regs.length > 0,
+      online: stampMs(win.now) - stampMs(item.last_at) <= ONLINE_MS,
+      returning: Boolean(first && stampMs(first) < stampMs(win.start)) || (sessionsEver.get(item.visitor_id) || 0) > 1,
+    };
+  }).sort((a, b) => String(b.last_at).localeCompare(String(a.last_at)));
+}
+function nowWithin(lastAt){ return Date.now() - stampMs(lastAt) <= ONLINE_MS; }
+function dashSummary(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const sessions = sessionRows(db, win.start, win.end);
+  const registrations = dashRegistrations(db, win);
+  const visitorCount = dashDistinct(rows, 'visitor_id');
+  const sessionCount = dashDistinct(rows, 'session_id');
+  const durations = sessions.map(session => stampMs(session.last_seen_at) - stampMs(session.started_at)).filter(value => Number.isFinite(value) && value > 0);
+  const avgSession = average(durations);
+  const { firstEver, sessionsEver } = dashReturningMaps(db);
+  let returning = 0;
+  let fresh = 0;
+  for(const visitorId of new Set(rows.map(row => row.visitor_id).filter(Boolean))){
+    const prior = firstEver.get(visitorId) && stampMs(firstEver.get(visitorId)) < stampMs(win.start);
+    if(prior || (sessionsEver.get(visitorId) || 0) > 1) returning += 1;
+    else fresh += 1;
+  }
+  const todayStart = tehranMidnightUtc(win.today);
+  const todayEnd = tehranMidnightUtc(addDateKey(win.today, 1));
+  const todayRows = publicVisits(db, todayStart, todayEnd);
+  const todayRegs = db.prepare('SELECT COUNT(*) AS n FROM registration_events WHERE occurred_at>=? AND occurred_at<?').get(todayStart, todayEnd).n;
+  const online = dashOnlineRows(db, now);
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, start_key: win.startKey, end_key: win.endKey, today: win.today, timezone: 'Asia/Tehran' },
+    cards: {
+      pageviews: rows.length,
+      visitors: visitorCount,
+      sessions: sessionCount,
+      average_session_ms: avgSession,
+      average_session_fa: humanizeDuration(avgSession),
+      online: online.length,
+      registrations: registrations.length,
+      returning_visitors: returning,
+      new_visitors: fresh,
+      pages_per_session: sessionCount ? Math.round(rows.length / sessionCount * 10) / 10 : 0,
+    },
+    today: {
+      pageviews: todayRows.length,
+      visitors: dashDistinct(todayRows, 'visitor_id'),
+      sessions: dashDistinct(todayRows, 'session_id'),
+      registrations: todayRegs,
+    },
+    online_now: online,
+  });
+}
+function dashTimeseries(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const registrations = dashRegistrations(db, win);
+  const dailyMap = new Map();
+  for(let key = win.startKey; key <= win.endKey; key = addDateKey(key, 1)){
+    dailyMap.set(key, { day: key, views: 0, visitors: new Set(), sessions: new Set(), registrations: 0 });
+  }
+  for(const row of rows){
+    const bucket = dailyMap.get(tehranDateKey(row.visited_at));
+    if(!bucket) continue;
+    bucket.views += 1;
+    if(row.visitor_id) bucket.visitors.add(row.visitor_id);
+    if(row.session_id) bucket.sessions.add(row.session_id);
+  }
+  for(const row of registrations){
+    const bucket = dailyMap.get(tehranDateKey(row.occurred_at));
+    if(bucket) bucket.registrations += 1;
+  }
+  const daily = [...dailyMap.values()].map(bucket => ({
+    day: bucket.day, views: bucket.views, visitors: bucket.visitors.size, sessions: bucket.sessions.size, registrations: bucket.registrations,
+  }));
+  return stripPrivate({ range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' }, daily });
+}
+function dashPages(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const byPath = new Map();
+  const bySession = new Map();
+  for(const row of rows){
+    if(!bySession.has(row.session_id)) bySession.set(row.session_id, []);
+    bySession.get(row.session_id).push(row);
+    if(!byPath.has(row.path)) byPath.set(row.path, { path: row.path, label: pageLabel(row.path), views: 0, visitors: new Set(), durations: [] });
+    const page = byPath.get(row.path);
+    page.views += 1;
+    if(row.visitor_id) page.visitors.add(row.visitor_id);
+  }
+  for(const hits of bySession.values()){
+    hits.sort((a, b) => stampMs(a.visited_at) - stampMs(b.visited_at));
+    for(let i = 0; i < hits.length - 1; i++){
+      const delta = stampMs(hits[i + 1].visited_at) - stampMs(hits[i].visited_at);
+      if(delta > 0 && delta <= SESSION_IDLE_MS) byPath.get(hits[i].path).durations.push(delta);
+    }
+  }
+  const total = rows.length;
+  const pages = [...byPath.values()].map(page => ({
+    path: page.path,
+    label: page.label,
+    views: page.views,
+    visitors: page.visitors.size,
+    percent: dashPercent(page.views, total),
+    avg_time_ms: average(page.durations),
+    avg_time_fa: humanizeDuration(average(page.durations)),
+  })).sort((a, b) => b.views - a.views);
+  return stripPrivate({ range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' }, total_views: total, pages });
+}
+function dashVisitors(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const sessions = sessionRows(db, win.start, win.end);
+  let items = dashVisitorStats(db, win, rows, sessions);
+  const q = String(input.q || '').trim().toLowerCase();
+  if(q) items = items.filter(item => [item.visitor_label, item.visitor_id, item.country_name, item.city, item.path, item.device, item.browser, item.os, item.traffic_source]
+    .some(value => String(value || '').toLowerCase().includes(q)));
+  if(input.device) items = items.filter(item => item.device === input.device);
+  if(input.source) items = items.filter(item => item.traffic_source === input.source);
+  if(input.country) items = items.filter(item => String(item.country_code || '') === String(input.country) || String(item.country_name || '') === String(input.country));
+  const pageSize = Math.min(100, Math.max(1, Number(input.page_size) || 10));
+  const pagesCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const page = Math.min(pagesCount, Math.max(1, Number(input.page) || 1));
+  const slice = items.slice((page - 1) * pageSize, page * pageSize);
+  const recent = [...rows].reverse().slice(0, 20).map(row => ({
+    visited_at: row.visited_at,
+    visited_fa: faDateTime(row.visited_at),
+    visitor_label: visitorLabel(row.visitor_id),
+    path: row.path,
+    country_code: row.country_code,
+    country_name: row.country_name,
+    city: row.city,
+    device: row.device,
+    browser: row.browser,
+    os: row.os,
+    traffic_source: row.traffic_source,
+    utm_source: row.utm_source,
+    utm_medium: row.utm_medium,
+    utm_campaign: row.utm_campaign,
+  }));
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    total: items.length, page, page_size: pageSize, pages_count: pagesCount,
+    items: slice, recent,
+  });
+}
+function dashVisitorDetail(db, visitorId){
+  const id = String(visitorId || '');
+  if(!/^visitor_[A-Za-z0-9]{1,32}$/.test(id)) return null;
+  const seen = db.prepare('SELECT COUNT(*) AS n FROM site_visits WHERE visitor_id=?').get(id).n;
+  if(!seen) return null;
+  const rows = db.prepare(`SELECT visited_at, path, device, browser, os, country_code, country_name, city,
+      traffic_source, utm_source, utm_medium, utm_campaign
+    FROM site_visits WHERE visitor_id=? ORDER BY visited_at ASC, id ASC`).all(id);
+  const sessions = db.prepare('SELECT session_key, started_at, last_seen_at, pageviews FROM analytics_sessions WHERE visitor_id=? ORDER BY started_at ASC').all(id);
+  const regs = db.prepare('SELECT kind, occurred_at FROM registration_events WHERE visitor_id=? ORDER BY occurred_at ASC').all(id);
+  const durations = sessions.map(session => stampMs(session.last_seen_at) - stampMs(session.started_at)).filter(value => value > 0);
+  const byPath = new Map();
+  const bySource = new Map();
+  const byUtm = new Map();
+  for(const row of rows){
+    if(!byPath.has(row.path)) byPath.set(row.path, { path: row.path, label: pageLabel(row.path), views: 0 });
+    byPath.get(row.path).views += 1;
+    const source = row.traffic_source || 'Direct';
+    if(!bySource.has(source)) bySource.set(source, { source, views: 0 });
+    bySource.get(source).views += 1;
+    if(row.utm_source || row.utm_medium || row.utm_campaign){
+      const key = `${row.utm_source || ''}|${row.utm_medium || ''}|${row.utm_campaign || ''}`;
+      if(!byUtm.has(key)) byUtm.set(key, { utm_source: row.utm_source, utm_medium: row.utm_medium, utm_campaign: row.utm_campaign, views: 0 });
+      byUtm.get(key).views += 1;
+    }
+  }
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  return stripPrivate({
+    visitor_id: id,
+    visitor_label: visitorLabel(id),
+    kind: sessions.length > 1 ? 'returning' : 'new',
+    country_code: last.country_code || null,
+    country_name: last.country_name || null,
+    city: last.city || null,
+    device: last.device,
+    browser: last.browser,
+    os: last.os,
+    sessions: sessions.length,
+    pageviews: rows.length,
+    first_at: first.visited_at,
+    first_fa: faDateTime(first.visited_at),
+    last_at: last.visited_at,
+    last_fa: faDateTime(last.visited_at),
+    average_session_ms: average(durations),
+    average_session_fa: humanizeDuration(average(durations)),
+    pages: [...byPath.values()].sort((a, b) => b.views - a.views),
+    sources: [...bySource.values()].sort((a, b) => b.views - a.views),
+    utms: [...byUtm.values()].sort((a, b) => b.views - a.views),
+    registrations: regs.length,
+    registered: regs.length > 0,
+    registration_kinds: [...new Set(regs.map(row => row.kind))],
+    registration_at: regs.length ? regs[0].occurred_at : null,
+    registration_fa: regs.length ? faDateTime(regs[0].occurred_at) : null,
+    online: nowWithin(last.visited_at),
+  });
+}
+function dashSources(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const total = rows.length;
+  const tally = key => {
+    const map = new Map();
+    for(const row of rows){
+      const name = row[key] || (key === 'traffic_source' ? 'Other' : '');
+      if(key !== 'traffic_source' && !name) continue;
+      if(!map.has(name)) map.set(name, { name, views: 0, visitors: new Set() });
+      map.get(name).views += 1;
+      if(row.visitor_id) map.get(name).visitors.add(row.visitor_id);
+    }
+    return [...map.values()].map(item => ({
+      name: item.name, views: item.views, visitors: item.visitors.size, percent: dashPercent(item.views, total),
+    })).sort((a, b) => b.views - a.views);
+  };
+  const campaignMap = new Map();
+  for(const row of rows){
+    if(!row.utm_source && !row.utm_medium && !row.utm_campaign) continue;
+    const key = `${row.utm_source || ''}|${row.utm_medium || ''}|${row.utm_campaign || ''}`;
+    if(!campaignMap.has(key)) campaignMap.set(key, { utm_source: row.utm_source, utm_medium: row.utm_medium, utm_campaign: row.utm_campaign, views: 0, visitors: new Set() });
+    const item = campaignMap.get(key);
+    item.views += 1;
+    if(row.visitor_id) item.visitors.add(row.visitor_id);
+  }
+  const campaigns = [...campaignMap.values()].map(item => ({
+    utm_source: item.utm_source, utm_medium: item.utm_medium, utm_campaign: item.utm_campaign,
+    views: item.views, visitors: item.visitors.size, percent: dashPercent(item.views, total),
+  })).sort((a, b) => b.views - a.views);
+  const refByDomain = new Map();
+  for(const row of rows){
+    const name = referrerHost(row.referrer);
+    if(!name) continue;
+    if(!refByDomain.has(name)) refByDomain.set(name, { name, views: 0, visitors: new Set() });
+    const ref = refByDomain.get(name);
+    ref.views += 1;
+    if(row.visitor_id) ref.visitors.add(row.visitor_id);
+  }
+  const referrers = [...refByDomain.values()].map(item => ({
+    name: item.name, views: item.views, visitors: item.visitors.size, percent: dashPercent(item.views, total),
+  })).sort((a, b) => b.views - a.views).slice(0, 12);
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    total_views: total,
+    sources: tally('traffic_source'),
+    referrers,
+    campaigns,
+  });
+}
+function dashDevices(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const total = rows.length;
+  const tally = values => {
+    const map = new Map();
+    for(const { name, row } of values){
+      if(!map.has(name)) map.set(name, { name, views: 0, visitors: new Set() });
+      map.get(name).views += 1;
+      if(row.visitor_id) map.get(name).visitors.add(row.visitor_id);
+    }
+    return [...map.values()].map(item => ({
+      name: item.name, views: item.views, visitors: item.visitors.size, percent: dashPercent(item.views, total),
+    })).sort((a, b) => b.views - a.views);
+  };
+  const devices = tally(rows.map(row => ({ name: ['mobile', 'tablet', 'desktop'].includes(row.device) ? row.device : 'desktop', row })));
+  const browsers = tally(rows.map(row => ({ name: browserGroup(row.browser), row })));
+  const os = tally(rows.map(row => ({ name: ['Android', 'iOS', 'Windows', 'macOS', 'Linux'].includes(row.os) ? row.os : 'Other', row })));
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    total_views: total, devices, browsers, os,
+  });
+}
+function dashGeo(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const map = new Map();
+  for(const row of rows){
+    const key = `${row.country_code || ''}|${row.city || ''}`;
+    if(!map.has(key)) map.set(key, {
+      country_code: row.country_code || null,
+      country_name: row.country_name || null,
+      city: row.city || null,
+      views: 0, visitors: new Set(),
+    });
+    const item = map.get(key);
+    item.views += 1;
+    item.country_name = item.country_name || row.country_name || null;
+    if(row.visitor_id) item.visitors.add(row.visitor_id);
+  }
+  const places = [...map.values()].map(item => ({
+    country_code: item.country_code, country_name: item.country_name, city: item.city,
+    views: item.views, visitors: item.visitors.size,
+  })).sort((a, b) => b.views - a.views);
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    places,
+    pending_geo: unresolvedIps(db).length,
+  });
+}
+function dashJourney(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const bySession = new Map();
+  for(const row of rows){
+    if(!row.session_id) continue;
+    if(!bySession.has(row.session_id)) bySession.set(row.session_id, []);
+    bySession.get(row.session_id).push(row);
+  }
+  const stepDefs = [
+    { label: 'صفحه اصلی', test: path => path === '/' },
+    { label: 'درباره من', test: path => path === '/about' },
+    { label: 'خدمات', test: path => path === '/services' },
+    { label: 'نتایج', test: path => path === '/results' },
+    { label: 'مجله', test: path => path === '/magazine' },
+    { label: 'مقاله', test: path => String(path).startsWith('/magazine/') },
+    { label: 'تماس', test: path => path === '/contact' },
+    { label: 'دعوت', test: path => String(path).startsWith('/join/') },
+    { label: 'ثبت‌نام', test: null },
+  ];
+  const stepVisitors = stepDefs.map(step => new Set());
+  const registerDoneVisitors = new Set(dashRegistrations(db, win).map(row => row.visitor_id).filter(Boolean));
+  const chainCounts = new Map();
+  for(const hits of bySession.values()){
+    hits.sort((a, b) => stampMs(a.visited_at) - stampMs(b.visited_at));
+    const visitorId = hits[0].visitor_id;
+    for(const hit of hits){
+      for(let i = 0; i < stepDefs.length - 1; i++){
+        if(stepDefs[i].test(hit.path) && visitorId) stepVisitors[i].add(visitorId);
+      }
+    }
+    if(visitorId && registerDoneVisitors.has(visitorId)) stepVisitors[stepDefs.length - 1].add(visitorId);
+    const labels = [];
+    const source = hits[0].traffic_source || 'Direct';
+    labels.push(source);
+    for(const hit of hits){
+      const label = pageFa(hit.path);
+      if(labels[labels.length - 1] !== label) labels.push(label);
+    }
+    if(visitorId && registerDoneVisitors.has(visitorId) && labels[labels.length - 1] !== 'ثبت‌نام') labels.push('ثبت‌نام');
+    if(labels.length > 2){
+      const chain = labels.join(' → ');
+      if(!chainCounts.has(chain)) chainCounts.set(chain, new Set());
+      if(visitorId) chainCounts.get(chain).add(visitorId);
+    }
+  }
+  const steps = stepDefs.map((step, i) => ({ label: step.label, users: stepVisitors[i].size })).filter(step => step.users > 0);
+  const paths = [...chainCounts.entries()].map(([path, users]) => ({ path, users: users.size }))
+    .sort((a, b) => b.users - a.users).slice(0, 10);
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    steps, paths,
+  });
+}
+function dashFunnel(db, input = {}){
+  const now = dashNow(input);
+  const win = resolveWindow(input, now);
+  const rows = publicVisits(db, win.start, win.end);
+  const visitVisitors = new Set(rows.map(row => row.visitor_id).filter(Boolean));
+  const keyVisitors = new Set(rows.filter(row => DASH_KEY_PAGES.has(row.path)).map(row => row.visitor_id).filter(Boolean));
+  const registerStart = dashEventRows(db, 'register_start', win);
+  const registerDone = dashEventRows(db, 'registration_complete', win);
+  const telegram = dashEventRows(db, 'telegram_connect', win);
+  const stages = [
+    { key: 'visit', label: 'بازدید سایت', count: visitVisitors.size, basis: 'visitors' },
+    { key: 'key_page', label: 'مشاهده صفحه مهم', count: keyVisitors.size, basis: 'visitors' },
+    { key: 'register_start', label: 'شروع ثبت‌نام', count: dashDistinct(registerStart, 'visitor_id') || registerStart.length, basis: 'visitors' },
+    { key: 'registration_complete', label: 'ثبت‌نام موفق', count: dashDistinct(registerDone, 'visitor_id') || registerDone.length, basis: 'visitors' },
+    { key: 'telegram_connect', label: 'اتصال تلگرام (در صورت وجود)', count: telegram.length, basis: 'events' },
+  ];
+  let prev = null;
+  for(const stage of stages){
+    stage.rate_prev = prev && prev > 0 ? dashPercent(stage.count, prev) : (stage.key === 'visit' ? 100 : 0);
+    stage.rate_first = visitVisitors.size > 0 ? dashPercent(stage.count, visitVisitors.size) : 0;
+    prev = stage.count;
+  }
+  const events = ['landing_view', 'coach_page_view', 'register_start', 'registration_complete', 'login', 'telegram_connect'].map(type => {
+    const row = countEvents(db, type, win.start, win.end);
+    return { event_type: type, count: row.n, visitors: row.visitors, sessions: row.sessions };
+  });
+  return stripPrivate({
+    range: { preset: win.key, start: win.start, end: win.end, timezone: 'Asia/Tehran' },
+    stages,
+    key_pages: [...DASH_KEY_PAGES].sort(),
+    conversion_rate: visitVisitors.size > 0 ? dashPercent(stages[3].count, visitVisitors.size) : 0,
+    events,
+  });
+}
+
 module.exports = {
   parseUserAgent, isBotUserAgent, isPrivateIp, isCloudflareAddress, analyticsClientIp, visitorIdFromRequest, visitorIdFromToken, legacyVisitorId,
   ensureVisitor, snapshotRequest, commitSnapshot, recordVisit, recordEvent, recordRegistration, visitorOverview,
   unresolvedIps, resolveIps, backfillGeo, startGeoResolver, cleanup, maybeCleanup, visitSummary, exportAnalytics,
+  dashSummary, dashTimeseries, dashPages, dashVisitors, dashVisitorDetail, dashSources, dashDevices, dashGeo, dashJourney, dashFunnel,
   deviceFa, flagOf, humanizeDuration, faDateTime, faNum, tehranDateKey, tehranMidnightUtc, resolveWindow, rangeFromQuery,
   classifySource, isPublicAnalyticsPath, cleanPath, GEO_MAX_ATTEMPTS, GEO_HTTPS, SESSION_IDLE_MS, ONLINE_MS,
 };

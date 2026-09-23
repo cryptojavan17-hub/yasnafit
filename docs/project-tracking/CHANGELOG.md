@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-23
+
+### داشبورد «آمار و تحلیل سایت» در پنل مربی (`/coach/analytics`) — ۸ کارت، ۵ تب، ۷ نمودار، ۹ endpoint
+
+- **تاریخ:** 2026-09-23
+- **تسک:** مالک — مرجع اصلی Analytics = پنل مربی؛ ۸ کارت دقیق با برچسب‌های فارسی؛ بازه‌های امروز/دیروز/۷/۳۰/۹۰ روز/سفارشی + «🔄 بروزرسانی آمار»؛ ۷ نمودار شامل قیف پنج‌مرحله‌ای («بازدید سایت ↓ مشاهده صفحه مهم ↓ شروع ثبت‌نام ↓ ثبت‌نام موفق ↓ اتصال تلگرام») و Journey با زنجیرهٔ منبع→صفحات→ثبت‌نام؛ جدول بازدیدکنندگان با جست‌وجو/فیلتر/صفحه‌بندی و Modal جزئیات بدون IP خام؛ جدول کاربران آنلاین.
+- **فایل‌ها:** `src/analytics-service.js` (۱۰ تابع `dash*` + بازهٔ `90d` در resolveWindow + حذف نگاشت `/about`⇒`coach_page_view` + میزبان لخت در referrerHost + ستون `referrer` در publicVisits)، `server.js` (بلوک ۹ endpoint زیر `/api/coach/analytics/*` با requireCoach و فقط GET)، `public/core.js` (`window.renderAnalyticsDashboard`)، `public/app.js` (آیتم منوی «📊 آمار و تحلیل سایت» + `legacyRoutes`)، `public/styles.css` (§۲۴b)، `package.json` (`test:analytics-dashboard`)، `tests/analytics-dashboard-regression.js` (جدید — ۱۵ case).
+- **تغییر:** صفحهٔ `/coach/visits` قدیمی، `window.renderVisitAnalytics` و تلگرام `sendVisitStats` دست‌نخورده ماندند (تست‌قفل)؛ «درباره من» دیگر `coach_page_view` ثبت نمی‌کند ولی نوع رویداد در ساختار Analytics ماند؛ همهٔ داده‌ها از جدول‌های واقعی Analytics با Timezone `Asia/Tehran` — بدون Mock/Hardcoded.
+- **دلیل:** دستور مالک — تحلیل کامل در پنل مربی؛ تلگرام فقط خلاصهٔ آمار.
+- **تست:** `node tests/analytics-dashboard-regression.js` ⇒ ۱۵/۱۵ (۱۱ case درون‌فرایندی با `now` ثابت + ۴ case HTTP واقعی: بوت سرور، ترافیک واقعی `/,/about,/magazine` با UA و کوکی بازدیدکننده، ماتریس ۴۰۱ مهمان/شاگرد/بازدیدکننده و ۲۰۰ مربی، پوستهٔ SPA مسیر جدید)؛ زنجیرهٔ کامل `npm test` سبز (exit 0).
+- **نتیجه:** موفق — همهٔ تست‌ها واقعاً اجرا و نتایج واقعی ثبت شد.
+- **عوارض جانبی شناخته‌شده:** `test:e2e` طبق قرار KI-007 در سندباکس اجرا نمی‌شود (مسیر DB هاردکد)؛ اسکریپت‌های PowerShell اجرا نشدند (فقط چک فایل).
+
 ## 2026-09-22
 
 ### کیت ویندوز `deploy/windows/` + اینستاگرام PDF مربی
