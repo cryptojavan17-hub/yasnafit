@@ -1799,6 +1799,94 @@ const migrations = [
       const ins = db.prepare("INSERT OR IGNORE INTO magazine_sources (stable_id,name,feed_url,fetch_format,category_slug,source_type,is_active,fetch_interval_h,source_tier) VALUES (?,?,?,?,?,'rss',1,12,2)");
       for (const source of publishers) ins.run(...source);
     }
+  },
+  {
+    id: '040_analytics_privacy',
+    description: 'Privacy-friendly analytics: anonymous visitor, 30-minute sessions, public-page flag, events, Tehran-ready indexes. Existing visit rows are kept.',
+    up(db) {
+      const ensureColumn = (table, column, definition) => {
+        const columns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(item => item.name));
+        if(!columns.has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      };
+      ensureColumn('site_visits', 'visitor_id', 'TEXT');
+      ensureColumn('site_visits', 'session_id', 'TEXT');
+      ensureColumn('site_visits', 'event_type', "TEXT DEFAULT 'page_view'");
+      ensureColumn('site_visits', 'referrer', 'TEXT');
+      ensureColumn('site_visits', 'utm_source', 'TEXT');
+      ensureColumn('site_visits', 'utm_medium', 'TEXT');
+      ensureColumn('site_visits', 'utm_campaign', 'TEXT');
+      ensureColumn('site_visits', 'traffic_source', 'TEXT');
+      ensureColumn('site_visits', 'city', 'TEXT');
+      ensureColumn('site_visits', 'is_public', 'INTEGER');
+      ensureColumn('registration_events', 'visitor_id', 'TEXT');
+      ensureColumn('ip_geo_cache', 'city', 'TEXT');
+      db.exec(`
+        UPDATE site_visits SET is_public=CASE
+          WHEN path IN ('/','/about','/services','/results','/magazine','/contact') OR (path LIKE '/magazine/%' AND path NOT LIKE '/magazine/%/%') OR (path LIKE '/join/%' AND path NOT LIKE '/join/%/%') THEN 1
+          ELSE 0 END
+        WHERE is_public IS NULL;
+        CREATE TABLE IF NOT EXISTS analytics_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          session_key TEXT NOT NULL UNIQUE,
+          visitor_id TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL,
+          pageviews INTEGER NOT NULL DEFAULT 1,
+          landing_path TEXT,
+          exit_path TEXT,
+          device TEXT,
+          country_code TEXT
+        );
+        CREATE TABLE IF NOT EXISTS analytics_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          stable_id TEXT NOT NULL UNIQUE,
+          occurred_at TEXT NOT NULL,
+          visitor_id TEXT,
+          session_id TEXT,
+          event_type TEXT NOT NULL,
+          path TEXT,
+          traffic_source TEXT,
+          utm_source TEXT,
+          utm_medium TEXT,
+          utm_campaign TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_site_visits_time ON site_visits(visited_at);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_visitor ON site_visits(visitor_id);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_session ON site_visits(session_id);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_path ON site_visits(path);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_country ON site_visits(country_code);
+        CREATE INDEX IF NOT EXISTS idx_site_visits_event ON site_visits(event_type);
+        CREATE INDEX IF NOT EXISTS idx_analytics_events_time ON analytics_events(occurred_at);
+        CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
+        CREATE INDEX IF NOT EXISTS idx_analytics_events_visitor ON analytics_events(visitor_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_sessions_visitor ON analytics_sessions(visitor_id, last_seen_at);
+        CREATE INDEX IF NOT EXISTS idx_registration_events_time ON registration_events(occurred_at);
+      `);
+      const crypto = require('crypto');
+      const legacyId = ip => 'visitor_' + crypto.createHash('sha256').update('legacy:' + String(ip || '')).digest('hex').slice(0, 12);
+      const pending = db.prepare('SELECT id, ip, visited_at, path, device, country_code FROM site_visits WHERE visitor_id IS NULL OR session_id IS NULL ORDER BY ip, visited_at, id').all();
+      const setVisitor = db.prepare('UPDATE site_visits SET visitor_id=? WHERE id=? AND visitor_id IS NULL');
+      for(const row of pending) setVisitor.run(legacyId(row.ip), row.id);
+      const unsessioned = db.prepare('SELECT id, visitor_id, visited_at, path, device, country_code FROM site_visits WHERE session_id IS NULL AND COALESCE(is_public,1)=1 ORDER BY visitor_id, visited_at, id').all();
+      let current = null;
+      const insertSession = db.prepare('INSERT INTO analytics_sessions(stable_id, session_key, visitor_id, started_at, last_seen_at, pageviews, landing_path, exit_path, device, country_code) VALUES(?,?,?,?,?,1,?,?,?,?)');
+      const touchSession = db.prepare('UPDATE analytics_sessions SET last_seen_at=?, pageviews=pageviews+1, exit_path=? WHERE session_key=?');
+      const setSession = db.prepare('UPDATE site_visits SET session_id=? WHERE id=?');
+      for(const row of unsessioned){
+        const at = Date.parse(String(row.visited_at).includes('T') ? row.visited_at : String(row.visited_at).replace(' ', 'T') + 'Z');
+        const same = current && current.visitor_id === row.visitor_id && Number.isFinite(at) && at >= current.last && at - current.last <= 30 * 60 * 1000;
+        if(!same){
+          const key = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+          insertSession.run(key, key, row.visitor_id, row.visited_at, row.visited_at, row.path, row.path, row.device || '', row.country_code || null);
+          current = { visitor_id: row.visitor_id, key, last: at };
+        }else{
+          touchSession.run(row.visited_at, row.path, current.key);
+          current.last = at;
+        }
+        setSession.run(current.key, row.id);
+      }
+    }
   }
 ];
 

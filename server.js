@@ -68,6 +68,52 @@ try{
   analyticsService.startGeoResolver(db);
 }catch(error){ console.log('[Analytics] شروع سرویس تحلیل ناموفق:',error.message); }
 
+function trackPublicHtml(req, res, pathname){
+  // کوکی قبل از writeHead ست می‌شود؛ درج دیتابیس بعد از پاسخ تا صفحه معطل نماند.
+  try{
+    const visitor = analyticsService.ensureVisitor(req, res);
+    const snap = analyticsService.snapshotRequest(req, pathname, visitor);
+    setImmediate(() => {
+      try{ analyticsService.commitSnapshot(db, snap); }
+      catch(error){ console.log('[Analytics] visit skipped:', error.message); }
+    });
+  }catch(error){ console.log('[Analytics] visit skipped:', error.message); }
+}
+function scheduleAnalyticsEvent(req, res, eventType, pathname){
+  try{
+    const visitorId = analyticsService.ensureVisitor(req, res).id;
+    const userAgent = String(req.headers && req.headers['user-agent'] || '').slice(0, 300);
+    setImmediate(() => {
+      try{ analyticsService.recordEvent(db, { eventType, path: pathname, visitorId, userAgent, req }); }
+      catch(error){ console.log('[Analytics] event skipped:', error.message); }
+    });
+  }catch(error){ console.log('[Analytics] event skipped:', error.message); }
+}
+function recordAnalyticsEvent(req, res, eventType, pathname){
+  try{
+    const visitorId = analyticsService.ensureVisitor(req, res).id;
+    analyticsService.recordEvent(db, {
+      eventType,
+      path: pathname,
+      visitorId,
+      userAgent: String(req.headers && req.headers['user-agent'] || '').slice(0, 300),
+      req
+    });
+    return visitorId;
+  }catch(error){
+    console.log('[Analytics] event skipped:', error.message);
+    return null;
+  }
+}
+function analyticsSetCookies(res, extra){
+  const prior = typeof res.getHeader === 'function' ? res.getHeader('Set-Cookie') : null;
+  const cookies = [].concat(extra || [], prior || []).filter(Boolean).map(String);
+  const unique = [];
+  for(const cookie of cookies) if(!unique.includes(cookie)) unique.push(cookie);
+  if(!unique.length) return extra || undefined;
+  return unique.length === 1 ? unique[0] : unique;
+}
+
 telegramService.applyDbSettings(db);
 if(telegramService.isConfigured()){
   console.log(`[Telegram] فعال است (@${telegramService.config().username || 'unknown_bot'}) — منبع: ${telegramService.settingsView(db).source === 'env' ? 'متغیر محیطی' : 'تنظیمات پنل مربی'} | webhook: ${telegramService.config().webhookSecret ? 'secret ست شده' : '⚠ رمز وب‌هوک تنظیم نشده'} | public URL: ${telegramService.config().publicUrl || 'نامشخص'}`);
@@ -268,8 +314,9 @@ async function handleCoachAuth(req,res,url){
     const result=await coachAuthService.startLogin(db,{email:body.email,password:body.password,dataDir:path.dirname(dbPath),req,skipTotp:true});
     if(result.error) return coachAuthError(res,result.error,result.message);
     log('ورود مربی', result.coach?.email||'');
+    recordAnalyticsEvent(req,res,'login','/coach/login');
     return send(res,200,{ok:true,next:'/coach/dashboard',coach:result.coach,expires_at:result.expires_at},{
-      'Set-Cookie':coachAuthService.sessionCookie(req,result.raw_session)
+      'Set-Cookie':analyticsSetCookies(res, coachAuthService.sessionCookie(req,result.raw_session))
     });
   }
   if(p==='/api/coach/auth/forgot' && req.method==='POST'){
@@ -1614,9 +1661,10 @@ async function handleStudentAuth(req,res,url){
     invitationId=consumed.invitation_id;
   }
   const session=studentSessionService.createStudentSession(db,authenticated.student.id,invitationId),passwordChangeRecommended=authenticated.student.password_state!=='PERSONAL';
-  if(invitationId) analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id});
+  const loginVisitorId=recordAnalyticsEvent(req,res,'login','/student/login');
+  if(invitationId) analyticsService.recordRegistration(db,{ip:analyticsService.analyticsClientIp(req),kind:'invite',label:authenticated.student.full_name,studentId:authenticated.student.id,visitorId:loginVisitorId,userAgent:req.headers['user-agent']||''});
   auditService.record(db,{actorType:'student',actorId:authenticated.student.id,action:'student.login',entityType:'student',entityId:authenticated.student.id,metadata:{case_number:authenticated.student.case_number,password_change_recommended:passwordChangeRecommended,via_invitation:Boolean(invitationId)}});
-  return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+  return send(res,200,{success:true,password_change_recommended:passwordChangeRecommended,next_route:studentNextRoute(authenticated.student.id),student:studentSessionService.safeStudent(authenticated.student),expires_at:session.expires_at},{'Set-Cookie':analyticsSetCookies(res, studentSessionService.sessionCookie(req,session.raw_session))});
 }
 
 async function handleStudentRegister(req,res,url){
@@ -1628,7 +1676,8 @@ async function handleStudentRegister(req,res,url){
     const body=await readBody(req);
     const created=studentAuthService.registerStudent(db,body);
     const session=studentSessionService.createStudentSession(db,created.id,null);
-    analyticsService.recordRegistration(db,{ip:requestSecurity.clientIp(req),kind:'student',label:created.full_name,studentId:created.id});
+    const visitorId=(()=>{ try{ return analyticsService.ensureVisitor(req,res).id; }catch(error){ console.log('[Analytics] visitor skipped:', error.message); return null; } })();
+    analyticsService.recordRegistration(db,{ip:analyticsService.analyticsClientIp(req),kind:'student',label:created.full_name,studentId:created.id,visitorId,userAgent:req.headers['user-agent']||''});
     log('ثبت‌نام شاگرد جدید آزاد',`${created.case_number} - ${created.full_name}`);
     auditService.record(db,{
       actorType:'student',
@@ -1645,7 +1694,7 @@ async function handleStudentRegister(req,res,url){
       next_route:studentNextRoute(created.id),
       student:studentSessionService.safeStudent(created),
       expires_at:session.expires_at
-    },{'Set-Cookie':studentSessionService.sessionCookie(req,session.raw_session)});
+    },{'Set-Cookie':analyticsSetCookies(res, studentSessionService.sessionCookie(req,session.raw_session))});
   }catch(error){
     return sendCaughtError(res,error);
   }
@@ -2619,7 +2668,9 @@ async function handleCoachEngagement(req,res,url){
     try{
       const body=await readBody(req);
       const view=telegramService.saveCoachSettings(db,{bot_token:body.bot_token,bot_username:body.bot_username,webhook_secret:body.webhook_secret,public_url:body.public_url,polling:body.polling});
-      if(view.configured && view.polling) telegramService.startPolling(db);
+      // ذخیرهٔ توکن نباید به خاطر شکست ثبت دستورها یا حلقهٔ retry شکست بخورد.
+      try{ await telegramService.armConfiguredRuntime(db); }
+      catch(error){ console.log('[Telegram] فعال‌سازی بعد از ذخیرهٔ تنظیمات ناموفق بود:', error.message); }
       auditService.record(db,{actorType:'coach',action:'telegram.settings_updated',entityType:'telegram_account',metadata:{source:view.source,configured:view.configured}});
       log('تنظیمات تلگرام به‌روزرسانی شد',`منبع: ${view.source}${view.configured?'':' (ناقص — توکن تنظیم نشده)'}`);
       return send(res,200,view);
@@ -2672,7 +2723,7 @@ async function handleCoachEngagement(req,res,url){
     }
   }
 
-  const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
+  const webhookRegister=p.match(/^\/api\/coach\/telegram\/webhook$/);if(webhookRegister&&req.method==='POST'){if(!sameOrigin(req))return sendError(res,403,'مبدأ درخواست مجاز نیست');try{const body=await readBody(req);const result=await telegramService.callApi('setWebhook',{url:String(body.url||''),secret_token:telegramService.config().webhookSecret||undefined,drop_pending_updates:true});if(!result.ok)return sendError(res,502,'ثبت وب‌هوک ناموفق بود: '+(result.description||''));auditService.record(db,{actorType:'coach',action:'telegram.webhook_registered',entityType:'telegram_account',metadata:{url:String(body.url||'')}});return send(res,200,{success:true,result:result.result});}catch(error){return sendCaughtError(res,error);}}
   const messagesMatch=p.match(/^\/api\/students\/(\d+)\/messages$/);if(messagesMatch){const studentId=studentIdByReference(messagesMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');if(req.method==='GET')return send(res,200,{messages:engagementService.listMessages(db,studentId,'coach')});if(req.method==='POST'){try{const message=engagementService.sendMessage(db,studentId,'coach',(await readBody(req)).body);engagementService.notify(db,{audienceType:'student',studentId,type:'coach_message',title:'پیام جدید مربی',body:message.body,entityType:'conversation'});auditService.record(db,{actorType:'coach',action:'message.sent',entityType:'conversation',metadata:{student_id:studentId,sender_type:'coach'}});return send(res,201,{message});}catch(error){return sendCaughtError(res,error);}}}
   const performanceMatch=p.match(/^\/api\/students\/(\d+)\/performance$/);if(performanceMatch&&req.method==='GET'){const studentId=studentIdByReference(performanceMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,engagementService.performance(db,studentId));}
   const auditMatch=p.match(/^\/api\/students\/(\d+)\/audit$/);if(auditMatch&&req.method==='GET'){const studentId=studentIdByReference(auditMatch[1]);if(!studentId)return sendError(res,404,'شاگرد پیدا نشد');return send(res,200,{events:auditService.listForStudent(db,studentId,200)});}
@@ -3156,7 +3207,7 @@ function sendPublicPage(req, res, { kind, path }) {
   // Task 25 (PART 2 — owner clarification 2026-09-20): the /about page is the
   // NEW about page — the complete About Me.png reference (no crop, no HTML text
   // duplication, same sizing rule as the hero/landing section).
-  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT"></section>';
+  const aboutBody = '<section id="about" class="home-about"><img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT"></section>';
   const body = kind === 'home' ? ''
     : kind === 'about' ? aboutBody
     : kind === 'services' ? servicesBody(ctx)
@@ -3189,10 +3240,10 @@ function sendPublicPage(req, res, { kind, path }) {
   ${headerMarkup(path, coachAuthorized, telegramUrl)}
   <main id="main">
     <div class="home-hero">
-      <img class="home-hero__img" src="/images/landing/hero.png" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
+      <img class="home-hero__img" src="/images/landing/hero.jpg" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
     </div>
     <section id="about" class="home-about">
-      <img class="home-about__img" src="/images/landing/about-me.png" alt="درباره من — YASNAFIT" loading="lazy">
+      <img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT" loading="lazy">
     </section>
     <section class="magazine magazine--home" aria-label="YASNAFIT MAGAZINE">
       <div class="magazine--home__head">
@@ -3264,6 +3315,7 @@ function sendPublicPage(req, res, { kind, path }) {
     'Referrer-Policy': 'no-referrer',
     'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
   };
+  if(req.method === 'GET') trackPublicHtml(req, res, path);
   if (req.method === 'HEAD') {
     res.writeHead(200, publicHeaders);
     return res.end();
@@ -3621,7 +3673,9 @@ async function api(req,res,url){
       return send(res, 200, { ok: true });
     }
     if(p==='/api/telegram/webhook'){
-      // امنیت از طریق هدر مخفی تلگرام؛ تلگرام نیاز به کوکی/سشن ندارد
+      // sameOrigin مثل بقیهٔ endpointهای تغییردهنده. تلگرام معمولاً Origin نمی‌فرستد و sameOrigin آن را می‌پذیرد.
+      // اگر Origin بیگانه باشد ولی هدر رمز وب‌هوک آمده باشد، رد نمی‌کنیم تا وب‌هوک واقعی نشکند؛ رمز جداگانه سنجیده می‌شود.
+      if(!sameOrigin(req) && !req.headers['x-telegram-bot-api-secret-token']) return sendError(res,403,'مبدأ درخواست مجاز نیست');
       const verdict=telegramService.verifyWebhookSecret(req.headers['x-telegram-bot-api-secret-token']);
       if(!telegramService.isConfigured())return sendError(res,503,'تلگرام پیکربندی نشده است');
       if(!verdict.ok)return sendError(res,401,'امضای وب‌هوک تلگرام نامعتبر است');
@@ -3802,9 +3856,44 @@ async function api(req,res,url){
     if(p.startsWith('/api/analytics/')){
       if(requireCoach(req,res)) return true;
       if(p==='/api/analytics/visits' && req.method==='GET'){
-        const days=Math.min(365,Math.max(1,Number(url.searchParams.get('days'))||30));
-        return send(res,200,analyticsService.visitSummary(db,days));
+        return send(res,200,analyticsService.visitSummary(db,analyticsService.rangeFromQuery(url.searchParams)));
       }
+      if(p==='/api/analytics/export' && req.method==='GET'){
+        return send(res,200,analyticsService.exportAnalytics(db,analyticsService.rangeFromQuery(url.searchParams)));
+      }
+      return sendError(res,404,'مسیر API پیدا نشد');
+    }
+
+    // داشبورد «آمار و تحلیل سایت» — فقط مربی، فقط خواندنی؛ داده از همان جداول Analytics
+    if(p.startsWith('/api/coach/analytics')){
+      if(requireCoach(req,res)) return true;
+      if(req.method!=='GET') return sendError(res,405,'متد مجاز نیست');
+      const dashRange=analyticsService.rangeFromQuery(url.searchParams);
+      if(p==='/api/coach/analytics/summary') return send(res,200,analyticsService.dashSummary(db,dashRange));
+      if(p==='/api/coach/analytics/timeseries') return send(res,200,analyticsService.dashTimeseries(db,dashRange));
+      if(p==='/api/coach/analytics/pages') return send(res,200,analyticsService.dashPages(db,dashRange));
+      if(p==='/api/coach/analytics/visitors'){
+        return send(res,200,analyticsService.dashVisitors(db,{
+          ...dashRange,
+          page:url.searchParams.get('page')||1,
+          page_size:url.searchParams.get('page_size')||10,
+          q:url.searchParams.get('q')||'',
+          device:url.searchParams.get('device')||'',
+          source:url.searchParams.get('source')||'',
+          country:url.searchParams.get('country')||'',
+        }));
+      }
+      const dashVisitorMatch=p.match(/^\/api\/coach\/analytics\/visitors\/([A-Za-z0-9_]{1,48})$/);
+      if(dashVisitorMatch){
+        const detail=analyticsService.dashVisitorDetail(db,dashVisitorMatch[1]);
+        if(!detail) return sendError(res,404,'بازدیدکننده پیدا نشد');
+        return send(res,200,detail);
+      }
+      if(p==='/api/coach/analytics/sources') return send(res,200,analyticsService.dashSources(db,dashRange));
+      if(p==='/api/coach/analytics/devices') return send(res,200,analyticsService.dashDevices(db,dashRange));
+      if(p==='/api/coach/analytics/geo') return send(res,200,analyticsService.dashGeo(db,dashRange));
+      if(p==='/api/coach/analytics/journey') return send(res,200,analyticsService.dashJourney(db,dashRange));
+      if(p==='/api/coach/analytics/funnel') return send(res,200,analyticsService.dashFunnel(db,dashRange));
       return sendError(res,404,'مسیر API پیدا نشد');
     }
 
@@ -3901,7 +3990,6 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'coach-setup.html')).pipe(res);
     }
     if(coachAuthPages[url.pathname] && req.method==='GET'){
@@ -3910,7 +3998,6 @@ const server=http.createServer(async(req,res)=>{
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,coachAuthPages[url.pathname])).pipe(res);
     }
 
@@ -3918,12 +4005,15 @@ const server=http.createServer(async(req,res)=>{
     const isStudentPage=['/student/login','/student/register','/student/diet','/student/supplement','/student/change-password','/student/onboarding','/document/edit-document','/student/dashboard','/student/program','/student/workouts','/student/messages','/student/notifications','/student/assessment','/student/history','/student/profile','/student/logout'].includes(url.pathname);
     if(req.method==='GET' && (isJoinPage||isStudentPage)){
       const authenticated=isJoinPage || url.pathname==='/student/login' || url.pathname==='/student/register' || Boolean(studentSessionService.resolveStudentSession(db,req));
+      if(url.pathname==='/student/register' && authenticated) scheduleAnalyticsEvent(req,res,'register_start','/student/register');
+      // The invitation landing (/join/<token>) is a public page. The student shell is served for
+      // any /join/... path, so record only real invite-token shapes as public pageviews.
+      if(isJoinPage && analyticsService.isPublicAnalyticsPath(url.pathname)) trackPublicHtml(req, res, url.pathname);
       res.writeHead(authenticated?200:401,{
         'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
       });
-  analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return fs.createReadStream(path.join(publicDir,'student.html')).pipe(res);
     }
 
@@ -3948,10 +4038,6 @@ const server=http.createServer(async(req,res)=>{
       url.pathname===LANDING_PATH
     );
     if(isPublicPageRoute){
-      // Site-visit analytics (merged from the 01a085de lineage): the landing is the home
-      // page, so it is recorded as '/', the other public pages under their own path.
-      if(req.method==='GET' && url.pathname===LANDING_PATH) analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:'/',userAgent:req.headers['user-agent']});
-      else if(req.method==='GET') analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
       return sendPublicPage(req,res,{kind:url.pathname===LANDING_PATH?'home':url.pathname.slice(1),path:url.pathname});
     }
 
@@ -4068,7 +4154,6 @@ const server=http.createServer(async(req,res)=>{
     }
     const spaHeaders={'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'};
     res.writeHead(200,spaHeaders);
-    analyticsService.recordVisit(db,{ip:requestSecurity.clientIp(req),path:url.pathname,userAgent:req.headers['user-agent']});
     fs.createReadStream(path.join(publicDir,'index.html')).pipe(res);
   }catch(error){
     console.error('[Server Error]', error);

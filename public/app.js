@@ -14,6 +14,7 @@ window.addEventListener('error',event=>{
 
 const sidebarMenu = [
   ['داشبورد','/coach/dashboard','🏠'],
+  ['آمار و تحلیل سایت','/coach/analytics','📊'],
   ['شاگردان',null,'👥',[
     ['لیست شاگردان','/users-list'],
     ['ارزیابی‌های در انتظار','/students/submissions']
@@ -30,13 +31,16 @@ const sidebarMenu = [
   ['سیستم',null,'📦',[
     ['پیکربندی هوش مصنوعی (AI)','/settings/ai'],
     ['تنظیمات تلگرام','/settings/telegram'],
-    ['آمار بازدید','/coach/visits'],
     ['تنظیمات و پشتیبان','/coach/settings'],
     ['نسخه و تغییرات','/coach/releases']
   ]]
 ];
 // Only operational routes belong in navigation. Detail/review routes remain
 // reachable from their relevant lists, without cluttering the sidebar.
+// مسیرهای قدیمی هنوز زنده‌اند ولی از منو حذف شده‌اند (برچسب ناوبری):
+const legacyRoutes = [
+  ['آمار بازدید','/coach/visits'],
+];
 const menu=sidebarMenu;
 
 const menuEl=document.querySelector('#menu'), content=document.querySelector('#content'), crumb=document.querySelector('#breadcrumb');
@@ -71,6 +75,7 @@ function renderRoute(label,route){
   if(route.startsWith('/assessments/') && window.renderAssessmentReview) return window.renderAssessmentReview(label,route);
   if((route==='/settings/ai' || route==='/coach/ai') && window.renderAISettings) return window.renderAISettings(label,route);
   if(route==='/settings/telegram' && window.renderTelegramSettings) return window.renderTelegramSettings(label,route);
+  if(route==='/coach/analytics' && window.renderAnalyticsDashboard) return window.renderAnalyticsDashboard(label,route);
   if(route==='/coach/visits' && window.renderVisitAnalytics) return window.renderVisitAnalytics(label,route);
   if(route==='/coach/releases' && window.renderReleaseHistory) return window.renderReleaseHistory(label,route);
   if(route==='/coach/magazine' && window.renderMagazineAdmin) return window.renderMagazineAdmin(label,route);
@@ -117,6 +122,7 @@ window.onpopstate=()=>{
     if(route===path) foundLabel=label;
     if(children) children.forEach(([cl,cr])=>{ if(cr===path) foundLabel=cl; });
   });
+  legacyRoutes.forEach(([label,route])=>{ if(route===path) foundLabel=label; });
   if(path==='/coach/releases') foundLabel='نسخه و تغییرات';
   renderRoute(foundLabel, path);
 };

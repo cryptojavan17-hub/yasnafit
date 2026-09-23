@@ -251,52 +251,367 @@ async function render(label,route){
     content.innerHTML=`<section class="panel error"><h2>ارتباط با سرور برقرار نشد</h2><p>${esc(e.message)}</p></section>`;
   }
 }
-// ── آمار بازدید سایت (بازدید صفحه‌ها، IP یکتا، کشور، دستگاه) ──
+// ── آمار بازدید سایت (صفحهٔ عمومی، شناسهٔ ناشناس، نشست ۳۰ دقیقه‌ای، منطقهٔ Asia/Tehran) ──
 window.renderVisitAnalytics=async function(label,route){
-  let days=30;
-  const render=async()=>{
+  let range='7d';
+  let days=7;
+  let from='';
+  let to='';
+  let metric='views';
+  const load=async()=>{
     updateSidebarActiveState(route);
     crumb.textContent=label;
     content.innerHTML='<div class="loading-state"><span class="spinner"></span><p>در حال بارگذاری آمار…</p></div>';
     let data;
-    try{ data=await api(`/api/analytics/visits?days=${days}`); }
+    try{ data=await api(`/api/analytics/visits?days=${days}&range=${encodeURIComponent(range)}${range==='custom'?`&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`:''}`); }
     catch(error){ content.innerHTML=`<section class="panel"><h2>آمار بازدید</h2><p class="error">${esc(error.message)}</p></section>`; return; }
-    const s=data.summary;
+    const s=data.summary||{};
+    const today=data.today||{};
+    const span=data.range||{};
     const fa=n=>Number(n||0).toLocaleString('fa-IR');
     const flag=code=>{ const cc=String(code||'').toUpperCase(); if(cc==='LN')return '🏠'; if(!/^[A-Z]{2}$/.test(cc))return '🌐'; return String.fromCodePoint(...[...cc].map(c=>127397+c.charCodeAt(0))); };
     const deviceFa={mobile:'📱 موبایل',tablet:'💻 تبلت',desktop:'🖥 دسکتاپ',unknown:'نامشخص'};
-    const maxDaily=Math.max(1,...data.daily.map(d=>d.views));
-    const bars=data.daily.slice(-21).map(d=>`<div class="visit-bar" title="${esc(d.day)} — ${fa(d.views)} بازدید / ${fa(d.ips)} IP"><i style="height:${Math.round(d.views/maxDaily*100)}%"></i><small>${esc(d.day.slice(5))}</small></div>`).join('');
-    const countries=data.countries.length?`<table class="visit-table"><thead><tr><th>کشور</th><th>IP یکتا</th><th>بازدید</th></tr></thead><tbody>${data.countries.map(c=>`<tr><td>${flag(c.code)} ${esc(c.name)}</td><td>${fa(c.ips)}</td><td>${fa(c.views)}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
-    const devices=data.devices.length?data.devices.map(d=>`<div class="visit-chip"><b>${deviceFa[d.device]||esc(d.device)}</b><span>${fa(d.views)} بازدید • ${fa(d.ips)} IP</span></div>`).join(''):'<p class="visit-empty">—</p>';
-    const browsers=data.browsers.length?data.browsers.map(b=>`<div class="visit-chip"><b>${esc(b.browser)}</b><span>${fa(b.views)}</span></div>`).join(''):'';
-    const oses=data.os.length?data.os.map(o=>`<div class="visit-chip"><b>${esc(o.os)}</b><span>${fa(o.views)}</span></div>`).join(''):'';
-    const recent=data.recent.length?`<table class="visit-table"><thead><tr><th>زمان</th><th>IP</th><th>کشور</th><th>دستگاه</th><th>صفحه</th></tr></thead><tbody>${data.recent.map(r=>`<tr><td class="visit-time">${new Date(r.visited_at).toLocaleString('fa-IR')}</td><td class="visit-ip">${esc(r.ip||'—')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}${r.browser&&r.browser!=='سایر'?' • '+esc(r.browser):''}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
-    const visitors=(data.visitors||[]).length?`<table class="visit-table visit-visitors"><thead><tr><th>IP</th><th>کشور</th><th>دستگاه</th><th>بازدید</th><th>اولین ورود</th><th>آخرین فعالیت</th><th>مدت حضور</th><th>ثبت‌نام</th></tr></thead><tbody>${data.visitors.map(v=>`<tr class="${v.online?'visit-online':''}"><td class="visit-ip">${esc(v.ip||'—')}${v.online?' <span class="visit-live-dot" title="احتمالاً آنلاین"></span>':''}</td><td>${flag(v.country_code)} ${esc(v.country_name||'نامشخص')}</td><td>${deviceFa[v.device]||esc(v.device||'—')}${v.browser&&v.browser!=='سایر'?' • '+esc(v.browser):''}</td><td>${fa(v.views)}</td><td class="visit-time">${esc(v.first_fa)}</td><td class="visit-time">${esc(v.last_fa)}</td><td>${esc(v.duration_fa)}</td><td>${v.registrations>0?'<span class="visit-badge yes">✅ ثبت‌نام کرده</span>':'<span class="visit-badge no">❌ نه</span>'}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
-    const geoNote=data.pending_geo?`<p class="visit-geo-note">🌍 ${fa(data.pending_geo)} IP در صف تعیین کشور است؛ در چند دقیقهٔ بعدی کامل می‌شود.</p>`:'';
+    const sourceFa={Direct:'مستقیم · Direct',Google:'گوگل · Google',Instagram:'اینستاگرام · Instagram',Telegram:'تلگرام · Telegram',Referral:'ارجاع · Referral',Other:'سایر · Other'};
+    const eventFa={landing_view:'بازدید لندینگ',coach_page_view:'بازدید صفحهٔ مربی',register_start:'شروع ثبت‌نام',registration_complete:'تکمیل ثبت‌نام',login:'ورود',telegram_connect:'اتصال تلگرام'};
+    const osFa={Android:'Android',iOS:'iOS',Windows:'Windows',macOS:'macOS',Linux:'Linux',Other:'Other'};
+    const metricFa={views:'بازدید صفحه',visitors:'بازدیدکننده',sessions:'نشست',registrations:'ثبت‌نام'};
+    const ranges=[['today','امروز'],['yesterday','دیروز'],['7d','۷ روز'],['30d','۳۰ روز'],['custom','سفارشی']];
+    const daily=data.daily||[];
+    const maxDaily=Math.max(1,...daily.map(d=>Number(d[metric]||0)));
+    const bars=daily.map(d=>{
+      const value=Number(d[metric]||0);
+      return `<div class="visit-bar" title="${esc(d.day)} — ${fa(value)}"><i style="height:${Math.round(value/maxDaily*100)}%"></i><small>${esc(String(d.day||'').slice(5))}</small></div>`;
+    }).join('');
+    const pageRows=(data.pages||[]).slice(0,12);
+    const pages=pageRows.length?`<table class="visit-table"><thead><tr><th>صفحه</th><th>بازدید</th><th>بازدیدکنندهٔ یکتا</th><th>میانگین زمان</th></tr></thead><tbody>${pageRows.map(p=>`<tr><td class="visit-path" dir="ltr">${esc(p.path||'/')}</td><td>${fa(p.views)}</td><td>${fa(p.visitors)}</td><td>${esc(p.avg_time_fa||'نامشخص')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدید صفحهٔ عمومی ثبت نشده است.</p>';
+    const countries=(data.countries||[]).length?`<table class="visit-table"><thead><tr><th>کشور</th><th>بازدیدکننده</th><th>بازدید</th></tr></thead><tbody>${data.countries.map(c=>`<tr><td>${flag(c.code)} ${esc(c.name||'نامشخص')}</td><td>${fa(c.visitors)}</td><td>${fa(c.views)}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز کشوری ثبت نشده است.</p>';
+    const cities=(data.cities||[]).filter(c=>c.city).slice(0,8);
+    const cityBlock=cities.length?`<h2 style="margin-top:16px">شهر</h2><div class="visit-chips">${cities.map(c=>`<div class="visit-chip"><b>${esc(c.city)}</b><span>${fa(c.visitors)} نفر</span></div>`).join('')}</div>`:'';
+    const chip=(rows,label)=>rows&&rows.length?rows.map(d=>`<div class="visit-chip"><b>${esc(label(d))}</b><span>${fa(d.views)} بازدید • ${fa(d.visitors)} نفر</span></div>`).join(''):'<p class="visit-empty">—</p>';
+    const journeys=(data.journeys||[]).slice(0,6);
+    const journeyHtml=journeys.length?`<ol class="visit-journey">${journeys.map(j=>`<li>${esc(j.path)}</li>`).join('')}</ol>`:'<p class="visit-empty">هنوز مسیر چندصفحه‌ای ثبت نشده است.</p>';
+    const funnel=data.funnel||{};
+    const online=data.online_now||[];
+    const onlineHtml=online.length?`<table class="visit-table"><thead><tr><th>بازدیدکننده</th><th>صفحه</th><th>کشور</th><th>دستگاه</th><th>آخرین فعالیت</th></tr></thead><tbody>${online.map(r=>`<tr><td class="visit-id" dir="ltr">${esc(r.visitor_label||'visitor_…')}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td><td>${esc([r.country_name,r.city].filter(Boolean).join('، ')||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}</td><td class="visit-time">${esc(r.last_fa||'—')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">در ۵ دقیقهٔ اخیر کسی در صفحه‌های عمومی فعال نیست.</p>';
+    const recent=(data.recent||[]).length?`<table class="visit-table"><thead><tr><th>زمان</th><th>بازدیدکننده</th><th>کشور</th><th>دستگاه</th><th>صفحه</th></tr></thead><tbody>${data.recent.map(r=>`<tr><td class="visit-time">${esc(new Date(r.visited_at).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'}))}</td><td class="visit-id" dir="ltr">${esc(r.visitor_label||'visitor_…')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${deviceFa[r.device]||esc(r.device||'—')}${r.browser&&r.browser!=='سایر'?' • '+esc(r.browser):''}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const visitors=(data.visitors||[]).length?`<table class="visit-table visit-visitors"><thead><tr><th>بازدیدکننده</th><th>کشور</th><th>دستگاه</th><th>بازدید</th><th>اولین ورود</th><th>آخرین فعالیت</th><th>مدت نشست</th><th>نشست</th><th>وضعیت</th></tr></thead><tbody>${data.visitors.map(v=>`<tr class="${v.online?'visit-online':''}"><td class="visit-id" dir="ltr">${esc(v.visitor_label||'visitor_…')}${v.online?' <span class="visit-live-dot" title="فعال در ۵ دقیقهٔ اخیر"></span>':''}</td><td>${flag(v.country_code)} ${esc(v.country_name||'نامشخص')}</td><td>${deviceFa[v.device]||esc(v.device||'—')}</td><td>${fa(v.views)}</td><td class="visit-time">${esc(v.first_fa||'—')}</td><td class="visit-time">${esc(v.last_fa||'—')}</td><td>${esc(v.duration_fa||'نامشخص')}</td><td>${fa(v.sessions)}</td><td>${v.returning?'<span class="visit-badge yes">بازگشتی</span>':'<span class="visit-badge no">جدید</span>'}${v.registrations>0?' <span class="visit-badge yes">ثبت‌نام</span>':''}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">هنوز بازدیدی ثبت نشده است.</p>';
+    const events=(data.events||[]).map(e=>`<div class="visit-chip"><b>${esc(eventFa[e.event_type]||e.event_type)}</b><span>${fa(e.count)}</span></div>`).join('');
+    const campaigns=(data.campaigns||[]);
+    const campaignHtml=campaigns.length?`<table class="visit-table"><thead><tr><th>utm_source</th><th>utm_medium</th><th>utm_campaign</th><th>بازدید</th><th>نفر</th></tr></thead><tbody>${campaigns.map(c=>`<tr><td>${esc(c.utm_source||'—')}</td><td>${esc(c.utm_medium||'—')}</td><td>${esc(c.utm_campaign||'—')}</td><td>${fa(c.views)}</td><td>${fa(c.visitors)}</td></tr>`).join('')}</tbody></table>`:'<p class="visit-empty">کمپینی با utm ثبت نشده است.</p>';
+    const exportQs=range==='custom'?`range=custom&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`:`range=${encodeURIComponent(range)}`;
+    const geoNote=data.pending_geo?`<p class="visit-geo-note">🌍 ${fa(data.pending_geo)} مورد در صف تعیین کشور است و در پس‌زمینه کامل می‌شود.</p>`:'';
     content.innerHTML=`
-      <div class="page-head"><div><h1>آمار بازدید سایت</h1><p>بازدید صفحه‌ها، IPهای یکتا، کشور و دستگاه بازدیدکنندگان</p></div>
-        <div class="visit-ranges">${[7,30,90].map(d=>`<button class="secondary ${d===days?'active':''}" data-days="${d}">${d===7?'۷ روز':d===30?'۳۰ روز':'۹۰ روز'}</button>`).join('')}</div></div>
+      <div class="page-head"><div><h1>آمار بازدید سایت</h1><p>صفحات عمومی، نشست واقعی و منطقهٔ زمانی تهران. IPهای یکتا فقط به‌صورت شناسهٔ ناشناس visitor_ نمایش داده می‌شوند.</p></div>
+        <div class="visit-ranges">${ranges.map(([key,title])=>`<button class="secondary ${key===range?'active':''}" data-range="${key}">${title}</button>`).join('')}<a class="secondary" href="/api/analytics/export?${exportQs}">خروجی</a></div></div>
       ${geoNote}
       <div class="stat-grid visit-stats">
-        <article><span>امروز</span><strong>${fa(s.today_views)}</strong><small>${fa(s.today_ips)} IP یکتا</small></article>
-        <article><span>۷ روز اخیر</span><strong>${fa(s.day7_views)}</strong><small>${fa(s.day7_ips)} IP یکتا</small></article>
-        <article><span>۳۰ روز اخیر</span><strong>${fa(s.day30_views)}</strong><small>${fa(s.day30_ips)} IP یکتا</small></article>
-        <article><span>کل از ابتدا</span><strong>${fa(s.total_views)}</strong><small>${fa(s.total_ips)} IP یکتا</small></article>
+        <article><span>بازدیدکنندهٔ امروز</span><strong>${fa(today.visitors)}</strong><small>Asia/Tehran</small></article>
+        <article><span>بازدید صفحهٔ امروز</span><strong>${fa(today.pageviews)}</strong><small>فقط صفحات عمومی</small></article>
+        <article><span>نشست امروز</span><strong>${fa(today.sessions)}</strong><small>وقفهٔ ۳۰ دقیقه</small></article>
+        <article><span>ثبت‌نام امروز</span><strong>${fa(today.registrations)}</strong><small>تکمیل‌شده</small></article>
       </div>
-      <section class="panel"><h2>روند روزانه (۲۱ روز اخیر)</h2><div class="visit-bars">${bars||'<p class="visit-empty">—</p>'}</div></section>
+      <section class="panel">
+        <h2>بازهٔ انتخاب‌شده</h2>
+        <div class="visit-custom">${range==='custom'?`<label>از <input type="date" id="visitFrom" value="${esc(from)}"></label><label>تا <input type="date" id="visitTo" value="${esc(to)}"></label><button class="secondary" id="visitApply">اعمال</button>`:''}</div>
+        <div class="stat-grid visit-stats">
+          <article><span>بازدیدکننده</span><strong>${fa(span.visitors)}</strong><small>جدید ${fa(s.new_visitors)} • بازگشتی ${fa(s.returning_visitors)}</small></article>
+          <article><span>بازدید صفحه</span><strong>${fa(span.pageviews)}</strong><small>${fa(span.pages_per_session)} صفحه در هر نشست</small></article>
+          <article><span>نشست</span><strong>${fa(span.sessions)}</strong><small>میانگین ${esc(span.average_session_fa||'نامشخص')}</small></article>
+          <article><span>ثبت‌نام</span><strong>${fa(span.registrations)}</strong><small>اول ${esc(span.first_fa||'—')} • آخر ${esc(span.last_fa||'—')}</small></article>
+        </div>
+      </section>
+      <section class="panel"><h2>نمودار روزانه</h2>
+        <div class="visit-ranges">${Object.entries(metricFa).map(([key,title])=>`<button class="secondary ${key===metric?'active':''}" data-metric="${key}">${title}</button>`).join('')}</div>
+        <div class="visit-bars">${bars||'<p class="visit-empty">—</p>'}</div>
+      </section>
+      <section class="panel"><h2>قیف تبدیل</h2>
+        <div class="visit-funnel">
+          <article><span>بازدیدکننده</span><strong>${fa(funnel.visitors)}</strong></article>
+          <article><span>شروع ثبت‌نام</span><strong>${fa(funnel.register_start)}</strong><small>${fa(funnel.register_rate)}٪</small></article>
+          <article><span>تکمیل ثبت‌نام</span><strong>${fa(funnel.registration_complete)}</strong><small>نرخ تبدیل ${fa(funnel.conversion_rate)}٪</small></article>
+        </div>
+        <div class="visit-chips" style="margin-top:12px">${events||'<p class="visit-empty">—</p>'}</div>
+      </section>
       <div class="split">
-        <section class="panel"><h2>کشورها (IP یکتا)</h2>${countries}</section>
-        <section class="panel"><h2>دستگاه‌ها</h2><div class="visit-chips">${devices}</div><h2 style="margin-top:16px">مرورگر</h2><div class="visit-chips">${browsers||'<p class="visit-empty">—</p>'}</div><h2 style="margin-top:16px">سیستم‌عامل</h2><div class="visit-chips">${oses||'<p class="visit-empty">—</p>'}</div></section>
+        <section class="panel"><h2>صفحات پربازدید عمومی</h2>${pages}</section>
+        <section class="panel"><h2>مسیر نشست</h2>${journeyHtml}</section>
       </div>
-      <section class="panel"><h2>بازدیدکنندگان — هر IP با جزئیات</h2>${visitors}</section>
-      <section class="panel"><h2>آخرین بازدیدها (صفحه به صفحه)</h2>${recent}</section>`;
-    content.querySelectorAll('[data-days]').forEach(btn=>btn.onclick=()=>{days=Number(btn.dataset.days);render();});
+      <div class="split">
+        <section class="panel"><h2>کشور</h2>${countries}${cityBlock}</section>
+        <section class="panel"><h2>دستگاه، مرورگر و سیستم‌عامل</h2>
+          <div class="visit-chips">${chip(data.devices,d=>deviceFa[d.device]||d.device)}</div>
+          <h2 style="margin-top:16px">مرورگر</h2><div class="visit-chips">${chip(data.browser_groups,b=>b.browser_group||'Other')}</div>
+          <h2 style="margin-top:16px">سیستم‌عامل</h2><div class="visit-chips">${chip(data.os,o=>osFa[o.os]||o.os||'Other')}</div>
+        </section>
+      </div>
+      <div class="split">
+        <section class="panel"><h2>منبع</h2><div class="visit-chips">${chip(data.sources,x=>sourceFa[x.traffic_source]||x.traffic_source||'Other')}</div></section>
+        <section class="panel"><h2>کمپین</h2>${campaignHtml}</section>
+      </div>
+      <section class="panel"><h2>آنلاین الان <small>(۵ دقیقهٔ اخیر)</small></h2>${onlineHtml}</section>
+      <section class="panel"><h2>بازدیدکنندگان</h2>${visitors}</section>
+      <section class="panel"><h2>آخرین بازدیدها</h2>${recent}</section>`;
+    content.querySelectorAll('[data-range]').forEach(btn=>btn.onclick=()=>{
+      range=btn.dataset.range;
+      if(range==='7d') days=7;
+      if(range==='30d') days=30;
+      if(range==='custom' && (!from || !to)){ load(); return; }
+      load();
+    });
+    content.querySelectorAll('[data-metric]').forEach(btn=>btn.onclick=()=>{ metric=btn.dataset.metric; load(); });
+    const apply=content.querySelector('#visitApply');
+    if(apply) apply.onclick=()=>{
+      from=(content.querySelector('#visitFrom')||{}).value||'';
+      to=(content.querySelector('#visitTo')||{}).value||'';
+      if(from && to && from<=to) load();
+    };
   };
-  await render();
+  await load();
 };
 
 window.renderCoreRoute=render;
+
+// ── داشبورد «آمار و تحلیل سایت» — صفحهٔ کامل Analytics پنل مربی (RTL، دادهٔ واقعی دیتابیس) ──
+window.renderAnalyticsDashboard=async function(label,route){
+  const state={range:'7d',from:'',to:'',tab:'overview',page:1,pageSize:10,q:'',device:'',source:''};
+  const fa=n=>Number(n||0).toLocaleString('fa-IR');
+  const pctText=n=>`${fa(Number(n||0))}٪`;
+  const flag=code=>{const cc=String(code||'').toUpperCase();if(cc==='LN')return '🏠';if(!/^[A-Z]{2}$/.test(cc))return '🌐';return String.fromCodePoint(...[...cc].map(c=>127397+c.charCodeAt(0)));};
+  const deviceFa={mobile:'📱 موبایل',tablet:'💻 تبلت',desktop:'🖥 دسکتاپ'};
+  const sourceFa={Direct:'مستقیم · Direct',Google:'گوگل · Google',Instagram:'اینستاگرام · Instagram',Telegram:'تلگرام · Telegram',Referral:'ارجاع دیگر · Referral',Other:'سایر · Other'};
+  const osFa={Android:'Android',iOS:'iOS',Windows:'Windows',macOS:'macOS',Linux:'Linux',Other:'سایر'};
+  const eventFa={landing_view:'بازدید لندینگ',coach_page_view:'بازدید صفحهٔ مربی',register_start:'شروع ثبت‌نام',registration_complete:'تکمیل ثبت‌نام',login:'ورود',telegram_connect:'اتصال تلگرام'};
+  const ranges=[['today','امروز'],['yesterday','دیروز'],['7d','۷ روز اخیر'],['30d','۳۰ روز اخیر'],['90d','۹۰ روز اخیر'],['custom','سفارشی']];
+  const tabs=[['overview','نمای کلی'],['sources','منابع و دستگاه‌ها'],['visitors','بازدیدکنندگان'],['journey','مسیر و قیف'],['online','کاربران آنلاین']];
+  let data=null;
+  const rangeQs=()=>`range=${encodeURIComponent(state.range)}${state.range==='custom'?`&from=${encodeURIComponent(state.from)}&to=${encodeURIComponent(state.to)}`:''}`;
+  const visitorsQs=()=>`${rangeQs()}&page=${state.page}&page_size=${state.pageSize}&q=${encodeURIComponent(state.q)}&device=${encodeURIComponent(state.device)}&source=${encodeURIComponent(state.source)}`;
+  const showLoading=text=>{content.innerHTML=`<div class="loading-state"><span class="spinner"></span><p>${esc(text||'در حال بارگذاری آمار…')}</p></div>`;};
+  const showError=message=>{
+    content.innerHTML=`<section class="panel error"><h2>دریافت آمار ممکن نشد</h2><p>${esc(message)}</p><button class="primary" id="vaRetry">تلاش دوباره</button></section>`;
+    const retry=content.querySelector('#vaRetry');
+    if(retry)retry.onclick=()=>loadAll();
+  };
+  const fetchVisitors=async()=>{
+    data.visitors=await api(`/api/coach/analytics/visitors?${visitorsQs()}`);
+  };
+  const loadAll=async()=>{
+    updateSidebarActiveState(route);
+    crumb.textContent=label;
+    showLoading();
+    try{
+      const [summary,timeseries,pages,visitors,sources,devices,geo,journey,funnel]=await Promise.all([
+        api(`/api/coach/analytics/summary?${rangeQs()}`),
+        api(`/api/coach/analytics/timeseries?${rangeQs()}`),
+        api(`/api/coach/analytics/pages?${rangeQs()}`),
+        api(`/api/coach/analytics/visitors?${visitorsQs()}`),
+        api(`/api/coach/analytics/sources?${rangeQs()}`),
+        api(`/api/coach/analytics/devices?${rangeQs()}`),
+        api(`/api/coach/analytics/geo?${rangeQs()}`),
+        api(`/api/coach/analytics/journey?${rangeQs()}`),
+        api(`/api/coach/analytics/funnel?${rangeQs()}`),
+      ]);
+      data={summary,timeseries,pages,visitors,sources,devices,geo,journey,funnel};
+      render();
+    }catch(error){ showError(error.message); }
+  };
+  const hbar=rows=>rows.length?`<div class="visit-hbars">${rows.map(r=>`
+    <div class="visit-hbar">
+      <span class="visit-hbar-label">${esc(r.label||r.name||'—')}</span>
+      <div class="visit-hbar-track"><i style="width:${Math.max(2,Math.round(Number(r.percent)||0))}%"></i></div>
+      <b>${fa(r.views)}</b><small>${pctText(r.percent)}${r.visitors!=null?` • ${fa(r.visitors)} نفر`:''}</small>
+    </div>`).join('')}</div>`:'<p class="visit-empty">داده‌ای در این بازه ثبت نشده است.</p>';
+  const tableHtml=(head,rows)=>`<div class="table-wrap"><table class="visit-table"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.join(''):`<tr><td colspan="${head.length}" class="empty">اطلاعاتی برای نمایش وجود ندارد.</td></tr>`}</tbody></table></div>`;
+  const openDetail=async id=>{
+    let d;
+    try{ d=await api('/api/coach/analytics/visitors/'+encodeURIComponent(id)); }
+    catch(error){ alert(error.message); return; }
+    const m=document.createElement('div');
+    m.className='modal-backdrop';
+    const pagesList=(d.pages||[]).map(p=>`<li><span dir="ltr">${esc(p.path)}</span><b>${fa(p.views)}</b></li>`).join('');
+    const sourcesList=(d.sources||[]).map(s=>`<li><span>${esc(sourceFa[s.source]||s.source)}</span><b>${fa(s.views)}</b></li>`).join('');
+    const utmList=(d.utms||[]).map(u=>`<li><span dir="ltr">${esc([u.utm_source,u.utm_medium,u.utm_campaign].filter(Boolean).join(' / ')||'—')}</span><b>${fa(u.views)}</b></li>`).join('');
+    m.innerHTML=`<div class="modal visit-detail">
+      <div class="modal-head"><h2>جزئیات بازدیدکننده</h2><button type="button" class="close" aria-label="بستن">×</button></div>
+      <dl class="visit-detail-grid">
+        <div><dt>Visitor ID</dt><dd class="visit-id" dir="ltr">${esc(d.visitor_id)}</dd></div>
+        <div><dt>نوع</dt><dd>${d.kind==='returning'?'🔁 بازگشتی':'✨ جدید'}</dd></div>
+        <div><dt>کشور</dt><dd>${flag(d.country_code)} ${esc(d.country_name||'نامشخص')}</dd></div>
+        <div><dt>شهر</dt><dd>${esc(d.city||'—')}</dd></div>
+        <div><dt>دستگاه</dt><dd>${esc(deviceFa[d.device]||d.device||'—')}</dd></div>
+        <div><dt>Browser</dt><dd>${esc(d.browser||'—')}</dd></div>
+        <div><dt>OS</dt><dd>${esc(d.os||'—')}</dd></div>
+        <div><dt>تعداد Session</dt><dd>${fa(d.sessions)}</dd></div>
+        <div><dt>تعداد Page View</dt><dd>${fa(d.pageviews)}</dd></div>
+        <div><dt>اولین ورود</dt><dd>${esc(d.first_fa||'—')}</dd></div>
+        <div><dt>آخرین فعالیت</dt><dd>${esc(d.last_fa||'—')}</dd></div>
+        <div><dt>میانگین مدت Session</dt><dd>${esc(d.average_session_fa||'نامشخص')}</dd></div>
+        <div><dt>وضعیت</dt><dd>${d.online?'🟢 آنلاین':'آفلاین'}</dd></div>
+        <div><dt>وضعیت ثبت‌نام</dt><dd>${d.registered?`✅ ثبت‌نام‌شده${d.registration_fa?` — ${esc(d.registration_fa)}`:''}`:'❌ ثبت‌نام نکرده'}</dd></div>
+      </dl>
+      <h3>صفحات مشاهده‌شده</h3><ul class="visit-detail-list">${pagesList||'<li>—</li>'}</ul>
+      <h3>منابع ورود</h3><ul class="visit-detail-list">${sourcesList||'<li>—</li>'}</ul>
+      ${utmList?`<h3>کمپین‌ها (UTM)</h3><ul class="visit-detail-list">${utmList}</ul>`:''}
+    </div>`;
+    document.body.append(m);
+    m.querySelectorAll('.close').forEach(x=>x.onclick=()=>m.remove());
+    m.addEventListener('click',event=>{ if(event.target===m) m.remove(); });
+  };
+  const render=()=>{
+    updateSidebarActiveState(route);
+    crumb.textContent=label;
+    const s=data.summary||{};
+    const cards=s.cards||{};
+    const today=s.today||{};
+    const span=data.timeseries||{};
+    const daily=span.daily||[];
+    const maxDaily=Math.max(1,...daily.map(d=>Math.max(Number(d.views||0),Number(d.visitors||0),Number(d.sessions||0))));
+    const trendBars=daily.length?daily.map(d=>`
+      <div class="visit-col" title="${esc(d.day)} — بازدید ${fa(d.views)} • بازدیدکننده ${fa(d.visitors)} • نشست ${fa(d.sessions)}">
+        <i class="s1" style="height:${Math.round(Number(d.views||0)/maxDaily*100)}%"></i>
+        <i class="s2" style="height:${Math.round(Number(d.visitors||0)/maxDaily*100)}%"></i>
+        <i class="s3" style="height:${Math.round(Number(d.sessions||0)/maxDaily*100)}%"></i>
+        <small>${esc(String(d.day||'').slice(5))}</small>
+      </div>`).join(''):'';
+    const legend=`<div class="visit-legend"><span><i class="s1"></i>بازدید صفحه</span><span><i class="s2"></i>بازدیدکننده یکتا</span><span><i class="s3"></i>نشست</span></div>`;
+    const pagesData=data.pages||{};
+    const pageRows=(pagesData.pages||[]);
+    const pagesTable=tableHtml(['صفحه','بازدید','بازدیدکننده یکتا','درصد','میانگین زمان'],pageRows.map(p=>`<tr><td class="visit-path" dir="ltr">${esc(p.path)}</td><td>${fa(p.views)}</td><td>${fa(p.visitors)}</td><td>${pctText(p.percent)}</td><td>${esc(p.avg_time_fa||'نامشخص')}</td></tr>`));
+    const sourcesData=data.sources||{};
+    const devicesData=data.devices||{};
+    const geoData=data.geo||{};
+    const geoTable=tableHtml(['کشور','شهر','بازدید','بازدیدکننده'],(geoData.places||[]).map(g=>`<tr><td>${flag(g.country_code)} ${esc(g.country_name||'نامشخص')}</td><td>${esc(g.city||'—')}</td><td>${fa(g.views)}</td><td>${fa(g.visitors)}</td></tr>`));
+    const campaignsTable=tableHtml(['utm_source','utm_medium','utm_campaign','بازدید','نفر','درصد'],(sourcesData.campaigns||[]).map(c=>`<tr><td dir="ltr">${esc(c.utm_source||'—')}</td><td dir="ltr">${esc(c.utm_medium||'—')}</td><td dir="ltr">${esc(c.utm_campaign||'—')}</td><td>${fa(c.views)}</td><td>${fa(c.visitors)}</td><td>${pctText(c.percent)}</td></tr>`));
+    const visitorsData=data.visitors||{};
+    const visitorRows=(visitorsData.items||[]).map(v=>`<tr class="va-row ${v.online?'visit-online':''}" data-visitor="${esc(v.visitor_id)}">
+      <td class="visit-id" dir="ltr">${esc(v.visitor_label||'visitor_…')}${v.online?' <span class="visit-live-dot" title="فعال در ۵ دقیقهٔ اخیر"></span>':''}<br><span class="visit-badge ${v.returning?'yes':'no'}">${v.returning?'بازگشتی':'جدید'}</span></td>
+      <td>${flag(v.country_code)} ${esc(v.country_name||'نامشخص')}</td>
+      <td>${esc(v.city||'—')}</td>
+      <td>${esc(deviceFa[v.device]||v.device||'—')}</td>
+      <td>${esc(v.browser||'—')}</td>
+      <td>${fa(v.views)}</td>
+      <td class="visit-time">${esc(v.first_fa||'—')}</td>
+      <td class="visit-time">${esc(v.last_fa||'—')}</td>
+      <td>${esc(v.duration_fa||'نامشخص')}</td>
+      <td>${v.online?'<span class="visit-badge yes">🟢 آنلاین</span>':'<span class="visit-badge no">آفلاین</span>'}</td>
+      <td>${v.registered?'<span class="visit-badge yes">✅ ثبت‌نام</span>':'<span class="visit-badge no">—</span>'}</td>
+    </tr>`);
+    const visitorsTable=tableHtml(['Visitor','کشور','شهر','دستگاه','مرورگر','صفحات','ورود','آخرین فعالیت','مدت نشست','وضعیت','ثبت‌نام'],visitorRows);
+    const pager=`<div class="va-pager">
+      <button class="secondary" id="vaPrev" ${visitorsData.page<=1?'disabled':''}>قبلی</button>
+      <span>صفحهٔ ${fa(visitorsData.page)} از ${fa(visitorsData.pages_count)} — ${fa(visitorsData.total)} بازدیدکننده</span>
+      <button class="secondary" id="vaNext" ${(visitorsData.page||1)>=(visitorsData.pages_count||1)?'disabled':''}>بعدی</button>
+      <label>در هر صفحه
+        <select id="vaSize">${[10,25,50].map(n=>`<option value="${n}" ${n===Number(visitorsData.page_size)?'selected':''}>${fa(n)}</option>`).join('')}</select>
+      </label>
+    </div>`;
+    const recentTable=tableHtml(['زمان','بازدیدکننده','کشور','دستگاه','صفحه'],(visitorsData.recent||[]).map(r=>`<tr><td class="visit-time">${esc(r.visited_fa||'—')}</td><td class="visit-id" dir="ltr">${esc(r.visitor_label||'visitor_…')}</td><td>${flag(r.country_code)} ${esc(r.country_name||'نامشخص')}</td><td>${esc(deviceFa[r.device]||r.device||'—')}</td><td class="visit-path" dir="ltr">${esc(r.path||'/')}</td></tr>`));
+    const journeyData=data.journey||{};
+    const stepsHtml=(journeyData.steps||[]).length?`<ol class="visit-steps">${(journeyData.steps||[]).map(step=>`<li><b>${esc(step.label)}</b><span>${fa(step.users)} کاربر</span></li>`).join('')}</ol>`:'<p class="visit-empty">هنوز مسیری ثبت نشده است.</p>';
+    const pathsHtml=(journeyData.paths||[]).length?`<ol class="visit-journey">${(journeyData.paths||[]).map(j=>`<li><span dir="auto">${esc(j.path)}</span><b class="visit-badge yes">${fa(j.users)} کاربر</b></li>`).join('')}</ol>`:'<p class="visit-empty">هنوز مسیر چندصفحه‌ای ثبت نشده است.</p>';
+    const funnel=data.funnel||{};
+    const stages=funnel.stages||[];
+    const funnelHtml=stages.length?`<div class="visit-funnel-v">${stages.map((st,i)=>`
+      ${i?'<div class="visit-funnel-arrow" aria-hidden="true">↓</div>':''}
+      <div class="visit-funnel-stage">
+        <header><b>${esc(st.label)}</b><strong>${fa(st.count)}</strong></header>
+        <div class="visit-hbar-track"><i style="width:${Math.max(2,Math.round(Number(st.rate_first)||0))}%"></i></div>
+        <small>نسبت به مرحلهٔ قبل: ${pctText(st.rate_prev)} • نسبت به بازدید سایت: ${pctText(st.rate_first)}</small>
+      </div>`).join('')}</div>
+      <p class="visit-funnel-note">نرخ تبدیل نهایی (بازدید سایت ← ثبت‌نام موفق): <b>${pctText(funnel.conversion_rate)}</b>${funnel.key_pages&&funnel.key_pages.length?` — صفحات مهم: ${funnel.key_pages.map(k=>esc(k)).join('، ')}`:''}</p>`:'<p class="visit-empty">هنوز داده‌ای برای قیف تبدیل ثبت نشده است.</p>';
+    const eventsHtml=(funnel.events||[]).map(e=>`<div class="visit-chip"><b>${esc(eventFa[e.event_type]||e.event_type)}</b><span>${fa(e.count)}</span></div>`).join('');
+    const onlineRows=(s.online_now||[]).map(o=>`<tr><td class="visit-id" dir="ltr">${esc(o.visitor_label||'visitor_…')}</td><td>${flag(o.country_code)} ${esc([o.country_name,o.city].filter(Boolean).join('، ')||'نامشخص')}</td><td>${esc(deviceFa[o.device]||o.device||'—')}</td><td class="visit-path" dir="ltr">${esc(o.path||'/')}</td><td class="visit-time">${esc(o.last_fa||'—')}</td></tr>`);
+    const onlineTable=tableHtml(['بازدیدکننده','کشور','دستگاه','صفحه فعلی','آخرین فعالیت'],onlineRows);
+    const exportHref=`/api/analytics/export?${rangeQs()}`;
+    const customBlock=state.range==='custom'?`<div class="visit-custom"><label>از <input type="date" id="vaFrom" value="${esc(state.from)}"></label><label>تا <input type="date" id="vaTo" value="${esc(state.to)}"></label><button class="secondary" id="vaApply">اعمال</button></div>`:'';
+    const geoNote=geoData.pending_geo?`<p class="visit-geo-note">🌍 ${fa(geoData.pending_geo)} مورد در صف تعیین کشور است و در پس‌زمینه کامل می‌شود.</p>`:'';
+    const tabBodies={
+      overview:`
+        <div class="stat-grid visit-stats">
+          <article><span>👁️ بازدید صفحات (Page Views)</span><strong>${fa(cards.pageviews)}</strong><small>فقط صفحات عمومی سایت</small></article>
+          <article><span>👤 بازدیدکنندگان یکتا (Unique Visitors)</span><strong>${fa(cards.visitors)}</strong><small>بر اساس شناسهٔ ناشناس yasnafit_vid</small></article>
+          <article><span>🔄 نشست‌ها (Sessions)</span><strong>${fa(cards.sessions)}</strong><small>وقفهٔ ۳۰ دقیقه</small></article>
+          <article><span>⏱ میانگین مدت نشست</span><strong>${esc(cards.average_session_fa||'نامشخص')}</strong><small>از نشست‌های واقعی</small></article>
+          <article><span>🟢 آنلاین‌های ۵ دقیقه اخیر</span><strong>${fa(cards.online)}</strong><small>فعالیت ۵ دقیقهٔ اخیر</small></article>
+          <article><span>📝 ثبت‌نام‌ها</span><strong>${fa(cards.registrations)}</strong><small>در همین بازه</small></article>
+          <article><span>🔁 بازدیدکنندگان برگشتی</span><strong>${fa(cards.returning_visitors)}</strong><small>جدید ${fa(cards.new_visitors)}</small></article>
+          <article><span>📄 میانگین صفحات در هر نشست</span><strong>${fa(cards.pages_per_session)}</strong><small>بازدید صفحه ÷ نشست</small></article>
+        </div>
+        <p class="visit-today">امروز (${esc(today_fa||'—')}): ${fa(today.visitors)} بازدیدکننده • ${fa(today.pageviews)} بازدید صفحه • ${fa(today.sessions)} نشست • ${fa(today.registrations)} ثبت‌نام</p>
+        <section class="panel"><h2>روند بازدید</h2><div class="visit-bars visit-bars-grouped" dir="ltr">${trendBars||'<p class="visit-empty">—</p>'}</div>${legend}</section>
+        <section class="panel"><h2>صفحات محبوب</h2>${hbar(pageRows.slice(0,8).map(p=>({label:p.path,views:p.views,percent:p.percent,visitors:p.visitors})))}${pagesTable}</section>`,
+      sources:`
+        <section class="panel"><h2>منابع ورود</h2>${hbar((sourcesData.sources||[]).map(x=>({label:sourceFa[x.name]||x.name,views:x.views,percent:x.percent,visitors:x.visitors})))}
+          <h2 style="margin-top:16px">سایر Referrerها</h2>${hbar((sourcesData.referrers||[]).map(x=>({label:x.name,views:x.views,percent:x.percent,visitors:x.visitors})))}
+          <h2 style="margin-top:16px">کمپین‌ها (utm)</h2>${campaignsTable}</section>
+        <section class="panel"><h2>دستگاه</h2>${hbar((devicesData.devices||[]).map(x=>({label:deviceFa[x.name]||x.name,views:x.views,percent:x.percent,visitors:x.visitors})))}
+          <h2 style="margin-top:16px">Browser</h2>${hbar((devicesData.browsers||[]).map(x=>({label:x.name==='Other'?'سایر':x.name,views:x.views,percent:x.percent,visitors:x.visitors})))}
+          <h2 style="margin-top:16px">سیستم‌عامل</h2>${hbar((devicesData.os||[]).map(x=>({label:osFa[x.name]||x.name,views:x.views,percent:x.percent,visitors:x.visitors})))}</section>
+        <section class="panel"><h2>جغرافیا</h2>${geoTable}${geoNote}</section>`,
+      visitors:`
+        <section class="panel"><h2>بازدیدکنندگان</h2>
+          <div class="va-filters">
+            <input id="vaQ" type="search" placeholder="جستجو: شناسه، کشور، شهر، صفحه…" value="${esc(state.q)}">
+            <select id="vaDevice"><option value="">همهٔ دستگاه‌ها</option>${['mobile','tablet','desktop'].map(d=>`<option value="${d}" ${state.device===d?'selected':''}>${esc((deviceFa[d]||d).replace(/^\S+\s/,''))}</option>`).join('')}</select>
+            <select id="vaSource"><option value="">همهٔ منابع</option>${['Direct','Google','Instagram','Telegram','Referral','Other'].map(x=>`<option value="${x}" ${state.source===x?'selected':''}>${esc(sourceFa[x]||x)}</option>`).join('')}</select>
+            <button class="secondary" id="vaSearch">جستجو</button>
+          </div>
+          ${visitorsTable}${pager}
+          <p class="visit-empty">برای مشاهدهٔ جزئیات، روی هر ردیف کلیک کنید. IP خام و User-Agent نمایش داده نمی‌شود.</p>
+        </section>
+        <section class="panel"><h2>آخرین بازدیدها</h2>${recentTable}</section>`,
+      journey:`
+        <section class="panel"><h2>مسیر بازدیدکنندگان</h2><p class="visit-empty">تعداد کاربران در هر مرحله از مسیر:</p>${stepsHtml}<h2 style="margin-top:16px">مسیرهای پرتکرار</h2>${pathsHtml}</section>
+        <section class="panel"><h2>Funnel — قیف تبدیل</h2>${funnelHtml}<div class="visit-chips" style="margin-top:14px">${eventsHtml||'<p class="visit-empty">—</p>'}</div></section>`,
+      online:`
+        <section class="panel"><h2>🟢 کاربران آنلاین <small>(فعال در ۵ دقیقهٔ اخیر)</small></h2>${onlineTable}</section>`,
+    };
+    content.innerHTML=`
+      <div class="page-head"><div><h1>آمار و تحلیل سایت</h1><p>آمار واقعی سایت از دیتابیس Analytics — صفحات عمومی، نشست واقعی، منطقهٔ زمانی Asia/Tehran. بازدیدکنندگان با شناسهٔ ناشناس yasnafit_vid شمرده می‌شوند.</p></div>
+        <div class="visit-ranges">${ranges.map(([key,title])=>`<button class="secondary ${key===state.range?'active':''}" data-range="${key}">${title}</button>`).join('')}
+          <button class="primary" id="vaRefresh">🔄 بروزرسانی آمار</button><a class="secondary" href="${exportHref}">خروجی</a></div></div>
+      ${customBlock}
+      <div class="va-tabs" role="tablist">${tabs.map(([key,title])=>`<button class="secondary ${key===state.tab?'active':''}" data-tab="${key}" role="tab">${title}</button>`).join('')}</div>
+      ${tabBodies[state.tab]||''}`;
+    content.querySelectorAll('[data-range]').forEach(btn=>btn.onclick=()=>{
+      state.range=btn.dataset.range;
+      state.page=1;
+      if(state.range==='custom'&&(!state.from||!state.to)){
+        const todayKey=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Tehran'});
+        state.from=state.from||todayKey;state.to=state.to||todayKey;
+        render();
+        return;
+      }
+      loadAll();
+    });
+    content.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>{ state.tab=btn.dataset.tab; render(); });
+    const refresh=content.querySelector('#vaRefresh');
+    if(refresh) refresh.onclick=()=>loadAll();
+    const apply=content.querySelector('#vaApply');
+    if(apply) apply.onclick=()=>{
+      state.from=(content.querySelector('#vaFrom')||{}).value||'';
+      state.to=(content.querySelector('#vaTo')||{}).value||'';
+      if(state.from&&state.to&&state.from<=state.to) loadAll();
+    };
+    content.querySelectorAll('.va-row').forEach(row=>row.onclick=()=>openDetail(row.dataset.visitor));
+    const reloadVisitors=async()=>{
+      showLoading('در حال بارگذاری بازدیدکنندگان…');
+      try{ await fetchVisitors(); render(); }catch(error){ showError(error.message); }
+    };
+    const searchBtn=content.querySelector('#vaSearch');
+    if(searchBtn) searchBtn.onclick=()=>{ state.q=(content.querySelector('#vaQ')||{}).value||''; state.device=(content.querySelector('#vaDevice')||{}).value||''; state.source=(content.querySelector('#vaSource')||{}).value||''; state.page=1; reloadVisitors(); };
+    const qInput=content.querySelector('#vaQ');
+    if(qInput) qInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); if(searchBtn) searchBtn.click(); } });
+    const prev=content.querySelector('#vaPrev');
+    if(prev) prev.onclick=()=>{ if(state.page>1){ state.page-=1; reloadVisitors(); } };
+    const next=content.querySelector('#vaNext');
+    if(next) next.onclick=()=>{ state.page+=1; reloadVisitors(); };
+    const size=content.querySelector('#vaSize');
+    if(size) size.onchange=()=>{ state.pageSize=Number(size.value)||10; state.page=1; reloadVisitors(); };
+  };
+  const today_fa=new Date().toLocaleDateString('fa-IR',{timeZone:'Asia/Tehran'});
+  await loadAll();
+};
 function coachNotificationTarget(item){
   if(item.entity_type==='assessment'&&item.entity_id)return `/assessments/${item.entity_id}`;
   if(item.student_case_number)return `/users-list/${item.student_case_number}`;

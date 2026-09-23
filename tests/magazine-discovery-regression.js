@@ -1,10 +1,11 @@
 'use strict';
 const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),http=require('http');
+const ROOT=path.resolve(__dirname,'..');
 const {spawn}=require('child_process');
 const {DatabaseSync}=require('node:sqlite');
-const {runMigrations}=require('/home/user/yasnafit/src/migrations');
-const auth=require('/home/user/yasnafit/src/coach-auth-service');
-const discovery=require('/home/user/yasnafit/src/magazine-discovery-service');
+const {runMigrations}=require(ROOT+'/src/migrations');
+const auth=require(ROOT+'/src/coach-auth-service');
+const discovery=require(ROOT+'/src/magazine-discovery-service');
 
 // Build a news.google.com/rss/articles/<id> redirect whose base64 id carries
 // the real publisher URL (legacy format only; NOT modern opaque IDs).
@@ -178,7 +179,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   const FEED_B=`http://127.0.0.1:${feedPort}/b.xml`;
 
   const port=await freePort();const BASE='http://127.0.0.1:'+port;
-  const server=spawn(process.execPath,['/home/user/yasnafit/server.js'],{env:{...process.env,PORT:String(port),YASNAFIT_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe']});
+  const server=spawn(process.execPath,[ROOT+'/server.js'],{env:{...process.env,PORT:String(port),YASNAFIT_DATA_DIR:dataDir},stdio:['ignore','pipe','pipe']});
   server.stdout.on('data',d=>{const t=d.toString();if(t.includes('Error')||t.includes('error'))console.log('[server]',t.slice(0,200));});
   server.stderr.on('data',d=>console.log('[server:err]',String(d).slice(0,300)));
   let up=false;
@@ -330,7 +331,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     runMigrations(mem);
     mem.prepare('UPDATE magazine_sources SET is_active=0').run();
     mem.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-c','Test C','http://127.0.0.1:'+feedPort+'/c.xml','rss','nutrition');
-    require('/home/user/yasnafit/src/ai-service').saveSettings(mem,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
+    require(ROOT+'/src/ai-service').saveSettings(mem,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
     const r1 = await discovery.runDiscovery(mem, { notifyAudience: 'none' });
     check('batch: first run drafts exactly 20 new items (cap)', r1.drafted === 20, 'drafted='+r1.drafted+' new='+r1.newItems);
     check('batch: stopped_at_cap=true when 25 candidates > cap', r1.stopped_at_cap === true && r1.newItems === 25, 'stopped='+r1.stopped_at_cap);
@@ -352,7 +353,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const mem2=new DatabaseSync(':memory:'); runMigrations(mem2);
     mem2.prepare('UPDATE magazine_sources SET is_active=0').run();
     mem2.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-c2','Test C2','http://127.0.0.1:'+feedPort+'/c.xml','rss','nutrition');
-    require('/home/user/yasnafit/src/ai-service').saveSettings(mem2,{api_key:'dead-key',base_url:'http://127.0.0.1:1/ai',default_combo:'mock'});
+    require(ROOT+'/src/ai-service').saveSettings(mem2,{api_key:'dead-key',base_url:'http://127.0.0.1:1/ai',default_combo:'mock'});
     const rA=await discovery.runDiscovery(mem2,{notifyAudience:'none'});
     check('rev11: AI NOT required — all 20 drafted even with AI completely unavailable', rA.drafted===20 && rA.not_prepared===0, JSON.stringify({d:rA.drafted,np:rA.not_prepared}));
     const firstC=mem2.prepare('SELECT content, title FROM magazine_articles ORDER BY id LIMIT 1').get();
@@ -365,7 +366,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
     const mem3=new DatabaseSync(':memory:'); runMigrations(mem3);
     mem3.prepare('UPDATE magazine_sources SET is_active=0').run();
     mem3.prepare('INSERT INTO magazine_sources (stable_id, name, feed_url, source_type, category_slug, is_active, fetch_interval_h) VALUES (?,?,?,?,?,1,12)').run('test-feed-d','Test D','http://127.0.0.1:'+feedPort+'/d.xml','rss','sports-science');
-    require('/home/user/yasnafit/src/ai-service').saveSettings(mem3,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
+    require(ROOT+'/src/ai-service').saveSettings(mem3,{api_key:'mock',base_url:'http://127.0.0.1:'+feedPort+'/ai',default_combo:'mock-model'});
     const rD=await discovery.runDiscovery(mem3,{notifyAudience:'none'});
     check('rev11: 4 candidates → 3 drafted (original Persian), 1 filtered non-Persian, no AI involved', rD.drafted===3 && rD.filtered===1 && rD.filtered_breakdown['non-persian']===1 && rD.not_prepared===0, JSON.stringify(rD));
     const redir=mem3.prepare('SELECT a.* FROM magazine_articles a JOIN magazine_discoveries d ON d.article_id=a.id WHERE d.title_original LIKE ?').get('%حوالهٔ اصلی%');
@@ -531,7 +532,7 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
   check('cross-origin source create → 403', cross2.status===403, 'got '+cross2.status);
 
   // admin UI assets reference the new tabs
-  const ui=fs.readFileSync('/home/user/yasnafit/public/magazine-admin.js','utf8');
+  const ui=fs.readFileSync(ROOT+'/public/magazine-admin.js','utf8');
   check('UI: news inbox tab present', ui.includes("['news', 'اخبار و مطالب جدید']"));
   check('UI: technical sources tab hidden from coach tabs', !ui.match(/const tabs = \[\s*\n(?:\s*\['[a-z]+',[^\n]*\n)*?\s*\['sources'[^\n]*\n/));
   check('UI: editorial inbox card + image modal present', ui.includes('function newsCard') && ui.includes('function imageModal') && ui.includes('mag-news-grid'));
@@ -594,6 +595,8 @@ function freePort(){return new Promise((res,rej)=>{const s=net.createServer();s.
 
   console.log('\n'+(failures? `${failures} FAILURES` : 'ALL SMOKE CHECKS PASSED'));
   server.kill('SIGKILL');feedServer.close();
-  fs.rmSync(dir,{recursive:true,force:true});
+  // Windows keeps handles for a moment after SIGKILL → rmSync throws EPERM and
+  // would turn a fully passing run into exit 1. A leftover temp dir is harmless.
+  try{fs.rmSync(dir,{recursive:true,force:true});}catch(e){/* ignore */}
   process.exit(failures?1:0);
 })().catch(e=>{console.error('SMOKE CRASH',e);process.exit(1);});

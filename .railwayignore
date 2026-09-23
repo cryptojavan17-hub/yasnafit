@@ -1,0 +1,33 @@
+# Exclude huge / non-servable paths from `railway up` uploads.
+# Root cause of "Failed to create code snapshot ... operation timed out":
+# .git alone is ~4.4 GB.
+.git
+node_modules
+data
+backups
+logs
+__pycache__
+*.pid
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+# Large local-only assets (also gitignored — never in the repo)
+public/assets/images/exercises/imported
+public/assets/videos
+assets
+public/image
+# Repo-root design screenshots: source files only, the server never serves them.
+# (Do NOT use a blanket `*.png` here — it strips public/images/landing/hero.png
+#  and about-me.png off the landing page and /login-hero.png off student login.)
+/About Me.png
+/Hero.png
+/landing2.png
+/newlanding.png
+# Not needed by build (npm install && node --check server.js) or runtime (node server.js).
+# data-source/ MUST stay — server.js seeds exercises from data-source/exercises_data.json.
+docs
+tests
+tool
+scripts
+*.md

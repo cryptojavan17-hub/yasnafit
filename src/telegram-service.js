@@ -13,6 +13,10 @@
 const crypto = require('crypto');
 
 const API_TIMEOUT_MS = 15000;
+const POLLING_TIMEOUT_SEC = 25;
+// long-poll باید بیشتر از timeout خودِ getUpdates زنده بماند؛ وگرنه هر ۱۵ثانیه قطع می‌شود.
+const POLLING_HTTP_TIMEOUT_MS = (POLLING_TIMEOUT_SEC + 10) * 1000;
+const TELEGRAM_TEXT_LIMIT = 4096;
 const LINK_TOKEN_TTL_MINUTES = 15;
 const MAX_DELIVERY_ATTEMPTS = 3;
 const RETRY_DELAYS_MINUTES = [1, 5, 15];
@@ -40,10 +44,11 @@ function isConfigured(){ return Boolean(config.token); }
 
 // ── Transport (قابل جایگزینی در تست‌ها؛ هرگز توکن لاگ نمی‌شود) ──
 let transport = null; // async (method, payload) => {ok, result?, error_code?, description?, retry_after?}
-async function defaultTransport(method, payload){
+async function defaultTransport(method, payload, timeoutMs = API_TIMEOUT_MS){
   if(!config.token) throw new Error('telegram_not_configured');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const waitMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : API_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), waitMs);
   try{
     const response = await fetch(`https://api.telegram.org/bot${config.token}/${method}`, {
       method: 'POST',
@@ -59,10 +64,11 @@ async function defaultTransport(method, payload){
     clearTimeout(timer);
   }
 }
-async function callApi(method, payload = {}){
+async function callApi(method, payload = {}, options = {}){
   if(!isConfigured()) return { ok: false, error_code: 0, description: 'telegram_not_configured' };
   const fn = transport || defaultTransport;
-  try{ return (await fn(method, payload)) || { ok: false, description: 'empty transport result' }; }
+  const timeoutMs = Number(options && options.timeoutMs) > 0 ? Number(options.timeoutMs) : API_TIMEOUT_MS;
+  try{ return (await fn(method, payload, timeoutMs)) || { ok: false, description: 'empty transport result' }; }
   catch(error){ return { ok: false, description: `transport_exception: ${error.message}` }; }
 }
 function setTransport(fn){ transport = typeof fn === 'function' ? fn : null; } // فقط برای تست
@@ -118,9 +124,21 @@ function linkByToken(db, rawCode, chat){
   db.prepare("UPDATE telegram_link_tokens SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").run(token.id);
   return { account, student_id: token.student_id };
 }
+// اتصال فقط چت خصوصی با شناسهٔ مثبت است. شناسهٔ منفی (گروه/سوپرگروه مثل -100…) هرگز لینک نمی‌شود.
+function assertLinkableChatId(chat){
+  const type = chat && chat.type ? String(chat.type) : '';
+  if(type && type !== 'private') throw new Error('اتصال فقط در گفتگوی خصوصی ممکن است.');
+  const chatId = String((chat && (chat.chat_id != null && String(chat.chat_id).trim() !== '' ? chat.chat_id : chat.id)) || '').trim();
+  if(chatId.startsWith('-')) throw new Error('اتصال چت گروهی مجاز نیست.');
+  if(!/^\d{3,20}$/.test(chatId)) throw new Error('شناسه چت تلگرام معتبر نیست.');
+  return chatId;
+}
+function isLinkablePrivateChat(chat){
+  try{ assertLinkableChatId(chat); return true; }
+  catch(error){ return false; }
+}
 function linkChat(db, studentId, chat){
-  const chatId = String(chat.chat_id || chat.id || '').trim();
-  if(!/^-?\d{3,20}$/.test(chatId)) throw new Error('شناسه چت تلگرام معتبر نیست.');
+  const chatId = assertLinkableChatId(chat);
   // هر چت و هر شاگرد فقط یک اتصال فعال — اتصال قبلی با سابقه آزاد می‌شود (relink)
   const previousByChat = accountByChatId(db, chatId);
   if(previousByChat && previousByChat.student_id !== studentId) unlinkAccount(db, previousByChat, 'unlinked');
@@ -176,12 +194,32 @@ function portalUrl(pathname){
   if(!config.publicUrl) return null;
   return `${config.publicUrl}${pathname}`;
 }
-async function sendMessage(db, chatId, text, buttons = null){
-  const payload = { chat_id: chatId, text, parse_mode: 'HTML' };
-  if(buttons && buttons.length){
-    payload.reply_markup = { inline_keyboard: buttons };
+function splitTelegramText(text, limit = TELEGRAM_TEXT_LIMIT){
+  const value = String(text ?? '');
+  if(value.length <= limit) return [value];
+  const chunks = [];
+  let rest = value;
+  while(rest.length > limit){
+    let cut = rest.lastIndexOf('\n', limit);
+    if(cut < Math.floor(limit / 2)) cut = limit;
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut).replace(/^\n+/, '');
   }
-  return callApi('sendMessage', payload);
+  if(rest) chunks.push(rest);
+  return chunks;
+}
+async function sendMessage(db, chatId, text, buttons = null){
+  const chunks = splitTelegramText(text);
+  let last = { ok: false, description: 'empty_message' };
+  for(let i = 0; i < chunks.length; i++){
+    const payload = { chat_id: chatId, text: chunks[i], parse_mode: 'HTML' };
+    // دکمه‌ها فقط روی آخرین قطعه تا کیبورد تکرار نشود و متن از حد ۴۰۹۶ رد نشود.
+    if(buttons && buttons.length && i === chunks.length - 1){
+      payload.reply_markup = { inline_keyboard: buttons };
+    }
+    last = await callApi('sendMessage', payload);
+  }
+  return last;
 }
 async function answerCallback(callbackQueryId, text){
   return callApi('answerCallbackQuery', { callback_query_id: callbackQueryId, text: text || undefined });
@@ -328,6 +366,7 @@ function chatOf(message){
   if(!chat) return null;
   return {
     chat_id: chat.id,
+    type: chat.type || null,
     telegram_user_id: from ? String(from.id) : null,
     telegram_username: from ? from.username : null,
   };
@@ -345,14 +384,24 @@ async function handleMessage(db, message){
   const isEntryPayload = Boolean(startPayload) && GUEST_ENTRY_PAYLOADS.has(startPayload.toLowerCase());
 
   if(command === '/start' && startPayload && !isEntryPayload){
+    // گروه/سوپرگروه/کانال: نه لینک، نه مصرف توکن، نه ثبت اعلان.
+    if(!isLinkablePrivateChat(chat)){
+      await sendMessage(db, chat.chat_id, '⚠️ اتصال حساب فقط در گفتگوی خصوصی با ربات ممکن است. لطفاً ربات را در چت شخصی باز کنید.');
+      return { handled: true, link_rejected: 'non_private' };
+    }
     // اتصال حساب با توکن یک‌بارمصرف — اول توکن شاگرد، بعد توکن مربی/مدیر
     let studentError = null;
     try{
       const { student_id } = linkByToken(db, startPayload, chat);
       const student = db.prepare('SELECT full_name FROM students WHERE id=?').get(student_id);
+      const studentName = student ? escapeHtml(student.full_name) : '';
       await sendMessage(db, chat.chat_id,
-        `سلام ${student ? student.full_name : ''} 👋\n✅ حساب شما با موفقیت به یسنا فیت متصل شد.\n\nاز این پس اعلان‌های برنامه‌ها و پیام‌های مربی را همین‌جا دریافت می‌کنید.`,
+        `سلام ${studentName} 👋\n✅ حساب شما با موفقیت به یسنا فیت متصل شد.\n\nاز این پس اعلان‌های برنامه‌ها و پیام‌های مربی را همین‌جا دریافت می‌کنید.`,
         mainKeyboard(db, student_id));
+      try{
+        const analytics = _analytics();
+        if(analytics) analytics.recordEvent(db, { eventType:'telegram_connect', path:'/telegram', userAgent:'' });
+      }catch(error){ console.log('[Telegram] analytics connect event skipped:', error.message); }
       try{ getServices().notificationService.emit(db, { type: 'TELEGRAM_CONNECTED', studentId: student_id, dedupKey: `telegram_connected:${chat.chat_id}` }); }catch(e){ console.log('[Telegram] TELEGRAM_CONNECTED emit failed:', e.message); }
       return { handled: true, linked: student_id };
     }catch(error){ studentError = error; }
@@ -416,7 +465,7 @@ async function handleMessage(db, message){
       const status = statusForStudent(db, studentId);
       const student = db.prepare('SELECT full_name FROM students WHERE id=?').get(studentId);
       await sendMessage(db, chat.chat_id,
-        `👤 ${student ? student.full_name : 'شاگر'}\nوضعیت اتصال: ${status.connected ? '✅ متصل' : '❌ متصل نیست'}\nزمان اتصال: ${status.linked_at || '—'}\nآخرین اعلان: ${status.last_delivery ? `${status.last_delivery.type} (${status.last_delivery.status})` : '—'}`);
+        `👤 ${student ? escapeHtml(student.full_name) : 'شاگرد'}\nوضعیت اتصال: ${status.connected ? '✅ متصل' : '❌ متصل نیست'}\nزمان اتصال: ${status.linked_at || '—'}\nآخرین اعلان: ${status.last_delivery ? `${status.last_delivery.type} (${escapeHtml(status.last_delivery.status)})` : '—'}`);
       return { handled: true };
     }
     case '/program': {
@@ -495,15 +544,16 @@ async function sendVisitStats(db, chatId){
   const data = analytics.visitSummary(db, 7);
   const s = data.summary;
   const fa = n => Number(n || 0).toLocaleString('fa-IR');
-  const visitors = (data.visitors || []).slice(0, 10);
+  const visitors = (data.visitors || []).slice(0, 8);
   const blocks = visitors.map(v => {
     const flag = analytics.flagOf(v.country_code);
     const device = analytics.deviceFa(v.device);
     const reg = v.registrations > 0 ? '✅ ثبت‌نام کرده' : '❌ ثبت‌نام نکرده';
     const online = v.online ? ' 🟢' : '';
-    return `${flag} <b>${escapeHtml(v.ip || '—')}</b>${online} — ${device}${v.browser && v.browser !== 'سایر' ? ` (${escapeHtml(v.browser)})` : ''}\n🌍 ${escapeHtml(v.country_name || 'نامشخص')} | 📄 ${fa(v.views)} بازدید صفحه\n⏰ ورود: ${v.first_fa}\n⏱ آخرین: ${v.last_fa} | مدت حضور: ~${v.duration_fa}\n${reg}`;
+    const where = [v.country_name, v.city].filter(Boolean).join('، ') || 'نامشخص';
+    return `${flag} <b>${escapeHtml(v.visitor_label || 'visitor_…')}</b>${online} — ${device}${v.browser && v.browser !== 'سایر' ? ` (${escapeHtml(v.browser)})` : ''}\n🌍 ${escapeHtml(where)} | 📄 ${fa(v.views)} بازدید صفحه\n⏰ ورود: ${v.first_fa}\n⏱ آخرین: ${v.last_fa} | مدت حضور: ${v.duration_fa}\n${reg}`;
   });
-  const header = `📈 <b>آمار بازدید سایت — بازدیدکننده به بازدیدکننده</b>\n\nامروز: ${fa(s.today_views)} بازدید • ${fa(s.today_ips)} IP یکتا\n۷ روز: ${fa(s.day7_views)} بازدید • ${fa(s.day7_ips)} IP یکتا\nکل: ${fa(s.total_views)} بازدید • ${fa(s.total_ips)} IP یکتا\n\n<b>آخرین IPها:</b>`;
+  const header = `📈 <b>آمار بازدید سایت</b>\n\nامروز: ${fa(s.today_views)} بازدید • ${fa(s.today_visitors || s.today_ips)} IP یکتا\n۷ روز: ${fa(s.day7_views)} بازدید • ${fa(s.day7_ips)} IP یکتا\nکل: ${fa(s.total_views)} بازدید • ${fa(s.total_ips)} IP یکتا\nنشست: ${fa(s.sessions)} • میانگین مدت نشست: ${s.average_session_fa || '—'}\n\n<b>بازدیدکنندگان (بدون IP خام):</b>`;
   await sendMessage(db, chatId, blocks.length ? header + '\n\n' + blocks.join('\n\n━━━━━━━━━━━\n\n') : header + '\nهنوز بازدیدی ثبت نشده است.');
 }
 async function sendCoachNotifications(db, chatId){
@@ -529,6 +579,18 @@ async function handleCoachCommand(db, chat, command, coachAccount){
   }
 }
 
+const CALLBACK_COMMAND_ALIASES = { notifs: 'notifications' };
+function callbackCommand(data, prefix){
+  const raw = String(data || '').slice(prefix.length);
+  return '/' + (CALLBACK_COMMAND_ALIASES[raw] || raw);
+}
+function ownsLinkedChat(account, fromId){
+  const actor = String(fromId ?? '').trim();
+  if(!actor || !account) return false;
+  if(actor === String(account.chat_id)) return true;
+  // چت خصوصی واقعی همان شناسهٔ کاربر است؛ اگر هنگام اتصال جدا ذخیره شده باشد همان صاحب است.
+  return Boolean(account.telegram_user_id) && actor === String(account.telegram_user_id);
+}
 async function handleCallback(db, callback){
   const data = String(callback.data || '');
   const chat = chatOf({ chat: callback.message ? callback.message.chat : null, from: callback.from });
@@ -538,17 +600,17 @@ async function handleCallback(db, callback){
   if(data.startsWith('coach:')){
     if(!coachAccount){ await answerCallback(callback.id, 'ابتدا تلگرام مربی را متصل کنید'); return { handled: true }; }
     await answerCallback(callback.id);
-    const handled = await handleCoachCommand(db, chat, '/' + data.slice(6), coachAccount);
+    const handled = await handleCoachCommand(db, chat, callbackCommand(data, 'coach:'), coachAccount);
     if(!handled) await sendMessage(db, chat.chat_id, 'این بخش در دسترس نیست.');
     return { handled: true, coach: true };
   }
   if(data.startsWith('stu:') && account){
     await answerCallback(callback.id);
-    const cmd = '/' + data.slice(4);
+    const cmd = callbackCommand(data, 'stu:');
     if(cmd === '/help'){ await sendMessage(db, chat.chat_id, STUDENT_HELP_TEXT, studentMenuKeyboard()); return { handled: true, student: true }; }
     if(cmd === '/menu'){ await sendMessage(db, chat.chat_id, STUDENT_WELCOME, studentMenuKeyboard()); return { handled: true, student: true }; }
     if(['/program','/nutrition','/notifications','/settings','/status'].includes(cmd)){
-      await handleMessage(db, { chat: { id: chat.chat_id }, from: callback.from, text: cmd });
+      await handleMessage(db, { chat: { id: chat.chat_id, type: chat.type || 'private' }, from: callback.from, text: cmd });
       return { handled: true, student: true };
     }
     await sendMessage(db, chat.chat_id, 'این بخش در دسترس نیست.');
@@ -558,6 +620,10 @@ async function handleCallback(db, callback){
   if(!data.startsWith('pref:')){ await answerCallback(callback.id); return { handled: true }; }
   const key = data.slice(5);
   if(!PREFERENCE_KEYS.includes(key)){ await answerCallback(callback.id, 'نامعتبر'); return { handled: true }; }
+  if(!ownsLinkedChat(account, callback.from && callback.from.id)){
+    await answerCallback(callback.id, 'فقط صاحب این حساب می‌تواند تنظیمات را تغییر دهد');
+    return { handled: true, forbidden: true };
+  }
   const prefs = preferences(db, account.student_id);
   setPreference(db, account.student_id, key, Number(prefs[key]) !== 1);
   await answerCallback(callback.id, 'ذخیره شد ✓');
@@ -569,7 +635,10 @@ function mainKeyboard(db, studentId){ return studentMenuKeyboard(); }
 function settingsKeyboard(db, studentId){
   const prefs = preferences(db, studentId);
   const label = { workout: '🏋️ تمرین', nutrition: '🥗 تغذیه', messages: '💬 پیام‌ها', reminders: '⏰ یادآور', system: '🛡 سیستم' };
-  return [PREFERENCE_KEYS.map(key => ({ text: `${label[key]}: ${Number(prefs[key]) === 1 ? 'روشن ✓' : 'خاموش'}`, callback_data: `pref:${key}` }))];
+  const buttons = PREFERENCE_KEYS.map(key => ({ text: `${label[key]}: ${Number(prefs[key]) === 1 ? 'روشن ✓' : 'خاموش'}`, callback_data: `pref:${key}` }));
+  const rows = [];
+  for(let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
+  return rows;
 }
 function settingsText(db, studentId){
   return '<b>⚙️ تنظیمات اعلان‌ها</b>\nروی هر دسته بزنید تا روشن/خاموش شود.';
@@ -605,6 +674,30 @@ async function registerCommands(){
   return Boolean(result && result.ok);
 }
 
+// بعد از ذخیرهٔ توکن از پنل: حلقهٔ retry و منوی دستورها همین‌جا روشن می‌شوند.
+// شکست ثبت دستورها ذخیره را برنمی‌گرداند؛ فقط لاگ می‌شود.
+async function armConfiguredRuntime(db){
+  if(!isConfigured()) return { configured: false, commands_registered: false, retry_loop: false };
+  let retryLoop = false;
+  try{
+    retryLoop = Boolean(getServices().notificationService.restartRetryLoop(db));
+  }catch(error){
+    console.log('[Telegram] شروع حلقهٔ تلاش مجدد ناموفق بود:', error.message);
+  }
+  if(config.polling){
+    try{ await startPolling(db); }
+    catch(error){ console.log('[Telegram] شروع polling ناموفق بود:', error.message); }
+  }
+  let commandsRegistered = false;
+  try{
+    commandsRegistered = Boolean(await registerCommands());
+    if(!commandsRegistered) console.log('[Telegram] ثبت دستورها بعد از ذخیرهٔ توکن ناموفق بود.');
+  }catch(error){
+    console.log('[Telegram] ثبت دستورها بعد از ذخیرهٔ توکن ناموفق بود:', error.message);
+  }
+  return { configured: true, commands_registered: commandsRegistered, retry_loop: retryLoop };
+}
+
 // ── Webhook ──
 function verifyWebhookSecret(headerValue){
   if(!config.webhookSecret) return { ok: false, reason: 'secret_not_set' };
@@ -622,15 +715,19 @@ async function startPolling(db){
   console.log('[Telegram] Long-polling فعال شد (حالت توسعه).');
   const loop = async () => {
     if(!pollingState.running) return;
-    const result = await callApi('getUpdates', { offset: pollingState.offset, timeout: 25, limit: POLLING_BATCH_LIMIT });
+    const result = await callApi('getUpdates', { offset: pollingState.offset, timeout: POLLING_TIMEOUT_SEC, limit: POLLING_BATCH_LIMIT }, { timeoutMs: POLLING_HTTP_TIMEOUT_MS });
+    if(!pollingState.running) return;
     if(result.ok && Array.isArray(result.result)){
       for(const update of result.result){
+        if(!pollingState.running) return;
         pollingState.offset = Math.max(pollingState.offset, (update.update_id || 0) + 1);
         await handleUpdate(db, update);
       }
+      if(!pollingState.running) return;
       pollingState.timer = setTimeout(loop, 500);
     }else{
       if(result.description && !/timeout/.test(result.description)) console.log('[Telegram] polling:', result.description || 'unknown');
+      if(!pollingState.running) return;
       pollingState.timer = setTimeout(loop, 3000);
     }
   };
@@ -754,13 +851,14 @@ function findCoachLinkToken(db, rawCode){
   return row;
 }
 function linkCoachByToken(db, rawCode, chat){
+  const chatId = assertLinkableChatId(chat);
   const row = findCoachLinkToken(db, rawCode);
   if(!row || row.error) throw new Error(row && row.error ? row.error : 'کد اتصال نامعتبر است');
   // هر چت فقط یک‌بار فعال؛ یک مربی می‌تواند چند چت فعال داشته باشد (سقف ۳) — اعلان‌ها به همه می‌رود
-  db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE chat_id=? AND unlinked_at IS NULL").run(chat.chat_id);
+  db.prepare("UPDATE telegram_coach_accounts SET unlinked_at=CURRENT_TIMESTAMP,status='unlinked',updated_at=CURRENT_TIMESTAMP WHERE chat_id=? AND unlinked_at IS NULL").run(chatId);
   if(coachActiveAccounts(db, row.coach_id).length >= COACH_ACCOUNT_LIMIT) throw new Error(`حداکثر ${COACH_ACCOUNT_LIMIT} حساب تلگرام می‌توانید به پنل متصل کنید؛ ابتدا یکی را قطع کنید`);
   db.prepare("INSERT INTO telegram_coach_accounts(stable_id,coach_id,chat_id,telegram_user_id,telegram_username) VALUES(?,?,?,?,?)")
-    .run(uuid(), row.coach_id, String(chat.chat_id), chat.telegram_user_id || null, chat.telegram_username || null);
+    .run(uuid(), row.coach_id, chatId, chat.telegram_user_id || null, chat.telegram_username || null);
   db.prepare("UPDATE telegram_coach_link_tokens SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").run(row.id);
   return { coach_id: row.coach_id };
 }
@@ -784,9 +882,9 @@ module.exports = {
   preferences, setPreference, categoryEnabled, PREFERENCE_KEYS, ensurePreferences,
   statusForStudent,
   sendMessage, handleUpdate, verifyWebhookSecret,
-  startPolling, stopPolling, registerCommands, coachByChatId,
+  startPolling, stopPolling, registerCommands, armConfiguredRuntime, coachByChatId,
   setServices,
   applyDbSettings, settingsView, settingsSource, saveCoachSettings, testConnection, SETTING_KEYS,
   coachActiveAccount, coachStatus, createCoachLinkToken, linkCoachByToken, coachUnlinkAccount,
-  LIMITS: { MAX_DELIVERY_ATTEMPTS, RETRY_DELAYS_MINUTES, LINK_TOKEN_TTL_MINUTES },
+  LIMITS: { MAX_DELIVERY_ATTEMPTS, RETRY_DELAYS_MINUTES, LINK_TOKEN_TTL_MINUTES, API_TIMEOUT_MS, POLLING_TIMEOUT_SEC, POLLING_HTTP_TIMEOUT_MS, TELEGRAM_TEXT_LIMIT },
 };

@@ -139,10 +139,57 @@ const studentsJs = fs.readFileSync(path.join(publicDir, 'students.js'), 'utf8');
 assert.ok(studentsJs.includes('data-pdf-program'), 'students.js must contain data-pdf-program');
 assert.ok(studentsJs.includes('openProgramPDF'), 'students.js must call openProgramPDF');
 
+console.log('--- 5. Coach Instagram handle in PDF header, footer, plain text, and CSS ---');
+assert.ok(pdfJsCode.includes("const COACH_INSTAGRAM = '@exercise_yasna';"), 'COACH_INSTAGRAM constant must be locked');
+assert.ok(pdfJsCode.includes("const COACH_INSTAGRAM_URL = 'https://instagram.com/exercise_yasna';"), 'COACH_INSTAGRAM_URL constant must be locked');
+assert.ok(pdfJsCode.includes('pdf-brand-contact'), 'header contact markup must live in program-pdf.js');
+assert.ok(pdfJsCode.includes('pdf-brand-contact__handle'), 'header handle class must live in program-pdf.js');
+assert.ok(pdfJsCode.includes('اینستاگرام مربی:'), 'Persian Instagram label must be in the PDF module');
+
+const rendered = global.window.YasnafitPDF.generateHTML(sampleProgram);
+assert.equal(rendered, html, 'window.YasnafitPDF.generateHTML must be the in-process renderer');
+const subtitleAt = rendered.indexOf('pdf-brand-subtitle');
+const contactAt = rendered.indexOf('pdf-brand-contact');
+assert.ok(subtitleAt >= 0 && contactAt > subtitleAt, 'Instagram line must sit under pdf-brand-subtitle');
+assert.ok(rendered.includes('class="pdf-brand-contact"'), 'header must include pdf-brand-contact');
+assert.ok(
+  rendered.includes('<a class="pdf-brand-contact__handle" dir="ltr" href="https://instagram.com/exercise_yasna">@exercise_yasna</a>'),
+  'header handle must be an LTR link to the coach Instagram URL'
+);
+const footerAt = rendered.indexOf('class="pdf-footer"');
+const footerHtml = rendered.slice(footerAt);
+assert.ok(footerHtml.includes('برنامه تمرینی اختصاصی • غیرقابل انتقال به غیر'), 'footer keeps the private-program line');
+assert.ok(
+  footerHtml.includes('اینستاگرام مربی: <span dir="ltr">@exercise_yasna</span>'),
+  'footer must show the coach Instagram handle beside the private-program line'
+);
+assert.equal((footerHtml.match(/pdf-brand-contact__handle/g) || []).length, 0, 'footer must not reuse the header link class');
+
+const plain = global.YasnafitPDF.toPlainText(sampleProgram);
+const noteAt = plain.indexOf('💬 یادداشت مربی:');
+const igAt = plain.indexOf('📸 اینستاگرام مربی: @exercise_yasna');
+assert.ok(noteAt >= 0 && igAt > noteAt, 'plain text must place the Instagram line after the coach note');
+assert.ok(plain.indexOf('═', igAt) > igAt, 'Instagram line must come before the day separator');
+
+assert.ok(pdfCss.includes('.pdf-brand-contact {'), 'CSS must define .pdf-brand-contact');
+assert.ok(pdfCss.includes('.pdf-brand-contact__handle {'), 'CSS must define .pdf-brand-contact__handle');
+assert.ok(/\.pdf-brand-contact \{[^}]*margin-top:\s*4px;/.test(pdfCss), '.pdf-brand-contact margin-top must be 4px');
+assert.ok(/\.pdf-brand-contact \{[^}]*font-size:\s*10px;/.test(pdfCss), '.pdf-brand-contact font-size must be 10px');
+assert.ok(/\.pdf-brand-contact \{[^}]*font-weight:\s*700;/.test(pdfCss), '.pdf-brand-contact font-weight must be 700');
+assert.ok(/\.pdf-brand-contact \{[^}]*color:\s*var\(--pdf-text-muted\);/.test(pdfCss), '.pdf-brand-contact must use --pdf-text-muted');
+assert.ok(/\.pdf-brand-contact__handle \{[^}]*color:\s*var\(--pdf-text\);/.test(pdfCss), 'handle color must use --pdf-text');
+assert.ok(/\.pdf-brand-contact__handle \{[^}]*text-decoration:\s*none;/.test(pdfCss), 'handle must have no underline');
+assert.ok(/\.pdf-brand-contact__handle \{[^}]*unicode-bidi:\s*isolate;/.test(pdfCss), 'handle must isolate bidi');
+const contactCss = pdfCss.slice(pdfCss.indexOf('.pdf-brand-contact {'), pdfCss.indexOf('.pdf-stamp-badge'));
+assert.doesNotMatch(contactCss, /#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})\b/i, 'Instagram CSS must not use raw hex');
+assert.doesNotMatch(contactCss, /!important/i, 'Instagram CSS must not use !important');
+
 console.log(JSON.stringify({
   ok: true,
   pdf_module_ready: true,
   pdf_css_valid: true,
   jalali_dates_supported: true,
-  all_panels_integrated: true
+  all_panels_integrated: true,
+  coach_instagram_locked: true,
+  in_process_render: true
 }));
