@@ -144,20 +144,24 @@ async function waitForServer(timeoutMs = 15000) {
     assert.ok(home.includes('href="/student/register"'), 'header: ثبت نام button → /student/register');
     assert.ok(home.includes('href="/student/login"'), 'header: ورود button uses the existing student login flow');
     check('home: owner header (5 links + ثبت نام/ورود)');
-    // Owner spec 2026-09-21 — the guest «ربات تلگرام» control is a plain deep
-    // link to the bot (new tab, noopener). It asks for nothing and stores
-    // nothing: the username form + its public write endpoint are gone, so no
-    // typed username can be mistaken for a verified connection.
+    // Owner 2026-09-30: the «ربات تلگرام» header button is REMOVED — the header
+    // keeps only ثبت نام + ورود, sitting right after the nav (نتایج) with a
+    // ~2cm gap (2cm minus the 24px grid gap, enforced in landing.css).
     const BOT_URL = 'https://t.me/yasnafitbot?start=landing';
-    assert.ok(home.includes(`href="${BOT_URL}"`), 'header: ربات تلگرام اتصال ساده به t.me/yasnafitbot?start=landing');
-    assert.match(home, /<a[^>]*class="btn btn--ghost btn--sm"[^>]*href="https:\/\/t\.me\/[^"]+"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'header: telegram link opens in a new tab safely');
-    assert.match(home, />ربات تلگرام</, 'header: telegram control keeps its label');
-    assert.doesNotMatch(home, /data-telegram-bot|t\.me\/yasnafitbot"|telegramDialog/, 'header: no telegram modal / no bare bot link');
-    // Prominent invitation at the end of the landing (owner: header + CTA band).
+    assert.doesNotMatch(home, />ربات تلگرام</, 'header: telegram button removed (owner 2026-09-30)');
+    const headerChunk = home.match(/<header[\s\S]*?<\/header>/);
+    assert.ok(headerChunk, 'home: header chunk extractable');
+    assert.doesNotMatch(headerChunk[0], /t\.me\//, 'header: no t.me anchor left in the header at all');
+    const landingCss = await request('/landing.css');
+    assert.equal(landingCss.response.status, 200);
+    assert.match(landingCss.data, /\.site-header__actions \{[^}]*justify-self: start; margin-inline-start: calc\(2cm - 24px\);/, 'register/login buttons must sit next to the nav with a ~2cm gap');
+    assert.doesNotMatch(home, /data-telegram-bot|telegramDialog/, 'header: no telegram modal / no bare bot link');
+    // Prominent invitation at the end of the landing (owner: CTA band keeps the bot link).
     const ctaBand = home.match(/<section class="telegram-cta"[\s\S]*?<\/section>/);
     assert.ok(ctaBand, 'home: telegram CTA band present');
     assert.ok(ctaBand[0].includes(`href="${BOT_URL}"`), 'CTA band: same deep link');
     assert.match(ctaBand[0], /اتصال به ربات تلگرام/, 'CTA band: clear button text');
+    assert.match(ctaBand[0], /target="_blank" rel="noopener noreferrer"/, 'CTA band: deep link opens in a new tab safely');
     assert.match(ctaBand[0], /href="\/student\/register"/, 'CTA band: sign-up path kept next to the bot link');
     const landingJs = await request('/landing.js');
     assert.equal(landingJs.response.status, 200);
@@ -172,7 +176,7 @@ async function waitForServer(timeoutMs = 15000) {
       assert.equal(readonly.prepare('SELECT COUNT(*) n FROM telegram_bot_connections').get().n, 0, 'no telegram connection rows written from the public site');
       readonly.close();
     }
-    check('home: ربات تلگرام = deep link (header + CTA band), public write endpoints removed');
+    check('home: ربات تلگرام = deep link (CTA band only — header button removed), public write endpoints removed');
     // The previous structural landing AND the full-image landing must be gone;
     // home now uses the same header + footer shell as the other public pages.
     assert.doesNotMatch(home, /hero__content|features__item|article-card--sample|landing-full|home-placeholder/);

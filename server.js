@@ -2901,11 +2901,11 @@ function headerMarkup(path, coachAuthorized, telegramUrl) {
   }).join('');
   const action = coachAuthorized
     ? `<a class="btn btn--ghost btn--sm" href="/coach/dashboard">پنل مربی</a>`
-    // Owner spec 2026-09-21: the guest control is a plain deep link to the bot
-    // (new tab, noopener). It used to open a dialog that collected the Telegram
-    // ID and stored it — that path is gone, so nothing is claimed or saved here.
-    : `<a class="btn btn--ghost btn--sm" href="${telegramUrl}" target="_blank" rel="noopener noreferrer" aria-label="اتصال به ربات تلگرام"><span class="btn__icon" aria-hidden="true">${ICONS.telegram}</span>ربات تلگرام</a>
-      <a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
+    // Owner 2026-09-21: the guest controls are plain links (no dialog, nothing stored).
+    // Owner 2026-09-30: the «ربات تلگرام» header button is REMOVED — the bot stays
+    // reachable via the home CTA band and the contact page; the header keeps only
+    // ثبت نام + ورود, pulled next to the nav (نتایج) with a ~2cm gap (landing.css).
+    : `<a class="btn btn--ghost btn--sm" href="/student/register"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ثبت نام</a>
       <a class="btn btn--primary btn--sm" href="/student/login"><span class="btn__icon" aria-hidden="true">${ICONS.user}</span>ورود</a>`;
   return `<header class="site-header" id="siteHeader">
   <div class="site-header__inner">

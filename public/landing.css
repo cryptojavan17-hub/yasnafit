@@ -201,7 +201,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   background: linear-gradient(to left, var(--accent), transparent);
 }
 
-.site-header__actions { display: flex; align-items: center; gap: 14px; justify-self: end; }
+/* مالک ۲۰۲۶-۰۹-۳۰: دکمه‌های ثبت نام/ورود چسبیده به انتهای صفحه نباشند —
+   در RTL به لبهٔ درونی ستون خود (درست بعد از «نتایج») می‌نشینند و با
+   فاصلهٔ ~۲ سانت از منو (جمع گپ ۲۴px گرید + این حاشیه) جدا می‌شوند. */
+.site-header__actions { display: flex; align-items: center; gap: 14px; justify-self: start; margin-inline-start: calc(2cm - 24px); }
 
 .nav-toggle {
   display: none;
@@ -985,7 +988,7 @@ main { padding-top: var(--header-h); }
   /* سه فرزند در جریان (brand، actions، nav-toggle) — ستون میانی 1fr تا
      actions به ستون ضمنیِ سوم سرریز نکند و دکمه‌ها بیرون نزنند. */
   .site-header__inner { grid-template-columns: auto 1fr auto; gap: 16px; }
-  .site-header__actions { justify-self: end; }
+  .site-header__actions { justify-self: end; margin-inline-start: 0; }
   .site-nav {
     position: fixed;
     top: var(--header-h);
