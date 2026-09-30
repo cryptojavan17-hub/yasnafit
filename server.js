@@ -3246,9 +3246,6 @@ function sendPublicPage(req, res, { kind, path }) {
     <div class="home-hero">
       <img class="home-hero__img" src="/images/landing/hero.jpg" alt="YASNAFIT — بدنی قوی‌تر، زندگی بهتر" fetchpriority="high">
     </div>
-    <section id="about" class="home-about">
-      <img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT" loading="lazy">
-    </section>
     <section class="magazine magazine--home" aria-label="YASNAFIT MAGAZINE">
       <div class="magazine--home__head">
         <p class="section-eyebrow">YASNAFIT MAGAZINE</p>
@@ -3257,6 +3254,9 @@ function sendPublicPage(req, res, { kind, path }) {
       <div class="magazine-filters magazine-filters--home" role="group" aria-label="فیلتر دسته‌بندی">${homeMagPills}</div>
       <div class="magazine-grid magazine-grid--home" id="magazineHomeGrid" data-category="">${homeMagCards || emptyMagazineMarkup()}</div>
       <div class="magazine--home__none empty-state" role="status" hidden><div class="empty-state__icon" aria-hidden="true">${ICONS.program}</div><h3>هنوز مقاله‌ای در این دسته منتشر نشده است</h3><p>دستهٔ دیگر را انتخاب کنید یا از صفحهٔ مجله دیدن کنید.</p></div>
+    </section>
+    <section id="about" class="home-about">
+      <img class="home-about__img" src="/images/landing/about-me.jpg" alt="درباره من — YASNAFIT" loading="lazy">
     </section>
     <section class="stats" aria-label="آمار YASNAFIT">
       <div class="stats__inner">${homeMagStats}</div>

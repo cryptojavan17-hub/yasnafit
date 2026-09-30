@@ -179,7 +179,12 @@ async function waitForServer(timeoutMs = 15000) {
     // Task 25 (PART 3): magazine + stats section below the about section — the
     // real article system (published articles only, no invented content), the
     // owner's exact pill list, and the owner-provided stats numbers.
-    assert.match(home, /<section class="magazine magazine--home"/, 'home: magazine section below about');
+    assert.match(home, /<section class="magazine magazine--home"/, 'home: magazine section present');
+    // Owner request (2026-09-30): magazine sits one step higher — directly
+    // after the hero, BEFORE the «درباره من» section.
+    const magIdx = home.indexOf('<section class="magazine magazine--home"');
+    const aboutIdx = home.indexOf('<section id="about" class="home-about">');
+    assert.ok(magIdx > -1 && aboutIdx > -1 && magIdx < aboutIdx, 'home: magazine must come BEFORE the about section (owner swap)');
     assert.match(home, /<p class="section-eyebrow">YASNAFIT MAGAZINE<\/p>/, 'home magazine: title YASNAFIT MAGAZINE');
     assert.match(home, /<h2 class="magazine--home__title">علم، ورزش و سبک زندگی<\/h2>/, 'home magazine: subtitle');
     for (const [slug, label] of [['', 'همه'], ['bodybuilding', 'بدنسازی'], ['sports-science', 'علم ورزش'], ['nutrition', 'تغذیه'], ['health', 'سلامت']]) {
@@ -207,7 +212,7 @@ async function waitForServer(timeoutMs = 15000) {
     // Task 25 (PART 2): the About Me section sits below the hero — the owner's
     // About Me.png served complete (no crop, no HTML text duplication), same
     // sizing rule as the hero image.
-    assert.match(home, /<section id="about" class="home-about">/, 'about section present below the hero');
+    assert.match(home, /<section id="about" class="home-about">/, 'about section present below the magazine (owner swap 2026-09-30)');
     assert.match(home, /class="home-about__img" src="\/images\/landing\/about-me\.jpg"/, 'about section uses the full About Me image');
     const aboutImg = await request('/images/landing/about-me.jpg');
     assert.equal(aboutImg.response.status, 200, 'about image served');
