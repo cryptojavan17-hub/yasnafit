@@ -69,7 +69,9 @@ assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{top:aut
 const landing = files['landing.css'];
 assert.match(landing, /@media \(max-width: 900px\) \{\s*\.nav-toggle \{ display: flex; \}\s*\/\* سه فرزند در جریان[^*]*\*\/\s*\.site-header__inner \{ grid-template-columns: auto 1fr auto; gap: 16px; \}\s*\.site-header__actions \{ justify-self: end; margin-inline-start: 0; \}/,
   'the ≤900px header grid must place actions in the 1fr middle column — a 2-column grid pushed the action buttons into an implicit column and off-screen');
-assert.match(landing, /@media \(max-width: 640px\) \{[^@]*?\.site-header__actions \{ gap: 8px; \}\s*\.site-header__actions \.btn--ghost \{ display: none; \}\s*\.site-header__actions \.btn--primary \{ padding: 0 16px; min-height: 40px;/,
-  'on phones the header must hide the two ghost buttons and keep a compact primary «ورود» — three full buttons with nowrap overflow the viewport');
+assert.match(landing, /@media \(max-width: 640px\) \{[^@]*?\.site-header__actions \{ gap: 8px; \}\s*\.site-header__actions \.btn \{ padding: 0 12px; min-height: 40px; font-size: 13px; \}\s*\.site-header__actions \.btn__icon svg \{ width: 16px; height: 16px; \}\s*\.brand__text \{ display: none; \}/,
+  'on phones BOTH header buttons must stay visible and compact — hiding ghost buttons erased «ثبت نام» (owner bug 2026-09-30); the brand wordmark yields instead');
+assert.doesNotMatch(landing, /\.site-header__actions \.btn--ghost \{ display: none/, 'the register button must never be hidden on phones again');
+assert.match(landing, /@media \(max-width: 400px\) \{\s*\.site-header__actions \.btn__icon \{ display: none; \}\s*\}/, 'at ≤400px the button icons drop so both labels always fit');
 
 console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true, landing_header_pack: true }));

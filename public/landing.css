@@ -1035,14 +1035,15 @@ main { padding-top: var(--header-h); }
 @media (max-width: 640px) {
   :root { --header-h: 64px; }
   body { font-size: 15px; }
-  /* پک هدر موبایل: سه دکمهٔ کامل هدر (ربات تلگرام + ثبت نام + ورود) با
-     white-space:nowrap در عرض ۳۶۰–۴۳۰px جا نمی‌شدند و از صفحه بیرون می‌زدند.
-     فقط «ورود» فشرده می‌ماند؛ ثبت‌نام در CTA اصلی همان صفحه و ربات در بخش
-     تلگرام در دسترس می‌مانند. */
+  /* پک هدر موبایل — مالک ۲۰۲۶-۰۹-۳۰: «ثبت نام» باید در موبایل هم دیده شود.
+     هر دو دکمه (ثبت نام + ورود) فشرده می‌مانند و متن برند (YASNAFIT) مخفی
+     می‌شود تا در عرض ۳۲۰–۴۳۰px جا شوند؛ لوگوی Y می‌ماند. (نسخهٔ قبلی
+     دکمه‌های ghost را مخفی می‌کرد که «ثبت نام» را هم حذف می‌کرد — غلط بود.) */
   .site-header__inner { padding: 0 14px; gap: 10px; }
   .site-header__actions { gap: 8px; }
-  .site-header__actions .btn--ghost { display: none; }
-  .site-header__actions .btn--primary { padding: 0 16px; min-height: 40px; font-size: 13.5px; }
+  .site-header__actions .btn { padding: 0 12px; min-height: 40px; font-size: 13px; }
+  .site-header__actions .btn__icon svg { width: 16px; height: 16px; }
+  .brand__text { display: none; }
   .nav-toggle { width: 40px; height: 40px; padding: 9px; }
   .site-header__inner { padding: 0 16px; }
   .brand__mark { width: 38px; height: 38px; font-size: 19px; }
@@ -1067,6 +1068,11 @@ main { padding-top: var(--header-h); }
   .site-footer__grid { grid-template-columns: 1fr; gap: 30px; padding: 48px 16px 32px; }
   .site-footer__bottom { padding: 18px 16px; }
   .btn { min-height: 50px; }
+}
+
+/* هدر در باریک‌ترین عرض‌ها (تا ۴۰۰px): آیکون دکمه‌ها حذف، فقط متن ثبت نام/ورود */
+@media (max-width: 400px) {
+  .site-header__actions .btn__icon { display: none; }
 }
 
 /* ---------- Reduced motion ---------- */
