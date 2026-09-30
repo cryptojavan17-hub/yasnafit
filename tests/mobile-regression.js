@@ -65,4 +65,11 @@ assert.doesNotMatch(sacss, /\.entry-contact-rail\{[^}]*top:calc\(100%/, 'the con
 assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{[^}]*\}\s*\.contact-ico\{width:15px;height:15px/, 'phone contact icons must stay at the compact standard size, not oversized');
 assert.match(sacss, /@media\(max-width:680px\)\{\s*\.entry-contact-rail\{top:auto;bottom:max\(6px,1\.8%\);left:4%;right:auto;transform:none/, 'on phones the rail must stay anchored inside the frame, bottom-left under the quote');
 
-console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true }));
+// ─── ۸. هدر لندینگ در موبایل پک می‌شود (باگ مالک ۲۰۲۶-۰۹-۳۰: سه دکمهٔ هدر بیرون می‌زدند) ───
+const landing = files['landing.css'];
+assert.match(landing, /@media \(max-width: 900px\) \{\s*\.nav-toggle \{ display: flex; \}\s*\/\* سه فرزند در جریان[^*]*\*\/\s*\.site-header__inner \{ grid-template-columns: auto 1fr auto; gap: 16px; \}\s*\.site-header__actions \{ justify-self: end; \}/,
+  'the ≤900px header grid must place actions in the 1fr middle column — a 2-column grid pushed the action buttons into an implicit column and off-screen');
+assert.match(landing, /@media \(max-width: 640px\) \{[^@]*?\.site-header__actions \{ gap: 8px; \}\s*\.site-header__actions \.btn--ghost \{ display: none; \}\s*\.site-header__actions \.btn--primary \{ padding: 0 16px; min-height: 40px;/,
+  'on phones the header must hide the two ghost buttons and keep a compact primary «ورود» — three full buttons with nowrap overflow the viewport');
+
+console.log(JSON.stringify({ ok: true, viewports: true, light_scheme: true, grid_clamps: true, topbar_pack: true, ios_zoom_guard: true, students_table: true, landing_header_pack: true }));
