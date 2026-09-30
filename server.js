@@ -1943,10 +1943,14 @@ engagementService.notify(db,{audienceType:'coach',studentId,type:'student_messag
       try{
         const tgStudent=one('SELECT full_name FROM students WHERE id=?',studentId);
         const reviewLink=notificationService.portalLink(`/assessments/${submitted.id}`);
-        notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
+        // هر «رویداد ارسال» یک اعلان تلگرام مستقل است: کلید dedup باید زمان‌دار باشد،
+        // وگرنه ارسالِ دوبارهٔ همین ارزیابی پس از «اصلاح شد» با کلید ثابت
+        // assessment_ready:<id> مسکوت می‌ماند و به مربی پیام نمی‌رسد.
+        const emitResult=notificationService.emit(db,{type:'ASSESSMENT_READY',studentId,audience:'coach',title:'📋 ارزیابی جدید آماده بررسی است',body:`👤 شاگرد: ${tgStudent?tgStudent.full_name:'نامشخص'}
 📝 ارزیابی: #${submitted.id}
 
-یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.${reviewLink?'\n\n🔗 لینک بررسی: '+reviewLink:''}`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}`});
+یک ارزیابی جدید توسط شاگرد تکمیل شده و آماده بررسی شماست.${reviewLink?'\n\n🔗 لینک بررسی: '+reviewLink:''}`,entityType:'assessment',entityId:submitted.id,dedupKey:`assessment_ready:${submitted.id}:${Date.now()}`});
+        if(!emitResult||!emitResult.queued)console.log('[Telegram] ASSESSMENT_READY not queued:',JSON.stringify(emitResult||{}));
       }catch(e){ console.log('[Telegram] emit ASSESSMENT_READY failed:',e.message); }
       auditService.record(db,{actorType:'student',actorId:studentId,action:'assessment.submitted',entityType:'assessment',entityId:submitted.id,entityStableId:submitted.stable_id,metadata:{assessment_number:submitted.assessment_number,assessment_type:submitted.assessment_type}});
       return send(res,200,{success:true,assessment:studentAssessmentView(submitted,assessmentPhotos(assessment.id))});

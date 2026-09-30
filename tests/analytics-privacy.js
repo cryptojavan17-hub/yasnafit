@@ -434,7 +434,10 @@ check('29_join_landing_pageview', () => {
   assert.equal(analytics.isPublicAnalyticsPath('/join/a/b'), false, 'nested paths are not the landing');
   assert.equal(analytics.isPublicAnalyticsPath('/join/'), false);
   const db = freshDb();
-  assert.equal(analytics.recordVisit(db, { ip:'203.0.113.160', path:'/join/' + token, userAgent:ua.chrome, visitorId:'visitor_join000001' }), true);
+  // at explicit — visit must land inside the fixed «today» window below
+  // (default at = real wall clock, which silently left the window once the
+  // calendar moved past 2026-09-23 and failed the Invite page assertion).
+  assert.equal(analytics.recordVisit(db, { ip:'203.0.113.160', path:'/join/' + token, userAgent:ua.chrome, visitorId:'visitor_join000001', at:'2026-09-23T11:30:00.000Z' }), true);
   assert.equal(analytics.recordVisit(db, { ip:'203.0.113.160', path:'/join/short', userAgent:ua.chrome, visitorId:'visitor_join000001' }), false);
   const summary = analytics.visitSummary(db, { range:'today', now:'2026-09-23T12:00:00.000Z' });
   assert.equal(summary.pages.some(page => page.label === 'Invite'), true, 'join landing appears in the public pages table');

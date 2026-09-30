@@ -268,6 +268,19 @@ assert.match(assessmentMsgs[0].payload.text, /🔗 لینک بررسی: https:\/
 const dup = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 501, dedupKey: 'assessment_ready:501' });
 assert.equal(dup.deduplicated, true, 'a duplicate assessment event must be deduplicated');
 
+// فیکس باگ مالک (2026-09-30): ارسالِ دوبارهٔ همان ارزیابی پس از «اصلاح شد» باید اعلان تازه بفرستد —
+// کلید dedup در endpoint باید زمان‌دار (per submission event) باشد نه ثابت؛ کلید ثابت ارسالِ
+// مجدد را بی‌صدا حذف می‌کرد و به مربی هیچ پیامی نمی‌رسید.
+assert.match(serverSrc, /dedupKey:`assessment_ready:\$\{submitted\.id\}:\$\{Date\.now\(\)\}`/, 'the submit endpoint must key telegram dedup per submission event');
+assert.ok(!serverSrc.includes('dedupKey:`assessment_ready:${submitted.id}`}'), 'the old fixed dedup key must not come back');
+sent = [];
+const resubmitA = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 501, dedupKey: `assessment_ready:501:${Date.now()}-1` });
+const resubmitB = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId, audience: 'coach', entityType: 'assessment', entityId: 501, dedupKey: `assessment_ready:501:${Date.now()}-2` });
+assert.equal(resubmitA.queued, true, 'resubmission event 1 must queue');
+assert.equal(resubmitB.queued, true, 'resubmission event 2 (same assessment, new submission event) must queue again — never deduplicated away');
+await new Promise(r => setTimeout(r, 120));
+assert.ok(sent.filter(m => m.method === 'sendMessage' && /آماده بررسی/.test(m.payload.text || '')).length >= 2, 'each submission event must deliver its own telegram message');
+
 // مربیِ بدون تلگرام: شاگرد دوم (مربی پیش‌فرض 1 اما اتصال مربی را می‌بُریم)
 telegramService.coachUnlinkAccount(db, telegramService.coachActiveAccount(db));
 const noCoach = notificationService.emit(db, { type: 'ASSESSMENT_READY', studentId: student2, audience: 'coach', entityType: 'assessment', entityId: 502, dedupKey: 'assessment_ready:502' });
@@ -332,7 +345,7 @@ assert.match(serverSrc3, /engagementService\.notify\(db,\{audienceType:'coach',s
 const hookIdx = serverSrc3.indexOf("type:'assessment_submitted'");
 const hookChunk = serverSrc3.slice(hookIdx, hookIdx + 1400);
 assert.match(hookChunk, /ASSESSMENT_READY/, 'ASSESSMENT_READY must be emitted by the same event as the in-app notification');
-assert.match(hookChunk, /dedupKey:`assessment_ready:\$\{submitted\.id\}`/, 'dedup key must be stable per assessment');
+assert.match(hookChunk, /dedupKey:`assessment_ready:\$\{submitted\.id\}:\$\{Date\.now\(\)\}`/, 'dedup key must be unique per submission event — a stable key silently swallowed resubmissions after «اصلاح شد» (owner bug 2026-09-30)');
 assert.match(serverSrc3, /api\/coach\/telegram\/connection/, 'coach connection endpoint must exist');
 assert.match(serverSrc3, /api\/coach\/telegram\/link/, 'coach link endpoint must exist');
 assert.ok((serverSrc3.match(/telegramService\.coachActiveAccounts\(db\)/g) || []).length >= 2, 'unlink/test-message endpoints must operate on the full active-account list');
